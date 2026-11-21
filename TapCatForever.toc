@@ -8,6 +8,7 @@
 ## IconTexture: Interface\Icons\Ability_Druid_CatForm
 ## AddonCompartmentFunc: TapCatForever_OnAddonCompartmentClick
 ## X-License: All Rights Reserved
+## X-Curse-Project-ID: 1820339
 
 Data.lua
 ArtData.lua
