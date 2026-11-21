@@ -1,6 +1,6 @@
 # TapCatForever
 
-Built for **World of Warcraft: Forever** (interface 16001). A small pixel-art cat lives on your WoW screen and taps its paws every time you press a key.
+Built for **World of Warcraft: Forever** (interface 16001). A small cartoon cat lives on your WoW screen and taps its paws every time you press a key.
 Every key press earns XP and TapCoins. Level the cat up, collect class-themed gear, and dress it as any of the nine classic classes.
 
 ![showcase](media/showcase.png)

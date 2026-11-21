@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.0
+## 1.2.0
 
 - **New cartoon cat**: a hand-drawn sticker-style cat with expressions (happy, blink, sparkle, focus). It replaces the pixel cat.
 - **Every visible item has its own drawing**: all ~4,500 helms, chests, belts, necklaces, rings, weapons, shields and off-hand items, each drawn from its in-game icon (785 unique looks).
@@ -25,22 +25,20 @@
 - **Adventure rebuilt around Azeroth**: 28 real zones, dungeons and raids in level order (Elwynn Forest, Deadmines, Scarlet Monastery... Molten Core, Blackwing Lair, Naxxramas) with their real bosses and real loot tables. Packs of 1-3 enemies shown as 3D creature models, over each dungeon's own artwork. Zones unlock by class level; raids need raid gear.
 - **Class abilities**: 9-10 real abilities per class (Heroic Strike, Fireball, Frost Nova, Shadow Word: Pain, Holy Light...) bought with TapCoins and used automatically in fights.
 - **Expeditions**: send a party of 3 cats away for 15 minutes to 24 hours (even offline); they come back with TapCoins, chests and gear.
-- **Professions**: five professions that each play differently, all with an idle mode, unlocked with Renown (selling your business): **Mining** (free: an idle tycoon of veins with foremen and milestones, plus your own pickaxe to mine by hand, upgraded per vein), **Herbalism** (5 Renown: a garden whose plots grow in real time; key presses water it; a gardener harvests and replants, and rare Black Lotus mutations), **First Aid** (20: cloth from Adventure becomes the 10 Classic bandages, which heal your cat mid-fight; a field medic and cloth contract automate it), **Fishing** (60: a bobber mini-game across five real fishing spots with Mr. Pinchy's wishes; a fishing buddy catches on his own) and **Cooking** (150: experiment with fish, meat, herbs and spices to discover 12 Classic dishes that give Well Fed buffs; a sous-chef cooks for you). Materials still craft exclusive effects and cats.
+- **Professions**: five professions that each play differently, all with an idle mode, unlocked with Renown (selling your business): **Mining** (free: an idle tycoon of veins with foremen and milestones, plus your own pickaxe to mine by hand), **Herbalism** (5 Renown: a garden whose plots grow in real time; key presses water it; a gardener harvests and replants, and rare Black Lotus mutations), **First Aid** (20: cloth from Adventure becomes the 10 Classic bandages, which heal your cat mid-fight; a field medic and cloth contract automate it), **Fishing** (60: a bobber mini-game across five real fishing spots with Mr. Pinchy's wishes; a fishing buddy catches on his own) and **Cooking** (150: experiment with fish, meat, herbs and spices to discover 12 Classic dishes that give Well Fed buffs; a sous-chef cooks for you). Materials still craft exclusive effects and cats.
 - **Cat skins**: a new Skin slot that restyles the whole cat: Striped Frostsaber, Striped Nightsaber, Spotted Frostsaber, Black Panther, Darkmoon Kitty, Winterspring Frostsaber, Mechanical Kitty, Fel Kitty, Golden Lion and Spectral Tiger (bought with TapCoins in the Appearance tab, or rarely found in Heroic Caches), plus Swift Zulian Tiger (High Priest Thekal) and Skeletal Cat (Baron Rivendare) as rare Adventure boss drops.
-- **Racial heritage** (can be turned off in Settings): log in on a character and its cat gets that race's accessory (Orc tusks, Tauren horns, Night Elf ears, Gnome goggles, Skyborne feathers and more).
+- **Racial heritage**: buy your character's race accessory in the Shop (Orc tusks, Tauren horns, Night Elf ears, Gnome goggles, Skyborne feathers and more); it can be hidden in Settings.
 - Real dungeons: below level 20 you get a Cat Treat Pouch, from 20 an Adventurer's Strongbox (chance of a Heroic Cache, higher from 50); raids give a Heroic Cache.
 - Chests now hold real gear (65%) or cosmetics (35%). Epic and Legendary gear is deliberately rare.
 - Appearance only shows cosmetics you've unlocked.
-- **Gear try-on**: hover gear to see it on your own WoW character.
+- **Gear try-on**: hover gear to see your cat wearing it.
 - **Per-character progress**: gear, cosmetics, skins, chests, professions, cat levels, abilities and Adventure belong to each character; TapCoins, quests, streak and achievements are shared.
 - Adventure waits for you to press Start; only the selected class's cat fights. Rewards are mostly chests. Every enemy is shown as a model, and Elwynn Forest and Westfall have painted scenes.
 - Loot from chests and bosses suits your class (no caster staves for Warriors). The loot box shows what else is waiting and has "OK to all".
-- Racial heritage pieces are bought in the Shop.
 - More to collect: 104 colour variants of 13 effect styles, and cat skins from tabbies to sabers and achievement cats like Mr. Bigglesworth.
 - New "Text size" setting, separate from cat size, so a tiny cat can keep readable text.
 - New quests and achievements for gear, expeditions and crafting.
 
-## 1.2.0
 - **Adventure**: a new idle game tab. Your cat fights through 12 tiers of classic zones, dungeons and raids (Elwynn Forest to Naxxramas, then endless Heroic tiers), using the gear equipped on the current class. Every key press lands a bonus paw strike. Bosses drop cosmetics.
 - **Quests**: 3 daily quests (TapCoins + a Cat Treat Pouch each) and a weekly quest (TapCoins + an Adventurer's Strongbox).
 - **Real dungeon and raid rewards**: boss kills pay TapCoins; finishing a dungeon gives an Adventurer's Strongbox, a raid gives a Heroic Cache.
