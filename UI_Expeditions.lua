@@ -1,0 +1,143 @@
+-- TapCatForever: Expeditions page (send 3 cats away for real time)
+local ADDON, TCF = ...
+local floor, max, min = math.floor, math.max, math.min
+
+TCF.UI.Builders.expeditions = function(page, win)
+  local U = TCF.UI
+  local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel
+  local title = Text(page, "GameFontNormalLarge", "Expeditions", "LEFT"); title:SetPoint("TOPLEFT", 16, -12)
+  local sub = Text(page, "GameFontDisableSmall", "Send three of your class cats away. They return with TapCoins, chests and gear, even while you're offline.", "LEFT")
+  sub:SetPoint("TOPLEFT", 16, -30); sub:SetWidth(530)
+
+  -- active expeditions
+  local act = {}
+  for i = 1, TCF.MAX_EXPEDITIONS do
+    local r = Panel(page, 528, 50, 0.9); r:SetPoint("TOP", 0, -50 - (i - 1) * 54)
+    r.icon = r:CreateTexture(nil, "ARTWORK"); r.icon:SetSize(36, 36); r.icon:SetPoint("LEFT", 7, 0)
+    r.name = Text(r, "GameFontNormal", nil, "LEFT"); r.name:SetPoint("TOPLEFT", r.icon, "TOPRIGHT", 8, -1)
+    r.party = {}
+    for k = 1, 3 do
+      local t = r:CreateTexture(nil, "ARTWORK"); t:SetSize(18, 18); t:SetPoint("BOTTOMLEFT", r.icon, "BOTTOMRIGHT", 8 + (k - 1) * 20, 0)
+      r.party[k] = t
+    end
+    r.bar = CreateFrame("StatusBar", nil, r); r.bar:SetSize(190, 12); r.bar:SetPoint("BOTTOMLEFT", r.icon, "BOTTOMRIGHT", 72, 2)
+    r.bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar"); r.bar:SetStatusBarColor(0.9, 0.7, 0.2)
+    local bg = r.bar:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); bg:SetColorTexture(0, 0, 0, 0.6)
+    r.barText = Text(r.bar, "GameFontHighlightSmall"); r.barText:SetPoint("CENTER")
+    r.chance = Text(r, "GameFontHighlightSmall", nil, "RIGHT"); r.chance:SetPoint("RIGHT", -96, 0)
+    r.claim = Button(r, "Claim", 80, 22, function() if r.index then TCF:ClaimExpedition(r.index) end end)
+    r.claim:SetPoint("RIGHT", -8, 0)
+    r.empty = Text(r, "GameFontDisable", "Free expedition slot", "LEFT"); r.empty:SetPoint("LEFT", 16, 0)
+    act[i] = r
+  end
+
+  -- party picker
+  win.party = win.party or {}
+  local pickLabel = Text(page, "GameFontNormal", "Choose 3 cats:", "LEFT"); pickLabel:SetPoint("TOPLEFT", 16, -162)
+  local partyPower = Text(page, "GameFontHighlight", nil, "RIGHT"); partyPower:SetPoint("TOPRIGHT", -16, -162)
+  local picks = {}
+  for i, cl in ipairs(TCF.CLASSES) do
+    local b = CreateFrame("Button", nil, page)
+    b:SetSize(40, 40); b:SetPoint("TOPLEFT", 16 + (i - 1) * 58, -182)
+    local t = b:CreateTexture(nil, "ARTWORK"); t:SetAllPoints(); TCF.SetClassIcon(t, cl.key)
+    b.tex = t
+    b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetPoint("TOPLEFT", -6, 6); b.sel:SetPoint("BOTTOMRIGHT", 6, -6)
+    b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD")
+    b.power = Text(page, "GameFontHighlightSmall"); b.power:SetPoint("TOP", b, "BOTTOM", 0, -2)
+    b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    b:SetScript("OnClick", function()
+      if TCF:IsOnExpedition(cl.key) then return end
+      if win.party[cl.key] then win.party[cl.key] = nil
+      else
+        local n = 0
+        for _ in pairs(win.party) do n = n + 1 end
+        if n < 3 then win.party[cl.key] = true end
+      end
+      TCF:PlaySound("click"); win:Refresh()
+    end)
+    Tip(b, function(tt)
+      local cs = TCF:CombatStats(cl.key)
+      tt:AddLine(cl.name, cl.color[1], cl.color[2], cl.color[3])
+      tt:AddLine(string.format("Level %d   Power %d", TCF:CD(cl.key).level, cs.power), 1, 1, 1)
+      tt:AddLine("Power comes from gear and level.", 0.7, 0.7, 0.7)
+      if TCF:IsOnExpedition(cl.key) then tt:AddLine("Away on an expedition", 1, 0.6, 0.2) end
+    end)
+    b.class = cl.key
+    picks[i] = b
+  end
+
+  -- expedition list
+  local rows = {}
+  for i, e in ipairs(TCF.EXPEDITIONS) do
+    local r = Panel(page, 528, 26, 0.8); r:SetPoint("TOP", 0, -240 - (i - 1) * 27)
+    local ic = r:CreateTexture(nil, "ARTWORK"); ic:SetSize(20, 20); ic:SetPoint("LEFT", 4, 0); ic:SetTexture(TCF.Icon(e.icon))
+    r.name = Text(r, "GameFontNormalSmall", e.name, "LEFT"); r.name:SetPoint("LEFT", ic, "RIGHT", 6, 0)
+    r.info = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.info:SetPoint("LEFT", 200, 0)
+    r.chance = Text(r, "GameFontHighlightSmall", nil, "RIGHT"); r.chance:SetPoint("RIGHT", -76, 0)
+    r.go = Button(r, "Send", 64, 19, function()
+      local members = {}
+      for _, cl in ipairs(TCF.CLASSES) do if win.party[cl.key] then members[#members + 1] = cl.key end end
+      local ok, why = TCF:StartExpedition(e.key, members)
+      if ok then win.party = {} elseif why then TCF:Print(why) end
+      win:Refresh()
+    end)
+    r.go:SetPoint("RIGHT", -6, 0)
+    Tip(r, function(tt)
+      tt:AddLine(e.name, 1, 0.82, 0)
+      tt:AddLine(string.format("Duration: %s   Recommended party power: %d", TCF.FormatDuration(e.dur), e.rec), 1, 1, 1)
+      tt:AddLine(string.format("Rewards: about %d TapCoins, up to %d gear items from %s, and a chance at a %s.",
+        e.coins, e.rolls, TCF.TIERS[e.tier].name, TCF.CHEST_BY_KEY[e.chest[1]].name), 0.8, 0.8, 0.8, true)
+      tt:AddLine("A failed expedition brings back only a quarter of the TapCoins.", 0.7, 0.7, 0.7, true)
+    end)
+    r.exp = e
+    rows[i] = r
+  end
+
+  return function()
+    local st = TCF.db.expeditions or { active = {} }
+    local now = time()
+    for i, r in ipairs(act) do
+      local ex = st.active[i]
+      r.index = ex and i
+      local show = ex ~= nil
+      r.icon:SetShown(show); r.name:SetShown(show); r.bar:SetShown(show); r.chance:SetShown(show); r.claim:SetShown(show)
+      for _, t in ipairs(r.party) do t:SetShown(show) end
+      r.empty:SetShown(not show)
+      if ex then
+        local e = TCF.EXPEDITION_BY_KEY[ex.key]
+        r.icon:SetTexture(TCF.Icon(e.icon))
+        r.name:SetText(e.name)
+        for k, c in ipairs(ex.members) do TCF.SetClassIcon(r.party[k], c) end
+        local total = ex.finish - ex.start
+        local left = ex.finish - now
+        r.bar:SetMinMaxValues(0, total); r.bar:SetValue(min(total, now - ex.start))
+        r.barText:SetText(left > 0 and (TCF.FormatDuration(left) .. " left") or "Back home!")
+        r.chance:SetText(string.format("%d%% success", floor(ex.chance * 100 + 0.5)))
+        r.claim:SetEnabled(left <= 0)
+      end
+    end
+    local members, n = {}, 0
+    for _, b in ipairs(picks) do
+      local away = TCF:IsOnExpedition(b.class)
+      b.tex:SetDesaturated(away and true or false)
+      b.sel:SetShown(win.party[b.class] and true or false)
+      b.power:SetText(away and "|cffff9933away|r" or tostring(TCF:CombatStats(b.class).power))
+      if win.party[b.class] then n = n + 1; members[#members + 1] = b.class end
+    end
+    local power = n > 0 and TCF:PartyPower(members) or 0
+    partyPower:SetText(n == 3 and string.format("Party power |cffffd100%d|r", power) or string.format("|cff888888%d / 3 chosen|r", n))
+    local full = #st.active >= TCF.MAX_EXPEDITIONS
+    for _, r in ipairs(rows) do
+      local e = r.exp
+      r.info:SetText(string.format("|cffaaaaaa%s   rec. power %d|r", TCF.FormatDuration(e.dur), e.rec))
+      if n == 3 then
+        local c = TCF:ExpeditionChance(power, e.rec)
+        local col = c >= 0.8 and "|cff20ff20" or c >= 0.5 and "|cffffd100" or "|cffff5050"
+        r.chance:SetText(col .. floor(c * 100 + 0.5) .. "%|r")
+      else
+        r.chance:SetText("")
+      end
+      r.go:SetEnabled(n == 3 and not full)
+    end
+  end
+end

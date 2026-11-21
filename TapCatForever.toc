@@ -2,7 +2,7 @@
 ## Title: |cffffb84dTapCat|rForever
 ## Notes: A cute cat companion that taps along with every key you press. Level it up, earn TapCoins and collect class-themed cosmetics. Built for World of Warcraft: Forever.
 ## Author: TapCatForever
-## Version: 1.2.0
+## Version: 1.3.0
 ## Category: Fun
 ## SavedVariables: TapCatForeverDB
 ## IconTexture: Interface\Icons\Ability_Druid_CatForm
@@ -13,8 +13,18 @@
 Data.lua
 ArtData.lua
 Core.lua
+Gear.lua
+GearData.lua
 Cat.lua
+Abilities.lua
 Adventure.lua
+Expeditions.lua
+Professions.lua
 Quests.lua
 Dungeons.lua
 UI.lua
+UI_Gear.lua
+UI_Adventure.lua
+UI_Abilities.lua
+UI_Expeditions.lua
+UI_Professions.lua

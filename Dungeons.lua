@@ -9,7 +9,6 @@ local ADDON, TCF = ...
 local MIN_BOSSES = { party = 2, raid = 3 }
 local MIN_SECONDS = 300           -- at least 5 minutes inside
 local BOSS_COINS = { party = 5, raid = 10 }
-local CHEST = { party = "strong", raid = "heroic" }
 
 local function safeEq(a, b)
   if TCF.IsSecret(a) then return false end
@@ -26,11 +25,22 @@ local function currentInstance()
   return { id = instanceID, name = name, type = itype }
 end
 
+function TCF.DungeonChestFor(kind, level)
+  if TCF.IsSecret(level) then level = 60 end
+  if kind == "raid" then return "heroic" end
+  if level < 20 then return "pouch" end
+  if math.random() < (level >= 50 and 0.25 or 0.10) then return "heroic" end
+  return "strong"
+end
+TCF.DUNGEON_CHEST_TEXT = "Finish a real dungeon in WoW: below level 20 you get a Cat Treat Pouch; from level 20 an Adventurer's Strongbox (10% chance of a Heroic Cache, 25% from level 50). Raids always give a Heroic Cache."
+
 function TCF:DungeonComplete(run, how)
   if run.rewarded then return end
   run.rewarded = true
   local db = self.db
-  local chestKey = CHEST[run.type]
+  -- chest by character level: Pouch below 20, Strongbox from 20 (chance of a
+  -- Heroic Cache from 50), raids always give a Heroic Cache
+  local chestKey = TCF.DungeonChestFor(run.type, UnitLevel and UnitLevel("player") or 60)
   local stat = run.type == "raid" and "raids" or "dungeons"
   db.stats[stat] = (db.stats[stat] or 0) + 1
   if self.cat then self.cat:Celebrate((run.name or "Dungeon"), 0.2, 1, 0.2, (run.type == "raid" and "Raid" or "Dungeon") .. " complete!") end

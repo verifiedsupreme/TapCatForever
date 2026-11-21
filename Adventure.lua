@@ -1,209 +1,317 @@
--- TapCatForever: Adventure, an idle game where the cat fights through tiers of
--- Azeroth using the gear equipped on the current class.
+-- TapCatForever: Adventure, an idle game. The cat fights through Azeroth's real
+-- zones, dungeons and raids (TCF.TIERS, from GearData.lua) using its equipped gear,
+-- class level and learned abilities. Bosses drop their real loot.
 local ADDON, TCF = ...
 
 local floor, min, max, random = math.floor, math.min, math.max, math.random
 
----------------------------------------------------------------- zones
--- Each tier is 10 stages; stage 10 is the boss. After the last zone the list
--- repeats as Heroic tiers with higher numbers.
--- mobs: { name, icon }; colours: sky, ground
-TCF.ZONES = {
-  { name = "Elwynn Forest", sky = { 0.42, 0.62, 0.90 }, ground = { 0.27, 0.52, 0.22 },
-    mobs = { { "Kobold Tunneler", "INV_Pick_02" }, { "Murloc Raider", "INV_Misc_Head_Murloc_01" }, { "Young Wolf", "Ability_Hunter_Pet_Wolf" } },
-    boss = { "Hogger", "Ability_Hunter_Pet_Hyena" } },
-  { name = "The Deadmines", sky = { 0.80, 0.66, 0.42 }, ground = { 0.52, 0.42, 0.26 },
-    mobs = { { "Defias Thug", "Ability_Rogue_Ambush" }, { "Harvest Watcher", "INV_Misc_Gear_01" }, { "Gnoll Brute", "Ability_Hunter_Pet_Hyena" } },
-    boss = { "Edwin VanCleef", "Achievement_Boss_EdwinVancleef" } },
-  { name = "Duskwood", sky = { 0.18, 0.18, 0.32 }, ground = { 0.18, 0.24, 0.18 },
-    mobs = { { "Skeletal Warrior", "Spell_Shadow_RaiseDead" }, { "Nightbane Worgen", "Ability_Mount_WhiteDireWolf" }, { "Venom Web Spider", "Ability_Hunter_Pet_Spider" } },
-    boss = { "Stitches", "Spell_Shadow_AnimateDead" } },
-  { name = "Stranglethorn Vale", sky = { 0.38, 0.72, 0.66 }, ground = { 0.18, 0.42, 0.18 },
-    mobs = { { "Jungle Raptor", "Ability_Hunter_Pet_Raptor" }, { "Skullsplitter Troll", "INV_Misc_Head_Troll_01" }, { "Silverback Gorilla", "Ability_Hunter_Pet_Gorilla" } },
-    boss = { "King Bangalash", "Ability_Mount_JungleTiger" } },
-  { name = "Uldaman", sky = { 0.82, 0.52, 0.32 }, ground = { 0.50, 0.32, 0.22 },
-    mobs = { { "Dustbelcher Ogre", "Ability_Warrior_Cleave" }, { "Badlands Scorpid", "Ability_Hunter_Pet_Scorpid" }, { "Stone Keeper", "Spell_Nature_Earthquake" } },
-    boss = { "Archaedas", "INV_Misc_StoneTablet_04" } },
-  { name = "Zul'Farrak", sky = { 0.94, 0.80, 0.50 }, ground = { 0.80, 0.66, 0.38 },
-    mobs = { { "Sandfury Axe Thrower", "INV_Misc_Head_Troll_01" }, { "Sand Basilisk", "Ability_Hunter_Pet_Crocolisk" }, { "Wastewander Pirate", "INV_Misc_Bandana_03" } },
-    boss = { "Gahz'rilla", "Ability_Hunter_Pet_Turtle" } },
-  { name = "Blackrock Depths", sky = { 0.32, 0.10, 0.07 }, ground = { 0.24, 0.14, 0.11 },
-    mobs = { { "Dark Iron Watchman", "INV_Hammer_09" }, { "Fireguard", "Spell_Fire_Fire" }, { "Molten Imp", "Spell_Shadow_SummonImp" } },
-    boss = { "Emperor Dagran Thaurissan", "INV_Crown_01" } },
-  { name = "Stratholme", sky = { 0.28, 0.28, 0.24 }, ground = { 0.22, 0.28, 0.18 },
-    mobs = { { "Plague Ghoul", "Spell_Shadow_RaiseDead" }, { "Bile Abomination", "Spell_Shadow_AbominationExplosion" }, { "Wailing Banshee", "Spell_Shadow_SoulLeech_3" } },
-    boss = { "Baron Rivendare", "Ability_Mount_Undeadhorse" } },
-  { name = "Molten Core", sky = { 0.48, 0.12, 0.02 }, ground = { 0.33, 0.07, 0.03 },
-    mobs = { { "Core Hound", "Ability_Hunter_Pet_CoreHound" }, { "Lava Surger", "Spell_Fire_Volcano" }, { "Firelord", "Spell_Fire_Elemental_Totem" } },
-    boss = { "Ragnaros", "Achievement_Boss_Ragnaros" } },
-  { name = "Blackwing Lair", sky = { 0.20, 0.10, 0.15 }, ground = { 0.14, 0.09, 0.10 },
-    mobs = { { "Death Talon Wyrmguard", "INV_Misc_Head_Dragon_Black" }, { "Chromatic Whelp", "INV_Misc_Head_Dragon_Bronze" }, { "Blackwing Technician", "INV_Gizmo_01" } },
-    boss = { "Nefarian", "Achievement_Boss_Nefarion" } },
-  { name = "Temple of Ahn'Qiraj", sky = { 0.66, 0.52, 0.30 }, ground = { 0.56, 0.42, 0.24 },
-    mobs = { { "Qiraji Champion", "INV_Qiraj_JewelBlessed" }, { "Anubisath Sentinel", "INV_Misc_AhnQirajTrinket_04" }, { "Vekniss Soldier", "Ability_Hunter_Pet_Silithid" } },
-    boss = { "C'Thun", "Achievement_Boss_CThun" } },
-  { name = "Naxxramas", sky = { 0.18, 0.24, 0.34 }, ground = { 0.13, 0.18, 0.24 },
-    mobs = { { "Plagued Ghoul", "Spell_Shadow_RaiseDead" }, { "Patchwork Golem", "Spell_Shadow_AbominationExplosion" }, { "Crypt Reaver", "Ability_Hunter_Pet_Spider" } },
-    boss = { "Kel'Thuzad", "Achievement_Boss_KelThuzad_01" } },
-}
-local MOB_FALLBACK = "INV_Misc_Bone_HumanSkull_01"
-
 TCF.ADV = {
-  ATTACK_INTERVAL = 1.0,   -- cat swings once a second
-  MOB_INTERVAL = 1.6,      -- mobs swing every 1.6 s
-  TAP_STRIKE = 0.25,       -- each key press adds 25% of attack as a paw strike
-  POWER = { 4, 9, 18, 34, 60 }, -- gear power by rarity
+  SWING = 1.0,          -- cat attacks once a second
+  MOB_SWING = 1.6,      -- each enemy attacks every 1.6 s
+  TAP_STRIKE = 0.15,    -- each key press: 15% of DPS as a bonus paw strike
+  -- enemy scaling, tuned with tools/balance.py (expected gear at each level)
+  -- typical gear gives ~level^1.12 DPS and ~40 HP per level, so a trash enemy
+  -- lasts ~5 s and a dungeon boss ~25 s; raids keep scaling past level 60.
+  K = { hp = 5.5, hpExp = 1.12, dps = 0.9, dpsExp = 1.0, raidHp = 1.085, raidDps = 1.065 },
+  BOSS = { hp = 5, dps = 2.4 },
+  RAIDBOSS = { hp = 6, dps = 2.0 },
+  TRASH_GEAR = 0.025,   -- chance per trash enemy to drop gear
+  BOSS_GEAR = 0.45,     -- dungeon boss drop chance (first kill always drops)
+  RAID_GEAR = 0.7,
 }
+local K, ADV = TCF.ADV.K, TCF.ADV
 
-function TCF:AdvZone(tier)
-  local n = #TCF.ZONES
-  local idx = (tier - 1) % n + 1
-  local heroic = floor((tier - 1) / n)
-  local z = TCF.ZONES[idx]
-  local name = heroic > 0 and (z.name .. " |cffff8000(Heroic " .. heroic .. ")|r") or z.name
-  return z, name, heroic
+---------------------------------------------------------------- tiers & stages
+function TCF:AdvTier(tier) return TCF.TIERS[min(tier, #TCF.TIERS)] end
+function TCF:AdvStages(tier) return #self:AdvTier(tier).bosses * 2 end
+local function stageCode(tier, stage) return tier * 100 + stage end
+TCF.AdvStageCode = stageCode
+
+-- enemy level ("difficulty") at a stage
+function TCF:AdvLevel(tier, stage)
+  local t = self:AdvTier(tier)
+  local n = self:AdvStages(tier)
+  if t.raid then return t.diff + floor(2 * stage / n) end
+  return t.diff - 2 + floor(4 * stage / n)
 end
 
-function TCF:AdvMob(tier, stage)
-  local z = self:AdvZone(tier)
-  local g = (tier - 1) * 10 + stage
-  local isBoss = stage == 10
-  local m = isBoss and z.boss or z.mobs[(stage - 1) % #z.mobs + 1]
-  -- tuned so each tier lines up with a gear/level milestone (see README)
-  -- Heroic tiers (past stage 120) grow more slowly so class levels keep you going.
-  local scale = 1.04 ^ min(g, 120) * 1.005 ^ max(0, g - 120)
-  local hp = 28 * scale
-  local dmg = 4 * scale
-  if isBoss then hp, dmg = hp * 4, dmg * 1.5 end
-  return { name = m[1], icon = TCF.Icon(m[2], MOB_FALLBACK), boss = isBoss, hp = floor(hp), dmg = dmg, g = g }
-end
-
----------------------------------------------------------------- cat combat stats from gear
-function TCF:AdvStats(class)
-  class = class or self.db.class
-  local lo = self:GetLoadout(class)
-  local P = TCF.ADV.POWER
-  local function pw(slot)
-    local it = lo[slot] and TCF.ITEMS[lo[slot]]
-    return it and P[it.rarity] or 0, it and it.rarity or 0
+function TCF.AdvMobBase(D)
+  local hp = K.hp * D ^ K.hpExp
+  local dps = K.dps * D ^ K.dpsExp
+  if D > 60 then
+    hp = K.hp * 60 ^ K.hpExp * K.raidHp ^ (D - 60)
+    dps = K.dps * 60 ^ K.dpsExp * K.raidDps ^ (D - 60)
   end
-  local main, off, head, chest, back = pw("main"), pw("off"), pw("head"), pw("chest"), pw("back")
-  local _, fxR = pw("effect")
-  local _, accR = pw("acc")
-  local level = self:CD(class).level
-  local mult = 1 + 0.08 * (level - 1)
-  local s = {
-    atk = (5 + main * 1.5 + off * 0.75) * mult,
-    hp = (50 + (head + chest + back) * 6 + off * 3) * mult,
-    crit = min(30, 5 + fxR * 3 + accR * 2),
-    gs = main + off + head + chest + back + (fxR > 0 and P[fxR] or 0) + (accR > 0 and P[accR] or 0),
-    level = level,
-  }
-  return s
+  return hp, dps
 end
 
----------------------------------------------------------------- simulation
-local function bossWeights(tier)
-  local t = tier - 1
-  return { max(0, 60 - 12 * t), max(10, 35 - 2 * t), 5 + 6 * t, max(0, t - 2) * 4, max(0, t - 5) * 2 }
+-- Builds the enemies for a stage: odd stages are packs of 1-3 enemies,
+-- even stages are the tier's bosses in order (the last is the final boss).
+function TCF:AdvPack(tier, stage)
+  local t = self:AdvTier(tier)
+  local D = self:AdvLevel(tier, stage)
+  local hp, dps = TCF.AdvMobBase(D)
+  local pack = {}
+  if stage % 2 == 0 then
+    local bi = stage / 2
+    local b = t.bosses[bi]
+    local mult = t.raid and ADV.RAIDBOSS or ADV.BOSS
+    local final = bi == #t.bosses
+    pack[1] = { name = b[1], display = b[2], boss = bi, final = final, level = D + (t.raid and 3 or 1),
+      max = floor(hp * mult.hp * (final and 1.3 or 1)), dmg = dps * mult.dps * ADV.MOB_SWING }
+  else
+    local n = 1 + (stage % 3 == 1 and 1 or 0) + ((stage > 2 and random() < 0.5) and 1 or 0)
+    n = min(3, n)
+    for i = 1, n do
+      local m = t.mobs[random(#t.mobs)]
+      pack[i] = { name = m[1], display = m[2], level = D, max = floor(hp * (0.85 + random() * 0.3)), dmg = dps * ADV.MOB_SWING }
+    end
+  end
+  for _, m in ipairs(pack) do m.hp = m.max; m.alive = true; m.swing = random() * ADV.MOB_SWING end
+  return pack, D
 end
 
+---------------------------------------------------------------- run state
 function TCF:AdvLog(text)
   self.advLog = self.advLog or {}
   table.insert(self.advLog, 1, text)
   if #self.advLog > 6 then table.remove(self.advLog) end
 end
 
--- Visual events are only queued while the Adventure tab is open.
-function TCF:AdvEvent(kind, a, b)
+function TCF:AdvEvent(kind, a, b, c)
   local run = self.advRun
   if not run or not self.advWatching then return end
-  if #run.events < 40 then table.insert(run.events, { kind, a, b }) end
+  if #run.events < 60 then table.insert(run.events, { kind, a, b, c }) end
 end
 
 function TCF:AdvReset()
-  local st = self:AdvStats()
-  self.advRun = { class = self.db.class, catMax = st.hp, catHP = st.hp, atkT = 0, mobT = 0, respawn = 0.6, events = {}, stats = st }
+  local st = self:CombatStats()
+  self.advRun = { class = self.db.class, catMax = st.hp, catHP = st.hp, swing = 0, respawn = 0.6, events = {},
+    stats = st, cds = {}, buffs = {}, dots = {}, shield = 0, stunUntil = 0, t = 0 }
 end
 
 function TCF:AdvSpawn()
   local adv = self:CD().adv
   local run = self.advRun
-  local m = self:AdvMob(adv.tier, adv.stage)
-  run.mob = m
-  run.mobHP = m.hp
-  run.atkT, run.mobT = 0, 0
+  run.pack, run.level = self:AdvPack(adv.tier, adv.stage)
+  run.target = 1
+  run.dots = {}
+  run.t = 0
+  run.cds = {}
+  run.stunUntil = 0
   self:AdvEvent("spawn")
 end
 
-function TCF:AdvDamageMob(dmg, kind)
-  local run = self.advRun
-  if not run or not run.mob or run.respawn > 0 then return end
-  run.mobHP = run.mobHP - dmg
-  self:AdvEvent(kind, dmg)
-  if run.mobHP <= 0 then self:AdvKill() end
+local function alive(run)
+  local n = 0
+  for _, m in ipairs(run.pack or {}) do if m.alive then n = n + 1 end end
+  return n
+end
+TCF.AdvAlive = alive
+
+local function pickTarget(run)
+  if not run.pack then return end
+  if run.pack[run.target] and run.pack[run.target].alive then return run.pack[run.target], run.target end
+  for i, m in ipairs(run.pack) do if m.alive then run.target = i; return m, i end end
+end
+
+---------------------------------------------------------------- damage
+local function dmgMult(self, run)
+  local m = 1
+  for _, a in ipairs(TCF.ABILITIES[run.class]) do
+    if a.kind == "passive" and self:AbilityKnown(run.class, a.key) then m = m + a.value end
+  end
+  for _, b in pairs(run.buffs) do if b.kind == "buff" and b["until"] > run.t then m = m + b.value end end
+  return m
+end
+
+local function takenMult(self, run, D)
+  local armor = run.stats.armor
+  local dr = armor / (armor + 400 + 85 * D)
+  local m = 1 - min(0.75, dr)
+  for _, a in ipairs(TCF.ABILITIES[run.class]) do
+    if a.kind == "ward" and self:AbilityKnown(run.class, a.key) then m = m * (1 - a.value) end
+  end
+  for _, b in pairs(run.buffs) do if b.kind == "defense" and b["until"] > run.t then m = m * (1 - b.value) end end
+  return m
+end
+
+function TCF:AdvHitMob(m, idx, dmg, kind)
+  if not m.alive then return end
+  m.hp = m.hp - dmg
+  self:AdvEvent(kind, dmg, idx)
+  if m.hp <= 0 then
+    m.alive = false
+    self:AdvEvent("mobdie", idx)
+    self:AdvMobKilled(m)
+  end
 end
 
 function TCF:AdvTapStrike()
   local run = self.advRun
-  if run and run.mob and run.respawn <= 0 and run.class == self.db.class then
-    self:AdvDamageMob(run.stats.atk * TCF.ADV.TAP_STRIKE, "tap")
+  if not run or not run.pack or run.respawn > 0 or run.class ~= self.db.class or run.away then return end
+  local m, i = pickTarget(run)
+  if m then self:AdvHitMob(m, i, run.stats.dps * ADV.TAP_STRIKE * dmgMult(self, run), "tap") end
+  if run.pack and alive(run) == 0 then self:AdvPackCleared() end
+end
+
+---------------------------------------------------------------- abilities AI
+local function ready(run, a) return (run.cds[a.key] or 0) <= run.t end
+
+function TCF:AdvUseAbility(run)
+  local class = run.class
+  local list = TCF.ABILITIES[class]
+  local hpPct = run.catHP / run.catMax
+  local nAlive = alive(run)
+  local target = pickTarget(run)
+  if not target then return end
+  local boss = target.boss ~= nil
+  local function usable(a) return self:AbilityKnown(class, a.key) and ready(run, a) end
+  local choice
+  -- priority: survive, control, buff, aoe, execute, dot, nuke
+  for _, a in ipairs(list) do
+    if usable(a) and (a.kind == "heal" or a.kind == "drain") and hpPct < 0.5 then choice = a; break end
+  end
+  if not choice then
+    for _, a in ipairs(list) do
+      if usable(a) and (a.kind == "defense" or a.kind == "shield") and (hpPct < 0.6 or (boss and hpPct < 0.85)) then choice = a; break end
+    end
+  end
+  if not choice then
+    for _, a in ipairs(list) do
+      if usable(a) and a.kind == "stun" and (nAlive >= 2 or boss) and run.stunUntil <= run.t then choice = a; break end
+    end
+  end
+  if not choice then
+    for _, a in ipairs(list) do if usable(a) and a.kind == "buff" and (boss or nAlive >= 2) then choice = a; break end end
+  end
+  if not choice and nAlive >= 2 then
+    for _, a in ipairs(list) do if usable(a) and a.kind == "aoe" then choice = a; break end end
+  end
+  if not choice and target.hp / target.max < 0.2 then
+    for _, a in ipairs(list) do if usable(a) and a.kind == "execute" then choice = a; break end end
+  end
+  if not choice and target.hp > run.stats.dps * 6 then
+    for _, a in ipairs(list) do if usable(a) and a.kind == "dot" and not run.dots[a.key] then choice = a; break end end
+  end
+  if not choice then
+    local best
+    for _, a in ipairs(list) do
+      if usable(a) and (a.kind == "nuke" or a.kind == "drain") and (not best or a.value > best.value) then best = a end
+    end
+    choice = best
+  end
+  if not choice then return end
+
+  run.cds[choice.key] = run.t + choice.cd
+  local dps = run.stats.dps * dmgMult(self, run)
+  local k = choice.kind
+  self:AdvEvent("ability", choice.name, choice.icon)
+  if k == "nuke" or k == "execute" or k == "drain" then
+    local crit = random() * 100 < run.stats.crit
+    if k == "drain" then run.catHP = min(run.catMax, run.catHP + run.catMax * (choice.value >= 2 and 0.1 or 0.15)) end
+    self:AdvHitMob(target, run.target, dps * choice.value * (crit and 1.5 or 1), crit and "crit" or "hit")
+  elseif k == "aoe" then
+    for i, m in ipairs(run.pack) do if m.alive then self:AdvHitMob(m, i, dps * choice.value, "hit") end end
+  elseif k == "dot" then
+    run.dots[choice.key] = { target = run.target, perSec = dps * choice.value / choice.dur, ["until"] = run.t + choice.dur }
+  elseif k == "heal" then
+    run.catHP = min(run.catMax, run.catHP + run.catMax * choice.value)
+    self:AdvEvent("heal", run.catMax * choice.value)
+  elseif k == "shield" then
+    run.shield = run.catMax * choice.value
+  elseif k == "buff" or k == "defense" then
+    run.buffs[choice.key] = { kind = k, value = choice.value, ["until"] = run.t + choice.dur }
+  elseif k == "stun" then
+    run.stunUntil = run.t + choice.dur
   end
 end
 
-function TCF:AdvKill()
-  local run, cd = self.advRun, self:CD()
-  local adv = cd.adv
-  local m = run.mob
+---------------------------------------------------------------- rewards
+function TCF:AdvMobKilled(m)
+  local adv = self:CD().adv
   adv.kills = adv.kills + 1
-  local firstClear = m.g > adv.best
+  local t = self:AdvTier(adv.tier)
+  local D = m.level
   if m.boss then
     adv.bossKills = adv.bossKills + 1
-    local coins = floor(10 * adv.tier ^ 1.1)
+    local key = stageCode(adv.tier, adv.stage)
+    local first = not adv.cleared[key]
+    adv.cleared[key] = true
+    local coins = floor((t.raid and 20 or 4) + D * (t.raid and 1 or 0.25))
     self:AddCoins(coins)
     self:AdvLog(string.format("|cffffd100Defeated %s!|r +%d TapCoins", m.name, coins))
-    if firstClear or random() < 0.25 then
-      local it = self:RollItem(self:RollRarity(bossWeights(adv.tier)), true)
-      if it then self:GrantItem(it, m.name .. " dropped"); self:AdvLog("Loot: " .. TCF.ItemLink(it)) end
+    local chance = t.raid and ADV.RAID_GEAR or ADV.BOSS_GEAR
+    if first or random() < chance then
+      local it = self:RollBossLoot(adv.tier, m.boss)
+      if it then self:GrantGear(it, m.name .. " dropped"); self:AdvLog("Loot: " .. TCF.GearLink(it)) end
     end
-  elseif random() < 0.08 then
-    self:AddCoins(1 + floor(m.g / 20))
+    if m.final and first then
+      self:AwardChest(t.raid and "heroic" or "strong", t.name .. " cleared")
+    end
+  else
+    if random() < 0.08 then self:AddCoins(1 + floor(D / 20)) end
+    if random() < ADV.TRASH_GEAR then
+      local it
+      if t.raid then it = self:RollBossLoot(adv.tier, random(#t.bosses)) else it = self:RollWorldLoot(D, nil, { 88, 11, 1 }, adv.tier) end
+      if it then self:GrantGear(it, m.name .. " dropped"); self:AdvLog("Loot: " .. TCF.GearLink(it)) end
+    end
   end
-  if firstClear then adv.best = m.g end
-  run.catHP = min(run.catMax, run.catHP + run.catMax * 0.3)
+  self:MarkDirty()
+end
+
+function TCF:AdvPackCleared()
+  local run, cd = self.advRun, self:CD()
+  local adv = cd.adv
+  local code = stageCode(adv.tier, adv.stage)
+  if code > adv.best then adv.best = code; adv.newStages = (adv.newStages or 0) + 1 end
+  run.catHP = min(run.catMax, run.catHP + run.catMax * 0.35)
+  run.shield = 0
   if adv.auto then
-    if adv.stage >= 10 then
-      adv.tier, adv.stage = adv.tier + 1, 1
-      run.catHP = run.catMax
-      local _, zname = self:AdvZone(adv.tier)
-      self:AdvLog("Onward to " .. zname .. "!")
+    if adv.stage >= self:AdvStages(adv.tier) then
+      local nt = TCF.TIERS[adv.tier + 1]
+      if nt and cd.level >= nt.min then
+        adv.tier, adv.stage = adv.tier + 1, 1
+        run.catHP = run.catMax
+        self:AdvLog("Onward to " .. nt.name .. "!")
+      else
+        adv.stage = 1
+        if nt then
+          self:AdvLog(string.format("|cffaaaaaa%s needs class level %d. Running %s again.|r", nt.name, nt.min, self:AdvTier(adv.tier).name))
+        end
+      end
     else
       adv.stage = adv.stage + 1
     end
   end
   self:AdvEvent("kill")
-  run.mob = nil
+  run.pack = nil
   run.respawn = 1.2
   self:MarkDirty()
 end
 
 function TCF:AdvDefeat()
   local run, adv = self.advRun, self:CD().adv
-  local tip = run.mob.boss and " |cff999999(Better gear and class levels raise Attack and Health.)|r" or ""
-  local line = string.format("|cffff6060%s was too strong.|r Your cat retreats to heal.%s", run.mob.name, tip)
+  local m = pickTarget(run)
+  local line = string.format("|cffff6060%s was too strong.|r Your cat retreats to heal. |cff999999(Better gear, levels and abilities help.)|r", m and m.name or "The enemy")
   if not self.advLog or self.advLog[1] ~= line then self:AdvLog(line) end
   adv.stage = max(1, adv.stage - 1)
+  if adv.stage % 2 == 0 then adv.stage = max(1, adv.stage - 1) end -- back to the last trash pack
   run.catHP = run.catMax
-  run.mob = nil
+  run.pack = nil
   run.respawn = 2.5
+  run.buffs = {}; run.shield = 0
   self:AdvEvent("defeat")
 end
 
--- Advances the fight by dt seconds (called 4x a second from the core ticker).
+---------------------------------------------------------------- simulation step
 function TCF:AdvTick(dt)
   local run = self.advRun
   if not run or run.class ~= self.db.class then self:AdvReset(); run = self.advRun end
-  local st = self:AdvStats()
+  -- a cat away on an expedition can't fight here
+  run.away = self.IsOnExpedition and self:IsOnExpedition(run.class) or false
+  if run.away then return end
+  local st = self:CombatStats()
   run.stats = st
   if st.hp ~= run.catMax then
     run.catHP = run.catHP * st.hp / run.catMax
@@ -214,34 +322,74 @@ function TCF:AdvTick(dt)
     if run.respawn <= 0 then self:AdvSpawn() end
     return
   end
-  if not run.mob then return end
-  run.atkT = run.atkT + dt
-  while run.mob and run.atkT >= TCF.ADV.ATTACK_INTERVAL do
-    run.atkT = run.atkT - TCF.ADV.ATTACK_INTERVAL
-    local crit = random() * 100 < st.crit
-    self:AdvDamageMob(st.atk * (crit and 2 or 1), crit and "crit" or "hit")
+  if not run.pack then return end
+  run.t = run.t + dt
+  for key, d in pairs(run.dots) do
+    if d["until"] < run.t then run.dots[key] = nil
+    else
+      local m = run.pack[d.target]
+      if m and m.alive then self:AdvHitMob(m, d.target, d.perSec * dt, "dot") end
+    end
   end
-  if not run.mob then return end
-  run.mobT = run.mobT + dt
-  if run.mobT >= TCF.ADV.MOB_INTERVAL then
-    run.mobT = run.mobT - TCF.ADV.MOB_INTERVAL
-    run.catHP = run.catHP - run.mob.dmg
-    self:AdvEvent("hurt", run.mob.dmg)
-    if run.catHP <= 0 then self:AdvDefeat() end
+  if not run.pack then return end
+  run.swing = run.swing + dt
+  while run.pack and run.swing >= ADV.SWING and alive(run) > 0 do
+    run.swing = run.swing - ADV.SWING
+    local m, i = pickTarget(run)
+    if m then
+      local crit = random() * 100 < st.crit
+      self:AdvHitMob(m, i, st.dps * dmgMult(self, run) * (crit and 2 or 1), crit and "crit" or "hit")
+    end
+    if alive(run) > 0 then self:AdvUseAbility(run) end
+  end
+  if not run.pack then return end
+  if alive(run) == 0 then self:AdvPackCleared(); return end
+  if run.stunUntil > run.t then return end
+  local mult = takenMult(self, run, run.level)
+  for i, m in ipairs(run.pack) do
+    if m.alive then
+      m.swing = m.swing + dt
+      if m.swing >= ADV.MOB_SWING then
+        m.swing = m.swing - ADV.MOB_SWING
+        local dmg = m.dmg * mult * (0.85 + random() * 0.3)
+        if run.shield > 0 then
+          local absorbed = min(run.shield, dmg)
+          run.shield = run.shield - absorbed; dmg = dmg - absorbed
+        end
+        run.catHP = run.catHP - dmg
+        self:AdvEvent("hurt", dmg, i)
+        if run.catHP <= 0 then self:AdvDefeat(); return end
+      end
+    end
   end
 end
 
--- Manual stage selection: any stage up to one past the best clear.
+---------------------------------------------------------------- manual navigation
+-- You can revisit any stage you've reached, as long as you meet the tier's level.
 function TCF:AdvCanGoTo(tier, stage)
-  return tier >= 1 and stage >= 1 and stage <= 10 and ((tier - 1) * 10 + stage) <= self:CD().adv.best + 1
+  local cd = self:CD()
+  local t = TCF.TIERS[tier]
+  if not t or stage < 1 or stage > self:AdvStages(tier) then return false end
+  if cd.level < t.min then return false end
+  local code = stageCode(tier, stage)
+  if code <= cd.adv.best + 1 or code == 101 then return true end
+  -- first stage of the next tier once the previous tier is fully cleared
+  return stage == 1 and tier > 1 and cd.adv.best >= stageCode(tier - 1, self:AdvStages(tier - 1))
+end
+
+function TCF:AdvGoTo(tier, stage)
+  if not self:AdvCanGoTo(tier, stage) then return false end
+  local adv = self:CD().adv
+  adv.tier, adv.stage = tier, stage
+  local run = self.advRun
+  if run then run.pack = nil; run.respawn = 0.4; run.catHP = run.catMax; run.buffs = {}; run.shield = 0 end
+  return true
 end
 
 function TCF:AdvStep(delta)
   local adv = self:CD().adv
   local tier, stage = adv.tier, adv.stage + delta
-  if stage > 10 then tier, stage = tier + 1, 1 elseif stage < 1 then tier, stage = tier - 1, 10 end
-  if not self:AdvCanGoTo(tier, stage) then return end
-  adv.tier, adv.stage = tier, stage
-  local run = self.advRun
-  if run then run.mob = nil; run.respawn = 0.4; run.catHP = run.catMax end
+  if stage > self:AdvStages(tier) then tier, stage = tier + 1, 1
+  elseif stage < 1 then tier = tier - 1; if tier >= 1 then stage = self:AdvStages(tier) end end
+  return self:AdvGoTo(tier, stage)
 end

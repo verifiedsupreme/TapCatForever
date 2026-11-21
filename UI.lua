@@ -63,6 +63,8 @@ function TCF:ItemTooltip(tt, it)
     tt:AddLine("Collected" .. (owned > 1 and (" (x" .. owned .. ")") or ""), 0.3, 1, 0.3)
   elseif it.source == "achievement" then
     tt:AddLine("Reward from an achievement", 1, 0.82, 0)
+  elseif it.source == "craft" then
+    tt:AddLine("Crafted with a profession", 1, 0.82, 0)
   else
     tt:AddLine("Not collected - found in chests, random drops and the daily shop", 0.6, 0.6, 0.6, true)
   end
@@ -139,6 +141,79 @@ local function ItemCell(parent, size)
     self:Show()
   end
   return b
+end
+
+-- shared with the page files (UI_*.lua)
+TCF.UI = TCF.UI or {}
+TCF.UI.Panel, TCF.UI.Text, TCF.UI.Button, TCF.UI.Tip = Panel, Text, Button, Tip
+TCF.UI.ItemCell, TCF.UI.ItemPicture, TCF.UI.coinStr = ItemCell, ItemPicture, coinStr
+TCF.UI.BACKDROP_PANEL, TCF.UI.BACKDROP_DIALOG, TCF.UI.BT = BACKDROP_PANEL, BACKDROP_DIALOG, BT
+TCF.UI.Builders = TCF.UI.Builders or {}
+
+-- A square button showing a real gear item (WoW icon, quality border)
+function TCF.UI.GearButton(parent, size)
+  local b = CreateFrame("Button", nil, parent, BT)
+  b:SetSize(size, size)
+  if b.SetBackdrop then b:SetBackdrop(BACKDROP_PANEL) end
+  b.icon = b:CreateTexture(nil, "ARTWORK"); b.icon:SetPoint("TOPLEFT", 4, -4); b.icon:SetPoint("BOTTOMRIGHT", -4, 4)
+  b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  b.count = Text(b, "NumberFontNormalSmall", nil, "RIGHT"); b.count:SetPoint("BOTTOMRIGHT", -3, 3)
+  b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  function b:SetGear(it, emptyIcon)
+    self.item = it
+    if it then
+      self.icon:SetTexture(TCF.Icon(it.icon)); self.icon:SetDesaturated(false); self.icon:SetAlpha(1)
+      local col = TCF.RARITY[it.q].color
+      if self.SetBackdropBorderColor then self:SetBackdropBorderColor(col[1], col[2], col[3], 1); self:SetBackdropColor(0.05, 0.05, 0.08, 0.95) end
+    else
+      self.icon:SetTexture(TCF.Icon(emptyIcon or "INV_Misc_QuestionMark")); self.icon:SetDesaturated(true); self.icon:SetAlpha(0.35)
+      if self.SetBackdropBorderColor then self:SetBackdropBorderColor(0.35, 0.32, 0.42, 1); self:SetBackdropColor(0.05, 0.05, 0.08, 0.8) end
+    end
+  end
+  return b
+end
+
+-- Full tooltip for a real gear item
+local STAT_LINES = {
+  { "str", "+%d Strength" }, { "agi", "+%d Agility" }, { "sta", "+%d Stamina" }, { "int", "+%d Intellect" }, { "spi", "+%d Spirit" },
+}
+local EQUIP_LINES = {
+  { "ap", "Equip: +%d Attack Power." }, { "rap", "Equip: +%d Ranged Attack Power." }, { "sp", "Equip: Increases spell power by %d." },
+  { "heal", "Equip: Increases healing by up to %d." }, { "critr", "Equip: Improves critical strike rating by %d." },
+  { "crit", "Equip: Improves your chance to get a critical strike by %d%%." }, { "hitr", "Equip: Improves hit rating by %d." },
+  { "hit", "Equip: Improves your chance to hit by %d%%." }, { "def", "Equip: Increases defense rating by %d." },
+  { "dodger", "Equip: Increases your dodge rating by %d." }, { "mp5", "Equip: Restores %d mana per 5 sec." },
+}
+function TCF:GearTooltip(tt, it, class)
+  class = class or self.db.class
+  local st = TCF.GearStats(it)
+  local col = TCF.RARITY[it.q].color
+  tt:AddLine(it.name, col[1], col[2], col[3])
+  tt:AddLine("Item Level " .. it.ilvl, 1, 0.82, 0)
+  tt:AddDoubleLine(TCF.ITEM_SLOT_NAMES[it.slot] or "", TCF.ITEM_TYPE_NAMES[it.sub] or "", 1, 1, 1, 1, 1, 1)
+  if st.min then
+    tt:AddDoubleLine(string.format("%d - %d Damage", st.min, st.max), st.spd and string.format("Speed %.2f", st.spd) or "", 1, 1, 1, 1, 1, 1)
+    if st.dps then tt:AddLine(string.format("(%.1f damage per second)", st.dps), 1, 1, 1) end
+  end
+  if st.arm then tt:AddLine(st.arm .. " Armor", 1, 1, 1) end
+  if st.blk then tt:AddLine(st.blk .. " Block", 1, 1, 1) end
+  for _, l in ipairs(STAT_LINES) do if st[l[1]] then tt:AddLine(string.format(l[2], st[l[1]]), 1, 1, 1) end end
+  if it.cls then tt:AddLine("Classes: " .. it.cls:gsub(",", ", "):lower():gsub("(%a)(%a*)", function(a, b) return a:upper() .. b end), 1, 1, 1) end
+  if it.req > 0 then
+    local ok = self:CD(class).level >= it.req
+    tt:AddLine("Requires class level " .. it.req, ok and 1 or 1, ok and 1 or 0.2, ok and 1 or 0.2)
+  end
+  for _, l in ipairs(EQUIP_LINES) do if st[l[1]] then tt:AddLine(string.format(l[2], st[l[1]]), 0.12, 1, 0) end end
+  if it.tier > 0 then
+    local t = TCF.TIERS[it.tier]
+    local src = it.boss > 0 and t.bosses[it.boss][1] or "enemies"
+    tt:AddLine(string.format("Drops from %s (%s)%s", src, t.name, it.dc > 0 and string.format(" - %.1f%%", it.dc / 10) or ""), 0.6, 0.8, 1, true)
+  else
+    tt:AddLine("World drop", 0.6, 0.8, 1)
+  end
+  if not self:GearUsable(it, class) then tt:AddLine("Your " .. TCF.CLASS_BY_KEY[class].name .. " can't use this.", 1, 0.2, 0.2) end
+  local have = self.db.gear[it.id]
+  if have then tt:AddLine("In your collection" .. (have > 1 and (" (x" .. have .. ")") or ""), 0.3, 1, 0.3) end
 end
 
 ---------------------------------------------------------------- HUD (the cat on screen)
@@ -271,7 +346,7 @@ function TCF:ToggleWindow()
 end
 
 function TCF:CreateWindow()
-  local W, H = 900, 560
+  local W, H = 920, 620
   local win = CreateFrame("Frame", "TapCatForeverWindow", UIParent, BT)
   win:SetSize(W, H); win:SetPoint("CENTER")
   win:SetFrameStrata("HIGH"); win:SetToplevel(true)
@@ -298,115 +373,106 @@ function TCF:CreateWindow()
   bagBtn:SetScript("OnClick", function() TCF:ToggleBag(); TCF:PlaySound("click") end)
   Tip(bagBtn, function(tt)
     tt:AddLine("Treasure Bag", 1, 0.82, 0)
-    tt:AddLine("Unopened chests from quests, dungeons, raids and level-ups.", 1, 1, 1, true)
+    tt:AddLine("Unopened chests from quests, dungeons, raids, expeditions and level-ups.", 1, 1, 1, true)
   end)
 
   local tabs, pages = {}, {}
-  local TAB_WARDROBE, TAB_ADVENTURE, TAB_QUESTS, TAB_SHOP, TAB_ACH, TAB_SETTINGS = 1, 2, 3, 4, 5, 6
+  local TAB_GEAR, TAB_ADVENTURE, TAB_ABILITIES, TAB_EXPEDITIONS, TAB_PROFESSIONS = 1, 2, 3, 4, 5
+  local TAB_WARDROBE, TAB_QUESTS, TAB_SHOP, TAB_ACH, TAB_SETTINGS = 6, 7, 8, 9, 10
+  local tabNames = { "Gear", "Adventure", "Abilities", "Expeditions", "Professions",
+                     "Appearance", "Quests", "Shop", "Achievements", "Settings" }
+  local builderKeys = { [TAB_GEAR] = "gear", [TAB_ADVENTURE] = "adventure", [TAB_ABILITIES] = "abilities",
+                        [TAB_EXPEDITIONS] = "expeditions", [TAB_PROFESSIONS] = "professions" }
+  local pageRefresh = {}
+  win.TAB_GEAR = TAB_GEAR
   local SelectTab -- defined below
+  function win:SelectTab(i) SelectTab(i) end
 
-  ------------------------------------------------ left column: paperdoll, class, stats
+  ------------------------------------------------ left column: gear paperdoll, class, stats
   local left = Panel(win, 316, H - 66); left:SetPoint("TOPLEFT", 16, -46)
-  local stage = Panel(left, 212, 232, 0.95); stage:SetPoint("TOP", 0, -10)
+  local stage = Panel(left, 212, 252, 0.95); stage:SetPoint("TOP", 0, -10)
   local stageBg = stage:CreateTexture(nil, "BACKGROUND", nil, 1); stageBg:SetPoint("TOPLEFT", 4, -4); stageBg:SetPoint("BOTTOMRIGHT", -4, 4)
   stageBg:SetColorTexture(0.12, 0.10, 0.18, 1)
   -- the profile cat sits still (it only blinks); it taps on the Adventure tab
-  local preview = TCF.CreateCat(stage, 196, { preview = true })
+  local preview = TCF.CreateCat(stage, 200, { preview = true })
   preview.frame:SetPoint("CENTER", 0, -2)
   win.preview = preview
 
-  -- gear slots around the cat, like the character sheet
-  local DOLL_LEFT = { "head", "back", "chest", "acc", "fur" }
-  local DOLL_RIGHT = { "main", "off", "effect", "pattern" }
+  local DOLL_LEFT = { "HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "WRIST", "WAIST" }
+  local DOLL_RIGHT = { "HANDS", "LEGS", "FEET", "FINGER1", "FINGER2", "TRINKET1", "TRINKET2" }
+  local DOLL_BOTTOM = { "MAINHAND", "OFFHAND", "RANGED" }
   local dollBtns = {}
-  local function DollButton(key, col, row)
-    local s = TCF.SLOT_BY_KEY[key]
-    local b = ItemCell(left, 40)
-    if col == 0 then b:SetPoint("TOPRIGHT", stage, "TOPLEFT", -6, -(row - 1) * 47)
-    else b:SetPoint("TOPLEFT", stage, "TOPRIGHT", 6, -(row - 1) * 47) end
-    b.empty = b:CreateTexture(nil, "ARTWORK", nil, 3); b.empty:SetPoint("TOPLEFT", 4, -4); b.empty:SetPoint("BOTTOMRIGHT", -4, 4)
-    b.empty:SetTexture(TCF.Icon(s.icon)); b.empty:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-    b.empty:SetDesaturated(true); b.empty:SetAlpha(0.45)
+  win.gearSlot = nil
+  local function DollButton(key)
+    local s = TCF.GEAR_SLOT_BY_KEY[key]
+    local b = TCF.UI.GearButton(left, 34)
+    b.key = key
     b.sel = b:CreateTexture(nil, "OVERLAY", nil, 2); b.sel:SetPoint("TOPLEFT", -4, 4); b.sel:SetPoint("BOTTOMRIGHT", 4, -4)
     b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD")
-    b.key = key
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     b:SetScript("OnClick", function(_, button)
-      if button == "RightButton" then
-        TCF:Unequip(key)
-      else
-        win.slot = key; win.page = 1
-        SelectTab(TAB_WARDROBE)
-      end
+      if button == "RightButton" then TCF:UnequipGear(key)
+      else win.gearSlot = key; win.gearPage = 1; SelectTab(TAB_GEAR) end
       TCF:PlaySound("click")
     end)
     b:SetScript("OnEnter", function(self)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:AddLine(s.name, 1, 0.82, 0)
-      if self.item then TCF:ItemTooltip(GameTooltip, self.item) else GameTooltip:AddLine("Empty", 0.6, 0.6, 0.6) end
+      if self.item then TCF:GearTooltip(GameTooltip, self.item) else GameTooltip:AddLine(s.name, 1, 0.82, 0); GameTooltip:AddLine("Empty", 0.6, 0.6, 0.6) end
       GameTooltip:AddLine(" ")
-      GameTooltip:AddLine("Left-click: choose an item for this slot", 0, 1, 0)
-      if key ~= "fur" then GameTooltip:AddLine("Right-click: empty this slot", 0, 1, 0) end
-      GameTooltip:AddLine(s.look and "Shared by every class." or "Saved separately for each class.", 0.7, 0.7, 0.7)
+      GameTooltip:AddLine("Left-click: choose gear for this slot", 0, 1, 0)
+      GameTooltip:AddLine("Right-click: take it off", 0, 1, 0)
       GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    function b:Update(look)
-      local it = look[key]
-      self.item = it
-      if it then
-        self:SetItem(it, true, false)
-        self.empty:Hide()
-      else
-        self.item = nil
-        self.pic:Hide(); self.check:Hide(); self.count:SetText("")
-        if self.SetBackdrop then
-          self:SetBackdropColor(0.05, 0.05, 0.08, 0.9); self:SetBackdropBorderColor(0.35, 0.32, 0.42, 1)
-        end
-        self.empty:Show()
-      end
-      self.pic:SetShown(it ~= nil)
-      self.check:Hide()
-      self.sel:SetShown(win.tab == TAB_WARDROBE and win.slot == key)
+    function b:Update()
+      local id = TCF:GearEquipped()[key]
+      self:SetGear(id and TCF.GEAR[id], s.icon)
+      self.sel:SetShown(win.tab == TAB_GEAR and win.gearSlot == key)
     end
     dollBtns[#dollBtns + 1] = b
+    return b
   end
-  for i, k in ipairs(DOLL_LEFT) do DollButton(k, 0, i) end
-  for i, k in ipairs(DOLL_RIGHT) do DollButton(k, 1, i) end
+  for i, k in ipairs(DOLL_LEFT) do DollButton(k):SetPoint("TOPRIGHT", stage, "TOPLEFT", -6, -(i - 1) * 36) end
+  for i, k in ipairs(DOLL_RIGHT) do DollButton(k):SetPoint("TOPLEFT", stage, "TOPRIGHT", 6, -(i - 1) * 36) end
+  for i, k in ipairs(DOLL_BOTTOM) do DollButton(k):SetPoint("TOP", stage, "BOTTOM", (i - 2) * 40, -6) end
 
-  local className = Text(left, "GameFontNormal"); className:SetPoint("TOP", stage, "BOTTOM", 0, -6)
+  local className = Text(left, "GameFontNormal"); className:SetPoint("TOP", stage, "BOTTOM", 0, -46)
   local classBtns = {}
   for i, cl in ipairs(TCF.CLASSES) do
     local b = CreateFrame("Button", nil, left)
     b:SetSize(28, 28)
-    b:SetPoint("TOPLEFT", left, "TOPLEFT", 11 + (i - 1) * 33, -264)
+    b:SetPoint("TOPLEFT", left, "TOPLEFT", 11 + (i - 1) * 33, -326)
     local t = b:CreateTexture(nil, "ARTWORK"); t:SetAllPoints()
     TCF.SetClassIcon(t, cl.key)
     b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetPoint("TOPLEFT", -5, 5); b.sel:SetPoint("BOTTOMRIGHT", 5, -5)
     b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD")
+    b.away = b:CreateTexture(nil, "OVERLAY", nil, 2); b.away:SetSize(14, 14); b.away:SetPoint("BOTTOMRIGHT", 3, -3)
+    b.away:SetTexture(TCF.Icon("INV_Misc_Map_01"))
     b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     b:SetScript("OnClick", function() TCF:SetClass(cl.key); TCF:PlaySound("click") end)
     Tip(b, function(tt)
       local cd = TCF:CD(cl.key)
+      local cs = TCF:CombatStats(cl.key)
       tt:AddLine(cl.name, cl.color[1], cl.color[2], cl.color[3])
       tt:AddLine(string.format("Level %d %s", cd.level, TCF:GetTitle(cd.level)), 1, 1, 1)
-      tt:AddLine("Each class has its own level, outfit and Adventure progress.", 0.7, 0.7, 0.7, true)
+      tt:AddLine(string.format("Power %d  (DPS %d, Health %d, item level %d)", cs.power, cs.dps, cs.hp, cs.ilvl), 0.8, 0.8, 0.8)
+      if TCF:IsOnExpedition(cl.key) then tt:AddLine("Away on an expedition", 1, 0.6, 0.2) end
+      tt:AddLine("Each class has its own level, gear, abilities and Adventure progress.", 0.7, 0.7, 0.7, true)
     end)
     classBtns[i] = b
   end
 
-  local lvl = Text(left, "GameFontHighlight", nil, "LEFT"); lvl:SetPoint("TOPLEFT", 12, -302)
+  local lvl = Text(left, "GameFontHighlight", nil, "LEFT"); lvl:SetPoint("TOPLEFT", 12, -362)
   local xp = CreateFrame("StatusBar", nil, left)
-  xp:SetSize(292, 14); xp:SetPoint("TOPLEFT", 12, -320)
+  xp:SetSize(292, 14); xp:SetPoint("TOPLEFT", 12, -380)
   xp:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar"); xp:SetStatusBarColor(0.58, 0.0, 0.55)
   local xbg = xp:CreateTexture(nil, "BACKGROUND"); xbg:SetAllPoints(); xbg:SetColorTexture(0, 0, 0, 0.6)
   local xpText = Text(xp, "GameFontHighlightSmall"); xpText:SetPoint("CENTER")
   local statLines = Text(left, "GameFontHighlightSmall", nil, "LEFT")
-  statLines:SetPoint("TOPLEFT", 12, -344); statLines:SetWidth(292); statLines:SetSpacing(3)
+  statLines:SetPoint("TOPLEFT", 12, -402); statLines:SetWidth(292); statLines:SetSpacing(3)
 
-  ------------------------------------------------ right column: tabs
-  local right = Panel(win, W - 360, H - 98); right:SetPoint("TOPLEFT", left, "TOPRIGHT", 12, -32)
-  local tabNames = { "Wardrobe", "Adventure", "Quests", "Shop", "Achievements", "Settings" }
+  ------------------------------------------------ right column: two rows of tabs
+  local right = Panel(win, W - 360, H - 126); right:SetPoint("TOPLEFT", left, "TOPRIGHT", 12, -60)
   SelectTab = function(i)
     win.tab = i
     for j, p in ipairs(pages) do p:SetShown(j == i) end
@@ -414,28 +480,45 @@ function TCF:CreateWindow()
     win:Refresh()
   end
   for i, n in ipairs(tabNames) do
-    local b = Button(win, n, 87, 24, function() SelectTab(i); TCF:PlaySound("click") end)
-    b:SetPoint("BOTTOMLEFT", right, "TOPLEFT", (i - 1) * 89.5, 4)
+    local b = Button(win, n, 104, 24, function() SelectTab(i); TCF:PlaySound("click") end)
+    local col, row = (i - 1) % 5, i <= 5 and 1 or 0
+    b:SetPoint("BOTTOMLEFT", right, "TOPLEFT", col * 107, 4 + row * 27)
     tabs[i] = b
     local p = CreateFrame("Frame", nil, right); p:SetAllPoints(); p:Hide()
     pages[i] = p
   end
+  -- pages built by UI_*.lua files
+  for i, key in pairs(builderKeys) do
+    local build = TCF.UI.Builders[key]
+    if build then pageRefresh[i] = build(pages[i], win) end
+  end
 
-  ------------------------------------------------ Wardrobe
+  ------------------------------------------------ Appearance (cosmetics you've collected)
   local wd = pages[TAB_WARDROBE]
   win.slot = "head"
-  win.showLocked = true
-  local slotTitle = Text(wd, "GameFontNormalLarge", nil, "LEFT"); slotTitle:SetPoint("TOPLEFT", 16, -14)
-  local lockedCB = CreateFrame("CheckButton", nil, wd, "UICheckButtonTemplate")
-  lockedCB:SetSize(24, 24); lockedCB:SetPoint("TOPRIGHT", -120, -10)
-  local lcText = Text(wd, "GameFontHighlightSmall", "Show uncollected"); lcText:SetPoint("LEFT", lockedCB, "RIGHT", 0, 1)
-  lockedCB:SetChecked(true)
-  lockedCB:SetScript("OnClick", function(s) win.showLocked = s:GetChecked() and true or false; win.page = 1; win:RefreshWardrobe() end)
+  local slotBtns = {}
+  for i, s in ipairs(TCF.SLOTS) do
+    local b = CreateFrame("Button", nil, wd)
+    b:SetSize(34, 34); b:SetPoint("TOPLEFT", 12 + (i - 1) * 38, -12)
+    local t = b:CreateTexture(nil, "ARTWORK"); t:SetAllPoints(); t:SetTexture(TCF.Icon(s.icon))
+    t:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetAllPoints()
+    b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD")
+    b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    b:SetScript("OnClick", function() win.slot = s.key; win.page = 1; win:RefreshWardrobe(); TCF:PlaySound("click") end)
+    Tip(b, function(tt)
+      tt:AddLine(s.name, 1, 0.82, 0)
+      tt:AddLine(s.look and "Shared by every class." or "Saved separately for each class. Shows over your real gear.", 0.8, 0.8, 0.8, true)
+    end)
+    b.key = s.key
+    slotBtns[i] = b
+  end
+  local slotTitle = Text(wd, "GameFontNormal", nil, "LEFT"); slotTitle:SetPoint("TOPLEFT", 14, -54)
 
   local COLS, ROWS, CELL, GAP = 8, 6, 54, 5
   local cells = {}
   local grid = CreateFrame("Frame", nil, wd)
-  grid:SetSize(COLS * (CELL + GAP), ROWS * (CELL + GAP)); grid:SetPoint("TOP", 0, -44)
+  grid:SetSize(COLS * (CELL + GAP), ROWS * (CELL + GAP)); grid:SetPoint("TOP", 0, -76)
   for i = 1, COLS * ROWS do
     local c = ItemCell(grid, CELL)
     c:SetPoint("TOPLEFT", ((i - 1) % COLS) * (CELL + GAP), -floor((i - 1) / COLS) * (CELL + GAP))
@@ -462,7 +545,7 @@ function TCF:CreateWindow()
   prev:SetPoint("RIGHT", pageText, "LEFT", -10, 0)
   local nextB = Button(wd, ">", 28, 22, function() win.page = (win.page or 1) + 1; win:RefreshWardrobe() end)
   nextB:SetPoint("LEFT", pageText, "RIGHT", 10, 0)
-  local unequip = Button(wd, "Unequip slot", 110, 22, function() TCF:Unequip(win.slot) end)
+  local unequip = Button(wd, "Show real gear", 120, 22, function() TCF:Unequip(win.slot) end)
   unequip:SetPoint("BOTTOMLEFT", 12, 12)
   local collected = Text(wd, "GameFontDisableSmall", nil, "RIGHT"); collected:SetPoint("BOTTOMRIGHT", -14, 18)
   wd:EnableMouseWheel(true)
@@ -472,8 +555,7 @@ function TCF:CreateWindow()
     local list = {}
     local class = TCF.db.class
     for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.slot == self.slot and (not it.class or it.class == class)
-        and (self.showLocked or TCF.db.owned[it.id]) then
+      if it.slot == self.slot and (not it.class or it.class == class) and TCF.db.owned[it.id] then
         list[#list + 1] = it
       end
     end
@@ -489,8 +571,7 @@ function TCF:CreateWindow()
   end
 
   function win:RefreshWardrobe()
-    local look = TCF:GetAppearance()
-    for _, b in ipairs(dollBtns) do b:Update(look) end
+    for _, b in ipairs(slotBtns) do b.sel:SetShown(b.key == self.slot) end
     local s = TCF.SLOT_BY_KEY[self.slot]
     local cl = TCF.CLASS_BY_KEY[TCF.db.class]
     slotTitle:SetText(s.name .. (s.look and "  |cff888888(all classes)|r" or ("  |cff888888(" .. cl.name .. ")|r")))
@@ -508,175 +589,8 @@ function TCF:CreateWindow()
     prev:SetEnabled(self.page > 1); nextB:SetEnabled(self.page < pagesN)
     unequip:SetEnabled(self.slot ~= "fur")
     collected:SetText(string.format("%d collected", owned))
+    if #list == 0 then pageText:SetText("|cff888888Nothing collected for this slot yet. Open chests, craft, or visit the Shop.|r") end
   end
-
-  ------------------------------------------------ Adventure (idle game)
-  local av = pages[TAB_ADVENTURE]
-  local function short(n)
-    n = floor(n + 0.5)
-    if n >= 1e9 then return string.format("%.1fB", n / 1e9) end
-    if n >= 1e6 then return string.format("%.1fM", n / 1e6) end
-    if n >= 1e4 then return string.format("%.1fK", n / 1e3) end
-    return tostring(n)
-  end
-  local zoneText = Text(av, "GameFontNormalLarge", nil, "LEFT"); zoneText:SetPoint("TOPLEFT", 16, -14)
-  local stageText = Text(av, "GameFontHighlight", nil, "RIGHT"); stageText:SetPoint("TOPRIGHT", -16, -16)
-
-  local scene = Panel(av, 508, 214, 1); scene:SetPoint("TOP", 0, -40)
-  local sky = scene:CreateTexture(nil, "BACKGROUND", nil, 1)
-  sky:SetPoint("TOPLEFT", 4, -4); sky:SetPoint("BOTTOMRIGHT", -4, 54)
-  local horizon = scene:CreateTexture(nil, "BACKGROUND", nil, 2)
-  horizon:SetPoint("BOTTOMLEFT", sky, "BOTTOMLEFT"); horizon:SetPoint("BOTTOMRIGHT", sky, "BOTTOMRIGHT"); horizon:SetHeight(26)
-  local ground = scene:CreateTexture(nil, "BACKGROUND", nil, 1)
-  ground:SetPoint("TOPLEFT", sky, "BOTTOMLEFT"); ground:SetPoint("BOTTOMRIGHT", -4, 4)
-
-  local catHolder = CreateFrame("Frame", nil, scene)
-  catHolder:SetSize(130, 130); catHolder:SetPoint("BOTTOMLEFT", 46, 14)
-  local advCat = TCF.CreateCat(catHolder, 130, { preview = true })
-  advCat.frame:SetPoint("CENTER")
-  local function Bar(parent, w, r, g, b)
-    local bar = CreateFrame("StatusBar", nil, parent)
-    bar:SetSize(w, 10); bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar"); bar:SetStatusBarColor(r, g, b)
-    local bg = bar:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); bg:SetColorTexture(0, 0, 0, 0.65)
-    bar.text = Text(bar, "GameFontHighlightSmall"); bar.text:SetPoint("CENTER", 0, 0)
-    return bar
-  end
-  local catBar = Bar(scene, 120, 0.2, 0.85, 0.25); catBar:SetPoint("BOTTOM", catHolder, "TOP", 0, 2)
-
-  local mobHolder = CreateFrame("Frame", nil, scene, BT)
-  mobHolder:SetSize(88, 88); mobHolder:SetPoint("BOTTOMRIGHT", -70, 40)
-  if mobHolder.SetBackdrop then mobHolder:SetBackdrop(BACKDROP_PANEL); mobHolder:SetBackdropColor(0, 0, 0, 0.5) end
-  local mobIcon = mobHolder:CreateTexture(nil, "ARTWORK"); mobIcon:SetPoint("TOPLEFT", 5, -5); mobIcon:SetPoint("BOTTOMRIGHT", -5, 5)
-  mobIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-  local mobBar = Bar(scene, 130, 0.85, 0.15, 0.15); mobBar:SetPoint("BOTTOM", mobHolder, "TOP", 0, 6)
-  local mobName = Text(scene, "GameFontNormal"); mobName:SetPoint("BOTTOM", mobBar, "TOP", 0, 3)
-
-  -- floating combat text
-  local floats = {}
-  local function FloatText(txt, x, y, r, g, b, big)
-    local fs
-    for _, f in ipairs(floats) do if not f.active then fs = f; break end end
-    if not fs then
-      fs = scene:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); fs:SetShadowOffset(1, -1)
-      floats[#floats + 1] = fs
-    end
-    fs:SetFontObject(big and "GameFontNormalHuge" or "GameFontNormalLarge")
-    fs:SetText(txt); fs:SetTextColor(r, g, b); fs:Show()
-    fs.active, fs.age, fs.x, fs.y = true, 0, x + math.random(-12, 12), y
-  end
-
-  local stats = Text(av, "GameFontHighlight", nil, "LEFT"); stats:SetPoint("TOPLEFT", 18, -264); stats:SetWidth(500)
-  local autoCB = CreateFrame("CheckButton", nil, av, "UICheckButtonTemplate")
-  autoCB:SetSize(24, 24); autoCB:SetPoint("TOPLEFT", 14, -288)
-  local autoText = Text(av, "GameFontHighlightSmall", "Auto-advance"); autoText:SetPoint("LEFT", autoCB, "RIGHT", 0, 1)
-  autoCB:SetScript("OnClick", function(s) TCF:CD().adv.auto = s:GetChecked() and true or false end)
-  Tip(autoCB, function(tt)
-    tt:AddLine("Auto-advance", 1, 0.82, 0)
-    tt:AddLine("On: move to the next stage after each win. Off: keep farming the current stage.", 1, 1, 1, true)
-  end)
-  local nextStage = Button(av, "Stage >", 80, 22, function() TCF:AdvStep(1); win:RefreshAdventure() end)
-  nextStage:SetPoint("TOPRIGHT", -14, -289)
-  local prevStage = Button(av, "< Stage", 80, 22, function() TCF:AdvStep(-1); win:RefreshAdventure() end)
-  prevStage:SetPoint("RIGHT", nextStage, "LEFT", -6, 0)
-  local logText = Text(av, "GameFontHighlightSmall", nil, "LEFT"); logText:SetPoint("TOPLEFT", 18, -320)
-  logText:SetWidth(500); logText:SetSpacing(3); logText:SetJustifyV("TOP")
-  local advHelp = Text(av, "GameFontDisableSmall", nil, "LEFT"); advHelp:SetPoint("BOTTOMLEFT", 16, 12); advHelp:SetWidth(500)
-  advHelp:SetText("Your cat fights with the gear equipped on this class: weapons raise Attack, armor raises Health, effects and accessories raise Crit. Every key you press lands a bonus paw strike. Bosses at stage 10 drop cosmetics.")
-
-  local function ShowMob(run)
-    local m = run and run.mob
-    if not m then mobHolder:SetAlpha(0); mobName:SetText(""); mobBar:Hide(); return end
-    mobHolder:SetAlpha(1); mobBar:Show()
-    mobIcon:SetTexture(m.icon); mobIcon:SetVertexColor(1, 1, 1)
-    local sz = m.boss and 104 or 84
-    mobHolder:SetSize(sz, sz)
-    if mobHolder.SetBackdropBorderColor then
-      if m.boss then mobHolder:SetBackdropBorderColor(1, 0.5, 0, 1) else mobHolder:SetBackdropBorderColor(0.6, 0.6, 0.6, 1) end
-    end
-    mobName:SetText(m.boss and ("|cffff8000" .. m.name .. "|r") or m.name)
-  end
-
-  function win:RefreshAdventure()
-    local cd = TCF:CD()
-    local adv = cd.adv
-    local z, zname = TCF:AdvZone(adv.tier)
-    zoneText:SetText(string.format("Tier %d: %s", adv.tier, zname))
-    local best = "none yet"
-    if adv.best > 0 then
-      local bt = math.ceil(adv.best / 10)
-      best = string.format("tier %d, stage %d", bt, adv.best - (bt - 1) * 10)
-    end
-    stageText:SetText(string.format("Stage %d / 10    |cff999999Best: %s|r", adv.stage, best))
-    sky:SetColorTexture(z.sky[1], z.sky[2], z.sky[3], 1)
-    horizon:SetColorTexture(min(1, z.sky[1] + 0.12), min(1, z.sky[2] + 0.12), min(1, z.sky[3] + 0.12), 0.6)
-    ground:SetColorTexture(z.ground[1], z.ground[2], z.ground[3], 1)
-    advCat:ApplyAppearance(TCF:GetAppearance())
-    local st = TCF:AdvStats()
-    stats:SetText(string.format("Attack |cffffffff%s|r    Health |cffffffff%s|r    Crit |cffffffff%d%%|r    Gear Score |cffffffff%d|r    |cffaaaaaaLv %d: +%d%%|r",
-      short(st.atk), short(st.hp), st.crit, st.gs, st.level, (st.level - 1) * 8))
-    autoCB:SetChecked(adv.auto)
-    prevStage:SetEnabled(TCF:AdvCanGoTo(adv.stage > 1 and adv.tier or adv.tier - 1, adv.stage > 1 and adv.stage - 1 or 10))
-    nextStage:SetEnabled(TCF:AdvCanGoTo(adv.stage < 10 and adv.tier or adv.tier + 1, adv.stage < 10 and adv.stage + 1 or 1))
-    logText:SetText(table.concat(TCF.advLog or { "|cff888888Your cat sets out on an adventure...|r" }, "\n"))
-    ShowMob(TCF.advRun)
-  end
-
-  local shakeMob, shakeCat, fadeMob, flash, refreshT = 0, 0, 0, 0, 0
-  av:SetScript("OnShow", function() TCF.advWatching = true; if TCF.advRun then TCF.advRun.events = {} end end)
-  av:SetScript("OnHide", function() TCF.advWatching = false end)
-  av:SetScript("OnUpdate", function(_, e)
-    local run = TCF.advRun
-    if not run then return end
-    -- consume combat events
-    for _, ev in ipairs(run.events) do
-      local kind, amt = ev[1], ev[2]
-      if kind == "spawn" then
-        ShowMob(run); fadeMob = 0; win:RefreshAdventure()
-      elseif kind == "hit" or kind == "crit" then
-        advCat:Tap(); shakeMob = 0.25; flash = 0.15
-        if kind == "crit" then FloatText(short(amt) .. "!", 380, 150, 1, 0.82, 0.1, true)
-        else FloatText(short(amt), 380, 140, 1, 1, 1) end
-      elseif kind == "tap" then
-        shakeMob = math.max(shakeMob, 0.12)
-        FloatText(short(amt), 380, 120, 0.55, 0.85, 1)
-      elseif kind == "hurt" then
-        shakeCat = 0.25
-        FloatText("-" .. short(amt), 110, 150, 1, 0.25, 0.25)
-      elseif kind == "kill" then
-        fadeMob = 0.5; win:RefreshAdventure()
-      elseif kind == "defeat" then
-        advCat:SetFaceFor("blink", 2); ShowMob(nil); win:RefreshAdventure()
-      end
-    end
-    if #run.events > 0 then run.events = {} end
-    -- bars
-    catBar:SetMinMaxValues(0, run.catMax); catBar:SetValue(max(0, run.catHP))
-    catBar.text:SetText(short(max(0, run.catHP)) .. " / " .. short(run.catMax))
-    if run.mob then
-      mobBar:SetMinMaxValues(0, run.mob.hp); mobBar:SetValue(max(0, run.mobHP))
-      mobBar.text:SetText(short(max(0, run.mobHP)) .. " / " .. short(run.mob.hp))
-    end
-    -- animation
-    shakeMob = max(0, shakeMob - e); shakeCat = max(0, shakeCat - e); flash = max(0, flash - e)
-    mobHolder:ClearAllPoints()
-    mobHolder:SetPoint("BOTTOMRIGHT", -70 + (shakeMob > 0 and math.random(-4, 4) or 0), 40 + (shakeMob > 0 and math.random(-2, 2) or 0))
-    catHolder:ClearAllPoints()
-    catHolder:SetPoint("BOTTOMLEFT", 46 + (shakeCat > 0 and math.random(-3, 3) or 0), 14)
-    mobIcon:SetVertexColor(1, flash > 0 and 0.45 or 1, flash > 0 and 0.45 or 1)
-    if fadeMob > 0 then fadeMob = max(0, fadeMob - e); mobHolder:SetAlpha(fadeMob * 2) end
-    for _, fs in ipairs(floats) do
-      if fs.active then
-        fs.age = fs.age + e
-        if fs.age > 1 then fs.active = false; fs:Hide()
-        else
-          fs:ClearAllPoints(); fs:SetPoint("CENTER", scene, "BOTTOMLEFT", fs.x, fs.y + fs.age * 40)
-          fs:SetAlpha(fs.age < 0.6 and 1 or (1 - fs.age) / 0.4)
-        end
-      end
-    end
-    refreshT = refreshT + e
-    if refreshT > 1 then refreshT = 0; win:RefreshAdventure() end
-  end)
 
   ------------------------------------------------ Quests
   local qp = pages[TAB_QUESTS]
@@ -798,6 +712,8 @@ function TCF:CreateWindow()
     c.chest = ch
     chestCards[i] = c
   end
+  local dungeonText = Text(sh, "GameFontHighlightSmall", nil, "LEFT"); dungeonText:SetPoint("TOPLEFT", 16, -326); dungeonText:SetWidth(520)
+  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Daily quests give a Cat Treat Pouch, the weekly quest and every 5 class levels an Adventurer's Strongbox, and zone clears and expeditions can give any chest. Chests hold real gear (65%) or cosmetics (35%).")
   local lastLoot = Text(sh, "GameFontHighlight", nil, "LEFT"); lastLoot:SetPoint("BOTTOMLEFT", 16, 14); lastLoot:SetWidth(480)
 
   function win:RefreshShop()
@@ -830,7 +746,9 @@ function TCF:CreateWindow()
       c.key:SetText("Bag (" .. k .. ")"); c.key:SetEnabled(k > 0)
     end
     local lc = TCF.lastChest
-    if lc and lc.item then
+    if lc and lc.gear then
+      lastLoot:SetText("Last chest: " .. TCF.GearLink(lc.gear) .. (lc.isNew and " |cff20ff20NEW!|r" or ""))
+    elseif lc and lc.item then
       lastLoot:SetText("Last chest: " .. TCF.ItemLink(lc.item) .. (lc.isNew and " |cff20ff20NEW!|r" or
         string.format(" |cffaaaaaa(duplicate, +%d TapCoins)|r", lc.salvage)))
     else
@@ -980,16 +898,17 @@ function TCF:CreateWindow()
     xp:SetMinMaxValues(0, need); xp:SetValue(cd.xp)
     xpText:SetText(TCF.Commas(cd.xp) .. " / " .. TCF.Commas(need))
     local n, total = TCF:CountOwned()
-    local done = 0
-    for _ in pairs(db.achievements) do done = done + 1 end
+    local cs = TCF:CombatStats()
+    local nGear = 0
+    for _ in pairs(db.gear) do nGear = nGear + 1 end
     statLines:SetText(string.format(
-      "Lifetime taps: |cffffffff%s|r\nCollection: |cffffffff%d / %d|r\nAchievements: |cffffffff%d / %d|r\nTapCoins earned: |cffffffff%s|r\nFree chests: |cffffffff%d|r Pouch, |cffffffff%d|r Strongbox, |cffffffff%d|r Heroic\nDaily streak: |cffffffff%d|r (best %d)",
-      TCF.Commas(db.taps), n, total, done, #TCF.ACHIEVEMENTS, TCF.Commas(db.coinsEarned),
-      db.keys.pouch or 0, db.keys.strong, db.keys.heroic, db.daily.streak, db.daily.best))
+      "|cffffd100Power %d|r   DPS |cffffffff%d|r   Health |cffffffff%d|r\nArmor |cffffffff%d|r   Crit |cffffffff%.1f%%|r   Item level |cffffffff%d|r\nGear owned: |cffffffff%d|r   Cosmetics: |cffffffff%d / %d|r\nLifetime taps: |cffffffff%s|r\nTapCoins earned: |cffffffff%s|r\nDaily streak: |cffffffff%d|r (best %d)",
+      cs.power, cs.dps, cs.hp, cs.armor, cs.crit, cs.ilvl, nGear, n, total,
+      TCF.Commas(db.taps), TCF.Commas(db.coinsEarned), db.daily.streak, db.daily.best))
     if self.tab == TAB_SHOP then self:RefreshShop()
     elseif self.tab == TAB_ACH then self:RefreshAchievements()
-    elseif self.tab == TAB_ADVENTURE then self:RefreshAdventure()
-    elseif self.tab == TAB_QUESTS then self:RefreshQuests() end
+    elseif self.tab == TAB_QUESTS then self:RefreshQuests()
+    elseif pageRefresh[self.tab] then pageRefresh[self.tab](true) end
     local ready = TCF:QuestsReady()
     tabs[TAB_QUESTS]:SetText(ready > 0 and ("Quests |cff20ff20(" .. ready .. ")|r") or "Quests")
   end
@@ -1000,15 +919,16 @@ function TCF:CreateWindow()
     className:SetTextColor(cl.color[1], cl.color[2], cl.color[3])
     for i, b in ipairs(classBtns) do b.sel:SetShown(TCF.CLASSES[i].key == TCF.db.class) end
     self.preview:ApplyAppearance(TCF:GetAppearance())
-    local look = TCF:GetAppearance()
-    for _, b in ipairs(dollBtns) do b:Update(look) end
+    for _, b in ipairs(dollBtns) do b:Update() end
+    for i, b in ipairs(classBtns) do b.away:SetShown(TCF:IsOnExpedition(TCF.CLASSES[i].key) and true or false) end
     if self.tab == TAB_WARDROBE then self:RefreshWardrobe()
-    elseif self.tab == TAB_SETTINGS then self:RefreshSettings() end
+    elseif self.tab == TAB_SETTINGS then self:RefreshSettings()
+    elseif pageRefresh[self.tab] then pageRefresh[self.tab](false) end
     self:RefreshLight()
   end
 
   win:SetScript("OnShow", function(s) s:Refresh() end)
-  SelectTab(1)
+  SelectTab(TAB_ADVENTURE)
 end
 
 ---------------------------------------------------------------- class icons
@@ -1127,6 +1047,16 @@ function TCF:CreateLootReveal()
   f.box = CreateFrame("Frame", nil, stage, BT); f.box:SetSize(104, 104); f.box:SetPoint("CENTER")
   if f.box.SetBackdrop then f.box:SetBackdrop(BACKDROP_PANEL); f.box:SetBackdropColor(0.04, 0.04, 0.07, 1) end
   f.pic = ItemPicture(f.box, 94); f.pic:SetPoint("CENTER")
+  f.gearIcon = f.box:CreateTexture(nil, "ARTWORK"); f.gearIcon:SetPoint("TOPLEFT", 8, -8); f.gearIcon:SetPoint("BOTTOMRIGHT", -8, 8)
+  f.gearIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  f.box:EnableMouse(true)
+  f.box:SetScript("OnEnter", function(self)
+    if not f.item then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    if f.isGear then TCF:GearTooltip(GameTooltip, f.item) else TCF:ItemTooltip(GameTooltip, f.item) end
+    GameTooltip:Show()
+  end)
+  f.box:SetScript("OnLeave", function() GameTooltip:Hide() end)
   f.icon = f:CreateTexture(nil, "ARTWORK"); f.icon:SetSize(22, 22)
   f.name = Text(f, "GameFontNormalLarge"); f.name:SetPoint("TOP", stage, "BOTTOM", 12, -10); f.name:SetWidth(270)
   f.icon:SetPoint("RIGHT", f.name, "LEFT", 0, 0)
@@ -1134,7 +1064,10 @@ function TCF:CreateLootReveal()
   f.status = Text(f, "GameFontNormal"); f.status:SetPoint("TOP", f.kind, "BOTTOM", 0, -6)
   f.ok = Button(f, "OK", 90, 24, function() f:Next() end); f.ok:SetPoint("BOTTOMRIGHT", -18, 16)
   f.equip = Button(f, "Equip", 90, 24, function()
-    if f.item then TCF:Equip(f.item); TCF:PlaySound("click") end
+    if f.item then
+      if f.isGear then TCF:EquipGear(f.item.id) else TCF:Equip(f.item) end
+      TCF:PlaySound("click")
+    end
     f:Next()
   end)
   f.equip:SetPoint("RIGHT", f.ok, "LEFT", -6, 0)
@@ -1155,8 +1088,10 @@ function TCF:CreateLootReveal()
   end)
 
   function f:Show1(entry)
-    local it, isNew, salvage, title, chestKey = unpack(entry)
-    self.item, self.chestKey = it, chestKey
+    local it, isNew, salvage, title, chestKey, isGear = unpack(entry)
+    self.item, self.chestKey, self.isGear = it, chestKey, isGear
+    if isGear then return self:ShowGear(it, isNew, title, chestKey) end
+    self.pic:Show(); self.gearIcon:Hide()
     local col = TCF.RARITY[it.rarity].color
     self.title:SetText(title or "Loot!")
     self.rays:SetVertexColor(col[1], col[2], col[3]); self.rays:SetAlpha(it.rarity >= 3 and 0.9 or 0.45)
@@ -1178,6 +1113,30 @@ function TCF:CreateLootReveal()
     if it.rarity >= 4 then TCF:PlaySound("rare") end
   end
 
+  function f:ShowGear(it, isNew, title, chestKey)
+    local col = TCF.RARITY[it.q].color
+    self.title:SetText(title or "Loot!")
+    self.rays:SetVertexColor(col[1], col[2], col[3]); self.rays:SetAlpha(it.q >= 3 and 0.9 or 0.45)
+    if self.box.SetBackdropBorderColor then self.box:SetBackdropBorderColor(col[1], col[2], col[3], 1) end
+    self.pic:Hide(); self.gearIcon:Show(); self.gearIcon:SetTexture(TCF.Icon(it.icon))
+    self.icon:SetTexture(nil)
+    self.name:SetText(it.name); self.name:SetTextColor(col[1], col[2], col[3])
+    self.kind:SetText(string.format("%s %s %s  |cffffd100Item Level %d|r", TCF.RARITY[it.q].name, TCF.ITEM_TYPE_NAMES[it.sub] or "", TCF.ITEM_SLOT_NAMES[it.slot] or "", it.ilvl))
+    local d = TCF.GearUpgrade and TCF:GearUpgrade(it)
+    local status = isNew and "|cff20ff20NEW gear!|r" or ("|cffaaaaaaAnother copy (you have " .. (TCF.db.gear[it.id] or 1) .. ")|r")
+    if d and d > 0 then status = status .. "  |cff20ff20Upgrade: +" .. d .. " power|r" end
+    if not TCF:GearUsable(it, TCF.db.class) then status = status .. "\n|cffff8040Your current class can't use it.|r" end
+    self.status:SetText(status)
+    local canEquip = TCF:CanEquipGear(it, TCF.db.class)
+    self.equip:SetShown(canEquip and true or false)
+    local left = chestKey and (TCF.db.keys[chestKey] or 0) or 0
+    self.again:SetShown(left > 0)
+    self.again:SetText("Open another (" .. left .. ")")
+    self.age = 0
+    self:Show()
+    if it.q >= 4 then TCF:PlaySound("rare") end
+  end
+
   function f:Next(skipQueue)
     table.remove(revealQueue, 1)
     if not skipQueue and revealQueue[1] then self:Show1(revealQueue[1]) else self:Hide() end
@@ -1187,9 +1146,9 @@ function TCF:CreateLootReveal()
   return f
 end
 
-function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey)
+function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   local f = self.lootReveal or self:CreateLootReveal()
-  table.insert(revealQueue, { it, isNew, salvage, title, chestKey })
+  table.insert(revealQueue, { it, isNew, salvage, title, chestKey, isGear })
   if #revealQueue == 1 or not f:IsShown() then
     if not f:IsShown() then while #revealQueue > 1 do table.remove(revealQueue, 1) end end
     f:Show1(revealQueue[1])
@@ -1217,7 +1176,7 @@ function TCF:CreateBag()
     r.count = Text(r, "NumberFontNormalLarge", nil, "RIGHT"); r.count:SetPoint("BOTTOMRIGHT", ic, "BOTTOMRIGHT", 2, -2)
     local n = Text(r, "GameFontNormal", ch.name, "LEFT"); n:SetPoint("TOPLEFT", ic, "TOPRIGHT", 8, -2)
     local d = Text(r, "GameFontDisableSmall", nil, "LEFT"); d:SetPoint("BOTTOMLEFT", ic, "BOTTOMRIGHT", 8, 2)
-    d:SetText(({ pouch = "From daily quests", strong = "Dungeons, weekly quest, levels", heroic = "Raids, every 20 levels" })[ch.key])
+    d:SetText(({ pouch = "Daily quests, dungeons below 20", strong = "Dungeons 20+, weekly quest, levels", heroic = "Raids, zone clears, 20 levels" })[ch.key])
     r.open = Button(r, "Open", 60, 22, function() TCF:OpenChest(ch.key, true) end); r.open:SetPoint("RIGHT", -8, 0)
     Tip(r, function(tt)
       tt:AddLine(ch.name, 1, 0.82, 0)

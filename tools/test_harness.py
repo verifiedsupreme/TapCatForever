@@ -28,6 +28,7 @@ local KNOWN_EVENTS = { ADDON_LOADED = 1, PLAYER_LOGIN = 1, PLAYER_REGEN_ENABLED 
   UNIT_SPELLCAST_SUCCEEDED = 1, PLAYER_ENTERING_WORLD = 1, ZONE_CHANGED_NEW_AREA = 1, ENCOUNTER_END = 1,
   LFG_COMPLETION_REWARD = 1 } -- SENT left out on purpose to exercise the fallback
 _inInstance = false
+function UnitLevel() return 25 end
 function IsInInstance() if _inInstance then return true, _inInstance end return false, "none" end
 function GetInstanceInfo() return "The Deadmines", _inInstance, 1, "Normal", 5, 0, false, 36 end
 function UnitClass() return "Mage", "MAGE" end
@@ -162,7 +163,7 @@ TEST = r'''
       win.slot = s.key; win.page = 1; win:RefreshWardrobe()
     end
     -- hit every tab via its functions
-    for tab = 1, 6 do win.tab = tab; win:Refresh() end
+    for tab = 1, 10 do win:SelectTab(tab) end
     win.acScroll = 100; win:RefreshAchievements()
     for i = 1, 200 do _update(0.05) end
     -- pet the cat
@@ -192,15 +193,15 @@ TEST = r'''
     _fire("GLOBAL_MOUSE_DOWN", "LeftButton"); assert(catobj.lastSide == "L")
     _fire("GLOBAL_MOUSE_DOWN", "RightButton"); assert(catobj.lastSide == "R")
     -- Adventure: watch the tab and simulate 30 minutes of fighting
-    win.tab = 2; win:Refresh()
+    win:SelectTab(2)
     TCF.advWatching = true
     local adv = TCF:CD().adv
     for i = 1, 7200 do
       _update(0.25)
       if i % 4 == 0 then kb.scripts.OnKeyDown(kb, "Q") end
     end
-    print(string.format("adventure: tier %d stage %d best %d kills %d bosses %d atk %.0f hp %.0f",
-      adv.tier, adv.stage, adv.best, adv.kills, adv.bossKills, TCF:AdvStats().atk, TCF:AdvStats().hp))
+    print(string.format("adventure: tier %d stage %d best %d kills %d bosses %d dps %.0f hp %.0f",
+      adv.tier, adv.stage, adv.best, adv.kills, adv.bossKills, TCF:CombatStats().dps, TCF:CombatStats().hp))
     for i = 1, 5 do print("  log: " .. (TCF.advLog[i] or "")) end
     TCF:AdvStep(-1); TCF:AdvStep(1); TCF:AdvStep(50)
     -- quests: finish and claim
@@ -208,7 +209,7 @@ TEST = r'''
     local pouchBefore = TCF.db.keys.pouch
     for _, q in ipairs(TCF.db.quests.daily) do q.base = -1e9 end
     TCF.db.quests.weekly[1].base = -1e9
-    win.tab = 3; win:Refresh()
+    win:SelectTab(7)
     for _, q in ipairs(TCF.db.quests.daily) do TCF:ClaimQuest(q) end
     TCF:ClaimQuest(TCF.db.quests.weekly[1])
     assert(TCF.db.keys.pouch == pouchBefore + 3, "daily quests should give pouches")
@@ -233,8 +234,61 @@ TEST = r'''
     _inInstance = "raid"; _fire("PLAYER_ENTERING_WORLD"); _fire("LFG_COMPLETION_REWARD"); _fire("LFG_COMPLETION_REWARD")
     assert(TCF.db.keys.heroic == heroicBefore + 1, "raid completion once")
     _inInstance = false; _fire("PLAYER_ENTERING_WORLD")
+    -- real gear: equip the best usable item in every slot, tooltips, selling
+    TCF:SetClass("WARRIOR")
+    TCF:CD().level = 60
+    local equipped = 0
+    for i = 1, 400 do
+      local it = TCF:RollWorldLoot(math.random(1, 60), "WARRIOR")
+      if it then TCF:GrantGear(it, "test") end
+    end
+    for id in pairs(TCF.db.gear) do
+      local it = TCF.GEAR[id]
+      if TCF:CanEquipGear(it, "WARRIOR") and (TCF:GearUpgrade(it) or 0) > 0 then if TCF:EquipGear(id) then equipped = equipped + 1 end end
+      TCF:GearTooltip(GameTooltip, it)
+    end
+    local cs = TCF:CombatStats("WARRIOR")
+    print(string.format("gear: owned %d kinds, equipped upgrades %d, power %d dps %.1f hp %d ilvl %d", (function() local n=0 for _ in pairs(TCF.db.gear) do n=n+1 end return n end)(), equipped, cs.power, cs.dps, cs.hp, cs.ilvl))
+    local look = TCF:GetAppearance("WARRIOR")
+    print("  gear look:", look.head and look.head.art, look.chest and look.chest.art, look.main and look.main.art, look.off and look.off.art)
+    win:SelectTab(1); win.gearSlot = "HEAD"; win:Refresh(); win.gearSlot = nil; win:Refresh()
+    for id in pairs(TCF.db.gear) do TCF:SellGear(id, true) end
+    -- abilities: learn everything affordable
+    TCF:AddCoins(50000)
+    for _, cl in ipairs(TCF.CLASSES) do
+      TCF:CD(cl.key).level = 60
+      for _, a in ipairs(TCF.ABILITIES[cl.key]) do TCF:LearnAbility(cl.key, a.key) end
+    end
+    win:SelectTab(3)
+    -- adventure in a raid with abilities, models and events
+    TCF:AdvGoTo(23, 1); win:SelectTab(2)
+    for i = 1, 2400 do _update(0.25) end
+    print("adventure raid: tier", TCF:CD().adv.tier, "stage", TCF:CD().adv.stage, "best", TCF:CD().adv.best)
+    -- expeditions: send two parties, fast-forward, claim
+    assert(TCF:StartExpedition("dm", { "MAGE", "ROGUE", "PRIEST" }))
+    assert(TCF:StartExpedition("naxx", { "HUNTER", "DRUID", "SHAMAN" }))
+    assert(not TCF:StartExpedition("elwynn", { "WARRIOR", "PALADIN", "WARLOCK" }), "max 2 expeditions")
+    TCF:SetClass("MAGE"); for i = 1, 8 do _update(0.25) end
+    assert(TCF.advRun.away, "mage should be away")
+    win:SelectTab(4)
+    for _, ex in ipairs(TCF.db.expeditions.active) do ex.finish = time() - 1 end
+    TCF:ClaimExpedition(1); TCF:ClaimExpedition(1)
+    assert(#TCF.db.expeditions.active == 0)
+    -- professions: learn two, gather 12h offline, craft
+    assert(TCF:LearnProfession("mining")); assert(TCF:LearnProfession("fishing")); assert(not TCF:LearnProfession("herbalism"))
+    local ps = TCF:ProfState()
+    ps.last.mining = time() - 13 * 3600; ps.last.fishing = time() - 3600
+    TCF:ProfessionsTick(true)
+    print("professions: mining", ps.skill.mining, "fishing", ps.skill.fishing, "copper", ps.mats.copper, "smallfish", ps.mats.smallfish)
+    ps.skill.mining = 300; ps.mats.arcane = 5; ps.mats.thorium = 50
+    assert(TCF:Craft(TCF.RECIPES.mining[5]), "craft arcanite reaper")
+    assert(TCF.db.owned["craft_arcanite_reaper"])
+    TCF:SellMaterial("copper", 5)
+    win:SelectTab(5)
+    TCF:UnlearnProfession("fishing")
+    win:SelectTab(5)
     -- paperdoll click (right click unequips, left click jumps to the wardrobe)
-    for tab = 1, 6 do win.tab = tab; win:Refresh() end
+    for tab = 1, 10 do win:SelectTab(tab) end
     for i = 1, 20 do _update(0.25) end
     print("coins now", TCF.db.coins, "quests done", TCF.db.stats.questsDone, "dungeons", TCF.db.stats.dungeons, "raids", TCF.db.stats.raids)
     -- migration from v1 save (shared level)
@@ -258,7 +312,8 @@ TEST = r'''
     for i = #_chat - 3, #_chat do print("  " .. _chat[i]) end
     '''
 
-def main():
+def load_addon(login=True):
+    """Loads every file in the TOC into a sandboxed Lua 5.1 with the mocked WoW API."""
     lua = L.LuaRuntime(unpack_returned_tuples=True)
     lua.execute(MOCK)
     ns = lua.eval("{}")
@@ -269,6 +324,12 @@ def main():
         chunk = lua.execute("return function(src, name) return assert(loadstring(src, name)) end")(src, "@" + fn)
         lua.execute("return function(f) setfenv(f, setmetatable({ os = false, io = false, require = false, loadfile = false, dofile = false }, { __index = _G, __newindex = _G })) end")(chunk)
         chunk("TapCatForever", ns)
+    if login:
+        lua.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+    return lua
+
+def main():
+    lua = load_addon(login=False)
     lua.execute("_artcheck = {}")
     lua.execute(TEST)
     art = os.path.join(ROOT, "Art")

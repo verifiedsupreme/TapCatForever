@@ -14,7 +14,8 @@ local COUNTERS = {
   frenzies  = function(db) return db.stats.frenzies end,
   levels    = function(db) local n = 0; for _, cd in pairs(db.classData) do n = n + cd.level end; return n end,
   dungeons  = function(db) return db.stats.dungeons or 0 end,
-  stages    = function(db) local n = 0; for _, cd in pairs(db.classData) do n = n + cd.adv.best end; return n end,
+  expeditions = function(db) return db.stats.expeditionsSent or 0 end,
+  stages    = function(db) local n = 0; for _, cd in pairs(db.classData) do n = n + (cd.adv.newStages or 0) end; return n end,
 }
 
 -- name, description (%s = goal), counter, goals, coin reward per goal step, icon
@@ -28,6 +29,7 @@ TCF.QUEST_TEMPLATES = {
     { "Frenzied Paws",       "Enter a Paw Frenzy %s times.",            "frenzies", { 2, 5 },             { 25, 45 },      "Ability_Druid_Berserk" },
     { "Growing Up",          "Gain %s level(s) on any class.",          "levels",   { 1, 2 },             { 35, 60 },      "Spell_Holy_SealOfMight" },
     { "Dungeon Run",         "Finish %s real dungeon(s) in WoW.",       "dungeons", { 1 },                { 60 },          "INV_Misc_Key_03" },
+    { "Send Them Off",       "Send %s expedition(s).",                  "expeditions", { 1, 2 },          { 30, 55 },      "INV_Misc_Map_01" },
     { "Into the Unknown",    "Clear %s new Adventure stage(s).",        "stages",   { 3, 6 },             { 30, 55 },      "INV_Misc_Map_01" },
   },
   weekly = {

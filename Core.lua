@@ -82,7 +82,8 @@ local DEFAULTS = {
   taps = 0,
   classData = {},   -- per class: level, xp, adventure progress
   coins = 0, coinsEarned = 0, coinsSpent = 0, coinFrac = 0,
-  owned = {},
+  owned = {},       -- cosmetics
+  gear = {},        -- real gear: itemID -> count
   class = nil,
   loadouts = {},
   look = { fur = "fur_ginger", pattern = nil },
@@ -114,16 +115,8 @@ function TCF:InitDB()
     db.look.fur = cl.fur
   end
   for _, id in ipairs(TCF.STARTER) do db.owned[id] = db.owned[id] or 1 end
-  for _, cl in ipairs(TCF.CLASSES) do
-    if not db.loadouts[cl.key] then
-      local lo = {}
-      for _, g in ipairs(cl.gear) do
-        if g[1] == "chest" and not lo.chest then lo.chest = cl.key .. ":" .. g[2] .. ":1" end
-        if g[1] == "main" and not lo.main then lo.main = cl.key .. ":" .. g[2] .. ":1" end
-      end
-      db.loadouts[cl.key] = lo
-    end
-  end
+  -- cosmetic overrides per class (empty = the cat shows its real gear)
+  for _, cl in ipairs(TCF.CLASSES) do db.loadouts[cl.key] = db.loadouts[cl.key] or {} end
   -- drop references to items that no longer exist
   for id in pairs(db.owned) do if not TCF.ITEMS[id] then db.owned[id] = nil end end
   for _, lo in pairs(db.loadouts) do
@@ -141,6 +134,8 @@ function TCF:InitDB()
     db.classData[cl.key] = cd
     cd.level = cd.level or 1
     cd.xp = cd.xp or 0
+    cd.gear = cd.gear or {}
+    cd.abilities = cd.abilities or {}
     cd.adv = cd.adv or {}
     local adv = cd.adv
     adv.tier = adv.tier or 1
@@ -149,8 +144,20 @@ function TCF:InitDB()
     if adv.auto == nil then adv.auto = true end
     adv.kills = adv.kills or 0
     adv.bossKills = adv.bossKills or 0
+    adv.cleared = adv.cleared or {}
+    adv.newStages = adv.newStages or 0
   end
-  db.version = 2
+  -- v2 -> v3: real gear. Every class starts with a simple weapon.
+  if (db.version or 0) < 3 and self.StarterGear then
+    for _, cl in ipairs(TCF.CLASSES) do
+      self:StarterGear(cl.key)
+      db.loadouts[cl.key] = {}   -- show real gear instead of the old starter cosmetics
+      -- Adventure now runs through real dungeons with new stage numbering
+      local adv = db.classData[cl.key].adv
+      adv.tier, adv.stage, adv.best, adv.cleared = 1, 1, 0, {}
+    end
+  end
+  db.version = 3
   db.stats.classesPlayed[db.class] = true
 end
 
@@ -161,9 +168,10 @@ function TCF:CD(class) return self.db.classData[class or self.db.class] end
 function TCF:GetLoadout(class) return self.db.loadouts[class or self.db.class] end
 
 -- Returns a flat table slot -> item for drawing, optionally with one item previewed.
+-- The cat wears its real gear; a cosmetic chosen for a slot overrides it (transmog).
 function TCF:GetAppearance(class, previewItem)
   local lo = self:GetLoadout(class)
-  local out = {}
+  local out = self.GearAppearance and self:GearAppearance(class) or {}
   for slot, id in pairs(lo) do out[slot] = TCF.ITEMS[id] end
   out.fur = TCF.ITEMS[self.db.look.fur]
   out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil
@@ -356,7 +364,7 @@ function TCF:RollItem(rarity, preferUnowned)
   local wantClass = random() < 0.65
   local pools = { {}, {} } -- [1] unowned, [2] all
   for _, it in ipairs(TCF.ITEM_LIST) do
-    if it.rarity == rarity and it.source ~= "achievement" then
+    if it.rarity == rarity and it.source == "loot" then
       local fits = wantClass and (it.class == class) or (not wantClass and it.class ~= class)
       if fits then
         pools[2][#pools[2] + 1] = it
@@ -366,7 +374,7 @@ function TCF:RollItem(rarity, preferUnowned)
   end
   if #pools[2] == 0 then -- fallback to anything of that rarity
     for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.rarity == rarity and it.source ~= "achievement" then pools[2][#pools[2] + 1] = it end
+      if it.rarity == rarity and it.source == "loot" then pools[2][#pools[2] + 1] = it end
     end
   end
   local pool = (preferUnowned and #pools[1] > 0 and random() < 0.85) and pools[1] or pools[2]
@@ -429,7 +437,28 @@ function TCF:OpenChest(key, useKey)
     return
   end
   self.db.stats.chests = self.db.stats.chests + 1
-  local it = self:RollItem(self:RollRarity(ch.weights), true)
+  local rarity = self:RollRarity(ch.weights)
+  -- 65%: real gear for your current class and level; 35%: a cosmetic
+  if self.RollWorldLoot and random() < 0.65 then
+    local level = self:CD().level
+    local gear
+    if rarity >= 5 then
+      -- legendary roll: a raid boss item
+      local raids = {}
+      for i, t in ipairs(TCF.TIERS) do if t.raid then raids[#raids + 1] = i end end
+      local ti = raids[random(#raids)]
+      gear = self:RollBossLoot(ti, random(#TCF.TIERS[ti].bosses))
+    else
+      local q = max(2, min(4, rarity))
+      gear = self:RollWorldLoot(level, nil, { q == 2 and 1 or 0, q == 3 and 1 or 0, q == 4 and 1 or 0 })
+    end
+    if gear then
+      local isNew = self:GrantGear(gear, ch.name, true, key)
+      self.lastChest = { gear = gear, isNew = isNew }
+      return gear, isNew
+    end
+  end
+  local it = self:RollItem(rarity, true)
   local isNew, salvage = self:GrantItem(it, ch.name, true, key)
   self.lastChest = { item = it, isNew = isNew, salvage = salvage }
   return it, isNew, salvage
@@ -473,7 +502,7 @@ function TCF:BuildShop(force)
     local wantClass = #stock < 2
     local cands = {}
     for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.rarity == r and it.source ~= "achievement" and not used[it.id] and not self.db.owned[it.id]
+      if it.rarity == r and it.source == "loot" and not used[it.id] and not self.db.owned[it.id]
         and ((wantClass and it.class == self.db.class) or (not wantClass and it.class ~= self.db.class)) then
         cands[#cands + 1] = it
       end
@@ -542,10 +571,17 @@ function TCF:GetStat(stat)
     local best = 1
     for _, cd in pairs(db.classData) do if cd.level > best then best = cd.level end end
     return best
+  elseif stat == "epicGear" or stat == "legendGear" then
+    local q, n = stat == "epicGear" and 4 or 5, 0
+    for id in pairs(db.gear) do local it = TCF.GEAR[id]; if it and it.q == q then n = n + 1 end end
+    return n
   elseif stat == "advTier" or stat == "bossKills" then
     local best, kills = 0, 0
     for _, cd in pairs(db.classData) do
-      best = max(best, floor(cd.adv.best / 10))
+      local b = cd.adv.best
+      local bt = floor(b / 100)
+      if bt >= 1 and TCF.TIERS[bt] and b < bt * 100 + #TCF.TIERS[bt].bosses * 2 then bt = bt - 1 end
+      best = max(best, bt)
       kills = kills + cd.adv.bossKills
     end
     return stat == "advTier" and best or kills
@@ -616,6 +652,8 @@ ticker:SetScript("OnUpdate", function(_, elapsed)
   if not self.db then return end
   if self.inFrenzy and GetTime() > (self.frenzyUntil or 0) then self.inFrenzy = false end
   if self.AdvTick then self:AdvTick(0.25) end
+  self.profTimer = (self.profTimer or 0) + 1
+  if self.profTimer >= 20 and self.ProfessionsTick then self.profTimer = 0; self:ProfessionsTick() end
   if self.dirty then
     self.dirty = false
     self:CheckAchievements()
@@ -647,6 +685,7 @@ ev:SetScript("OnEvent", function(_, event, a1)
     TCF:SetupKeyboard()
     TCF:CheckDaily()
     TCF:EnsureQuests()
+    TCF:ProfessionsTick(true)
     TCF:BuildShop()
     TCF:RefreshAll()
     TCF:MarkDirty()
