@@ -180,6 +180,8 @@ local function applyPart(t, art, color, alpha)
 end
 
 -- look: slot -> item (from TCF:GetAppearance)
+-- The cat is pixel art. (3D WoW cat models were tried and turned off; set USE_3D to try again.)
+TCF.USE_3D = false
 -- 3D pose: sitting, facing you, framed from the chest up like the pixel cat
 local ANIM_SIT, ANIM_SWIPE = 97, 16
 TCF.CAT3D = { facing = 0, zoom = 0.35, sit = ANIM_SIT,
@@ -199,7 +201,7 @@ function Cat:ApplyAppearance(look)
   local tex = self.tex
   -- 3D style: a real WoW cat model; pixel style: the layered pixel-art cat
   local disp
-  if TCF.db and not self.force2d and not self.opts.pixelOnly then
+  if TCF.USE_3D and TCF.db and not self.force2d and not self.opts.pixelOnly then
     local skin = look.skin
     disp = (skin and skin.display3d) or (look.fur and FUR_3D[look.fur.id]) or 5554
   end

@@ -158,11 +158,8 @@ function TCF:InitDB()
     db.look.fur = cl.fur
   end
   for _, id in ipairs(TCF.STARTER) do db.owned[id] = db.owned[id] or 1 end
-  -- every character starts with a basic Orange Tabby
-  if not db.owned.skin_orange then
-    db.owned.skin_orange = 1
-    if not db.look.skin then db.look.skin = "skin_orange" end
-  end
+  -- every character owns a basic Orange Tabby skin
+  db.owned.skin_orange = db.owned.skin_orange or 1
   -- cosmetic overrides per class (empty = the cat shows its real gear)
   for _, cl in ipairs(TCF.CLASSES) do db.loadouts[cl.key] = db.loadouts[cl.key] or {} end
   -- drop references to items that no longer exist
@@ -226,7 +223,7 @@ function TCF:GetAppearance(class, previewItem)
   out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil
   out.skin = self.db.look.skin and TCF.ITEMS[self.db.look.skin] or nil
   -- racial accessory can be hidden in Settings
-  if not self.db.ui.racial and out.effect and out.effect.source == "race" then out.effect = nil end
+  if not self.db.ui.racial and out.acc and out.acc.source == "race" then out.acc = nil end
   if previewItem then out[previewItem.slot] = previewItem end
   return out
 end
@@ -665,7 +662,7 @@ function TCF:BuyRaceAccessory()
   self.db.ui.racial = true
   for _, cl in ipairs(TCF.CLASSES) do
     local lo = self:GetLoadout(cl.key)
-    if not lo.effect then lo.effect = it.id end
+    if not lo.acc then lo.acc = it.id end
   end
   self:Print(string.format("Your cat shows its %s pride: %s!", raceName or "racial", TCF.ItemLink(it)))
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end

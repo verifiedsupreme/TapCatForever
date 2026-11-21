@@ -11,14 +11,12 @@
 - Real dungeons: below level 20 you get a Cat Treat Pouch, from 20 an Adventurer's Strongbox (chance of a Heroic Cache, higher from 50); raids give a Heroic Cache.
 - Chests now hold real gear (65%) or cosmetics (35%). Epic and Legendary gear is deliberately rare.
 - Appearance only shows cosmetics you've unlocked.
-- **3D cats only**: your cat is a real, animated WoW cat model. It sits facing you and swipes on every key press. Start as an Orange Tabby and collect 29 cats: house cats, saber and panther mounts, a lynx, the Spectral Tiger, and achievement-only cats like Mr. Bigglesworth (defeat Kel'Thuzad), the Primal Flamesaber (clear Molten Core) and the Jeweled Onyx Panther (clear AQ40).
-- **Weapons in the 3D cat's paws**: your real equipped weapon and shield models are shown in the 3D cat's paws (armor can't be fitted to cat models; it shows on the pixel cat).
 - **Gear try-on**: hover gear to see it on your own WoW character.
 - **Per-character progress**: gear, cosmetics, skins, chests, professions, cat levels, abilities and Adventure belong to each character; TapCoins, quests, streak and achievements are shared.
 - Adventure waits for you to press Start; only the selected class's cat fights. Rewards are mostly chests. Every enemy is shown as a model, and Elwynn Forest and Westfall have painted scenes.
 - Loot from chests and bosses suits your class (no caster staves for Warriors). The loot box shows what else is waiting and has "OK to all".
-- **New collection**: cosmetics are now 3D cats (68, from house cats to warsabers and jeweled panthers) and effects around the cat (104 colour variants of 13 styles plus class, crafted and achievement effects). The old pixel hats, robes and accessories are retired.
-- Racial auras (Light of Stormwind, Blood of the Horde, Elune's Moonlight...) are bought in the Shop.
+- Racial heritage pieces are bought in the Shop.
+- More to collect: 104 colour variants of 13 effect styles, and cat skins from tabbies to sabers and achievement cats like Mr. Bigglesworth.
 - New "Text size" setting, separate from cat size, so a tiny cat can keep readable text.
 - New quests and achievements for gear, expeditions and crafting.
 
