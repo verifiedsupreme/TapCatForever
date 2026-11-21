@@ -29,4 +29,4 @@ Copy the `TapCatForever` folder to `World of Warcraft\_forever_\Interface\AddOns
 - `python3 tools/make_art.py` regenerates every texture in `Art/` and `ArtData.lua`.
 - `python3 tools/preview.py out.png` renders a sheet of outfits.
 - `python3 tools/test_harness.py` runs the addon against a mocked WoW API (needs `pip install lupa`).
-- Releases: pushing a tag like `v1.0.1` runs `.github/workflows/release.yml`, which packages the addon and uploads it to CurseForge.
+- Releases: bump `## Version:` in `TapCatForever.toc`, add a CHANGELOG entry, then push to the `release` branch (or push a tag like `v1.1.1`). `.github/workflows/release.yml` tags the version, packages the addon and uploads it to CurseForge.
