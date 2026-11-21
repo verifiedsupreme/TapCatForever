@@ -74,18 +74,14 @@ function TCF:ShowFeedback()
   f:Show()
 end
 
--- /tcf feedback (wraps the main slash handler so other files can stay as they are)
+-- /tcf feedback (wraps the slash handler when this file loads, like Compendium.lua)
 do
-  local function hook()
-    local orig = SlashCmdList and SlashCmdList.TAPCATFOREVER
-    if not orig or TCF.feedbackSlash then return end
+  local orig = SlashCmdList and SlashCmdList.TAPCATFOREVER
+  if orig and not TCF.feedbackSlash then
     TCF.feedbackSlash = true
-    SlashCmdList.TAPCATFOREVER = function(msg)
+    SlashCmdList.TAPCATFOREVER = function(msg, ...)
       if (msg or ""):lower():match("^%s*feedback") then return TCF:ShowFeedback() end
-      return orig(msg)
+      return orig(msg, ...)
     end
   end
-  local ev = CreateFrame("Frame")
-  ev:RegisterEvent("PLAYER_LOGIN")
-  ev:SetScript("OnEvent", hook)
 end

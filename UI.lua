@@ -1237,7 +1237,7 @@ function TCF:CreateWindow()
 
   function win:RefreshSettings()
     testBox:SetShown(ui.testMode and true or false)
-    local note = "Play with friends: each group member who also has TapCatForever makes your taps count 10% more, up to +50%."
+    local note = "Play with friends: your taps count 20% more with one friend who has TapCatForever, and 10% more for each friend after that, up to +50% with a full party."
     local friends = TCF.PartyCount and TCF:PartyCount() or 0
     if friends > 0 then note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)) end
     partyNote:SetText(note)
@@ -1454,7 +1454,12 @@ function TCF:CreateLootReveal()
     local key = f.chestKey
     f:Next(true)
     -- the box is hidden for the reel, so tell the pop-up gate this open came from a click here
-    if key then TCF.forceReveal = true; TCF:OpenChest(key, true); TCF.forceReveal = nil end
+    if key then
+      TCF.forceReveal = true
+      local ok, err = pcall(TCF.OpenChest, TCF, key, true)
+      TCF.forceReveal = nil   -- always cleared, even if opening failed
+      if not ok then error(err, 0) end
+    end
   end)
   f.again:SetPoint("BOTTOMLEFT", 18, 16)
   function f:UpdateQueue()

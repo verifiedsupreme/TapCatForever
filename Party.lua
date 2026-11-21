@@ -1,7 +1,7 @@
 -- TapCatForever: party cats. Group members who also run TapCatForever say hello over a hidden
--- addon channel; their cats sit in a little row beside yours. Each of them makes your taps count
--- 10% more, up to +50% with five (tap count, cat XP and TapCoins from tapping; Core.lua TCF:Tap
--- asks TCF:PartyTapMult). Lucky finds and chests are unchanged.
+-- addon channel; their cats sit in a little row beside yours, and your taps count more: +20% with
+-- one of them, +10% for each one after that, up to +50% with a full party (tap count, cat XP and
+-- TapCoins from tapping; Core.lua TCF:Tap asks TCF:PartyTapMult). Lucky finds and chests are unchanged.
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel only, every field checked):
 --   H1;<class>;<level>;<fur>;<pattern>;<skin>;<slot>=<id>,<slot>=<id>...   hello, please answer
@@ -87,6 +87,10 @@ local function roster()
     local unit = (raid and "raid" or "party") .. i
     local exists = not UnitExists or UnitExists(unit)
     if isSecret(exists) then complete = false
+    elseif exists and isSecret(UnitIsConnected and UnitIsConnected(unit)) then
+      complete = false  -- can't tell: don't prune anyone on a guess
+    elseif exists and UnitIsConnected and UnitIsConnected(unit) == false then
+      -- offline: left out, so they're pruned and stop counting toward the bonus
     elseif exists then
       local name, realm = UnitName(unit)
       if type(name) ~= "string" or isSecret(name) or isSecret(realm)
@@ -224,11 +228,13 @@ function TCF:PartyCount()
   return n + #fakes
 end
 
--- each tap counts as this many taps: +10% for every other group member who has the addon,
--- up to five of them (1.0 .. 1.5)
-TCF.PARTY_TAP_EACH, TCF.PARTY_TAP_MAX_FRIENDS = 0.1, 5
+-- each tap counts as this many taps: +20% with the first group member who has the addon and
+-- +10% for each one after that, up to four (a full party): 1.0, 1.2, 1.3, 1.4, 1.5
+TCF.PARTY_TAP_FIRST, TCF.PARTY_TAP_EACH, TCF.PARTY_TAP_MAX_FRIENDS = 0.2, 0.1, 4
 function TCF:PartyTapMult()
-  return 1 + TCF.PARTY_TAP_EACH * math.min(TCF.PARTY_TAP_MAX_FRIENDS, self:PartyCount())
+  local n = math.min(TCF.PARTY_TAP_MAX_FRIENDS, self:PartyCount())
+  if n <= 0 then return 1 end
+  return 1 + TCF.PARTY_TAP_FIRST + TCF.PARTY_TAP_EACH * (n - 1)
 end
 -- older name kept for anything that still asks
 function TCF:PartyBonus() return self:PartyTapMult() end
@@ -300,7 +306,7 @@ local function tooltip(btn)
   local cl = TCF.CLASS_BY_KEY[m.class]
   if cl then tt:AddLine(string.format("Level %d %s cat", m.level or 1, cl.name), cl.color[1], cl.color[2], cl.color[3]) end
   if m.fake then tt:AddLine("Test party cat (test mode only)", 0.7, 0.7, 0.7) end
-  tt:AddLine("Party bonus: your taps count 10% more for each friend with TapCatForever (up to +50%)", 0.4, 1, 0.4, true)
+  tt:AddLine("Party bonus: your taps count 20% more with one friend who has TapCatForever, and 10% more for each friend after that, up to +50% with a full party.", 0.4, 1, 0.4, true)
   tt:Show()
 end
 
@@ -397,6 +403,14 @@ TCF.PartyRefresh = function() refreshRow() end
 
 ---------------------------------------------------------------- test mode
 -- Fake party cats so the row can be seen while playing alone. Test mode only (/tcf testmode).
+-- test mode off: fake cats go away (Core.lua's /tcf testmode calls this)
+function TCF:PartyTestClear()
+  if #fakes == 0 then return end
+  for i = #fakes, 1, -1 do fakes[i] = nil end
+  refreshRow()
+  if self.MarkDirty then self:MarkDirty() end
+end
+
 function TCF:PartyTestInject(n)
   if not (self.db and self.db.ui.testMode) then return end
   n = max(0, min(8, floor(tonumber(n) or 0)))
@@ -428,7 +442,7 @@ function TCF:PartyTestCount() return #fakes end
 
 ---------------------------------------------------------------- events
 local ev = CreateFrame("Frame")
-for _, e in ipairs({ "CHAT_MSG_ADDON", "GROUP_ROSTER_UPDATE", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED" }) do
+for _, e in ipairs({ "CHAT_MSG_ADDON", "GROUP_ROSTER_UPDATE", "UNIT_CONNECTION", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix, PREFIX) end
@@ -437,7 +451,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   if not TCF.db then return end
   if event == "CHAT_MSG_ADDON" then
     onMessage(a1, a2, a3, a4)
-  elseif event == "GROUP_ROSTER_UPDATE" then
+  elseif event == "GROUP_ROSTER_UPDATE" or event == "UNIT_CONNECTION" then
     onRoster()
   elseif event == "PLAYER_ENTERING_WORLD" then
     wasGrouped = false   -- login, reload or zoning: say hello again so friends answer

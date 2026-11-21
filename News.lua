@@ -60,6 +60,17 @@ function TCF:CheckNews()
   end
   local n = self:CurrentNews()
   self.newsStrip = self.newsStrip or createStrip(win)
+  -- above the window when there's room, otherwise below it, otherwise just inside its top edge
+  local strip = self.newsStrip
+  strip:ClearAllPoints()
+  local top, bottom = win.GetTop and win:GetTop(), win.GetBottom and win:GetBottom()
+  local ptop = UIParent.GetTop and UIParent:GetTop()
+  if type(top) == "number" and type(ptop) == "number" and top + 50 > ptop then
+    if type(bottom) == "number" and bottom - 50 >= 0 then strip:SetPoint("TOP", win, "BOTTOM", 0, -2)
+    else strip:SetPoint("TOP", win, "TOP", 0, -44) end
+  else
+    strip:SetPoint("BOTTOM", win, "TOP", 0, 2)
+  end
   self.newsStrip.text:SetText("|cffffd100What's new in " .. majorOf(n.version) .. ":|r " .. n.highlight)
   self.newsStrip:Show()
   self.db.newsShows = (self.db.newsShows or 0) + 1
@@ -155,19 +166,23 @@ do
   ev:SetScript("OnEvent", function()
     local db = TCF.db
     -- brand-new players see the welcome tour, not "what's new"
-    if db and not db.welcomed then
+    if db and not db.welcomed and (db.taps or 0) == 0 then
       local n = TCF:CurrentNews()
       if n then db.newsSeen = majorOf(n.version) end
     end
-    local orig = SlashCmdList and SlashCmdList.TAPCATFOREVER
-    if orig and not TCF.newsSlash then
-      TCF.newsSlash = true
-      local WORDS = { news = true, patchnotes = true, notes = true, changelog = true, whatsnew = true }
-      SlashCmdList.TAPCATFOREVER = function(msg, ...)
-        local cmd = (msg or ""):lower():match("^%s*(%S*)")
-        if WORDS[cmd] then return TCF:ShowPatchNotes() end
-        return orig(msg, ...)
-      end
-    end
   end)
+end
+
+-- /tcf news (wraps the slash handler when this file loads, like Compendium.lua)
+do
+  local orig = SlashCmdList and SlashCmdList.TAPCATFOREVER
+  if orig and not TCF.newsSlash then
+    TCF.newsSlash = true
+    local WORDS = { news = true, patchnotes = true, notes = true, changelog = true, whatsnew = true }
+    SlashCmdList.TAPCATFOREVER = function(msg, ...)
+      local cmd = (msg or ""):lower():match("^%s*(%S*)")
+      if WORDS[cmd] then return TCF:ShowPatchNotes() end
+      return orig(msg, ...)
+    end
+  end
 end

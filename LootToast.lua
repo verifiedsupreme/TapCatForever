@@ -1,9 +1,8 @@
--- TapCatForever: small loot notices. Gear (from anywhere, chests included) and cosmetics you
--- find (Adventure, quests, expeditions, crafting, the shop...) go straight into your bags and a
--- little notice slides in instead of the big loot box. Hover a notice to see the item (gear is
--- compared with what your cat is wearing), click it to open the Gear or Appearance tab,
--- right-click to dismiss. A cosmetic from a chest you open still plays the reel and shows the
--- loot box, and "Open all" lists everything in the loot window.
+-- TapCatForever: small loot notices. Gear and cosmetics you find (Adventure, quests,
+-- expeditions, crafting, the shop...) go straight into your bags and a little notice slides in
+-- instead of the big loot box. Hover a notice to see the item (gear is compared with what your
+-- cat is wearing), click it to open the Gear or Appearance tab, right-click to dismiss.
+-- Opening a chest yourself still plays the reel and shows the loot box.
 local ADDON, TCF = ...
 local min, max = math.min, math.max
 
@@ -65,6 +64,7 @@ local function getToast()
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     if self.isGear then TCF:GearTooltip(GameTooltip, self.item)
     elseif TCF.ItemTooltip then TCF:ItemTooltip(GameTooltip, self.item) end
+    if self.title and self.title ~= "" then GameTooltip:AddLine("From: " .. self.title, 0.8, 0.8, 0.8, true) end
     GameTooltip:AddLine("Click to open the " .. (self.isGear and "Gear" or "Appearance") .. " tab. Right-click to dismiss.", 0.6, 0.6, 0.6, true)
     GameTooltip:Show()
   end)
@@ -116,14 +116,12 @@ function TCF:ShowLootToast(it, isNew, salvage, title, isGear)
     elseif d and d > 0 then sub = "|cff20ff20+" .. d .. " Power|r if worn"
     elseif d and d < 0 then sub = "|cffff4040" .. d .. " Power|r if worn"
     else sub = "|cffaaaaaaSame Power as what you wear|r" end
-    sub = sub .. "  |cff888888- in your Gear bag|r"
   elseif it.slot == "skin" then
-    sub = "|cffcc88ffNew cat skin|r  |cff888888- wear it from Appearance|r"
+    sub = "|cffcc88ffNew cat skin|r"
   else
-    sub = isNew and "|cffcc88ffCosmetic|r  |cff888888- new, in Appearance|r"
-      or string.format("|cffcc88ffCosmetic|r  |cff888888- duplicate, salvaged for %d TapCoins|r", salvage or 0)
+    sub = isNew and "|cffcc88ffNew cosmetic|r" or string.format("|cffcc88ffDuplicate:|r +%d TapCoins", salvage or 0)
   end
-  if title and title ~= "" then sub = "|cffbbbbbb" .. title .. ":|r " .. sub end
+  t.title = title
   t.sub:SetText(sub)
   t:Show()
   layout()

@@ -52,7 +52,7 @@ Features
 
 **Play with friends**
 - Group up with friends who also have TapCatForever and their cats sit in a little row beside yours. Hover one to see whose cat it is.
-- Each of them makes your taps count 10% more, up to +50% with five friends: more tap progress, cat XP and TapCoins from tapping. It works in parties, raids and dungeon groups.
+- Your taps count 20% more with one of them and 10% more for each one after that, up to +50% with a full party: more tap progress, cat XP and TapCoins from tapping. It works in parties, raids and dungeon groups.
 - The addons find each other on their own, so there is nothing to set up. Invite a friend and play together.
 
 Getting started

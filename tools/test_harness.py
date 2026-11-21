@@ -811,13 +811,13 @@ TEST = r'''
     local function msg(text, sender, ch, prefix) _fire("CHAT_MSG_ADDON", prefix or _prefix, text, ch or "PARTY", sender) end
     TCF:SetClass("WARRIOR"); local aliceText = "H1;" .. TCF:PartyPayload("WARRIOR"); TCF:SetClass("MAGE")
     msg(aliceText, "Alice-Forever")
-    check(TCF:PartyCount() == 1 and near(TCF:PartyTapMult(), 1.1), "fake hello counted")
+    check(TCF:PartyCount() == 1 and near(TCF:PartyTapMult(), 1.2), "fake hello counted: +20%")
     local row = TapCatForeverPartyCats
     check(row and row:IsShown() and row.cells[1]:IsShown() and not row.cells[2]:IsShown(), "one small cat shown")
     for k = 1, 22 do _update(0.5) end
     check(#_sent == 2 and _sent[2][2]:match("^U1;"), "hello answered after the 10 s gap")
     msg("U1;ROGUE;12;fur_snow;;;h=nonexistent_hat", "Bob-OtherRealm")
-    check(TCF:PartyCount() == 2 and near(TCF:PartyTapMult(), 1.2) and row.cells[2]:IsShown(), "second friend: +20%")
+    check(TCF:PartyCount() == 2 and near(TCF:PartyTapMult(), 1.3) and row.cells[2]:IsShown(), "second friend: +30%")
     for _, t in ipairs({ "garbage", "H1;NOTACLASS;5;;;;", "H1;MAGE;abc;;;;", "H1;MAGE;0;;;;", "H1;MAGE;5;fur|cffff;;;", "H2;MAGE;5;;;;",
       "H1;MAGE;5;;;;" .. string.rep("h=x,", 80), "" }) do msg(t, "Mallory-Forever") end
     msg("H1;MAGE;5;;;;", "Eve-Forever", "WHISPER"); msg("H1;MAGE;5;;;;", "Eve-Forever", "GUILD")
@@ -829,12 +829,12 @@ TEST = r'''
     local got = TCF:EarnGold(100)
     check(near(got, 100 * (1 + 0.02 * ps.renown)), "Trade Gold is not boosted: " .. tostring(got))
     check(near(TCF:FoodBuff("xp"), xpAlone), "food XP buff unchanged by the party")
-    -- two friends: each tap counts 1.2, 10 taps -> 12 on the tap counter, 1.2x the cat XP
+    -- two friends: each tap counts 1.3, 10 taps -> 13 on the tap counter, 1.3x the cat XP
     do
       local taps0, xp0, lvl0 = TCF.db.taps, TCF:CD().xp, TCF:CD().level
       for k = 1, 10 do _clock = _clock + 0.5; TCF:Tap() end
-      check(TCF.db.taps - taps0 == 12, "party of 2 friends: 10 taps count as 12 (" .. (TCF.db.taps - taps0) .. ")")
-      if TCF:CD().level == lvl0 then check(near(TCF:CD().xp - xp0, 10 * 1.2 * xpAlone), "party: 1.2x cat XP from taps") end
+      check(TCF.db.taps - taps0 == 13, "party of 2 friends: 10 taps count as 13 (" .. (TCF.db.taps - taps0) .. ")")
+      if TCF:CD().level == lvl0 then check(near(TCF:CD().xp - xp0, 10 * 1.3 * xpAlone), "party: 1.3x cat XP from taps") end
     end
     local coinsP = TCF.db.coins; TCF:AddCoins(10); check(TCF.db.coins == coinsP + 10, "direct TapCoin awards are not boosted")
     _group.party3 = { _SECRET, nil }
@@ -844,7 +844,7 @@ TEST = r'''
     _raid, _group = true, {}
     for i, n in ipairs({ "Alice", "Cara", "Dan", "Fay", "Gus", "Hal" }) do _group["raid" .. i] = { n, nil }; msg("U1;HUNTER;" .. (10 + i) .. ";;;;", n .. "-Forever", "RAID") end
     _fire("GROUP_ROSTER_UPDATE")
-    check(TCF:PartyCount() == 6 and near(TCF:PartyTapMult(), 1.5), "six friends: capped at +50%: " .. TCF:PartyTapMult())
+    check(TCF:PartyCount() == 6 and near(TCF:PartyTapMult(), 1.5), "six friends: capped at +50% (four count): " .. TCF:PartyTapMult())
     check(row.cells[4]:IsShown() and row.more:IsShown() and row.more:GetText() == "+2", "4 small cats and +2")
     check(TCF:PartyBonus() == TCF:PartyTapMult(), "old name still answers")
     _group, _raid = nil, false
@@ -852,12 +852,87 @@ TEST = r'''
     check(TCF:PartyCount() == 0 and TCF:PartyBonus() == 1 and not row:IsShown(), "left the group: no bonus, no row")
     check(TCF:PartyTestInject(3) == nil, "fake party cats need test mode")
     TCF.db.ui.testMode = true
-    check(TCF:PartyTestInject(3) == 3 and row:IsShown() and row.cells[3]:IsShown() and near(TCF:PartyTapMult(), 1.3), "3 fake cats")
+    check(TCF:PartyTestInject(3) == 3 and row:IsShown() and row.cells[3]:IsShown() and near(TCF:PartyTapMult(), 1.4), "3 fake cats: +40%")
     check(TCF:PartyTestInject(0) == 0 and not row:IsShown() and TCF:PartyBonus() == 1, "fakes cleared")
     TCF.db.ui.testMode = nil
     -- back to the main character
     TapCatForeverDB.chars["Proftest-Forever"] = nil
     login(mainChar)
+    -- 10b. test mode off clears fake party cats
+    do
+      TCF.db.ui.testMode = true
+      TCF:PartyTestInject(2)
+      check(TCF:PartyCount() == 2, "fakes while in test mode")
+      SlashCmdList.TAPCATFOREVER("testmode")   -- turns it off
+      check(not TCF.db.ui.testMode and TCF:PartyCount() == 0 and TCF:PartyTapMult() == 1, "test mode off: fake cats gone")
+    end
+    -- 10c. starter weapon fix only touches the old starter; two-handers clear the off hand
+    do
+      local function oldStarter(class)
+        local best
+        for _, it in ipairs(TCF.WORLD_POOL[0] or {}) do
+          if it.q == 2 and not it.crafted and it.req <= 5 and (it.slot == "MH" or it.slot == "1H" or it.slot == "2H" or (class == "HUNTER" and it.slot == "RANGED"))
+            and TCF:GearUsable(it, class) and (not best or it.id < best.id) then best = it end
+        end
+        return best
+      end
+      local class = "MAGE"
+      local eq, cd, bag = TCF:GearEquipped(class), TCF:CD(class), TCF:Bag(class)
+      local saveEq = {}; for k, v in pairs(eq) do saveEq[k] = v end
+      local new, old = TCF:StarterWeapon(class), oldStarter(class)
+      local off
+      for id, g in pairs(TCF.GEAR) do if g.slot == "HOLD" and TCF:GearUsable(g, class) then off = g; break end end
+      -- a weapon the player chose is left alone
+      local chosen
+      for id, g in pairs(TCF.GEAR) do if g.sub == "dagger" and g.req <= 10 and TCF:GearUsable(g, class) and (not old or g.id ~= old.id) then chosen = g; break end end
+      if chosen and off then
+        for k in pairs(eq) do eq[k] = nil end
+        eq.MAINHAND, eq.OFFHAND = chosen.id, off.id; bag[chosen.id] = 1; bag[off.id] = 1
+        cd.starterFixed = nil; TCF:FixStarterWeapons()
+        check(eq.MAINHAND == chosen.id and eq.OFFHAND == off.id, "starter fix leaves a chosen weapon alone")
+      end
+      -- wearing the old starter: swapped, and a two-handed staff clears the off hand
+      if old and new and old.id ~= new.id and off then
+        for k in pairs(eq) do eq[k] = nil end
+        eq.MAINHAND = old.id; bag[old.id] = 1
+        if old.slot ~= "2H" then eq.OFFHAND = off.id; bag[off.id] = 1 end
+        cd.starterFixed = nil; TCF:FixStarterWeapons()
+        check(eq.MAINHAND == new.id, "starter fix swaps the old starter")
+        if new.slot == "2H" then check(eq.OFFHAND == nil, "two-handed starter clears the off hand") end
+        check((bag[old.id] or 0) >= 1, "old starter stays in the bag")
+      end
+      for k in pairs(eq) do eq[k] = nil end
+      for k, v in pairs(saveEq) do eq[k] = v end
+    end
+    -- 10d. Sell junk: gear the class can't use is junk; hand items are kept while a two-hander is worn
+    do
+      local class = TCF.db.class
+      local bag, eq = TCF:Bag(class), TCF:GearEquipped(class)
+      local unusable
+      for id, g in pairs(TCF.GEAR) do if not g.crafted and not TCF:GearUsable(g, class) then unusable = g; break end end
+      if unusable then
+        bag[unusable.id] = 1
+        local junk = TCF:JunkGear(class)
+        check(junk[unusable.id] == 1, "gear the class can't use is junk")
+        bag[unusable.id] = nil
+      end
+      local staff, oneH
+      for id, g in pairs(TCF.GEAR) do
+        if not g.crafted and TCF:GearUsable(g, class) then
+          if g.slot == "2H" and not staff then staff = g end
+          if g.slot == "1H" and not oneH then oneH = g end
+        end
+      end
+      if staff and oneH then
+        local saveMH, saveOH = eq.MAINHAND, eq.OFFHAND
+        eq.MAINHAND, eq.OFFHAND = staff.id, nil; bag[staff.id] = (bag[staff.id] or 0) + 1
+        bag[oneH.id] = 1
+        local junk = TCF:JunkGear(class)
+        check(not junk[oneH.id], "a one-hander isn't junk while a two-hander is worn")
+        bag[oneH.id] = nil
+        eq.MAINHAND, eq.OFFHAND = saveMH, saveOH
+      end
+    end
     -- 11. What's new strip and Patch notes
     do
       local realVersion = TCF.version

@@ -386,8 +386,8 @@ function TCF:Tap(side)
   recent[recentHead] = now
   tps = tps + 1
 
-  -- party bonus (Party.lua): with a friend who has the addon in your group, each tap counts
-  -- as 1.5 taps (tap count, cat XP and TapCoins from tapping; lucky finds are unchanged)
+  -- party bonus (Party.lua TCF:PartyTapMult): friends with the addon in your group make each tap
+  -- count a little more (tap count, cat XP and TapCoins from tapping; lucky finds are unchanged)
   local mult = self.PartyTapMult and self:PartyTapMult() or 1
   self.tapCarry = (self.tapCarry or 0) + mult
   local credit = floor(self.tapCarry + 1e-6)   -- 1.2 x 10 must count 12, not 11.999
@@ -601,13 +601,17 @@ function TCF:OpenChest(key, useKey)
   end
   self.db.stats.chests = self.db.stats.chests + 1
   self.skinChestKey = key   -- a skin found in this chest shows in the chest's loot box
-  local a, b, c = self:OpenChestContents(ch, key)
-  -- a few skins are only found in one kind of chest (rolled on top of the chest's
-  -- normal contents; at most one skin per chest)
-  if not (self.lastChest and self.lastChest.skin) then
-    self:RollSkinSource("chest", function(g) return g.chest == key end, "Found in a " .. ch.name, true)
-  end
-  self.skinChestKey = nil
+  local ok, a, b, c = pcall(function()
+    local a, b, c = self:OpenChestContents(ch, key)
+    -- a few skins are only found in one kind of chest (rolled on top of the chest's
+    -- normal contents; at most one skin per chest)
+    if not (self.lastChest and self.lastChest.skin) then
+      self:RollSkinSource("chest", function(g) return g.chest == key end, "Found in a " .. ch.name, true)
+    end
+    return a, b, c
+  end)
+  self.skinChestKey = nil   -- always cleared, even if something above failed
+  if not ok then error(a, 0) end
   return a, b, c
 end
 
@@ -1058,6 +1062,7 @@ SlashCmdList.TAPCATFOREVER = function(msg)
       return
     end
     ui.testMode = not ui.testMode
+    if not ui.testMode and TCF.PartyTestClear then TCF:PartyTestClear() end
     TCF:Print(ui.testMode and "Test mode ON: shortcuts are in Settings." or "Test mode off.", true)
     if TCF.window and TCF.window:IsShown() then TCF.window:Refresh() end
   elseif cmd == "stats" then

@@ -374,14 +374,23 @@ function TCF:JunkGear(class)
   class = class or self.db.class
   local eq = self:GearEquipped(class)
   local junk, count, coins, gold = {}, 0, 0, 0
+  -- with a two-hander worn, a one-hander or off-hand item on its own always looks worse (it
+  -- replaces half of the pair), so hand items are only sold as extra copies then
+  local twoHand = isTwoHand(eq.MAINHAND)
+  local HAND = { MH = true, ["1H"] = true, OH = true, HOLD = true }
   for id, have in pairs(self:Bag(class)) do
     local it = TCF.GEAR[id]
-    if it and have > 0 and self:GearUsable(it, class) then
+    if it and have > 0 then
       local worn = equippedCount(eq, id)
-      local keep = math.max(worn, #self:GearTargetSlots(it, class))
-      if worn == 0 then
-        local d = self:GearUpgrade(it, class)
-        if d and d < 0 then keep = 0 end
+      local keep
+      if not self:GearUsable(it, class) then
+        keep = worn   -- this class can never wear it (each class has its own bag)
+      else
+        keep = math.max(worn, #self:GearTargetSlots(it, class))
+        if worn == 0 and not (twoHand and HAND[it.slot]) then
+          local d = self:GearUpgrade(it, class)
+          if d and d < 0 then keep = 0 end
+        end
       end
       local n = have - keep
       if n > 0 then
@@ -458,7 +467,8 @@ function TCF:GrantGear(it, reason, reveal, chestKey)
   -- crafted gear is made, not found: it has its own 'crafted' stat and achievements
   if not it.crafted then self.db.stats.gearFound = (self.db.stats.gearFound or 0) + 1 end
   self:Print((reason and (reason .. ": ") or "") .. TCF.GearLink(it))
-  -- gear never opens the loot box: a small notice instead, chests included (ChestReel.lua decides)
+  -- a chest you opened (chestKey) gets the reel and loot box; gear found anywhere else gets a
+  -- small notice instead (ChestReel.lua decides)
   if self.ShowLootReveal then self:ShowLootReveal(it, have == 0, 0, reason, chestKey, true) end
   if it.q >= 4 then self:PlaySound("rare") else self:PlaySound("loot") end
   self:MarkDirty()
@@ -752,9 +762,21 @@ function TCF:StarterGear(class)
   end
 end
 
--- Older versions gave every class the lowest-numbered weapon it could use (a staff for hunters,
--- a hammer for rogues). A cat still holding a starter-level weapon that isn't its class weapon
--- gets its class weapon equipped; the old one stays in the bag. Runs once per character and class.
+-- Older versions gave every class the lowest-numbered green weapon it could use from the
+-- level 0-4 world pool (a staff for hunters, a hammer for rogues). A cat still wearing exactly
+-- that weapon gets its class weapon instead (the old one stays in the bag); a cat with no weapon
+-- at all gets one. Anything the player chose is left alone. Runs once per character and class.
+local function oldStarter(self, class)
+  local best
+  for _, it in ipairs(TCF.WORLD_POOL[0] or {}) do
+    if it.q == 2 and not it.crafted and it.req <= 5
+      and (it.slot == "MH" or it.slot == "1H" or it.slot == "2H" or (class == "HUNTER" and it.slot == "RANGED"))
+      and self:GearUsable(it, class) and (not best or it.id < best.id) then
+      best = it
+    end
+  end
+  return best
+end
 function TCF:FixStarterWeapons()
   for _, cl in ipairs(TCF.CLASSES) do
     local class = cl.key
@@ -763,17 +785,20 @@ function TCF:FixStarterWeapons()
       cd.starterFixed = true
       local new = self:StarterWeapon(class)
       local eq = self:GearEquipped(class)
+      local old = oldStarter(self, class)
       local slot = new and (new.slot == "RANGED" and "RANGED" or "MAINHAND")
-      local cur = slot and eq[slot] and TCF.GEAR[eq[slot]]
-      local wanted = {}
-      for _, sub in ipairs(TCF.STARTER_WEAPONS[class] or {}) do wanted[sub] = true end
-      -- no weapon there yet, or a starter-level weapon of the wrong kind (a hunter with no bow
-      -- gets one; the cat shows the bow over any melee weapon)
-      local needs = new and (not cur or (not wanted[cur.sub] and cur.req <= STARTER_MAX_REQ))
-      if needs then
+      local wearingOld = old and (eq.MAINHAND == old.id or eq.RANGED == old.id)
+      local noWeapon = not eq.MAINHAND and not eq.RANGED
+      if new and (not old or old.id ~= new.id) and (wearingOld or noWeapon) then
         local bag = self:Bag(class)
         bag[new.id] = (bag[new.id] or 0) + 1
+        if wearingOld and eq.MAINHAND == old.id and slot == "RANGED" then
+          -- a hunter's old staff stays on; the cat shows the bow over it
+        elseif wearingOld and eq.RANGED == old.id and slot == "MAINHAND" then
+          eq.RANGED = nil
+        end
         eq[slot] = new.id
+        if new.slot == "2H" then eq.OFFHAND = nil end   -- a two-hander can't share with an off-hand
       end
     end
   end

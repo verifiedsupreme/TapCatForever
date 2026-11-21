@@ -20,7 +20,7 @@
 
 **Play with friends**
 - Friends in your party or raid who also have TapCatForever show up as small cats in a row beside yours. Hover one to see whose cat it is.
-- Each of them makes your taps count 10% more, up to +50% with five friends: more tap progress, cat XP and TapCoins from tapping.
+- Your taps count 20% more with one of them and 10% more for each one after that, up to +50% with a full party: more tap progress, cat XP and TapCoins from tapping.
 - The addons find each other on their own, across realms, and reconnect after a reload or a fight.
 
 **Fishing dock**

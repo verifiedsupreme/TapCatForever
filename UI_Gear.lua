@@ -150,9 +150,9 @@ TCF.UI.Builders.gear = function(page, win)
   end
   local sellAll = Button(page, "Sell junk", 100, 22, function()
     local _, n, coins, gold = TCF:JunkGear()
-    if n == 0 then TCF:Print("No junk to sell: every item is either worn, better than what you're wearing, or your only copy.", true); return end
+    if n == 0 then TCF:Print("No junk to sell right now.", true); return end
     StaticPopupDialogs.TAPCATFOREVER_SELL_JUNK = {
-      text = "Sell %s of junk for %s?\n\nJunk is gear that would lower your Power, and extra copies you can't wear. Better items are kept, even ones you're not high enough level for yet.",
+      text = "Sell %s of junk for %s?\n\nJunk is gear that would lower your Power, extra copies you can't wear, and gear your class can't use. Better items are kept, even ones you're not high enough level for yet.",
       button1 = "Sell", button2 = CANCEL or "Cancel",
       OnAccept = function() TCF:SellJunk() end,
       timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
@@ -163,7 +163,7 @@ TCF.UI.Builders.gear = function(page, win)
   Tip(sellAll, function(tt)
     local _, n, coins, gold = TCF:JunkGear()
     tt:AddLine("Sell junk", 1, 0.82, 0)
-    tt:AddLine("Sells gear that would lower your cat's Power, and extra copies beyond what your cat can wear at once. Worn gear, upgrades (even ones you need a higher level for) and items your class can't use are kept. You'll be asked to confirm.", 1, 1, 1, true)
+    tt:AddLine("Sells gear that would lower your cat's Power, extra copies beyond what your cat can wear at once, and gear your class can't use. Worn gear and upgrades (even ones you need a higher level for) are kept. You'll be asked to confirm.", 1, 1, 1, true)
     tt:AddLine("Crafted gear sells for Trade Gold instead of TapCoins.", 1, 1, 1, true)
     tt:AddLine(string.format("Right now: %d items for %s.", n, junkValue(coins, gold or 0)), 0.7, 0.7, 0.7)
   end)
