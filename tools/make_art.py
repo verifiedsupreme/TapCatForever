@@ -1144,6 +1144,32 @@ def scene_westfall():
     fill(im, disc(70.5, 39, 2.2), (230, 200, 120)); fill(im, rect(67, 44, 73, 48), (90, 110, 160))
     return im
 
+def scene_fishing():
+    im = scene_canvas(); rnd = random.Random(12)
+    vgrad(im, 0, 30, (120, 175, 235), (200, 230, 250))
+    for cx, cy, r in ((25, 9, 5), (33, 8, 6), (90, 12, 4)):
+        fill(im, disc(cx, cy, r), (250, 252, 255))
+    for x in range(128):  # far shore with trees
+        h = 24 + int(2 * math.sin(x / 7) + 2 * math.sin(x / 3))
+        fill(im, rect(x, h, x, 30), (60, 105, 60))
+    vgrad(im, 30, 64, (70, 130, 190), (30, 70, 130))
+    px = im.load()
+    for _ in range(90):
+        x, y = rnd.randrange(128), rnd.randrange(32, 64)
+        px[x, y] = (150, 200, 240, 255)
+        if x + 1 < 128: px[x + 1, y] = (150, 200, 240, 255)
+    # little wooden pier
+    fill(im, rect(0, 40, 22, 43), (130, 90, 55)); fill(im, rect(4, 43, 5, 56), (95, 65, 40)); fill(im, rect(17, 43, 18, 56), (95, 65, 40))
+    return im
+
+def ui_bobber():
+    a = Layer()
+    a.paint(E(32, 26, 11, 10) & R(0, 0, 63, 26), color=(220, 40, 40))
+    a.paint(E(32, 26, 11, 10) & R(0, 27, 63, 63), color=(245, 245, 245))
+    a.paint(R(31, 6, 32, 16), color=(90, 70, 50))
+    a.paint(R(20, 26, 43, 27), color=(30, 24, 36))
+    save("ui_bobber", a)
+
 def mob_shadow():
     """Last-resort enemy picture: a shadowy pixel monster with glowing eyes (64x64)."""
     a = Layer()
@@ -1178,7 +1204,7 @@ def main():
     for side in "LR":
         paw(True, side); paw(False, side)
     for k in ("normal", "blink", "happy", "focus", "sparkle"): face(k)
-    mob_shadow()
+    mob_shadow(); ui_bobber()
     patterns(); head_items(); chest_items(); back_items(); weapons(); offhands(); accessories(); race_accessories(); skins(); ui_bits()
 
     count = 0
@@ -1190,7 +1216,7 @@ def main():
         write_tga(im.resize((256, 256), Image.BILINEAR), os.path.join(OUT, name + ".tga")); count += 1
         BOUNDS[name] = (0, 0, N, N)
 
-    for name, fn in (("bg_elwynn", scene_elwynn), ("bg_westfall", scene_westfall)):
+    for name, fn in (("bg_elwynn", scene_elwynn), ("bg_westfall", scene_westfall), ("bg_fishing", scene_fishing)):
         im = fn(); im.save(os.path.join(HERE, "..", "media", name + ".png"))
         write_tga(im.resize((256, 128), Image.NEAREST), os.path.join(OUT, name + ".tga")); count += 1
 

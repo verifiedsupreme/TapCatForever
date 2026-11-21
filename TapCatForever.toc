@@ -20,6 +20,10 @@ Abilities.lua
 Adventure.lua
 Expeditions.lua
 Professions.lua
+Herbalism.lua
+FirstAid.lua
+Fishing.lua
+Cooking.lua
 Quests.lua
 Dungeons.lua
 UI.lua

@@ -253,9 +253,14 @@ function TCF:AdvMobKilled(m)
       self:AwardChest(chest, m.name)
       self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY[chest].name .. " from " .. m.name)
     end
-  elseif random() < ADV.TRASH_CHEST then
-    self:AwardChest("pouch", m.name)
-    self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY.pouch.name)
+  else
+    if random() < ADV.TRASH_CHEST then
+      self:AwardChest("pouch", m.name)
+      self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY.pouch.name)
+    end
+    -- profession ingredients: cloth for First Aid, meat for Cooking
+    if self.DropCloth then self:DropCloth(m.level) end
+    if self.DropMeat then self:DropMeat(m.level) end
   end
   self:MarkDirty()
 end
@@ -346,6 +351,7 @@ function TCF:AdvTick(dt)
   end
   if not run.pack then return end
   if alive(run) == 0 then self:AdvPackCleared(); return end
+  if self.UseBandage then self:UseBandage(run) end
   if run.stunUntil > run.t then return end
   local mult = takenMult(self, run, run.level)
   for i, m in ipairs(run.pack) do

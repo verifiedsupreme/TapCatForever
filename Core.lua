@@ -337,7 +337,7 @@ function TCF:Tap(side)
 
   db.taps = db.taps + 1
   local cd = self:CD()
-  cd.xp = cd.xp + 1
+  cd.xp = cd.xp + (self.FoodBuff and self:FoodBuff("xp") or 1)
   db.coinFrac = db.coinFrac + COINS_PER_TAP
   if db.coinFrac >= 1 then
     local whole = floor(db.coinFrac)

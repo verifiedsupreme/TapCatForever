@@ -400,6 +400,8 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
     dps = melee; crit = 5 + t.agi / 20
   end
   crit = min(50, crit + t.crit + t.critr / 14)
+  -- Well Fed buffs from Cooking
+  if self.FoodBuff then dps = dps * self:FoodBuff("dmg"); hp = hp * self:FoodBuff("hp") end
   local hit = t.hit + t.hitr / 10
   local miss = max(0, 8 - hit) / 100
   dps = dps * (1 - miss)

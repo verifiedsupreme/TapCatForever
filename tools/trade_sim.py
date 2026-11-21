@@ -8,6 +8,7 @@ SIM = r'''
 local TCF = TapCatForever
 local hours = ...
 local ps = TCF:ProfState()
+for k = 1, 4 do TCF:MineClick(1) end
 TCF:BuyOp("mining", 1, 1)
 local marks, out = { 0.5, 1, 2, 4, 8, 12, 24, 48 }, {}
 local mi = 1
@@ -16,15 +17,11 @@ local unlockAt = {}
 while t < hours * 3600 do
   for k = 1, 20 do TCF:ProfTap(); TCF:ProfAdvance(0.25) end  -- 5 seconds
   t = t + 5
+  for _, u in ipairs(TCF.UPGRADES.mining) do TCF:BuyUpgrade(u.id) end
+  for i = 1, 6 do TCF:HireForeman("mining", i) end
+  for i = 6, 1, -1 do TCF:BuyOp("mining", i, "max") end
   for _, p in ipairs(TCF.PROFESSIONS) do
-    if not ps.unlocked[p.key] then
-      if TCF:UnlockProfession(p.key) then unlockAt[p.key] = t / 3600 end
-    end
-    if ps.unlocked[p.key] then
-      for _, u in ipairs(TCF.UPGRADES[p.key]) do TCF:BuyUpgrade(u.id) end
-      for i = 1, 6 do TCF:HireForeman(p.key, i) end
-      for i = 6, 1, -1 do TCF:BuyOp(p.key, i, "max") end
-    end
+    if p.renown > 0 and not unlockAt[p.key] and TCF:RenownOnReset() >= p.renown then unlockAt[p.key] = t / 3600 end
   end
   if t >= marks[mi] * 3600 then
     local o = ps.ops.mining
@@ -34,7 +31,7 @@ while t < hours * 3600 do
     if not marks[mi] then break end
   end
 end
-for k, v in pairs(unlockAt) do out[#out + 1] = string.format("unlocked %s at %.1fh", k, v) end
+for k, v in pairs(unlockAt) do out[#out + 1] = string.format("first sale would unlock %s after %.1fh", k, v) end
 return table.concat(out, "\n")
 '''
 

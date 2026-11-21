@@ -314,35 +314,76 @@ TEST = r'''
     for _, ex in ipairs(TCF.db.expeditions.active) do ex.finish = time() - 1 end
     TCF:ClaimExpedition(1); TCF:ClaimExpedition(1)
     assert(#TCF.db.expeditions.active == 0)
-    -- professions (idle tycoon): buy, run by tapping, foremen, offline, unlock, upgrades, craft, renown
+    -- professions: Mining by hand, then the tycoon, pickaxes, foremen
     local ps = TCF:ProfState()
+    for k = 1, 10 do assert(TCF:MineClick(1), "mine copper by hand") end
+    assert(ps.gold >= 10 and (ps.mats.copper or 0) >= 10, "hand mining gives gold and ore")
+    assert(not TCF:MineClick(2), "tin needs a vein first")
     assert(TCF:BuyOp("mining", 1, 1), "buy first copper vein")
-    for k = 1, 4000 do
+    for k = 1, 3000 do
       kb.scripts.OnKeyDown(kb, "Q"); _update(0.25)
+      if k % 4 == 0 then TCF:MineClick(1) end
       for i = 6, 1, -1 do TCF:BuyOp("mining", i, "max") end
       for i = 1, 6 do TCF:HireForeman("mining", i) end
       for _, u in ipairs(TCF.UPGRADES.mining) do TCF:BuyUpgrade(u.id) end
-      if not ps.unlocked.herbalism then TCF:UnlockProfession("herbalism") end
-      if ps.unlocked.herbalism then for i = 6, 1, -1 do TCF:BuyOp("herbalism", i, "max") end; for i = 1, 6 do TCF:HireForeman("herbalism", i) end end
     end
     local o = ps.ops.mining
-    print(string.format("trade after ~17 min: gold %s lifetime %s | mining owned %d/%d/%d/%d/%d/%d foremen %s | herbalism %s | copper %d | chests %d/%d/%d",
-      TCF.FormatBig(ps.gold), TCF.FormatBig(ps.lifetime), o[1].n, o[2].n, o[3].n, o[4].n, o[5].n, o[6].n,
-      tostring(o[1].mgr), tostring(ps.unlocked.herbalism), ps.mats.copper or 0, TCF.db.keys.pouch, TCF.db.keys.strong, TCF.db.keys.heroic))
-    win.profSel = "mining"
-    for _, v in ipairs({ "ops", "upg", "craft", "renown" }) do win.profView = v; win:SelectTab(5); _update(0.2) end
-    win.profSel = "fishing"; win.profView = "ops"; win:SelectTab(5); _update(0.2)
-    -- offline: foremen keep working
-    ps.last = time() - 3 * 3600
-    local g0 = ps.gold
-    TCF:ProfessionsTick(true)
-    assert(ps.gold > g0, "offline foremen earn")
-    ps.mats.copper = 100
-    assert(TCF:Craft(TCF.RECIPES.mining[1]), "craft copper circlet")
-    ps.lifetime = 1e12
-    local r0 = ps.renown
-    assert(TCF:PrestigeTrade(), "prestige")
-    assert(ps.renown > r0 and ps.ops.mining[1].n == 0)
+    print(string.format("mining after ~12 min: gold %s lifetime %s veins %d/%d/%d/%d/%d/%d pick tier %d skill %d",
+      TCF.FormatBig(ps.gold), TCF.FormatBig(ps.lifetime), o[1].n, o[2].n, o[3].n, o[4].n, o[5].n, o[6].n, TCF:PickTier(1), TCF:ProfSkill("mining")))
+    assert(not TCF:ProfUnlocked("herbalism"), "herbalism needs renown")
+    -- unlock everything for testing
+    ps.renown, ps.renownEver, ps.gold = 200, 200, 1e12
+    for _, p in ipairs(TCF.PROFESSIONS) do assert(TCF:ProfUnlocked(p.key), p.key .. " unlocked") end
+    -- Herbalism: plant, water, harvest; gardener works offline
+    assert(TCF:Plant(1, "peacebloom")); assert(not TCF:Plant(1, "peacebloom"), "plot busy")
+    assert(not TCF:Plant(2, "dreamfoil"), "dreamfoil needs skill")
+    for k = 1, 20 do TCF:PlotClick(1) end   -- watering (2 s each)
+    assert(TCF:GardenState().plots[1].grown >= 40, "watering speeds growth")
+    for k = 1, 100 do _update(0.25) end
+    assert(TCF:PlotClick(1), "harvest"); assert((ps.mats.peacebloom or 0) > 0, "got peacebloom")
+    TCF:BuyGardenUpgrade("gardener"); TCF:BuyPlot()
+    TCF:Plant(1, "peacebloom"); TCF:Plant(2, "silverleaf")
+    local pb = ps.mats.peacebloom
+    ps.last = time() - 3600; TCF:ProfessionsTick(true)
+    assert(ps.mats.peacebloom > pb + 30, "gardener harvested offline")
+    -- First Aid: cloth -> bandages -> used in Adventure
+    assert(TCF:BuyCloth("linen", 50))
+    assert(TCF:QueueBandages("b_linen", 5))
+    for k = 1, 120 do _update(0.25) end
+    assert((ps.mats.b_linen or 0) >= 5, "bandages made: " .. tostring(ps.mats.b_linen))
+    TCF:BuyAidUpgrade("medic")
+    local run = TCF.advRun
+    run.catHP = run.catMax * 0.2; run.t = 100; run.bandageReady = 0
+    local before = run.catHP
+    assert(TCF:UseBandage(run) and run.catHP > before, "cat uses a bandage when hurt")
+    -- Fishing: the bobber
+    TCF:FishCast(); assert(TCF.fishRun.state == "waiting")
+    TCF:FishReel(); assert(TCF.fishRun.kind == "miss", "too soon scares the fish")
+    TCF:FishCast(); TCF.fishRun.biteAt = 0; _update(0.25); _update(0.25)
+    assert(TCF.fishRun.state == "bite", "bite"); TCF:FishReel()
+    assert(TCF.fishRun.state == "result" and TCF.fishRun.kind ~= "miss", "caught a fish")
+    TCF:BuyBuddy(); for k = 1, 600 do _update(0.25) end
+    -- Cooking: experiment, discover, eat
+    ps.mats.wolfmeat, ps.mats.mildspice, ps.mats.smallfish = 5, 5, 4
+    TCF:PotAdd("wolfmeat"); TCF:PotAdd("mildspice")
+    local text, r, found = TCF:CookPot()
+    assert(found and r[1] == "d_wolf", "discovered spiced wolf meat: " .. tostring(text))
+    TCF:PotAdd("smallfish"); TCF:PotAdd("mildspice"); TCF:PotAdd("wolfmeat")
+    local t2 = TCF:CookPot(); assert(t2:find("Burnt"), "wrong combo burns")
+    assert(TCF:EatDish("d_wolf")); assert(TCF:FoodBuff("dmg") > 1, "well fed")
+    TCF:BuyCookUpgrade("chef"); TCF:CookState().chefRecipe = "d_wolf"
+    ps.mats.wolfmeat, ps.mats.mildspice = 10, 10
+    for k = 1, 400 do _update(0.25) end
+    assert((ps.mats.d_wolf or 0) >= 3, "sous-chef cooked")
+    -- crafting and every professions screen
+    ps.mats.copper = 100; assert(TCF:Craft(TCF.RECIPES.mining[1]), "craft copper sparks")
+    for _, p in ipairs(TCF.PROFESSIONS) do
+      win.profSel = p.key
+      for _, v in ipairs({ "main", "upg", "craft", "renown" }) do win.profView = v; win:SelectTab(5); _update(0.2) end
+    end
+    ps.lifetime = 1e14
+    assert(TCF:PrestigeTrade(), "sell the business")
+    assert(ps.gold == 0 and ps.ops.mining[1].n == 0 and TCF:ProfUnlocked("cooking"), "reset keeps unlocks")
     print("renown after selling:", ps.renown)
     -- paperdoll click (right click unequips, left click jumps to the wardrobe)
     for tab = 1, 10 do win:SelectTab(tab) end

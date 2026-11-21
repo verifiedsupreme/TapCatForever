@@ -15,7 +15,7 @@ Every key press earns XP and TapCoins. Level the cat up, collect class-themed ge
 - **Adventure.** An idle game through 28 real zones, dungeons and raids with their real bosses and loot, 3D creature models and each dungeon's artwork.
 - **Class abilities.** Learn real class abilities with TapCoins; the cat uses them in fights.
 - **Expeditions.** Send parties of 3 cats away for real time to bring back TapCoins, chests and gear.
-- **Professions.** An idle tycoon: buy and automate gathering operations, earn Trade Gold, prestige for Renown, and craft exclusive cosmetics from the materials.
+- **Professions.** Mining (idle tycoon + pickaxe), Herbalism (garden), First Aid (bandages for Adventure), Fishing (bobber mini-game) and Cooking (recipe discovery and buffs), each with an idle helper, unlocked with Renown.
 - **Racial heritage.** Each character's cat gets an accessory for its race.
 - **Quests.** Daily and weekly quests for TapCoins and free chests.
 - **Real dungeon and raid rewards.** Finish a dungeon or raid in WoW and your cat gets a chest.
