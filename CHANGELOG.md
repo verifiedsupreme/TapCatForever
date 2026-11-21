@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.1
+- First CurseForge release (same content as 1.1.0).
+
 ## 1.1.0
 - Targets World of Warcraft: Forever (interface 16001) and its modern addon API.
 - Uses modern APIs only (C_AddOns, class icon atlases, missing-icon fallback).
