@@ -320,8 +320,9 @@ TEST = r'''
     local ps = TCF:ProfState()
     for k = 1, 10 do _clock = _clock + 2; assert(TCF:MineClick(1), "mine copper by hand") end
     assert(not TCF:MineClick(1), "pickaxe has a cooldown")
-    assert(ps.gold >= 10 and (ps.mats.copper or 0) >= 10, "hand mining gives gold and ore")
+    assert(ps.gold >= 2.4 and ps.gold < 4, "hand mining: a quarter of a cycle per swing")
     assert(not TCF:MineClick(2), "tin needs a vein first")
+    for k = 1, 10 do _clock = _clock + 2; TCF:MineClick(1) end  -- about 16 swings buys the first vein
     assert(TCF:BuyOp("mining", 1, 1), "buy first copper vein")
     for k = 1, 3000 do
       kb.scripts.OnKeyDown(kb, "Q"); _update(0.25)

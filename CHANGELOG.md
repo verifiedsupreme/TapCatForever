@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Welcome tour on first login (also in Settings and /tcf welcome), with a cartoon version of the TapCatForever logo.
+- Hand mining pays much less: a quarter of one mine's cycle per swing, with a 25% chance of ore.
+
 ## 1.2.1
 - Developer test shortcuts are now password-locked.
 

@@ -119,15 +119,16 @@ TCF.UI.Builders.professions = function(page, win)
       if TCF:MineClick(i) then
         -- one pickaxe: every vein's button shows the same cooldown
         for _, row in ipairs(rows) do if row.pick.cd.SetCooldown then row.pick.cd:SetCooldown(GetTime(), TCF:PickCooldown()) end end
-        r.pop:SetText(string.format("|cffffd100+%s|r  |cffcccccc+%d %s|r", TCF.GoldStr(TCF.lastMineGold or 0, 10), TCF:PickOre(), TCF.MINING_OPS[i][3]))
+        r.pop:SetText(string.format("|cffffd100+%s|r%s", TCF.GoldStr(TCF.lastMineGold or 0, 10),
+          (TCF.lastMineOre or 0) > 0 and string.format("  |cffcccccc+%d %s|r", TCF.lastMineOre, TCF.MINING_OPS[i][3]) or ""))
         r.pop:Show(); r.popT = 0.9
         TCF:PlaySound("click")
       end
     end)
     Tip(r.pick, function(tt)
       tt:AddLine(TCF:PickName(), 1, 0.82, 0)
-      tt:AddLine(string.format("Click to mine %s by hand: %s and %d ore each click.", TCF.MINING_OPS[i][1],
-        TCF.GoldStr(TCF.PROF_OPS[i].rev * TCF:PickMult() * TCF:UpgradeMult("mining", i)), TCF:PickOre()), 1, 1, 1, true)
+      tt:AddLine(string.format("Click to mine %s by hand: %s per swing and a %d%% chance of ore%s.", TCF.MINING_OPS[i][1],
+        TCF.GoldStr(TCF:PickGold(i)), TCF.PICK_ORE_CHANCE * 100, TCF:PickOre() > 1 and (" (x" .. TCF:PickOre() .. " rolls)") or ""), 1, 1, 1, true)
       tt:AddLine(string.format("One swing every %.2fs.", TCF:PickCooldown()), 0.7, 0.7, 0.7)
       tt:AddLine("Upgrade your pickaxe with the button below the veins.", 0.7, 0.7, 0.7, true)
     end)
@@ -144,7 +145,7 @@ TCF.UI.Builders.professions = function(page, win)
   Tip(pickBtn, function(tt)
     tt:AddLine("Upgrade your pickaxe", 1, 0.82, 0)
     tt:AddLine(string.format("%s -> Lv %d: +15%% gold per hand-mined click on every vein.", TCF:PickName(), TCF:PickLevel() + 1), 1, 1, 1, true)
-    tt:AddLine(string.format("Every 15 levels also mines one more ore per click. Swing cooldown: %.2fs (shortens a little each level).", TCF:PickCooldown()), 0.7, 0.7, 0.7, true)
+    tt:AddLine(string.format("Every 15 levels also adds another roll for ore. Swing cooldown: %.2fs (shortens a little each level).", TCF:PickCooldown()), 0.7, 0.7, 0.7, true)
   end)
   local function refreshPick()
     local cost = TCF:PickCost()

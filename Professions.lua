@@ -54,6 +54,8 @@ local MILESTONE_CHEST = { [25] = "pouch", [100] = "strong", [300] = "heroic" }
 -- Each level is a small boost (+15% per click, compounding) and costs more than the last.
 TCF.PICKAXE_NAMES = { "Copper", "Bronze", "Iron", "Mithril", "Thorium", "Arcanite", "Elementium", "Titanium" }
 TCF.PICK_BOOST, TCF.PICK_COST, TCF.PICK_COST_GROWTH = 1.15, 25, 1.55
+-- a swing is worth a quarter of one mine's cycle, with a 1 in 4 chance of ore: about one mine's worth
+TCF.PICK_SHARE, TCF.PICK_ORE_CHANCE = 0.25, 0.25
 
 ---------------------------------------------------------------- state
 local function S(self)
@@ -171,6 +173,7 @@ function TCF:PickCost(lvl) lvl = lvl or self:PickLevel(); return floor(TCF.PICK_
 -- one swing per cooldown (shared by every vein); upgrades shorten it a little, down to 0.75s
 function TCF:PickCooldown(lvl) return max(0.75, 1.5 * 0.985 ^ (lvl or self:PickLevel())) end
 function TCF:PickReadyIn() return max(0, (self.pickNext or 0) - GetTime()) end
+function TCF:PickGold(i) return OPS[i].rev * TCF.PICK_SHARE * self:PickMult() * self:UpgradeMult("mining", i) end
 function TCF:PickOre(lvl) return 1 + floor((lvl or self:PickLevel()) / 15) end
 function TCF:PickName(lvl)
   lvl = lvl or self:PickLevel()
@@ -191,9 +194,12 @@ function TCF:MineClick(i)
   if i > 1 and s.ops.mining[i].n < 1 then return false end
   if self:PickReadyIn() > 0 then return false end
   self.pickNext = GetTime() + self:PickCooldown()
-  local gold = self:EarnGold(OPS[i].rev * self:PickMult() * self:UpgradeMult("mining", i))
+  local gold = self:EarnGold(self:PickGold(i))
   local op = TCF.MINING_OPS[i]
-  s.mats[op[2]] = (s.mats[op[2]] or 0) + self:PickOre()
+  local ore = 0
+  for _ = 1, self:PickOre() do if random() < TCF.PICK_ORE_CHANCE then ore = ore + 1 end end
+  s.mats[op[2]] = (s.mats[op[2]] or 0) + ore
+  self.lastMineOre = ore
   self:ProfSkillUp("mining", (i - 1) * 50)
   self.lastMineGold = gold
   return true
