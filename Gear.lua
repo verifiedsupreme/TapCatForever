@@ -266,6 +266,18 @@ function TCF:GearSellValue(it)
   return max(1, floor(it.ilvl * (it.q == 2 and 0.15 or it.q == 3 and 0.35 or it.q == 4 and 1.0 or 3) ))
 end
 
+-- What "Sell unequipped" would sell for the current class: item count and TapCoins
+function TCF:UnequippedGearValue()
+  local count, coins = 0, 0
+  local eq = self:GearEquipped()
+  for id, have in pairs(self:Bag()) do
+    local spare = have - equippedCount(eq, id)
+    local it = TCF.GEAR[id]
+    if it and spare > 0 then count = count + spare; coins = coins + self:GearSellValue(it) * spare end
+  end
+  return count, coins
+end
+
 function TCF:SellGear(id, all)
   local it = TCF.GEAR[id]
   local bag = self:Bag()

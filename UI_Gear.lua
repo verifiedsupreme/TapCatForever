@@ -87,14 +87,26 @@ TCF.UI.Builders.gear = function(page, win)
   prev:SetPoint("RIGHT", pageText, "LEFT", -10, 0)
   local nextB = Button(page, ">", 28, 22, function() win.gearPage = (win.gearPage or 1) + 1; win:Refresh() end)
   nextB:SetPoint("LEFT", pageText, "RIGHT", 10, 0)
-  local sellAll = Button(page, "Sell spare copies", 130, 22, function()
-    local total = 0
-    for id in pairs(TCF:Bag()) do total = total + (TCF:SellGear(id, true) or 0) end
+  local sellAll = Button(page, "Sell unequipped", 130, 22, function()
+    local n, coins = TCF:UnequippedGearValue()
+    if n == 0 then TCF:Print("Nothing to sell: everything this cat owns is equipped."); return end
+    StaticPopupDialogs.TAPCATFOREVER_SELL_ALL = {
+      text = "Sell %s gear you're not wearing for %s TapCoins?\n\nEquipped gear is kept. This can't be undone.",
+      button1 = "Sell", button2 = CANCEL or "Cancel",
+      OnAccept = function()
+        for id in pairs(TCF:Bag()) do TCF:SellGear(id, true) end
+        win:Refresh()
+      end,
+      timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
+    }
+    StaticPopup_Show("TAPCATFOREVER_SELL_ALL", n == 1 and "1 piece of" or (n .. " pieces of"), TCF.Commas(coins))
   end)
   sellAll:SetPoint("BOTTOMLEFT", 12, 10)
   Tip(sellAll, function(tt)
-    tt:AddLine("Sell spare copies", 1, 0.82, 0)
-    tt:AddLine("Sells every duplicate that isn't equipped by any of your cats. One copy of each item is always kept.", 1, 1, 1, true)
+    local n, coins = TCF:UnequippedGearValue()
+    tt:AddLine("Sell unequipped", 1, 0.82, 0)
+    tt:AddLine("Sells every piece of gear this cat isn't wearing. Equipped gear is kept. You'll be asked to confirm.", 1, 1, 1, true)
+    tt:AddLine(string.format("Right now: %d items for %s TapCoins.", n, TCF.Commas(coins)), 0.7, 0.7, 0.7)
   end)
   page:EnableMouseWheel(true)
   page:SetScript("OnMouseWheel", function(_, d) win.gearPage = max(1, (win.gearPage or 1) - d); win:Refresh() end)
