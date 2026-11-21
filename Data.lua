@@ -443,6 +443,17 @@ local CRAFT = {
   { "craft_pinchy_gift",      "effect", "fx_coins",        "Mr. Pinchy's Gift",      5, c(1.00, 0.40, 0.30), nil, "INV_Misc_Fish_35" },
   { "craft_chef_spice",       "effect", "fx_flames",     "Spice Simmer",           3, c(1.00, 0.70, 0.30), nil, "INV_Misc_Food_15" },
   { "craft_chef_feast",       "head",   "head_tophat",   "Master Chef's Toque",    5, c(1.00, 1.00, 1.00), c(0.85, 0.20, 0.20), "INV_Misc_Food_64" },
+  -- Leatherworking (skinning cats) and Tailoring (cloth cats): same arts, new looks
+  { "craft_lw_cap",           "head",   "head_featcap",    "Feathered Leather Cap",  2, c(0.62, 0.44, 0.27), c(0.95, 0.88, 0.70), "INV_Helmet_15" },
+  { "craft_lw_bandolier",     "acc",    "acc_bandolier",   "Heavy Leather Bandolier", 3, c(0.42, 0.28, 0.17), c(0.90, 0.75, 0.40), "INV_Belt_03" },
+  { "craft_lw_mantle",        "chest",  "chest_furmantle", "Yeti Fur Mantle",        3, c(0.92, 0.93, 0.96), c(0.55, 0.62, 0.78), "INV_Misc_Pelt_Wolf_01" },
+  { "craft_lw_hornhelm",      "head",   "head_hornhelm",   "Rugged Hornhelm",        4, c(0.48, 0.36, 0.26), c(0.96, 0.92, 0.80), "INV_Helmet_23" },
+  { "craft_lw_devilclaws",    "main",   "wpn_claws",       "Devilsaur Claws",        5, c(0.30, 0.55, 0.30), c(0.95, 0.92, 0.80), "INV_Misc_MonsterClaw_04" },
+  { "craft_tl_scarf",         "acc",    "acc_scarf",       "Linen Scarf",            2, c(0.93, 0.89, 0.78), c(0.70, 0.55, 0.40), "INV_Misc_Bandana_01" },
+  { "craft_tl_wizardhat",     "head",   "head_wizard",     "Silk Wizard Hat",        3, c(0.35, 0.42, 0.88), c(1.00, 0.85, 0.35), "INV_Helmet_28" },
+  { "craft_tl_robe",          "chest",  "chest_robe",      "Mageweave Robe",         3, c(0.55, 0.25, 0.65), c(0.95, 0.80, 0.40), "INV_Chest_Cloth_12" },
+  { "craft_tl_tophat",        "head",   "head_tophat",     "Runecloth Top Hat",      4, c(0.30, 0.22, 0.45), c(0.55, 0.85, 1.00), "INV_Fabric_PurpleFire_01" },
+  { "craft_tl_felwings",      "back",   "back_batwings",   "Felcloth Wings",         5, c(0.35, 0.85, 0.25), c(0.20, 0.15, 0.20), "INV_Fabric_Felrag" },
 }
 
 -- Racial heritage accessories: bought in the Shop for the race of the character you're playing
@@ -542,7 +553,9 @@ local SKINS = {
   { "skin_raidleader",   "Raid Leader Cat",         4, c(0.30, 0.30, 0.36), 1,   { "pat_raidmarks", c(1.00, 1.00, 1.00) }, c(1.00, 0.85, 0.30), nil, nil, "INV_Misc_Bone_HumanSkull_01", nil, nil, nil, { kind = "realdungeon", run = "raid", chance = 0.05 } },
   -- crafted with professions
   { "skin_moss",         "Mossy Stone Cat",         3, c(0.58, 0.55, 0.50), 1,   { "pat_moss", c(0.42, 0.68, 0.28), c(1.00, 0.85, 0.95) }, c(0.90, 0.80, 0.30), nil, nil, "INV_Misc_Herb_DreamFoil", nil, nil, nil, { kind = "craft", prof = "herbalism", mats = { sungrass = 500, fadeleaf = 400 }, skill = 210 } },
-  { "skin_coal",         "Coal Miner's Cat",        3, c(0.66, 0.64, 0.62), 1,   { "pat_soot", c(0.22, 0.20, 0.20), c(1.00, 0.88, 0.40) }, c(1.00, 0.75, 0.30), nil, nil, "INV_Misc_Lantern_01", nil, nil, nil, { kind = "craft", prof = "mining", mats = { thorium = 900, mithril = 500 }, skill = 250 } },
+  { "skin_coal",         "Coal Miner's Cat",        3, c(0.66, 0.64, 0.62), 1,   { "pat_soot", c(0.22, 0.20, 0.20), c(1.00, 0.88, 0.40) }, c(1.00, 0.75, 0.30), nil, nil, "INV_Misc_Lantern_01", nil, nil, nil, { kind = "craft", prof = "blacksmithing", mats = { thorium = 900, mithril = 500 }, skill = 250 } },
+  { "skin_tanned",       "Patched Leather Cat",     3, c(0.80, 0.62, 0.44), 1,   { "pat_patchwork", c(0.50, 0.33, 0.20), c(0.92, 0.80, 0.58) }, c(0.95, 0.70, 0.25), nil, nil, "INV_Misc_LeatherScrap_02", nil, nil, nil, { kind = "craft", prof = "leatherworking", mats = { ruggedleather = 900, thickleather = 500 }, skill = 250 } },
+  { "skin_runestitch",   "Runestitched Cat",        3, c(0.86, 0.84, 0.92), 1,   { "pat_runes", c(0.62, 0.35, 0.90) },   c(0.70, 0.45, 1.00), nil, nil, "INV_Fabric_PurpleFire_01", nil, nil, nil, { kind = "craft", prof = "tailoring", mats = { runecloth = 900, mageweave = 500 }, skill = 250 } },
   { "skin_koi",          "Koi Pond Cat",            4, c(0.98, 0.97, 0.95), 1,   { "pat_koi", c(0.92, 0.32, 0.18), c(0.15, 0.14, 0.16) }, c(0.30, 0.55, 0.95), nil, nil, "INV_Misc_Fish_27", nil, nil, nil, { kind = "craft", prof = "fishing", mats = { sunscale = 400, nightfin = 300 }, skill = 225 } },
 }
 TCF.SKIN_DROPS = {}  -- boss name -> { id, chance }
@@ -782,7 +795,7 @@ local STAT_TEXT = {
   skins = "Own %s cat skins.", dropSkins = "Get %s rare cat skin that can't be bought (boss drops, chests, quests and more).",
   races = "Collect %s different racial heritage pieces across your characters.",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
-  expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s cosmetic(s) with professions.",
+  expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s item(s) with professions.",
   dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s real WoW raid(s).",
 }
 local CLEAR_NAMES = { gnomer = "Gnomeregan", zg = "Zul'Gurub", mc = "Molten Core", bwl = "Blackwing Lair", aq40 = "the Temple of Ahn'Qiraj", naxx = "Naxxramas (defeat Kel'Thuzad)" }

@@ -50,16 +50,50 @@ local function matList(mats)
   return table.concat(out, ", ")
 end
 
-local function craftLine(prof, skill, mats)
+-- "Crafted with Tailoring (skill 250): 900 Runecloth, 500 Mageweave Cloth" (verb "by" for gear)
+local function craftLine(prof, skill, mats, verb)
   local list = matList(mats)
-  return string.format("Crafted with %s%s%s", profName(prof), (skill and skill > 0) and (" (skill " .. skill .. ")") or "",
+  return string.format("Crafted %s %s%s%s", verb or "with", profName(prof), (skill and skill > 0) and (" (skill " .. skill .. ")") or "",
     list ~= "" and (": " .. list) or "")
+end
+
+-- "Warrior or Paladin", "Rogue, Druid, Hunter or Shaman"
+local function classList(keys)
+  local names = {}
+  for _, k in ipairs(keys or {}) do
+    local cl = TCF.CLASS_BY_KEY and TCF.CLASS_BY_KEY[k]
+    names[#names + 1] = cl and cl.name or k
+  end
+  if #names <= 1 then return names[1] or "" end
+  return table.concat(names, ", ", 1, #names - 1) .. " or " .. names[#names]
+end
+
+-- Where a main-profession craft is made: "Made in the Mining tab by Warrior or Paladin cats"
+-- (names from TCF.FAMILIES; nil for the shared professions)
+local function whereLine(prof)
+  local fk = TCF.CRAFT_FAMILY and TCF.CRAFT_FAMILY[prof]
+  local fam = fk and TCF.FAMILIES and TCF.FAMILIES[fk]
+  if not fam then return nil end
+  return string.format("Made in the %s tab by %s cats", fam.tab or fam.name or fk, classList(fam.classes))
 end
 
 local function recipeFor(id)
   for prof, list in pairs(TCF.RECIPES or {}) do
     for _, r in ipairs(list) do if r.item == id then return r, r.prof or prof end end
   end
+end
+
+-- gear id -> its recipe (TCF.RECIPES gear rows, built once)
+local gearRecipes
+local function gearRecipeFor(id)
+  if not gearRecipes then
+    gearRecipes = {}
+    for prof, list in pairs(TCF.RECIPES or {}) do
+      for _, r in ipairs(list) do if r.gear then gearRecipes[r.gear] = gearRecipes[r.gear] or { r, r.prof or prof } end end
+    end
+  end
+  local e = gearRecipes[id]
+  if e then return e[1], e[2] end
 end
 
 -- Adventure boss drops for a skin: { { boss, chance }, ... }
@@ -83,6 +117,35 @@ local function getsOf(it)
   return g
 end
 
+-- How a crafted thing is made: prof (crafting key), skill, mats, isGear. nil if it isn't crafted.
+-- Works for real gear (it.crafted), crafted cosmetics (source "craft") and craft skins.
+function TCF.CraftSourceOf(it)
+  if not it then return nil end
+  if it.q and not it.rarity then
+    if not it.crafted then return nil end
+    local r, prof = gearRecipeFor(it.id)
+    return it.crafted or prof, it.craftSkill or (r and r.skill), it.craftMats or (r and r.mats), true
+  end
+  if it.source == "craft" then
+    local r, prof = recipeFor(it.id)
+    if r then return prof, r.skill, r.mats, false end
+    return "?", nil, nil, false
+  end
+  if it.slot == "skin" then
+    for _, g in ipairs(getsOf(it)) do
+      if g.kind == "craft" then return g.prof, g.skill, g.mats, false end
+    end
+  end
+end
+
+-- "Crafted with Leatherworking (skill 250)" (short, no materials)
+function TCF.CraftShortLine(it)
+  local prof, skill, _, isGear = TCF.CraftSourceOf(it)
+  if not prof or prof == "?" then return prof and "Crafted with a profession" or nil end
+  return string.format("Crafted %s %s%s", isGear and "by" or "with", profName(prof),
+    (skill and skill > 0) and (" (skill " .. skill .. ")") or "")
+end
+
 local function getLine(g)
   local k = g.kind
   if k == "chest" then
@@ -100,7 +163,7 @@ local function getLine(g)
     local raid = g.run == "raid"
     return string.format("Finish a real WoW %s with TapCatForever on: %s chance each time", raid and "raid" or "dungeon", pct(g.chance))
   elseif k == "craft" then
-    return craftLine(g.prof, g.skill, g.mats)
+    return craftLine(g.prof, g.skill, g.mats), whereLine(g.prof)
   end
 end
 
@@ -128,6 +191,13 @@ local function chestsFor(rarity)
 end
 
 local function gearLines(it, add)
+  if it.crafted then
+    local prof, skill, mats = TCF.CraftSourceOf(it)
+    add(craftLine(prof, skill, mats, "by"))
+    add(whereLine(prof))
+    add("Crafted gear is never found as loot. It sells for Trade Gold, not TapCoins")
+    return
+  end
   local t = it.tier and it.tier > 0 and TCF.TIERS and TCF.TIERS[it.tier]
   local b = t and it.boss and it.boss > 0 and t.bosses[it.boss]
   if b then
@@ -169,7 +239,10 @@ function TCF:HowToGet(it)
       local t = zoneOfBoss(d[1])
       add(string.format("Dropped by %s%s (Adventure), %s chance", d[1], t and (" in " .. t.name) or "", pct(d[2])))
     end
-    for _, g in ipairs(getsOf(it)) do add(getLine(g)) end
+    for _, g in ipairs(getsOf(it)) do
+      local a, b = getLine(g)
+      add(a); add(b)
+    end
     local a = achFor("id", it.skinAch) or achFor("skin", it.id)
     if a then add("Achievement reward: " .. a.name .. " (" .. (a.desc:gsub("%.$", "")) .. ")") end
     if it.skinPrice then add("Or find it in a Heroic Cache (3% chance of a shop skin you don't have yet)") end
@@ -198,6 +271,7 @@ function TCF:HowToGet(it)
   elseif src == "craft" then
     local r, prof = recipeFor(it.id)
     add(r and craftLine(prof, r.skill, r.mats) or "Crafted with a profession")
+    if r then add(whereLine(prof)) end
   elseif src == "race" then
     local race = RACE_NAMES[it.id] or "matching"
     add(string.format("Racial heritage: buy it in the Shop for %s TapCoins while playing %s %s character",
@@ -233,7 +307,9 @@ local FILTERS = { { "all", "All" }, { "owned", "Owned" }, { "missing", "Missing"
 -- item grid: 12 x 7 cells of 58 (+5 gap) = 751 x 436; gear grid: 9 x 10 of 40 (+4) = 392 x 436
 local COLS, ROWS, CELL, GAP = 12, 7, 58, 5
 local GCOLS, GROWS, GCELL, GGAP = 9, 10, 40, 4
-local LIST_ROWS, LIST_H, LIST_W = 29, 15, 176
+-- zone list: 28 Adventure zones, World drops, Crafted (30 rows of 14.5 = 435, the grid's height)
+local LIST_ROWS, LIST_H, LIST_W = 30, 14.5, 176
+local CRAFTED = -1  -- gearZone index of the "Crafted" row (0 is World drops)
 local TOP = -108  -- where the grids and lists start
 
 -- class filter choices for cosmetics and effects
@@ -295,10 +371,40 @@ local function sortedGear(list)
   return s
 end
 
+-- crafted gear, one list per crafting skill (family order), easiest recipe first
+local craftedCache
+local function craftedSections()
+  if craftedCache then return craftedCache end
+  local byCraft = {}
+  for _, it in ipairs(TCF.GEAR_LIST or {}) do
+    if it.crafted then
+      byCraft[it.crafted] = byCraft[it.crafted] or {}
+      table.insert(byCraft[it.crafted], it)
+    end
+  end
+  local out = {}
+  for _, fk in ipairs(TCF.FAMILY_KEYS or {}) do
+    local fam = TCF.FAMILIES[fk]
+    local list = fam and byCraft[fam.craft]
+    if list and #list > 0 then
+      table.sort(list, function(a, b)
+        local sa, sb = a.craftSkill or 0, b.craftSkill or 0
+        if sa ~= sb then return sa < sb end
+        if a.req ~= b.req then return a.req < b.req end
+        return a.name < b.name
+      end)
+      out[#out + 1] = { label = fam.craftName or profName(fam.craft), list = list, ordered = true, craft = fam.craft }
+    end
+  end
+  craftedCache = out
+  return out
+end
+
 -- the lists of gear for one Adventure zone (bosses with loot, then other zone loot),
--- or for world drops (index 0): level bands
+-- for world drops (index 0): level bands, or for crafted gear (CRAFTED): one list per craft
 local function gearSections(zone)
   local out = {}
+  if zone == CRAFTED then return craftedSections() end
   if zone == 0 then
     local bands = {}
     for b in pairs(TCF.WORLD_POOL or {}) do bands[#bands + 1] = b end
@@ -458,7 +564,15 @@ function TCF:CreateCompendium()
   end
   local zoneRows, subRows = {}, {}
   for i = 1, LIST_ROWS do
-    zoneRows[i] = ListRow(gearView, 0, i, function(idx) f.gearZone = idx; f.gearSub = 1; f.page = 1; f:Refresh() end)
+    zoneRows[i] = ListRow(gearView, 0, i, function(idx)
+      f.gearZone = idx; f.gearSub = 1; f.page = 1
+      -- Crafted opens on the current class's own craft
+      if idx == CRAFTED and TCF.CraftProf then
+        local mine = TCF:CraftProf()
+        for si, sec in ipairs(craftedSections()) do if sec.craft == mine then f.gearSub = si end end
+      end
+      f:Refresh()
+    end)
     subRows[i] = ListRow(gearView, LIST_W + 6, i, function(idx) f.gearSub = idx; f.page = 1; f:Refresh() end)
   end
   local gearGrid = CreateFrame("Frame", nil, gearView)
@@ -563,11 +677,15 @@ function TCF:CreateCompendium()
       return n
     end
     local tiers = TCF.TIERS or {}
-    -- zone rows: every Adventure zone, then world drops (index 0)
+    -- zone rows: every Adventure zone, then world drops (index 0), then crafted gear
     local zones = {}
     for ti in ipairs(tiers) do zones[#zones + 1] = ti end
     zones[#zones + 1] = 0
-    if self.gearZone ~= 0 and not tiers[self.gearZone] then self.gearZone = tiers[1] and 1 or 0 end
+    local hasCrafted = #craftedSections() > 0
+    if hasCrafted then zones[#zones + 1] = CRAFTED end
+    if self.gearZone ~= 0 and not (self.gearZone == CRAFTED and hasCrafted) and not tiers[self.gearZone] then
+      self.gearZone = tiers[1] and 1 or 0
+    end
     for i, r in ipairs(zoneRows) do
       local z = zones[i]
       if z then
@@ -575,7 +693,8 @@ function TCF:CreateCompendium()
         local n, tot = 0, 0
         for _, s in ipairs(secs) do n = n + countList(s.list); tot = tot + #s.list end
         r.index = z
-        r.name:SetText(z == 0 and "|cffccccccWorld drops|r" or (tiers[z].raid and ("|cffffb060" .. tiers[z].name .. "|r") or tiers[z].name))
+        r.name:SetText(z == 0 and "|cffccccccWorld drops|r" or z == CRAFTED and "|cff9fd8ffCrafted|r"
+          or (tiers[z].raid and ("|cffffb060" .. tiers[z].name .. "|r") or tiers[z].name))
         r.num:SetText(n .. "/" .. tot)
         r.bg:SetShown(z == self.gearZone)
         r:Show()
@@ -598,7 +717,7 @@ function TCF:CreateCompendium()
       end
     end
     local sec = secs[self.gearSub]
-    local src = sec and sortedGear(sec.list) or {}
+    local src = sec and (sec.ordered and sec.list or sortedGear(sec.list)) or {}
     local list = {}
     for _, it in ipairs(src) do if passes(got[it.id]) then list[#list + 1] = it end end
     collectedText(countList(src), #src)
@@ -615,7 +734,7 @@ function TCF:CreateCompendium()
         b:Hide()
       end
     end
-    empty:SetText(#src == 0 and "|cff888888No loot here.|r" or f.filter == "owned" and "|cff888888None of this gear collected yet.|r"
+    empty:SetText(#src == 0 and (self.gearZone == CRAFTED and "|cff888888Nothing to craft here.|r" or "|cff888888No loot here.|r") or f.filter == "owned" and "|cff888888None of this gear collected yet.|r"
       or "|cff20ff20You have every piece here!|r")
     empty:ClearAllPoints(); empty:SetPoint("CENTER", gearGrid, "CENTER")
     empty:SetShown(#list == 0)
@@ -637,7 +756,7 @@ function TCF:CreateCompendium()
     hint:SetText(cat == "skin" and "Click a skin you own to wear it. Hover any skin to see how to get it."
       or cat == "tap" and "Click a tap effect you own to use it."
       or cat == "effect" and "Click an effect you own to wear it."
-      or "Pick a zone, then a boss (or a level range for world drops).")
+      or "Pick a zone, then a boss. World drops are listed by level, crafted gear by profession.")
     -- overall progress on cosmetics and skins
     local n, total = TCF:CountOwned()  -- the same numbers as the main window
     overall:SetText(string.format("All cosmetics and skins: %s / %s", commas(n), commas(total)))

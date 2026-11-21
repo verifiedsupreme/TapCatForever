@@ -2,6 +2,7 @@
 Flat colours, soft silhouettes in the distance, ink-outlined props up close, and a
 floor band at the bottom where the cat and enemies stand.
 usage: python3 tools/make_backgrounds.py <work_dir> [preview.png]  -> Art/v/bg_<key>.tga (512x256)
+Also the fishing dock scene (bg_dock) used by the Fishing profession view.
 """
 import math, os, random, subprocess, sys
 from PIL import Image
@@ -237,24 +238,80 @@ S["naxx"] = (sky("#1a2a3a", "#22364a", "#2a425a") + particles(51, "#ffffff", 40,
              + path("M 140 40 L 372 40 L 330 130 L 182 130 Z", "#3a4a5a", 3) + "".join(path("M %d 130 L %d 160 L %d 130 Z" % (x - 8, x, x + 8), "#3a4a5a", 3) for x in (200, 256, 312))
              + rect(220, 64, 72, 30, "#7aff9a", 0.7) + peaks(192, 70, "#2a3a4a", 52, 5, 1, "#e8f0ff") + particles(53, "#9fffd0", 16, 2.4) + floor("#3a4a5a", "#4a5a6a"))
 
+# ---------------------------------------------------------------- fishing dock (Professions > Fishing), not an Adventure zone
+# A calm lake: far shore with pines, open water on the right for the bobber, and a wooden dock on the
+# left third whose deck (x 0..196, top at y 176) has room for two sitting cats.
+DOCK_TOP = 176
+def ripples(seed, n, x0, x1, y0, y1, c="#ffffff", op=0.55):
+    rnd = random.Random(seed); s = ""
+    for _ in range(n):
+        x, y = rnd.uniform(x0, x1), rnd.uniform(y0, y1); w = 6 + (y - 128) * 0.18 + rnd.uniform(0, 8)
+        s += '<path d="M %.1f %.1f q %.1f -3 %.1f 0" fill="none" stroke="%s" stroke-width="2" stroke-linecap="round" opacity="%s"/>' % (x, y, w / 2, w, c, op)
+    return s
+def cattail(x, y, h, lean):
+    tx = x + lean
+    return ('<path d="M %d %d Q %.1f %.1f %.1f %.1f" fill="none" stroke="%s" stroke-width="6" stroke-linecap="round"/>' % (x, y, x + lean * 0.2, y - h * 0.5, tx, y - h, INK)
+            + '<path d="M %d %d Q %.1f %.1f %.1f %.1f" fill="none" stroke="#5a9a3e" stroke-width="3" stroke-linecap="round"/>' % (x, y, x + lean * 0.2, y - h * 0.5, tx, y - h)
+            + ell(tx, y - h + 4, 5, 11, "#8a5a36", 2.5))
+def dock_scene():
+    s = sky("#8fd0f4", "#a6dbf5", "#c4e9f8") + sun(410, 46, 20)
+    for x, y in ((92, 40), (236, 58), (318, 30)):                                     # clouds kept clear of the sun
+        for dx, dy, r in ((-16, 4, 12), (0, 0, 16), (18, 4, 12)): s += circ(x + dx, y + dy, r, "#ffffff", 0, 0.9)
+    s += peaks(126, 46, "#9fc4dc", 62, 6, 0.9, "#eef6fb")                           # far blue mountains
+    s += wave(124, 12, "#7fbf86", 63, 7) + wave(130, 6, "#5fa868", 64, 8)            # far shore hills
+    rnd = random.Random(65)
+    for k in range(22):                                                               # pines along the far shore
+        x = 6 + k * 24 + rnd.uniform(-6, 6); h = rnd.uniform(18, 30)
+        s += path("M %.1f 132 L %.1f %.1f L %.1f 132 Z" % (x - h * 0.32, x, 132 - h, x + h * 0.32), "#3f7f4e")
+    s += rect(0, 131, W, Hh - 131, "#6cc0e6") + rect(0, 158, W, 40, "#60b4de") + rect(0, 198, W, 58, "#53a6d6")
+    s += path("M 0 131 L %d 131" % W, "none").replace('fill="none"', 'fill="none" stroke="#3f7f4e" stroke-width="2"')
+    s += rect(0, 132, W, 4, "#ffffff", 0.35)                                           # shine along the far shore
+    for k, (w, y) in enumerate(((60, 140), (44, 150), (30, 162), (18, 174))):        # sun glitter on the water
+        s += rect(410 - w / 2 + (k % 2) * 6, y, w, 3, "#fff6c8", 0.7)
+    s += ripples(66, 26, 200, W - 20, 140, 250)
+    # lily pads near the bottom edge, out of the bobber's way
+    for x, y, r in ((236, 244, 11), (258, 250, 8), (484, 238, 10)):
+        s += ell(x, y, r * 1.5, r * 0.6, "#5aae4e", 2.5) + path("M %.1f %.1f L %.1f %.1f L %.1f %.1f Z" % (x, y, x + r * 1.5, y - r * 0.4, x + r * 1.5, y + r * 0.1), "#53a6d6")
+    s += circ(242, 238, 4, "#f6a0c8", 2)
+    # cattails on the right edge
+    for x, h, lean in ((488, 74, -6), (500, 92, 4), (512, 66, 10), (476, 54, -12)): s += cattail(x, 250, h, lean)
+    # grassy bank in the bottom-left corner where the dock starts
+    s += path("M -10 200 Q 30 192 64 214 Q 84 236 78 266 L -10 266 Z", "#6fb85a", 3) + path("M -10 206 Q 28 200 56 216", "none").replace('fill="none"', 'fill="none" stroke="#93d47c" stroke-width="4" stroke-linecap="round"')
+    # dock: posts into the water, deck top, plank front face
+    T = DOCK_TOP
+    for x, y1, wet in ((34, 230, False), (104, 234, True), (172, 232, True)):     # the first post stands on the bank
+        if wet: s += ell(x + 6, y1, 18, 4, "#ffffff", 0, 0.5)
+        s += rect(x, T, 12, y1 - T, "#7a4a2a").replace("/>", ' stroke="%s" stroke-width="3"/>' % INK)
+        if wet: s += rect(x + 2, y1 - 10, 8, 10, "#3f8fc0", 0.35)                     # post under the water
+    s += path("M -10 %d L 190 %d L 200 %d L -10 %d Z" % (T, T, T + 10, T + 10), "#c99a62", 3)
+    s += "".join(path("M %d %d L %d %d" % (x, T, x + 3, T + 10), "none").replace('fill="none"', 'fill="none" stroke="#9a6a3e" stroke-width="2"') for x in range(18, 190, 22))
+    s += path("M -10 %d L 200 %d L 200 %d L -10 %d Z" % (T + 10, T + 10, T + 22, T + 22), "#a2683e", 3)
+    s += "".join(circ(x, T + 16, 2, "#5e3d24") for x in range(12, 200, 44))            # nail heads
+    # a short mooring post with a rope at the end of the dock (kept low, below the fishing line)
+    s += rect(188, T - 16, 14, 50, "#8a5a36").replace("/>", ' stroke="%s" stroke-width="3"/>' % INK) + ell(195, T - 16, 7, 3, "#b07a48", 2)
+    s += path("M 186 %d q 9 5 18 0 M 186 %d q 9 5 18 0" % (T - 4, T + 2), "none").replace('fill="none"', 'fill="none" stroke="#e0c890" stroke-width="3"')
+    return s
+S_EXTRA = {"dock": dock_scene()}
+
 def main():
     work = sys.argv[1]; os.makedirs(work, exist_ok=True)
     out = os.path.join(ROOT, "Art", "v"); os.makedirs(out, exist_ok=True)
-    for key, body in S.items():
+    ALL = dict(S, **S_EXTRA)
+    for key, body in ALL.items():
         # a soft vignette darkens the edges so the fighters stand out
         vig = '<rect width="%d" height="%d" fill="url(#vg)"/>' % (W, Hh)
         defs = '<defs><radialGradient id="vg" cx="50%" cy="55%" r="70%"><stop offset=".65" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient></defs>'
         open(os.path.join(work, key + ".svg"), "w").write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d">%s%s%s</svg>' % (W, Hh, defs, body, vig))
     subprocess.check_call(["node", os.path.join(HERE, "render_svg.js"), work, str(W), str(Hh)])
-    for key in S:
+    for key in ALL:
         write_tga(Image.open(os.path.join(work, key + ".png")).convert("RGBA"), os.path.join(out, "bg_" + key + ".tga"))
     if len(sys.argv) > 2:
-        keys = list(S); cols = 4; tw, th = 256, 128
+        keys = list(ALL); cols = 4; tw, th = 256, 128
         sheet = Image.new("RGBA", (cols * tw, ((len(keys) + cols - 1) // cols) * th), (0, 0, 0, 255))
         for i, k in enumerate(keys):
             sheet.paste(Image.open(os.path.join(work, k + ".png")).convert("RGBA").resize((tw, th), Image.LANCZOS), ((i % cols) * tw, (i // cols) * th))
         sheet.save(sys.argv[2])
-    print("backgrounds:", len(S))
+    print("backgrounds:", len(ALL))
 
 if __name__ == "__main__":
     main()

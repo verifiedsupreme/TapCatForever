@@ -53,7 +53,13 @@ function TCF:ItemTooltip(tt, it, noSource)
   local col = TCF.RARITY[it.rarity].color
   tt:AddLine("|T" .. TCF.Icon(it.icon) .. ":20:20|t " .. it.name, col[1], col[2], col[3])
   tt:AddLine(TCF.RARITY[it.rarity].name .. " " .. TCF.SLOT_BY_KEY[it.slot].name, 1, 1, 1)
-  tt:AddLine("Cosmetic: changes your cat's look only, no stats", 0.82, 0.55, 1)
+  -- crafted cosmetics and skins (Compendium.lua knows the recipes)
+  local crafted = TCF.CraftSourceOf and TCF.CraftSourceOf(it)
+  if crafted then
+    tt:AddLine("Cosmetic only (no stats)", 0.82, 0.55, 1)
+  else
+    tt:AddLine("Cosmetic: changes your cat's look only, no stats", 0.82, 0.55, 1)
+  end
   if it.class then
     local cl = TCF.CLASS_BY_KEY[it.class]
     tt:AddLine(cl.name .. " only", cl.color[1], cl.color[2], cl.color[3])
@@ -63,6 +69,9 @@ function TCF:ItemTooltip(tt, it, noSource)
   local owned = self.db.owned[it.id]
   if owned then
     tt:AddLine("Collected" .. (owned > 1 and (" (x" .. owned .. ")") or ""), 0.3, 1, 0.3)
+    -- the full recipe is in "how to get"; once collected, just say how it is made
+    local how = crafted and not noSource and TCF.CraftShortLine and TCF.CraftShortLine(it)
+    if how then tt:AddLine(how, 1, 0.82, 0, true) end
   elseif not noSource and self.HowToGet then
     -- how to get it (Compendium.lua), the same lines the Compendium shows
     for _, line in ipairs(self:HowToGet(it)) do tt:AddLine(line, 1, 0.82, 0, true) end
@@ -357,7 +366,12 @@ function TCF:GearTooltip(tt, it, class)
     tt:AddLine("Requires class level " .. it.req, ok and 1 or 1, ok and 1 or 0.2, ok and 1 or 0.2)
   end
   for _, l in ipairs(EQUIP_LINES) do if st[l[1]] then tt:AddLine(string.format(l[2], st[l[1]]), 0.12, 1, 0) end end
-  if it.tier > 0 then
+  if it.crafted then
+    -- "Crafted by Blacksmithing (skill 125)"; its Sell gives Trade Gold, not TapCoins
+    local p = TCF.PROF_BY_KEY and TCF.PROF_BY_KEY[it.crafted]
+    local skill = it.craftSkill
+    tt:AddLine(string.format("Crafted by %s%s", p and p.name or "a profession", (skill and skill > 0) and (" (skill " .. skill .. ")") or ""), 0.6, 0.8, 1, true)
+  elseif it.tier > 0 then
     local t = TCF.TIERS[it.tier]
     local src = it.boss > 0 and t.bosses[it.boss][1] or "enemies"
     tt:AddLine(string.format("Drops from %s (%s)%s", src, t.name, it.dc > 0 and string.format(" - %.1f%%", it.dc / 10) or ""), 0.6, 0.8, 1, true)
@@ -445,6 +459,12 @@ function TCF:CreateHUD()
     tt:AddLine("TapCatForever", 1, 0.72, 0.3)
     local cl = TCF.CLASS_BY_KEY[TCF.db.class]
     tt:AddLine(string.format("Level %d %s %s", TCF:CD().level, cl.name, TCF:GetTitle()), 1, 1, 1)
+    local friends = TCF.PartyCount and TCF:PartyCount() or 0
+    if friends > 0 then
+      local pct = floor((TCF:PartyBonus() - 1) * 100 + 0.5)
+      tt:AddLine(string.format("Party bonus: +%d%% cat XP and Trade Gold", pct), 0.4, 1, 0.4)
+      tt:AddLine(string.format(friends == 1 and "%d party member has TapCatForever" or "%d party members have TapCatForever", friends), 0.8, 0.8, 0.8)
+    end
     tt:AddLine(" ")
     tt:AddLine("Left-click: pet the cat", 0.8, 0.8, 0.8)
     tt:AddLine("Right-click: wardrobe, shop & settings", 0.8, 0.8, 0.8)
@@ -1093,6 +1113,9 @@ function TCF:CreateWindow()
   local st = pages[TAB_SETTINGS]
   local ui = TCF.db.ui
   local stTitle = Text(st, "GameFontNormalLarge", "Settings"); stTitle:SetPoint("TOPLEFT", 16, -14)
+  -- party cats (Party.lua): a short note beside the title, with the bonus you have right now
+  local partyNote = Text(st, "GameFontHighlightSmall", nil, "LEFT")
+  partyNote:SetPoint("TOPLEFT", 120, -12); partyNote:SetWidth(420)
   local checks = {}
   local function Check(label, key, col, row, tip, after)
     local cb = CreateFrame("CheckButton", nil, st, "UICheckButtonTemplate")
@@ -1182,17 +1205,39 @@ function TCF:CreateWindow()
 
   -- test mode shortcuts (/tcf testmode)
   local testBox = CreateFrame("Frame", nil, st)
-  testBox:SetSize(380, 72); testBox:SetPoint("TOPLEFT", 16, -418)  -- takes the help text's spot
+  testBox:SetSize(512, 72); testBox:SetPoint("TOPLEFT", 16, -418)  -- takes the help text's spot
   local tt = Text(testBox, "GameFontNormal", "|cffff6060Test mode|r (/tcf testmode to hide)", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
   local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
-                   { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" } }
+                   { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" },
+                   { "Fake party cats", "party" } }
+  -- four per row, so the extra buttons stay inside the page
   for i, c in ipairs(cheats) do
-    local b = Button(testBox, c[1], 124, 22, function() TCF:TestCheat(c[2]) end)
-    b:SetPoint("TOPLEFT", ((i - 1) % 3) * 128, -18 - math.floor((i - 1) / 3) * 24)
+    local b = Button(testBox, c[1], 124, 22, function()
+      if c[2] == "party" then
+        -- 1, 2, 3, 4, 5 (shows "+1"), then none again
+        if TCF.PartyTestInject then TCF:PartyTestInject(((TCF:PartyTestCount() or 0) + 1) % 6) end
+        win:RefreshSettings()
+      else
+        TCF:TestCheat(c[2])
+      end
+    end)
+    b:SetPoint("TOPLEFT", ((i - 1) % 4) * 128, -18 - math.floor((i - 1) / 4) * 24)
+    if c[2] == "party" then
+      Tip(b, function(t)
+        t:AddLine("Fake party cats", 1, 0.82, 0)
+        t:AddLine("Shows pretend party cats beside your cat, as if friends with TapCatForever were in your group. Each click adds one, up to five, then clears them.", 1, 1, 1, true)
+      end)
+    end
   end
 
   function win:RefreshSettings()
     testBox:SetShown(ui.testMode and true or false)
+    local note = "Play with friends: each group member who also has TapCatForever gives you +5% cat XP and Trade Gold, up to +20%."
+    local friends = TCF.PartyCount and TCF:PartyCount() or 0
+    if friends > 0 then
+      note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyBonus() - 1) * 100 + 0.5))
+    end
+    partyNote:SetText(note)
     help:SetShown(not ui.testMode)
     for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
     scaleS.Sync(); alphaS.Sync(); textS.Sync()

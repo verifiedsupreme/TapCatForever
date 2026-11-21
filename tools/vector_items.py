@@ -710,9 +710,42 @@ def ring(o, pose):
     if "glow" in o: s = GLOW(s, C(o["glow"], "arcane")) + s
     return s
 
+def qpts(p0, p1, p2, n):
+    """n+1 points along a quadratic curve"""
+    return [((1 - u) ** 2 * p0[0] + 2 * (1 - u) * u * p1[0] + u * u * p2[0], (1 - u) ** 2 * p0[1] + 2 * (1 - u) * u * p1[1] + u * u * p2[1]) for u in (k / n for k in range(n + 1))]
+
+def cloak(o):
+    """Gear cloaks (real item icons): a cape hanging behind the body, seen around its sides and below it.
+    m = cloth, t = edge trim, g = hood lining / fur. Flags: hood (a hood resting behind the head),
+    fur (fluffy fur edge), studs (studded leather edge)."""
+    m, t, g = C(o.get("m"), "red"), C(o.get("t"), "gold"), o.get("g")
+    f = o["flags"]; s = ""
+    if "hood" in f:
+        # the hood lies behind the head and shoulders: only its rim shows around them
+        hood = "M 40 138 Q 26 74 70 46 Q 128 18 186 46 Q 230 74 216 138 Z"
+        s += P(hood, m, 5) + LN("M 50 128 Q 40 80 78 56 Q 128 32 178 56 Q 216 80 206 128", C(g, darker(m, .55)), 6)
+    outer = "M 66 110 Q 22 172 26 228 L 230 228 Q 234 172 190 110 Z"
+    inner = "M 74 116 Q 38 172 40 216 L 216 216 Q 218 172 182 116 Z"
+    s += P(outer, t, 5) + P(inner, m, 3)
+    for x0, x1 in ((54, 44), (202, 212)):  # cloth folds on the visible flaps
+        s += LN("M %d 150 Q %d 186 %d 212" % (x0, (x0 + x1) // 2 - 2, x1), darker(m, .72), 3)
+    if "studs" in f:
+        for side in (((66, 110), (22, 172), (26, 228)), ((190, 110), (234, 172), (230, 228))):
+            for x, y in qpts(*side, n=6)[1:]:
+                s += CI(x + (6 if x < 128 else -6), y, 3.2, C(o.get("e"), "brass"), 2)
+        for x in range(44, 220, 22): s += CI(x, 222, 3.2, C(o.get("e"), "brass"), 2)
+    if "fur" in f:
+        fur = C(g, "cream")
+        for side in (((66, 110), (22, 172), (26, 228)), ((190, 110), (234, 172), (230, 228))):
+            for x, y in qpts(*side, n=7)[1:]:
+                s += CI(x + (4 if x < 128 else -4), y, 9, fur, 3)
+        for x in range(36, 228, 16): s += CI(x, 224, 9, fur, 3)
+    return s
+
 def back(o):
     v = o["variant"] or "cape"
     m, t = C(o.get("m"), "red"), C(o.get("t"), "gold")
+    if v == "cloak": return cloak(o)
     if v == "cape":
         return P("M 68 112 Q 26 172 30 226 L 226 226 Q 230 172 188 112 Z", m, 5) + P("M 80 116 Q 48 172 52 226 L 204 226 Q 208 172 176 116 Z", t, 3)
     if v in ("angelwings", "batwings"):

@@ -105,12 +105,12 @@ TCF.UI.Builders.gear = function(page, win)
       -- gear is scarce: ask before selling the only copy of a rare or better item
       if it.q >= 3 and (TCF:Bag()[it.id] or 0) <= 1 then
         StaticPopupDialogs.TAPCATFOREVER_SELL_LAST = {
-          text = "Sell your only %s for %s TapCoins?\n\nThis can't be undone.",
+          text = "Sell your only %s for %s?\n\nThis can't be undone.",
           button1 = "Sell", button2 = CANCEL or "Cancel",
           OnAccept = function(_, id) if id then TCF:SellGear(id) end end,
           timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
         }
-        StaticPopup_Show("TAPCATFOREVER_SELL_LAST", TCF.GearLink(it), TCF.Commas(TCF:GearSellValue(it)), it.id)
+        StaticPopup_Show("TAPCATFOREVER_SELL_LAST", TCF.GearLink(it), TCF:GearSellText(it), it.id)
       else
         TCF:SellGear(it.id)
       end
@@ -119,13 +119,16 @@ TCF.UI.Builders.gear = function(page, win)
     Tip(r.sell, function(tt)
       if not r.item then return end
       tt:AddLine("Sell", 1, 0.82, 0)
-      tt:AddLine(string.format("Sells one copy for %d TapCoins. Copies your cat is wearing are kept. You'll be asked first before selling your only copy of a rare or epic item.", TCF:GearSellValue(r.item)), 1, 1, 1, true)
+      tt:AddLine(string.format("Sells one copy for %s. Copies your cat is wearing are kept. You'll be asked first before selling your only copy of a rare or epic item.", TCF:GearSellText(r.item)), 1, 1, 1, true)
+      if r.item.crafted then
+        tt:AddLine("Crafted gear sells for Trade Gold (half the value of its materials), not TapCoins.", 0.7, 0.7, 0.7, true)
+      end
     end)
     local function enter(self)
       if not r.item then return end
       TCF.UI.ShowTryOn(win, r.item)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, r.item)
-      GameTooltip:AddLine("Sells for " .. TCF:GearSellValue(r.item) .. " TapCoins (worn copies are kept).", 0.7, 0.7, 0.7)
+      GameTooltip:AddLine("Sells for " .. TCF:GearSellText(r.item) .. " (worn copies are kept).", 0.7, 0.7, 0.7)
       GameTooltip:Show()
     end
     local function leave() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end
@@ -138,23 +141,31 @@ TCF.UI.Builders.gear = function(page, win)
   prev:SetPoint("RIGHT", pageText, "LEFT", -10, 0)
   local nextB = Button(page, ">", 28, 22, function() win.gearPage = (win.gearPage or 1) + 1; win:Refresh() end)
   nextB:SetPoint("LEFT", pageText, "RIGHT", 10, 0)
+  -- "12 TapCoins", "40 Trade Gold" or "12 TapCoins and 40 Trade Gold"
+  local function junkValue(coins, gold)
+    local parts = {}
+    if coins > 0 or gold <= 0 then parts[#parts + 1] = TCF.Commas(coins) .. " TapCoins" end
+    if gold > 0 then parts[#parts + 1] = TCF.Commas(gold) .. " Trade Gold" end
+    return table.concat(parts, " and ")
+  end
   local sellAll = Button(page, "Sell junk", 100, 22, function()
-    local _, n, coins = TCF:JunkGear()
+    local _, n, coins, gold = TCF:JunkGear()
     if n == 0 then TCF:Print("No junk to sell: every item is either worn, better than what you're wearing, or your only copy.", true); return end
     StaticPopupDialogs.TAPCATFOREVER_SELL_JUNK = {
-      text = "Sell %s of junk for %s TapCoins?\n\nJunk is gear that would lower your Power, and extra copies you can't wear. Better items are kept, even ones you're not high enough level for yet.",
+      text = "Sell %s of junk for %s?\n\nJunk is gear that would lower your Power, and extra copies you can't wear. Better items are kept, even ones you're not high enough level for yet.",
       button1 = "Sell", button2 = CANCEL or "Cancel",
       OnAccept = function() TCF:SellJunk() end,
       timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
     }
-    StaticPopup_Show("TAPCATFOREVER_SELL_JUNK", n == 1 and "1 item" or (n .. " items"), TCF.Commas(coins))
+    StaticPopup_Show("TAPCATFOREVER_SELL_JUNK", n == 1 and "1 item" or (n .. " items"), junkValue(coins, gold or 0))
   end)
   sellAll:SetPoint("BOTTOMLEFT", 12, 10)
   Tip(sellAll, function(tt)
-    local _, n, coins = TCF:JunkGear()
+    local _, n, coins, gold = TCF:JunkGear()
     tt:AddLine("Sell junk", 1, 0.82, 0)
     tt:AddLine("Sells gear that would lower your cat's Power, and extra copies beyond what your cat can wear at once. Worn gear, upgrades (even ones you need a higher level for) and items your class can't use are kept. You'll be asked to confirm.", 1, 1, 1, true)
-    tt:AddLine(string.format("Right now: %d items for %s TapCoins.", n, TCF.Commas(coins)), 0.7, 0.7, 0.7)
+    tt:AddLine("Crafted gear sells for Trade Gold instead of TapCoins.", 1, 1, 1, true)
+    tt:AddLine(string.format("Right now: %d items for %s.", n, junkValue(coins, gold or 0)), 0.7, 0.7, 0.7)
   end)
   page:EnableMouseWheel(true)
   page:SetScript("OnMouseWheel", function(_, d) win.gearPage = max(1, (win.gearPage or 1) - d); win:Refresh() end)
@@ -209,14 +220,15 @@ TCF.UI.Builders.gear = function(page, win)
         r.equip:SetEnabled(can and canWearMore)
         r.equip:SetText(it.req > level and ("Lv " .. it.req) or "Equip")
         local spare = n - worn
-        r.sell:SetText("Sell " .. U.coinStr(TCF:GearSellValue(it), 12))
+        local value, currency = TCF:GearSellValue(it)
+        r.sell:SetText("Sell " .. ((currency == "gold" and TCF.GoldStr) and TCF.GoldStr(value, 12) or U.coinStr(value, 12)))
         r.sell:SetEnabled(spare > 0)
       else
         r:Hide()
       end
     end
     pageText:SetText(#list > 0 and string.format("Page %d / %d  (%d items)", win.gearPage, pagesN, #list)
-      or "|cff888888No gear here yet. Bosses in Adventure, chests and expeditions drop real items.|r")
+      or "|cff888888No gear here yet. Bosses in Adventure, chests and expeditions drop real items, and your crafting profession makes them.|r")
     prev:SetEnabled(win.gearPage > 1); nextB:SetEnabled(win.gearPage < pagesN)
   end
 end

@@ -17,8 +17,11 @@ local function isPlaceholder(name, ilvl)
     or name:sub(1, 6) == "Bland "
 end
 
--- Called once per item by GearData.lua
-function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss, dc, cls)
+-- Called once per item by GearData.lua (and by CraftData.lua for crafted items that only
+-- exist there: crafted = "blacksmithing" / "leatherworking" / "tailoring").
+-- Crafted gear is never loot: it goes into TCF.GEAR and TCF.GEAR_LIST only.
+function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss, dc, cls, crafted)
+  if crafted and TCF.GEAR[id] then return TCF.MarkCrafted(id, crafted) end
   -- Many quest/vendor items have no level requirement in the data, which would put
   -- ilvl 40-70 gear in the level 1-4 loot band. Give them the usual "item level - 5".
   if req == 0 and ilvl > 10 then req = min(60, max(1, ilvl - 5)) end
@@ -26,6 +29,7 @@ function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss,
     statStr = stats, tier = tier, boss = boss, dc = dc, cls = cls }
   TCF.GEAR[id] = it
   TCF.GEAR_LIST[#TCF.GEAR_LIST + 1] = it
+  if crafted then it.crafted, it.tier, it.boss, it.dc = crafted, 0, 0, 0; return end
   if isPlaceholder(name, ilvl) then return end
   if tier > 0 then
     if boss > 0 then
@@ -41,6 +45,24 @@ function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss,
     TCF.WORLD_POOL[band] = TCF.WORLD_POOL[band] or {}
     table.insert(TCF.WORLD_POOL[band], it)
   end
+end
+
+-- CraftData.lua: an item GearData.lua already has becomes crafted gear. It leaves every loot
+-- pool (boss loot, zone loot, world drops) so the only way to get it is to make it.
+local function dropFrom(list, it)
+  if not list then return end
+  for i = #list, 1, -1 do if list[i] == it then table.remove(list, i) end end
+end
+function TCF.MarkCrafted(id, craft)
+  local it = TCF.GEAR[id]
+  if not it then return end
+  dropFrom(TCF.WORLD_POOL[floor(it.req / 5)], it)
+  if it.tier and it.tier > 0 then
+    dropFrom(TCF.TIER_POOL[it.tier], it)
+    for _, list in pairs(TCF.BOSS_LOOT[it.tier] or {}) do dropFrom(list, it) end
+  end
+  it.crafted, it.tier, it.boss, it.dc = craft, 0, 0, 0
+  return it
 end
 
 -- Parsed stats (cached)
@@ -309,19 +331,49 @@ function TCF.GearLink(it)
   return "|c" .. TCF.RARITY[it.q].hex .. "[" .. it.name .. "]|r"
 end
 
+-- Material tier -> its value; ore is the base value of every family's material of that tier
+-- (cloth's own sale value may differ, crafted gear doesn't depend on it)
+local TIER_ORE = { "copper", "tin", "iron", "mithril", "thorium", "arcane" }
+local function craftMatValue(it)
+  local v = 0
+  for k, n in pairs(it.craftMats or {}) do
+    local tier = TCF.CRAFT_MAT_TIER and TCF.CRAFT_MAT_TIER[k]
+    local m = tier and TCF.MAT_BY_KEY and TCF.MAT_BY_KEY[TIER_ORE[tier]]
+    v = v + n * (m and m.value or 1)
+  end
+  return v
+end
+
+-- What one copy sells for, and in what: "coins" (TapCoins, found gear) or "gold" (Trade Gold,
+-- crafted gear: half its material value, so TapCoins stay scarce and crafting is no exploit)
 function TCF:GearSellValue(it)
+  if it.crafted then return max(1, floor(craftMatValue(it) * 0.5)), "gold" end
   -- vendor-style value in TapCoins; deliberately small
-  return max(1, floor(it.ilvl * (it.q == 2 and 0.15 or it.q == 3 and 0.35 or it.q == 4 and 1.0 or 3) ))
+  return max(1, floor(it.ilvl * (it.q == 2 and 0.15 or it.q == 3 and 0.35 or it.q == 4 and 1.0 or 3) )), "coins"
+end
+
+-- "1,234 TapCoins" / "1,234 Trade Gold"
+function TCF:GearSellText(it, n)
+  local v, cur = self:GearSellValue(it)
+  return TCF.Commas(v * (n or 1)) .. (cur == "gold" and " Trade Gold" or " TapCoins")
+end
+
+-- pays for sold gear; returns what was actually added
+local function payFor(self, it, n)
+  local v, cur = self:GearSellValue(it)
+  if cur == "gold" then return 0, self.EarnGold and self:EarnGold(v * n) or 0 end
+  self:AddCoins(v * n)
+  return v * n, 0
 end
 
 -- "Junk" for the current class: copies of an item beyond what the cat can wear at once, and
 -- every unworn copy of an item that would lower the cat's Power. Better items (including ones
 -- the cat isn't high enough level for yet) and items this class can't use are never junk.
--- Returns { [id] = copies } plus the item count and TapCoins.
+-- Returns { [id] = copies } plus the item count, TapCoins and Trade Gold (crafted gear).
 function TCF:JunkGear(class)
   class = class or self.db.class
   local eq = self:GearEquipped(class)
-  local junk, count, coins = {}, 0, 0
+  local junk, count, coins, gold = {}, 0, 0, 0
   for id, have in pairs(self:Bag(class)) do
     local it = TCF.GEAR[id]
     if it and have > 0 and self:GearUsable(it, class) then
@@ -334,11 +386,13 @@ function TCF:JunkGear(class)
       local n = have - keep
       if n > 0 then
         junk[id] = n
-        count, coins = count + n, coins + self:GearSellValue(it) * n
+        local v, cur = self:GearSellValue(it)
+        if cur == "gold" then gold = gold + v * n else coins = coins + v * n end
+        count = count + n
       end
     end
   end
-  return junk, count, coins
+  return junk, count, coins, gold
 end
 
 -- Copies of an item this class could sell (everything it isn't wearing)
@@ -347,45 +401,53 @@ function TCF:GearSpare(id)
 end
 
 -- Removes unworn copies and pays for them. No chat line, no refresh.
+-- Returns copies sold, TapCoins and Trade Gold paid.
 local function sellCopies(self, id, all)
   local it = TCF.GEAR[id]
   local spare = self:GearSpare(id)
-  if not it or spare <= 0 then return 0, 0 end
+  if not it or spare <= 0 then return 0, 0, 0 end
   local n = all and spare or 1
   local bag = self:Bag()
   bag[id] = bag[id] - n
   if bag[id] <= 0 then bag[id] = nil end
-  local coins = self:GearSellValue(it) * n
-  self:AddCoins(coins)
-  return n, coins
+  local coins, gold = payFor(self, it, n)
+  return n, coins, gold
 end
 
+-- "12 TapCoins", "40 Trade Gold" or both
+local function paidText(coins, gold)
+  local parts = {}
+  if coins > 0 or gold <= 0 then parts[#parts + 1] = TCF.Commas(coins) .. " TapCoins" end
+  if gold > 0 then parts[#parts + 1] = TCF.Commas(floor(gold + 0.5)) .. " Trade Gold" end
+  return table.concat(parts, " and ")
+end
+
+-- Returns the TapCoins paid (0 for crafted gear) and the Trade Gold paid.
 function TCF:SellGear(id, all)
   local it = TCF.GEAR[id]
-  local n, coins = sellCopies(self, id, all)
-  if n == 0 then return 0 end
-  self:Print(string.format("Sold %s%s for %d TapCoins.", TCF.GearLink(it), n > 1 and (" x" .. n) or "", coins), true)
+  local n, coins, gold = sellCopies(self, id, all)
+  if n == 0 then return 0, 0 end
+  self:Print(string.format("Sold %s%s for %s.", TCF.GearLink(it), n > 1 and (" x" .. n) or "", paidText(coins, gold)), true)
   self:MarkDirty(); self:RefreshAll()
-  return coins
+  return coins, gold
 end
 
 -- "Sell junk": one chat line and one refresh for the whole bag
 function TCF:SellJunk()
   local junk = self:JunkGear()
   local bag = self:Bag()
-  local count, total = 0, 0
+  local count, total, gold = 0, 0, 0
   for id, n in pairs(junk) do
     local it = TCF.GEAR[id]
     bag[id] = bag[id] - n
     if bag[id] <= 0 then bag[id] = nil end
-    local coins = self:GearSellValue(it) * n
-    self:AddCoins(coins)
-    count, total = count + n, total + coins
+    local c, g = payFor(self, it, n)
+    count, total, gold = count + n, total + c, gold + g
   end
-  if count == 0 then return 0 end
-  self:Print(string.format("Sold %d %s of junk for %s TapCoins.", count, count == 1 and "item" or "items", TCF.Commas(total)), true)
+  if count == 0 then return 0, 0 end
+  self:Print(string.format("Sold %d %s of junk for %s.", count, count == 1 and "item" or "items", paidText(total, gold)), true)
   self:MarkDirty(); self:RefreshAll()
-  return total
+  return total, gold
 end
 
 -- Gives a gear item. Returns isNewItem.
@@ -393,9 +455,10 @@ function TCF:GrantGear(it, reason, reveal, chestKey)
   local bag = self:Bag()
   local have = bag[it.id] or 0
   bag[it.id] = have + 1
-  self.db.stats.gearFound = (self.db.stats.gearFound or 0) + 1
+  -- crafted gear is made, not found: it has its own 'crafted' stat and achievements
+  if not it.crafted then self.db.stats.gearFound = (self.db.stats.gearFound or 0) + 1 end
   self:Print((reason and (reason .. ": ") or "") .. TCF.GearLink(it))
-  -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
+  -- gear never opens the loot box: a small notice instead, chests included (ChestReel.lua decides)
   if self.ShowLootReveal then self:ShowLootReveal(it, have == 0, 0, reason, chestKey, true) end
   if it.q >= 4 then self:PlaySound("rare") else self:PlaySound("loot") end
   self:MarkDirty()
@@ -406,16 +469,16 @@ end
 ---------------------------------------------------------------- loot rolls
 -- Weighted pick from a list using real drop chances; epics/legendaries are
 -- extra rare (rarity damping) so top items stay a long-term goal.
-local QDAMP = { [2] = 1, [3] = 1, [4] = 0.35, [5] = 0.05 }
+local QDAMP = { [1] = 1, [2] = 1, [3] = 1, [4] = 0.35, [5] = 0.05 }
 local function weightedPick(list, usable)
   local total = 0
   for _, it in ipairs(list) do
-    if usable(it) then total = total + max(5, it.dc) * QDAMP[it.q] end
+    if not it.crafted and usable(it) then total = total + max(5, it.dc) * QDAMP[it.q] end
   end
   if total <= 0 then return nil end
   local r = random() * total
   for _, it in ipairs(list) do
-    if usable(it) then
+    if not it.crafted and usable(it) then
       r = r - max(5, it.dc) * QDAMP[it.q]
       if r <= 0 then return it end
     end
@@ -458,7 +521,7 @@ function TCF:RollWorldLoot(level, class, weights, tier)
     local function scan(list)
       if not list then return end
       for _, it in ipairs(list) do
-        if it.q == wq and it.req <= hi and it.req >= lo and not seen[it] and test(it) then
+        if it.q == wq and it.req <= hi and it.req >= lo and not seen[it] and not it.crafted and test(it) then
           seen[it] = true; cands[#cands + 1] = it
         end
       end

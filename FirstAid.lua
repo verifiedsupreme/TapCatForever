@@ -6,7 +6,9 @@ local ADDON, TCF = ...
 
 local floor, min, max, random = math.floor, math.min, math.max, math.random
 
--- cloth: key, name, icon, price at the cloth merchant, enemy level it drops from
+-- cloth: key, name, icon, price at the cloth merchant, enemy level it drops from.
+-- Tailoring cats farm cloth by the hundred (Professions.lua cloth spots), so cloth and
+-- bandages sell for the same small amount as ore and leather; the merchant's prices stay.
 TCF.CLOTH = {
   { "linen",     "Linen Cloth",     "INV_Fabric_Linen_01",     2e3,   1 },
   { "wool",      "Wool Cloth",      "INV_Fabric_Wool_01",      1e4,   18 },
@@ -14,7 +16,7 @@ TCF.CLOTH = {
   { "mageweave", "Mageweave Cloth", "INV_Fabric_Mageweave_01", 2.5e5, 42 },
   { "runecloth", "Runecloth",       "INV_Fabric_PurpleFire_01", 1.2e6, 52 },
 }
-for _, c in ipairs(TCF.CLOTH) do TCF.AddMat(c[1], c[2], c[3], c[4] / 4, "firstaid") end
+for _, c in ipairs(TCF.CLOTH) do TCF.AddMat(c[1], c[2], c[3], 1, "cloth") end
 
 -- bandages: key, name, icon, cloth, amount, seconds, skill, heal (% of max health)
 TCF.BANDAGES = {
@@ -32,14 +34,12 @@ TCF.BANDAGES = {
 TCF.BANDAGE_BY_KEY = {}
 for _, b in ipairs(TCF.BANDAGES) do
   TCF.BANDAGE_BY_KEY[b[1]] = b
-  local cloth
-  for _, c in ipairs(TCF.CLOTH) do if c[1] == b[4] then cloth = c end end
-  TCF.AddMat(b[1], b[2], b[3], cloth[4] * b[5] * 0.6, "firstaid")
+  TCF.AddMat(b[1], b[2], b[3], b[5], "firstaid")  -- worth the cloth it took
 end
 TCF.BANDAGE_COOLDOWN = 20
 
 TCF.AID_UPGRADES = {
-  { key = "medic",    name = "Hire a Field Medic",  desc = "Keeps making bandages, even offline: your best one when you have its cloth, otherwise the best one you have cloth for.", cost = 1e6 },
+  { key = "medic",    name = "Hire a Field Medic",  desc = "Keeps making bandages, even offline: your best one when you have its cloth, otherwise the best one you have cloth for. A Tailoring cat's medic stops at 100 of each, so your cloth stays for Tailoring.", cost = 1e6 },
   { key = "contract", name = "Cloth Contract",      desc = "Buys cloth for the field medic automatically (costs Trade Gold).",      cost = 5e6 },
   { key = "fast",     name = "Steady Hands",        desc = "Bandages are made twice as fast.",                                       cost = 2e7 },
 }
@@ -94,16 +94,23 @@ local function contractBuy(self, a, s, b)
   return true
 end
 
+-- Cloth spots fill the same cloth the medic uses. When this character owns cloth spots, the
+-- medic stops making a bandage once you hold this many, so the cloth stays for Tailoring.
+TCF.MEDIC_STOCK = 100
+local function stocked(self, s, b)
+  return self.FamilyOwned and self:FamilyOwned("cloth") and (s.mats[b[1]] or 0) >= TCF.MEDIC_STOCK
+end
+
 -- what the field medic makes next: your best bandage if you have its cloth (or the
 -- contract can buy it), otherwise the best bandage you do have cloth for
 local function medicRecipe(self, a, s)
   local best = bestRecipe(self)
   if not best then return end
-  if (s.mats[best[4]] or 0) >= best[5] or contractBuy(self, a, s, best) then return best end
+  if not stocked(self, s, best) and ((s.mats[best[4]] or 0) >= best[5] or contractBuy(self, a, s, best)) then return best end
   local skill = self:ProfSkill("firstaid")
   for k = #TCF.BANDAGES, 1, -1 do
     local b = TCF.BANDAGES[k]
-    if skill >= b[7] and (s.mats[b[4]] or 0) >= b[5] then return b end
+    if skill >= b[7] and (s.mats[b[4]] or 0) >= b[5] and not stocked(self, s, b) then return b end
   end
 end
 

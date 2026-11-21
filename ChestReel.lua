@@ -7,12 +7,14 @@ local CARD, GAP, VISIBLE, COUNT, LAND = 56, 6, 8, 34, 30
 local STEP = CARD + GAP
 local DUR, HOLD = 2.4, 0.45
 
--- gear by quality, built once
+-- gear by quality, built once (only gear chests can hold: never crafted gear)
 local gearByQ
 local function gearPool(q)
   if not gearByQ then
     gearByQ = {}
-    for _, g in pairs(TCF.GEAR) do gearByQ[g.q] = gearByQ[g.q] or {}; table.insert(gearByQ[g.q], g) end
+    for _, g in pairs(TCF.GEAR) do
+      if not g.crafted then gearByQ[g.q] = gearByQ[g.q] or {}; table.insert(gearByQ[g.q], g) end
+    end
   end
   return gearByQ[q] or {}
 end
@@ -137,7 +139,7 @@ function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   local args = { it, isNew, salvage, title, chestKey, isGear }
   -- only chest openings (your own click) get the reel and the loot box; everything else you
   -- find goes straight into your bags with a small notice you can hover (LootToast.lua)
-  if not chestKey and not self.forceReveal and self.ShowLootToast then
+  if self.ShowLootToast and not chestKey and not self.forceReveal then
     return self:ShowLootToast(it, isNew, salvage, title, isGear)
   end
   local ch = chestKey and TCF.CHEST_BY_KEY[chestKey]

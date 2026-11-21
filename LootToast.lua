@@ -1,8 +1,9 @@
--- TapCatForever: small loot notices. Gear and cosmetics you find (Adventure, quests,
--- expeditions, crafting, the shop...) go straight into your bags and a little notice slides
--- in instead of the big loot box. Hover a notice to see the item (gear is compared with what
--- your cat is wearing), click it to open the Gear or Appearance tab, right-click to dismiss.
--- Opening a chest still plays the reel and shows the loot box, since that's your own click.
+-- TapCatForever: small loot notices. Gear (from anywhere, chests included) and cosmetics you
+-- find (Adventure, quests, expeditions, crafting, the shop...) go straight into your bags and a
+-- little notice slides in instead of the big loot box. Hover a notice to see the item (gear is
+-- compared with what your cat is wearing), click it to open the Gear or Appearance tab,
+-- right-click to dismiss. A cosmetic from a chest you open still plays the reel and shows the
+-- loot box, and "Open all" lists everything in the loot window.
 local ADDON, TCF = ...
 local min, max = math.min, math.max
 

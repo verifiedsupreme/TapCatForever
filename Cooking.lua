@@ -23,7 +23,7 @@ for _, sp in ipairs(TCF.SPICES) do TCF.AddMat(sp[1], sp[2], sp[3], sp[4] / 4, "c
 
 -- recipes: key, name, icon, ingredients (sorted multiset), skill, buff type, buff value, minutes, hint
 -- buff types: dmg (Adventure damage), hp (Adventure health), xp (cat XP from key presses),
---             mining (Mining profits), garden (garden growth), fishing (rare catches), all (dmg+hp)
+--             mining (gathering profits: Mining, Skinning or Tailoring spots), garden (garden growth), fishing (rare catches), all (dmg+hp)
 TCF.COOK_RECIPES = {
   { "d_wolf",    "Spiced Wolf Meat",     "INV_Misc_Food_14", { "mildspice", "wolfmeat" },                 1,   "dmg",     0.05, 30,  "Something with wolf and a pinch of spice." },
   { "d_smallfish","Brilliant Smallfish", "INV_Misc_Fish_02", { "smallfish", "smallfish" },                1,   "xp",      0.10, 30,  "Two of the smallest fish there are." },
@@ -45,7 +45,7 @@ for _, r in ipairs(TCF.COOK_RECIPES) do
   TCF.COOK_BY_KEY[r[1]] = r
   TCF.AddMat(r[1], r[2], r[3], 1e4 * r[5], "cooking")
 end
-TCF.BUFF_TEXT = { dmg = "Adventure damage", hp = "Adventure health", xp = "cat XP from key presses", mining = "Mining profits",
+TCF.BUFF_TEXT = { dmg = "Adventure damage", hp = "Adventure health", xp = "cat XP from key presses", mining = "gathering profits",
   garden = "garden growth", fishing = "rare catch chance", all = "Adventure damage and health" }
 
 TCF.COOK_UPGRADES = {

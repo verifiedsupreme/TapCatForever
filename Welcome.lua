@@ -6,9 +6,9 @@ local TILES = {
   { "INV_Helmet_08",        "Real gear",   "Every WoW item, drawn for your cat" },
   { "INV_Sword_04",         "Adventure",   "Fight through dungeons and raids" },
   { "INV_Misc_Map_01",      "Expeditions", "Send three cats out for loot" },
-  { "Trade_Mining",         "Professions", "Run your own idle business" },
-  { "INV_Box_02",           "Chests",      "Open loot for gear and cats" },
-  { "Ability_Druid_CatForm", "Collect",    "Skins, hats and tap effects" },
+  { "Trade_Mining",         "Professions", "Gather, craft real gear and run a business" },
+  { "INV_Box_02",           "Collect",     "Open chests for gear, skins and hats" },
+  { "INV_Misc_GroupNeedMore", "Play with friends", "Friends with the addon in your group boost your XP and gold" },
 }
 
 function TCF:ShowWelcome()
@@ -43,6 +43,7 @@ function TCF:ShowWelcome()
       local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
       local tile = U.Panel(p2, 176, 104, 0.9); tile:SetPoint("TOPLEFT", 22 + col * 188, -62 - row * 114)
       local ic = tile:CreateTexture(nil, "ARTWORK"); ic:SetSize(44, 44); ic:SetPoint("TOP", 0, -10); ic:SetTexture(TCF.Icon(t[1]))
+      if t[2] == "Professions" then f.profIcon = ic end
       local name = U.Text(tile, "GameFontNormalLarge", t[2]); name:SetPoint("TOP", ic, "BOTTOM", 0, -4)
       local d = U.Text(tile, "GameFontHighlightSmall", t[3]); d:SetPoint("TOP", name, "BOTTOM", 0, -2); d:SetWidth(166)
     end
@@ -66,6 +67,11 @@ function TCF:ShowWelcome()
     self.welcome = f
   end
   f.cat:ApplyAppearance(TCF:GetAppearance())
+  -- the Professions tile shows the cat's own main profession (Mining, Skinning or Tailoring)
+  local fam = TCF.MainProf and TCF.FAMILIES and TCF.FAMILIES[TCF:MainProf(TCF.db.class)]
+  if f.profIcon and fam and type(fam.icon) == "string" then
+    f.profIcon:SetTexture(TCF.Icon(fam.icon:match("([^\\/]+)$") or fam.icon))
+  end
   f:Page(1)
   f:Show()
 end

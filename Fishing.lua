@@ -1,6 +1,6 @@
--- TapCatForever: Fishing. A bobber mini-game: cast, wait, and click "Reel in!"
+-- TapCatForever: Fishing. A bobber mini-game: cast, wait, and click "Reel in"
 -- the moment the bobber splashes. Better spots unlock with skill. A fishing buddy
--- catches fish for you (also offline). Rare catches include Mr. Pinchy (a wish!)
+-- catches fish for you (also offline). Rare catches include Mr. Pinchy (a wish)
 -- and Messages in a Bottle (a chest).
 local ADDON, TCF = ...
 
@@ -48,7 +48,7 @@ TCF.FishState = F
 function TCF:FishLuck() return self.FoodBuff and self:FoodBuff("fishing") or 1 end
 
 -- Rare catch odds. The buddy fishes all day (and offline), so his rare odds are much
--- lower and food luck doesn't help him; luck only boosts your own Reel in! catches.
+-- lower and food luck doesn't help him; luck only boosts your own Reel in catches.
 TCF.FISH_ODDS = { pinchy = 0.004, treasure = 0.011, buddyPinchy = 0.0005, buddyTreasure = 0.0015 }
 -- Mr. Pinchy's gold wish: this many seconds of your mines' output
 TCF.PINCHY_GOLD_SECONDS = 600
@@ -87,11 +87,11 @@ function TCF:CatchFish(byBuddy, bag)
     if w == 1 then giveChest(self, "strong", "Mr. Pinchy's wish", bag)
     elseif w == 2 then self:AddCoins(25); wish = "25 TapCoins"
     else
-      -- gold based on what your mines make, not on the gold you hold (that would snowball)
-      local g = self:EarnGold(max(1e4, self:MiningIncome() * TCF.PINCHY_GOLD_SECONDS))
+      -- gold based on what your gathering spots make, not on the gold you hold (that would snowball)
+      local g = self:EarnGold(max(1e4, self:GatherIncome() * TCF.PINCHY_GOLD_SECONDS))
       wish = TCF.GoldStr(g) .. " Trade Gold"
     end
-    if not byBuddy and wish then self:Print("You caught |cffa335eeMr. Pinchy|r! His wish gives you " .. wish .. ".", true) end
+    if not byBuddy and wish then self:Print("You caught |cffa335eeMr. Pinchy|r. His wish gives you " .. wish .. ".", true) end
     return "Mr. Pinchy", kind
   end
   return TCF.MAT_BY_KEY[key].name, kind
@@ -113,7 +113,7 @@ function TCF:BuyBuddy()
 end
 
 ---------------------------------------------------------------- the bobber mini-game (not saved)
--- states: idle -> waiting (bobber floats) -> bite (splash! click now) -> result
+-- states: idle -> waiting (bobber floats) -> bite (splash: click now) -> result
 function TCF:FishCast()
   local run = self.fishRun or {}
   self.fishRun = run
@@ -131,7 +131,7 @@ function TCF:FishReel()
     self.db.stats.fishCaught = (self.db.stats.fishCaught or 0) + 1
     self:MarkDirty()
   elseif run.state == "waiting" then
-    run.state, run.result, run.kind = "result", "Too soon! You scared the fish away.", "miss"
+    run.state, run.result, run.kind = "result", "Too soon. You scared the fish away.", "miss"
   end
 end
 

@@ -39,7 +39,7 @@ subprocess.check_call(["node", os.path.join(HERE, "render_svg.js"), CAT_DIR, "51
 # ---- items: one drawing per icon from tools/item_specs/<group>.txt
 groups = json.load(open(os.path.join(HERE, "item_specs", "groups.json")))
 two = set(json.load(open(os.path.join(HERE, "item_specs", "two_handed.json"))))
-KIND = {"head": "head", "chest": "chest", "belt": "belt", "neck": "neck", "ring": "ring", "shield": "shield", "held": "held"}
+KIND = {"head": "head", "back": "back", "chest": "chest", "belt": "belt", "neck": "neck", "ring": "ring", "shield": "shield", "held": "held"}
 FAM = {"w_sword": "sword", "w_axe": "axe", "w_mace": "mace", "w_dagger": "dagger", "w_staff": "staff", "w_polearm": "polearm", "w_fist": "fist"}
 items = {}
 for g, keys in groups.items():

@@ -1,0 +1,4 @@
+# sheet back_00 (gear cloaks: a cape behind the body; hood = hood resting behind the head)
+0: cloak hood m=purple t=gold g=#3a2350
+1: cloak hood studs m=tan t=darkleather g=#4a3020
+2: cloak fur m=brown t=leather g=cream
