@@ -54,8 +54,10 @@ local MILESTONE_CHEST = { [25] = "pouch", [100] = "strong", [300] = "heroic" }
 -- Each level is a small boost (+15% per click, compounding) and costs more than the last.
 TCF.PICKAXE_NAMES = { "Copper", "Bronze", "Iron", "Mithril", "Thorium", "Arcanite", "Elementium", "Titanium" }
 TCF.PICK_BOOST, TCF.PICK_COST, TCF.PICK_COST_GROWTH = 1.15, 25, 1.55
--- a swing is worth a quarter of one mine's cycle, with a 1 in 4 chance of ore: about one mine's worth
-TCF.PICK_SHARE, TCF.PICK_ORE_CHANCE = 0.25, 0.25
+-- a swing is worth half a second of the whole vein's output (every mine you own on it, with
+-- milestones and upgrades), with a 1 in 4 chance of ore. Fast veins give a big share of a
+-- cycle per swing, slow veins a small one, so no vein breaks the economy.
+TCF.PICK_SECONDS, TCF.PICK_ORE_CHANCE = 0.5, 0.25
 
 ---------------------------------------------------------------- state
 local function S(self)
@@ -173,7 +175,15 @@ function TCF:PickCost(lvl) lvl = lvl or self:PickLevel(); return floor(TCF.PICK_
 -- one swing per cooldown (shared by every vein); upgrades shorten it a little, down to 0.75s
 function TCF:PickCooldown(lvl) return max(0.75, 1.5 * 0.985 ^ (lvl or self:PickLevel())) end
 function TCF:PickReadyIn() return max(0, (self.pickNext or 0) - GetTime()) end
-function TCF:PickGold(i) return OPS[i].rev * TCF.PICK_SHARE * self:PickMult() * self:UpgradeMult("mining", i) end
+-- gold for one swing on vein i
+function TCF:PickCycleShare(i) return min(1, TCF.PICK_SECONDS * self:PickMult() / self:OpCycleTime("mining", i)) end
+function TCF:PickGold(i)
+  local n = S(self).ops.mining[i].n
+  local share = OPS[i].rev * n * self:UpgradeMult("mining", i) * self:PickCycleShare(i)
+  -- never less than a quarter of one mine's cycle, so you can dig your way to the first mine
+  local floorGold = OPS[i].rev * 0.25 * self:PickMult() * self:UpgradeMult("mining", i)
+  return max(share, floorGold)
+end
 function TCF:PickOre(lvl) return 1 + floor((lvl or self:PickLevel()) / 15) end
 function TCF:PickName(lvl)
   lvl = lvl or self:PickLevel()

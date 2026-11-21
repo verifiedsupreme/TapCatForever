@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Pickaxe swings now grow with the deposit: each swing is worth half a second of everything that vein produces (all your mines there, with milestones and upgrades), never less than a quarter of one mine's cycle. Pickaxe levels add 15% each.
+
 ## 1.3.1
 - Chests now give real gear 90% of the time (cosmetics 10%).
 - Cosmetics are clearly marked: a COSMETIC tag and "appearance only, no stats" in the loot box and tooltips, and a purple badge on the chest reel. Gear shows a GEAR tag.
