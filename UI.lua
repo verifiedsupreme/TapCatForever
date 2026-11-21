@@ -924,6 +924,7 @@ function TCF:CreateWindow()
   Check("Show TapCoins", "showCoins", 1, 3)
   Check("Popups on cat", "popups", 1, 4, "Floating text for level ups, loot and achievements.")
   Check("Sounds", "sound", 0, 5)
+  Check("Weapons in the 3D cat's paws", "show3dWeapons", 1, 7, "Show your real weapon and shield models in the 3D cat's paws. Armor can't be shown on 3D cats (WoW only fits armor to player characters).", function() TCF:RefreshAll() end)
   Check("3D cat (real WoW cat models)", "cat3d", 1, 6, "Show your cat as an animated 3D WoW cat. Turn off for the pixel cat, which also shows your gear and cosmetics.", function() TCF:RefreshAll() end)
   Check("Show racial accessory", "racial", 0, 6, "Show the accessory from your character's race (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
   Check("Chat messages", "chat", 1, 5)
@@ -946,15 +947,15 @@ function TCF:CreateWindow()
     s.Sync = function() s:SetValue(get()); t:SetText(string.format(fmt, label, get())) end
     return s
   end
-  local scaleS = Slider("Cat size", 0.3, 3, 0.05, -280, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx")
-  local alphaS = Slider("Opacity", 0.1, 1, 0.05, -330, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f")
-  local textS = Slider("Text size", 0.5, 2.5, 0.05, -380, function() return ui.textScale or 1 end, function(v) ui.textScale = v end, "%s: %.2fx")
+  local scaleS = Slider("Cat size", 0.3, 3, 0.05, -300, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx")
+  local alphaS = Slider("Opacity", 0.1, 1, 0.05, -348, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f")
+  local textS = Slider("Text size", 0.5, 2.5, 0.05, -396, function() return ui.textScale or 1 end, function(v) ui.textScale = v end, "%s: %.2fx")
   local resetB = Button(st, "Reset position", 130, 22, function() TCF.hud:ResetPosition() end)
-  resetB:SetPoint("TOPLEFT", 280, -276)
+  resetB:SetPoint("TOPLEFT", 280, -296)
   local mmB = Button(st, "Toggle minimap icon", 160, 22, function()
     ui.minimap.hide = not ui.minimap.hide; TCF:UpdateMinimapButton()
   end)
-  mmB:SetPoint("TOPLEFT", 280, -308)
+  mmB:SetPoint("TOPLEFT", 280, -328)
   local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 14); help:SetWidth(490)
   help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
     "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats\n" ..

@@ -12,6 +12,7 @@
 - Chests now hold real gear (65%) or cosmetics (35%). Epic and Legendary gear is deliberately rare.
 - Appearance only shows cosmetics you've unlocked.
 - **3D cats**: your cat can be a real, animated WoW cat model (on by default; switch to the pixel cat in Settings). It sits facing you and swipes on every key press. Start as an Orange Tabby and collect 29 cats: house cats, saber and panther mounts, a lynx, the Spectral Tiger, and achievement-only cats like Mr. Bigglesworth (defeat Kel'Thuzad), the Primal Flamesaber (clear Molten Core) and the Jeweled Onyx Panther (clear AQ40).
+- **Weapons in the 3D cat's paws**: your real equipped weapon and shield models are shown in the 3D cat's paws (armor can't be fitted to cat models; it shows on the pixel cat).
 - **Gear try-on**: hover gear to see it on your own WoW character.
 - **Per-character progress**: gear, cosmetics, skins, chests, professions, cat levels, abilities and Adventure belong to each character; TapCoins, quests, streak and achievements are shared.
 - Adventure waits for you to press Start; only the selected class's cat fights. Rewards are mostly chests. Every enemy is shown as a model, and Elwynn Forest and Westfall have painted scenes.

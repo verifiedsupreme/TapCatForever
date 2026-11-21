@@ -35,10 +35,19 @@ function TCF.CreateCat(parent, size, opts)
   -- layers: back effects (f) < pixel cat (pix) or 3D model (m3d) < front effects and popups (top)
   local pix = CreateFrame("Frame", nil, f); pix:SetAllPoints(f)
   local m3d = CreateFrame("PlayerModel", nil, f); m3d:SetSize(size, size); m3d:SetPoint("BOTTOM", f, "BOTTOM", 0, 0); m3d:Hide()
+  -- real 3D weapon/shield models held in the 3D cat's paws (WoW can't attach items
+  -- to creature models, so they're separate models placed at the paws)
+  local held = {}
+  for _, side in ipairs({ "R", "L" }) do
+    local m = CreateFrame("Model", nil, f); m:SetSize(size * 0.62, size * 0.62); m:Hide()
+    held[side] = m
+  end
+  self.held = held
   local top = CreateFrame("Frame", nil, f); top:SetAllPoints(f)
   if top.SetFrameLevel and f.GetFrameLevel then
     local lvl = f:GetFrameLevel() or 1
     pcall(pix.SetFrameLevel, pix, lvl + 1); pcall(m3d.SetFrameLevel, m3d, lvl + 1); pcall(top.SetFrameLevel, top, lvl + 3)
+    for _, m in pairs(held) do pcall(m.SetFrameLevel, m, lvl + 2) end
   end
   self.pix, self.m3d, self.top = pix, m3d, top
 
@@ -113,6 +122,7 @@ function Cat:SetSize(size)
   self.size = size
   self.frame:SetSize(size, size)
   self.m3d:SetSize(size, size)
+  for _, m in pairs(self.held) do m:SetSize(size * 0.62, size * 0.62) end
   for _, n in ipairs({ "main_a", "main_b", "off_a", "off_b" }) do self.tex[n]:SetSize(size, size) end
   self.tex.fxBack:SetSize(size * 1.25, size * 1.25)
   self.tex.fxFront:SetSize(size * 1.25, size * 1.25)
@@ -154,6 +164,8 @@ function Cat:Tap(side)
     pcall(self.m3d.SetAnimation, self.m3d, ANIM_SWIPE)
     self.animUntil = GetTime() + 0.45
     self.hopUntil = GetTime() + 0.09
+    self.liftSide, self.liftUntil = side, GetTime() + 0.12
+    self:PlaceHeld(side)
   end
   self:SetPaw(side, true)
   self.pawDown[side] = GetTime() + 0.09
@@ -170,7 +182,11 @@ end
 -- look: slot -> item (from TCF:GetAppearance)
 -- 3D pose: sitting, facing you, framed from the chest up like the pixel cat
 local ANIM_SIT, ANIM_SWIPE = 97, 16
-TCF.CAT3D = { facing = 0, zoom = 0.35, sit = ANIM_SIT }
+TCF.CAT3D = { facing = 0, zoom = 0.35, sit = ANIM_SIT,
+  -- where held weapons sit, as fractions of the cat's size (x from centre, y from bottom), and their turn
+  held = { R = { x = 0.27, y = 0.08, facing = -0.6 }, L = { x = -0.27, y = 0.08, facing = 0.6 } },
+  lift = 0.10, -- how far the weapon rises on a swipe
+}
 
 -- 3D models for fur colours when no skin is chosen
 local FUR_3D = {
@@ -199,9 +215,11 @@ function Cat:ApplyAppearance(look)
     end
     self.is3d = true
     self.m3d:Show(); self.pix:Hide()
+    self:UpdateHeld(look)
   else
     self.is3d = false; self.disp3d = nil
     self.m3d:Hide(); self.pix:Show()
+    for _, m in pairs(self.held) do m:Hide() end
   end
   -- fur (a skin replaces fur colour, markings and eyes)
   local skin = look.skin
@@ -260,6 +278,39 @@ function Cat:ApplyAppearance(look)
   end
 end
 
+-- Show the real weapon/shield models equipped on this class in the 3D cat's paws.
+function Cat:UpdateHeld(look)
+  local function gearId(it) return it and it.gear and tonumber((it.id or ""):match("^gear:(%d+)$")) end
+  local ids = { R = gearId(look.main), L = gearId(look.off) }
+  for side, m in pairs(self.held) do
+    local id = TCF.db.ui.show3dWeapons ~= false and ids[side]
+    if id then
+      if m.itemId ~= id then
+        m.itemId = id
+        local ok = pcall(m.SetItem, m, id)
+        if not ok then m.itemId = nil; m:Hide() else m.check = 0.6 end
+      end
+      if m.itemId then
+        local p = TCF.CAT3D.held[side]
+        pcall(m.SetFacing, m, p.facing)
+        m:Show()
+      end
+    else
+      m.itemId = nil; m:Hide()
+    end
+  end
+  self:PlaceHeld(nil)
+end
+
+function Cat:PlaceHeld(liftSide)
+  for side, m in pairs(self.held) do
+    local p = TCF.CAT3D.held[side]
+    local lift = (liftSide == side) and TCF.CAT3D.lift or 0
+    m:ClearAllPoints()
+    m:SetPoint("BOTTOM", self.frame, "BOTTOM", p.x * self.size, (p.y + lift) * self.size)
+  end
+end
+
 ---------------------------------------------------------------- animation
 function Cat:OnUpdate(elapsed)
   local now = GetTime()
@@ -267,6 +318,17 @@ function Cat:OnUpdate(elapsed)
   local t = self.t
   if self.is3d then
     if self.animUntil and now >= self.animUntil then self.animUntil = nil; pcall(self.m3d.SetAnimation, self.m3d, TCF.CAT3D.sit) end
+    if self.liftUntil and now >= self.liftUntil then self.liftUntil = nil; self:PlaceHeld(nil) end
+    for _, m in pairs(self.held) do
+      if m.check then
+        m.check = m.check - elapsed
+        if m.check <= 0 then
+          m.check = nil
+          local ok, file = pcall(m.GetModelFileID, m)
+          if ok and not file and m.GetModelFileID then m:Hide(); m.itemId = nil end
+        end
+      end
+    end
     self.m3d:ClearAllPoints()
     self.m3d:SetPoint("BOTTOM", self.frame, "BOTTOM", 0, (self.hopUntil and now < self.hopUntil) and self.size * 0.05 or 0)
     if self.m3dCheck then
