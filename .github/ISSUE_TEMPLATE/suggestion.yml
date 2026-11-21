@@ -1,0 +1,11 @@
+name: Suggestion
+description: An idea to make TapCatForever more fun
+labels: [suggestion]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What would you like to see, and why would it be fun?
+    validations:
+      required: true

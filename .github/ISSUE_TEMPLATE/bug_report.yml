@@ -1,0 +1,27 @@
+name: Bug report
+description: Something in TapCatForever isn't working right
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error text (if any)
+      description: Type /console scriptErrors 1 in game to see errors, then paste the text here.
+      render: text
+  - type: input
+    id: info
+    attributes:
+      label: About your game
+      description: In game, type /tcf feedback and copy the "About your game" line.
+  - type: textarea
+    id: screens
+    attributes:
+      label: Screenshots
+      description: Drag images here if they help.

@@ -62,13 +62,19 @@ TCF.UI.Builders.adventure = function(page, win)
   for i = 1, 3 do
     local f = CreateFrame("Frame", nil, scene)
     f:SetSize(110, 140)
+    -- the model draws in a much bigger, invisible box than its slot: WoW cuts a model off at
+    -- its frame's edges, so a slot-sized box sliced big creatures with a straight line
     local m = CreateFrame("PlayerModel", nil, f)
-    m:SetAllPoints()
+    m:SetPoint("BOTTOM", f, "BOTTOM", 0, 0); m:SetSize(250, 190)
     f.model = m
     f.icon = f:CreateTexture(nil, "ARTWORK"); f.icon:SetSize(96, 96); f.icon:SetPoint("BOTTOM", 0, 10)
     f.icon:SetTexture(PIXEL_MONSTER, nil, nil, "NEAREST")
-    f.bar = Bar(f, 96, 0.85, 0.15, 0.15); f.bar:SetPoint("TOP", 0, 8)
-    f.name = Text(f, "GameFontNormalSmall"); f.name:SetPoint("BOTTOM", f.bar, "TOP", 0, 2); f.name:SetWidth(130)
+    -- name and health bar sit on their own layer above the (now taller) model
+    local top = CreateFrame("Frame", nil, f); top:SetAllPoints(f)
+    if top.SetFrameLevel and f.GetFrameLevel then pcall(top.SetFrameLevel, top, (f:GetFrameLevel() or 1) + 10) end
+    f.top = top
+    f.bar = Bar(top, 96, 0.85, 0.15, 0.15); f.bar:SetPoint("TOP", 0, 8)
+    f.name = Text(top, "GameFontNormalSmall"); f.name:SetPoint("BOTTOM", f.bar, "TOP", 0, 2); f.name:SetWidth(130)
     f.shake, f.fade, f.anim = 0, 0, 0
     f:Hide()
     slots[i] = f
@@ -261,6 +267,7 @@ TCF.UI.Builders.adventure = function(page, win)
       elseif m then
         local w, h = boss and 170 or 110, boss and 200 or 140
         f:SetSize(w, h)
+        f.model:SetSize(w * 2.3, h * 1.35)
         f.baseX = boss and -50 or (-12 - (n - i) * 112)
         f:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", f.baseX, 8)
         f.name:SetText(m.boss and ("|cffff8000" .. m.name .. "|r") or m.name)
@@ -285,7 +292,8 @@ TCF.UI.Builders.adventure = function(page, win)
             if f.model.ClearModel then pcall(f.model.ClearModel, f.model) end
             local ok = pcall(f.model.SetDisplayInfo, f.model, id)
             pcall(f.model.SetFacing, f.model, -0.7)
-            pcall(f.model.SetCamDistanceScale, f.model, f.isBoss and 1.3 or 1.15)
+            -- pulled back to match the bigger box (a touch smaller than before, with headroom)
+            pcall(f.model.SetCamDistanceScale, f.model, f.isBoss and 1.85 or 1.65)
             pcall(f.model.SetAnimation, f.model, ANIM_STAND)
             f.model:Show(); f.icon:Hide()
             f.modelCheck = 0.6
