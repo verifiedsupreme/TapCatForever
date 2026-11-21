@@ -655,19 +655,69 @@ function TCF:GearAppearance(class, override)
   return out
 end
 
--- A starter weapon so a fresh cat isn't fighting bare-pawed.
-function TCF:StarterGear(class)
-  local best
-  for _, it in ipairs(TCF.WORLD_POOL[0] or {}) do
-    if it.q == 2 and (it.slot == "MH" or it.slot == "1H" or it.slot == "2H" or (class == "HUNTER" and it.slot == "RANGED"))
-      and it.req <= 5 and self:GearUsable(it, class) and (not best or it.id < best.id) then
-      best = it
+-- A starter weapon so a fresh cat isn't fighting bare-pawed: the weapon each class is known
+-- for (a bow for hunters, a dagger for rogues, a staff for mages...), the plainest one there is.
+TCF.STARTER_WEAPONS = {
+  WARRIOR = { "sword", "axe" }, PALADIN = { "mace", "sword" }, HUNTER = { "bow", "gun", "xbow" },
+  ROGUE = { "dagger" }, PRIEST = { "mace", "staff" }, SHAMAN = { "mace", "axe" },
+  MAGE = { "staff" }, WARLOCK = { "staff", "dagger" }, DRUID = { "staff", "mace" },
+}
+local function isStarterCandidate(self, it, class)
+  return it.q == 2 and (it.slot == "MH" or it.slot == "1H" or it.slot == "2H" or it.slot == "RANGED")
+    and it.req <= 5 and not it.crafted and self:GearUsable(it, class)
+end
+function TCF:StarterWeapon(class)
+  for _, sub in ipairs(TCF.STARTER_WEAPONS[class] or {}) do
+    local best
+    for _, it in ipairs(TCF.WORLD_POOL[0] or {}) do
+      if it.sub == sub and isStarterCandidate(self, it, class)
+        and (not best or it.ilvl < best.ilvl or (it.ilvl == best.ilvl and it.id < best.id)) then
+        best = it
+      end
     end
+    if best then return best end
   end
+end
+
+function TCF:StarterGear(class)
+  local best = self:StarterWeapon(class)
   if best then
     local bag = self:Bag(class)
     bag[best.id] = (bag[best.id] or 0) + 1
     local eq = self:GearEquipped(class)
     eq[best.slot == "RANGED" and "RANGED" or "MAINHAND"] = best.id
+  end
+end
+
+-- Older versions gave every class the lowest-numbered weapon it could use (a staff for hunters,
+-- a hammer for rogues). Cats still holding that old starter get their class weapon instead;
+-- the old one stays in the bag. Runs once per character.
+function TCF:FixStarterWeapons()
+  for _, cl in ipairs(TCF.CLASSES) do
+    local class = cl.key
+    local cd = self:CD(class)   -- per character and class, so every alt gets the fix once
+    if not cd.starterFixed then
+      cd.starterFixed = true
+      local old
+      for _, it in ipairs(TCF.WORLD_POOL[0] or {}) do
+        if it.q == 2 and (it.slot == "MH" or it.slot == "1H" or it.slot == "2H" or (class == "HUNTER" and it.slot == "RANGED"))
+          and it.req <= 5 and self:GearUsable(it, class) and (not old or it.id < old.id) then
+          old = it
+        end
+      end
+      local new = self:StarterWeapon(class)
+      local eq = self:GearEquipped(class)
+      local oldSlot = old and (old.slot == "RANGED" and "RANGED" or "MAINHAND")
+      if old and new and old.id ~= new.id and eq[oldSlot] == old.id then
+        local bag = self:Bag(class)
+        bag[new.id] = (bag[new.id] or 0) + 1
+        if new.slot == "RANGED" then
+          eq.RANGED = new.id
+          if oldSlot == "MAINHAND" then eq.MAINHAND = nil end  -- a hunter's old staff comes off so the bow shows
+        else
+          eq.MAINHAND = new.id
+        end
+      end
+    end
   end
 end
