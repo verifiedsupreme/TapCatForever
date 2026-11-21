@@ -390,7 +390,7 @@ function TCF:Tap(side)
   -- as 1.5 taps (tap count, cat XP and TapCoins from tapping; lucky finds are unchanged)
   local mult = self.PartyTapMult and self:PartyTapMult() or 1
   self.tapCarry = (self.tapCarry or 0) + mult
-  local credit = floor(self.tapCarry)
+  local credit = floor(self.tapCarry + 1e-6)   -- 1.2 x 10 must count 12, not 11.999
   self.tapCarry = self.tapCarry - credit
   db.taps = db.taps + credit
   local cd = self:CD()

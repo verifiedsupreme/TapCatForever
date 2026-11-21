@@ -461,7 +461,7 @@ function TCF:CreateHUD()
     tt:AddLine(string.format("Level %d %s %s", TCF:CD().level, cl.name, TCF:GetTitle()), 1, 1, 1)
     local friends = TCF.PartyCount and TCF:PartyCount() or 0
     if friends > 0 then
-      tt:AddLine("Party bonus: each tap counts as 1.5 taps", 0.4, 1, 0.4)
+      tt:AddLine(string.format("Party bonus: your taps count +%d%%", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)), 0.4, 1, 0.4)
       tt:AddLine(string.format(friends == 1 and "%d party member has TapCatForever" or "%d party members have TapCatForever", friends), 0.8, 0.8, 0.8)
     end
     tt:AddLine(" ")
@@ -1175,6 +1175,12 @@ function TCF:CreateWindow()
   mmB:SetPoint("TOPLEFT", 280, -328)
   local welB = Button(st, "Welcome tour", 130, 22, function() TCF:ShowWelcome() end)
   welB:SetPoint("TOPLEFT", 280, -352)
+  local pnB = Button(st, "Patch notes", 110, 22, function() TCF:ShowPatchNotes() end)
+  pnB:SetPoint("LEFT", mmB, "RIGHT", 8, 0)
+  Tip(pnB, function(tt)
+    tt:AddLine("Patch notes", 1, 0.82, 0)
+    tt:AddLine("What changed in every version of TapCatForever. Also /tcf news.", 1, 1, 1, true)
+  end)
   local fbB = Button(st, "Send feedback", 130, 22, function() TCF:ShowFeedback() end)
   fbB:SetPoint("LEFT", welB, "RIGHT", 8, 0)
   Tip(fbB, function(tt)
@@ -1199,7 +1205,7 @@ function TCF:CreateWindow()
   resetAllB:SetPoint("TOPLEFT", 280, -404)
   local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 14); help:SetWidth(490)
   help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
-    "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats | compendium | feedback\n" ..
+    "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats | compendium | news | feedback\n" ..
     "TapCoins, quests and achievements are shared; gear, cosmetics, professions and cat levels are per character.")
 
   -- test mode shortcuts (/tcf testmode)
@@ -1231,9 +1237,9 @@ function TCF:CreateWindow()
 
   function win:RefreshSettings()
     testBox:SetShown(ui.testMode and true or false)
-    local note = "Play with friends: when someone in your group also has TapCatForever, each of your taps counts as 1.5 taps."
+    local note = "Play with friends: each group member who also has TapCatForever makes your taps count 10% more, up to +50%."
     local friends = TCF.PartyCount and TCF:PartyCount() or 0
-    if friends > 0 then note = note .. " |cff66ff66Active now.|r" end
+    if friends > 0 then note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)) end
     partyNote:SetText(note)
     help:SetShown(not ui.testMode)
     for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end

@@ -295,7 +295,7 @@ TCF.UI.Builders.professions = function(page, win)
     local f = TCF.FAMILIES[fam]
     local s = TCF:ProfState()
     local cost = TCF:ToolCost(fam)
-    toolBtn:SetText(string.format("%s  |  Upgrade %s", TCF:ToolName(fam), TCF.GoldStr(cost, 10)))
+    toolBtn:SetText(string.format("Upgrade %s  %s", f.toolNoun, TCF.GoldStr(cost, 10)))
     toolBtn:SetEnabled(s.gold >= cost)
     local lvl = TCF:ToolLevel(fam)
     for i, r in ipairs(rows) do
@@ -951,7 +951,16 @@ TCF.UI.Builders.professions = function(page, win)
     return rec.skill and TCF:ProfSkill(rec.prof) < rec.skill and true or false
   end
   -- the sorted list: makeable first (by skill), then locked (by skill)
+  local lastCraftSig
   local function buildCraftList(key)
+    -- the page refreshes several times a second: only rebuild when the craft, skill or recipes change
+    local sig = key .. ":" .. TCF:ProfSkill(key) .. ":" .. #(TCF.RECIPES[key] or {})
+    if sig == lastCraftSig and #craftList > 0 then
+      local open = 0
+      for _, e in ipairs(craftList) do if not e.locked then open = open + 1 end end
+      return open
+    end
+    lastCraftSig = sig
     wipe(craftList)
     for idx, rec in ipairs(TCF.RECIPES[key] or {}) do
       if TCF:RecipeItem(rec) then craftList[#craftList + 1] = { rec = rec, idx = idx, locked = recipeLocked(rec) } end

@@ -1,7 +1,7 @@
 -- TapCatForever: party cats. Group members who also run TapCatForever say hello over a hidden
--- addon channel; their cats sit in a little row beside yours. While at least one of them is in
--- your group, each tap counts as 1.5 taps (tap count, cat XP and TapCoins from tapping; Core.lua
--- TCF:Tap asks TCF:PartyTapMult). More friends don't stack it. Lucky finds and chests are unchanged.
+-- addon channel; their cats sit in a little row beside yours. Each of them makes your taps count
+-- 10% more, up to +50% with five (tap count, cat XP and TapCoins from tapping; Core.lua TCF:Tap
+-- asks TCF:PartyTapMult). Lucky finds and chests are unchanged.
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel only, every field checked):
 --   H1;<class>;<level>;<fur>;<pattern>;<skin>;<slot>=<id>,<slot>=<id>...   hello, please answer
@@ -224,10 +224,11 @@ function TCF:PartyCount()
   return n + #fakes
 end
 
--- each tap counts as this many taps: 1.5 with at least one other group member who has the addon
-TCF.PARTY_TAP_MULT = 1.5
+-- each tap counts as this many taps: +10% for every other group member who has the addon,
+-- up to five of them (1.0 .. 1.5)
+TCF.PARTY_TAP_EACH, TCF.PARTY_TAP_MAX_FRIENDS = 0.1, 5
 function TCF:PartyTapMult()
-  return self:PartyCount() > 0 and TCF.PARTY_TAP_MULT or 1
+  return 1 + TCF.PARTY_TAP_EACH * math.min(TCF.PARTY_TAP_MAX_FRIENDS, self:PartyCount())
 end
 -- older name kept for anything that still asks
 function TCF:PartyBonus() return self:PartyTapMult() end
@@ -299,7 +300,7 @@ local function tooltip(btn)
   local cl = TCF.CLASS_BY_KEY[m.class]
   if cl then tt:AddLine(string.format("Level %d %s cat", m.level or 1, cl.name), cl.color[1], cl.color[2], cl.color[3]) end
   if m.fake then tt:AddLine("Test party cat (test mode only)", 0.7, 0.7, 0.7) end
-  tt:AddLine("Party bonus: each of your taps counts as 1.5 taps", 0.4, 1, 0.4, true)
+  tt:AddLine("Party bonus: your taps count 10% more for each friend with TapCatForever (up to +50%)", 0.4, 1, 0.4, true)
   tt:Show()
 end
 
