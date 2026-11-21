@@ -888,6 +888,29 @@ ev:SetScript("OnEvent", function(_, event, a1)
   end
 end)
 
+---------------------------------------------------------------- test mode
+-- Shortcuts for trying every part of the game quickly. Turned on with /tcf testmode.
+function TCF:TestCheat(kind)
+  local db = self.db
+  if kind == "coins" then self:AddCoins(5000)
+  elseif kind == "gold" then local s = self:ProfState(); s.gold = s.gold + 1e7; s.lifetime = s.lifetime + 1e7
+  elseif kind == "renown" then
+    local s = self:ProfState(); s.renown = s.renown + 150; s.renownEver = math.max(s.renownEver or 0, s.renown)
+    self:Print("All professions unlocked.")
+  elseif kind == "chests" then for _, ch in ipairs(TCF.CHESTS) do db.keys[ch.key] = (db.keys[ch.key] or 0) + 5 end
+  elseif kind == "levels" then
+    local cd = self:CD()
+    for _ = 1, 10 do if cd.level < (TCF.MAX_LEVEL or 60) then cd.xp = 0; self:LevelUp() end end
+  elseif kind == "hour" then
+    for _ = 1, 360 do
+      if self.AdvTick then self:AdvTick(10) end
+      if self.ProfAdvance then self:ProfAdvance(10) end
+    end
+    self:Print("Skipped one hour of Adventure and professions.")
+  end
+  self:MarkDirty(); self:RefreshAll()
+end
+
 ---------------------------------------------------------------- slash commands
 SLASH_TAPCATFOREVER1 = "/tapcat"
 SLASH_TAPCATFOREVER2 = "/tcf"
@@ -905,6 +928,10 @@ SlashCmdList.TAPCATFOREVER = function(msg)
   elseif cmd == "scale" and tonumber(arg) then
     ui.scale = max(0.3, min(3, tonumber(arg))); TCF.hud:ApplySettings()
   elseif cmd == "bag" then TCF:ToggleBag()
+  elseif cmd == "testmode" then
+    ui.testMode = not ui.testMode
+    TCF:Print(ui.testMode and "Test mode ON: shortcuts are in Settings." or "Test mode off.")
+    if TCF.window and TCF.window:IsShown() then TCF.window:Refresh() end
   elseif cmd == "stats" then
     local n, total = TCF:CountOwned()
     TCF:Print(string.format("Level %d (%s), %s lifetime taps, %s TapCoins, %d/%d cosmetics.",

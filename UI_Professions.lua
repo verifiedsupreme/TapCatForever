@@ -98,7 +98,7 @@ TCF.UI.Builders.professions = function(page, win)
     r.btn:SetScript("OnClick", function() TCF:RunOp("mining", i); TCF:PlaySound("click") end)
     r.name = Text(r, "GameFontNormal", nil, "LEFT"); r.name:SetPoint("TOPLEFT", r.btn, "TOPRIGHT", 8, 0)
     r.mats = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.mats:SetPoint("LEFT", r.name, "RIGHT", 8, 0)
-    r.bar = Bar(r, 230, 16, 0.25, 0.75, 0.3); r.bar:SetPoint("LEFT", r.btn, "RIGHT", 8, -2)
+    r.bar = Bar(r, 290, 16, 0.25, 0.75, 0.3); r.bar:SetPoint("LEFT", r.btn, "RIGHT", 8, -2)
     r.bar:EnableMouse(true); r.bar:SetScript("OnMouseUp", function() TCF:RunOp("mining", i) end)
     r.info = Text(r, "GameFontDisableSmall", nil, "LEFT"); r.info:SetPoint("BOTTOMLEFT", r.btn, "BOTTOMRIGHT", 8, 0)
     -- your pickaxe: click to mine by hand

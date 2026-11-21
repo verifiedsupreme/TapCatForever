@@ -1004,7 +1004,19 @@ function TCF:CreateWindow()
     "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats\n" ..
     "TapCoins, quests and achievements are shared; gear, cosmetics, professions and cat levels are per character.")
 
+  -- test mode shortcuts (/tcf testmode)
+  local testBox = CreateFrame("Frame", nil, st)
+  testBox:SetSize(380, 90); testBox:SetPoint("TOPLEFT", 480, -280)
+  local tt = Text(testBox, "GameFontNormal", "|cffff6060Test mode|r (/tcf testmode to hide)", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
+  local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
+                   { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" } }
+  for i, c in ipairs(cheats) do
+    local b = Button(testBox, c[1], 124, 22, function() TCF:TestCheat(c[2]) end)
+    b:SetPoint("TOPLEFT", ((i - 1) % 3) * 128, -20 - math.floor((i - 1) / 3) * 26)
+  end
+
   function win:RefreshSettings()
+    testBox:SetShown(ui.testMode and true or false)
     for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
     scaleS.Sync(); alphaS.Sync(); textS.Sync()
   end
