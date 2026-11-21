@@ -168,6 +168,9 @@ end
 function TCF:PickLevel() return S(self).pickLvl end
 function TCF:PickMult(lvl) return TCF.PICK_BOOST ^ (lvl or self:PickLevel()) end
 function TCF:PickCost(lvl) lvl = lvl or self:PickLevel(); return floor(TCF.PICK_COST * TCF.PICK_COST_GROWTH ^ lvl) end
+-- one swing per cooldown (shared by every vein); upgrades shorten it a little, down to 0.75s
+function TCF:PickCooldown(lvl) return max(0.75, 1.5 * 0.985 ^ (lvl or self:PickLevel())) end
+function TCF:PickReadyIn() return max(0, (self.pickNext or 0) - GetTime()) end
 function TCF:PickOre(lvl) return 1 + floor((lvl or self:PickLevel()) / 15) end
 function TCF:PickName(lvl)
   lvl = lvl or self:PickLevel()
@@ -186,6 +189,8 @@ end
 function TCF:MineClick(i)
   local s = S(self)
   if i > 1 and s.ops.mining[i].n < 1 then return false end
+  if self:PickReadyIn() > 0 then return false end
+  self.pickNext = GetTime() + self:PickCooldown()
   local gold = self:EarnGold(OPS[i].rev * self:PickMult() * self:UpgradeMult("mining", i))
   local op = TCF.MINING_OPS[i]
   s.mats[op[2]] = (s.mats[op[2]] or 0) + self:PickOre()

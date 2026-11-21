@@ -12,7 +12,7 @@
 - Each cat class has its own gear bag: gear found on one class no longer shows up for the others (an old shared bag is split once: worn items stay with their class, the rest go to the class you are playing).
 - **All cosmetics redrawn for the cartoon cat**: every hat, chest, cape and wings, weapon, off-hand, accessory and racial heritage item (78 designs), tinted in each item's own colours. Fur patterns recolour the cat's markings.
 - **Fur patterns and special skins drawn properly**: tabby, tuxedo, star blaze, calico, Siamese points and leopard markings; tiger stripes, star spots, Mechanocat plates, Skeletal Cat bones, the War Lion's mane and coloured eyes.
-- **Mining**: one pickaxe for every vein with an endless upgrade (+15% per hand-mined click per level, an extra ore every 15 levels). Clicking the pickaxe shows what you mined.
+- **Mining**: one pickaxe for every vein with an endless upgrade (+15% per hand-mined click per level, an extra ore every 15 levels). Clicking the pickaxe shows what you mined; it has a 1.5s swing cooldown (shorter with upgrades, down to 0.75s).
 - **Herbalism**: seeds show their price (or the skill they need), the garden says what you're planting and what it costs, and failed plants explain why.
 - Professions page: buttons no longer miss clicks (the page was redrawing its views underneath the mouse).
 - Cooking: spice buttons show their price, and the tooltip explains what spices are for and which known dishes use them.

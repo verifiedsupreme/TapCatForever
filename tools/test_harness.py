@@ -317,7 +317,8 @@ TEST = r'''
     assert(#TCF.db.expeditions.active == 0)
     -- professions: Mining by hand, then the tycoon, pickaxes, foremen
     local ps = TCF:ProfState()
-    for k = 1, 10 do assert(TCF:MineClick(1), "mine copper by hand") end
+    for k = 1, 10 do _clock = _clock + 2; assert(TCF:MineClick(1), "mine copper by hand") end
+    assert(not TCF:MineClick(1), "pickaxe has a cooldown")
     assert(ps.gold >= 10 and (ps.mats.copper or 0) >= 10, "hand mining gives gold and ore")
     assert(not TCF:MineClick(2), "tin needs a vein first")
     assert(TCF:BuyOp("mining", 1, 1), "buy first copper vein")
