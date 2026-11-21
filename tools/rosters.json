@@ -1,0 +1,2098 @@
+{
+ "elwynn": [
+  {
+   "name": "Wild Turkey",
+   "display": 21774,
+   "spawns": 1187,
+   "type": 1
+  },
+  {
+   "name": "Rockhide Boar",
+   "display": 389,
+   "spawns": 90,
+   "type": 1
+  },
+  {
+   "name": "Defias Thug",
+   "display": 5035,
+   "spawns": 71,
+   "type": 7
+  },
+  {
+   "name": "Prowler",
+   "display": 11415,
+   "spawns": 63,
+   "type": 1
+  },
+  {
+   "name": "Murloc Forager",
+   "display": 441,
+   "spawns": 58,
+   "type": 7
+  },
+  {
+   "name": "Mangy Wolf",
+   "display": 903,
+   "spawns": 58,
+   "type": 1
+  },
+  {
+   "name": "Gray Forest Wolf",
+   "display": 380,
+   "spawns": 55,
+   "type": 1
+  },
+  {
+   "name": "Kobold Miner",
+   "display": 373,
+   "spawns": 51,
+   "type": 7
+  },
+  {
+   "name": "Diseased Young Wolf",
+   "display": 31049,
+   "spawns": 45,
+   "type": 1
+  },
+  {
+   "name": "Kobold Worker",
+   "display": 2299,
+   "spawns": 43,
+   "type": 7
+  },
+  {
+   "name": "Kobold Tunneler",
+   "display": 139,
+   "spawns": 39,
+   "type": 7
+  },
+  {
+   "name": "Murloc Lurker",
+   "display": 983,
+   "spawns": 39,
+   "type": 7
+  },
+  {
+   "name": "Young Forest Bear",
+   "display": 1006,
+   "spawns": 36,
+   "type": 1
+  },
+  {
+   "name": "Diseased Timber Wolf",
+   "display": 31048,
+   "spawns": 36,
+   "type": 1
+  }
+ ],
+ "westfall": [
+  {
+   "name": "Goretusk",
+   "display": 3027,
+   "spawns": 54,
+   "type": 1
+  },
+  {
+   "name": "Fleshripper",
+   "display": 2305,
+   "spawns": 48,
+   "type": 1
+  },
+  {
+   "name": "Riverpaw Taskmaster",
+   "display": 376,
+   "spawns": 46,
+   "type": 7
+  },
+  {
+   "name": "Riverpaw Mongrel",
+   "display": 383,
+   "spawns": 45,
+   "type": 7
+  },
+  {
+   "name": "Defias Pillager",
+   "display": 2338,
+   "spawns": 44,
+   "type": 7
+  },
+  {
+   "name": "Defias Smuggler",
+   "display": 4418,
+   "spawns": 44,
+   "type": 7
+  },
+  {
+   "name": "Young Goretusk",
+   "display": 8871,
+   "spawns": 42,
+   "type": 1
+  },
+  {
+   "name": "Defias Looter",
+   "display": 2340,
+   "spawns": 40,
+   "type": 7
+  },
+  {
+   "name": "Defias Digger",
+   "display": 2441,
+   "spawns": 40,
+   "type": 7
+  },
+  {
+   "name": "Riverpaw Bandit",
+   "display": 383,
+   "spawns": 40,
+   "type": 7
+  },
+  {
+   "name": "Defias Trapper",
+   "display": 2331,
+   "spawns": 39,
+   "type": 7
+  },
+  {
+   "name": "Coyote",
+   "display": 643,
+   "spawns": 38,
+   "type": 1
+  },
+  {
+   "name": "Harvest Watcher",
+   "display": 378,
+   "spawns": 35,
+   "type": 9
+  },
+  {
+   "name": "Young Fleshripper",
+   "display": 410,
+   "spawns": 34,
+   "type": 1
+  }
+ ],
+ "rfc": [
+  {
+   "name": "Ragefire Trogg",
+   "display": 11609,
+   "spawns": 29,
+   "type": 7
+  },
+  {
+   "name": "Searing Blade Cultist",
+   "display": 11434,
+   "spawns": 29,
+   "type": 7
+  },
+  {
+   "name": "Searing Blade Enforcer",
+   "display": 11430,
+   "spawns": 21,
+   "type": 7
+  },
+  {
+   "name": "Ragefire Shaman",
+   "display": 11610,
+   "spawns": 14,
+   "type": 7
+  },
+  {
+   "name": "Molten Elemental",
+   "display": 2075,
+   "spawns": 13,
+   "type": 4
+  },
+  {
+   "name": "Earthborer",
+   "display": 11010,
+   "spawns": 11,
+   "type": 1
+  },
+  {
+   "name": "Searing Blade Warlock",
+   "display": 11438,
+   "spawns": 10,
+   "type": 7
+  }
+ ],
+ "wc": [
+  {
+   "name": "Druid of the Fang",
+   "display": 4211,
+   "spawns": 69,
+   "type": 7
+  },
+  {
+   "name": "Deviate Lasher",
+   "display": 8172,
+   "spawns": 52,
+   "type": 4
+  },
+  {
+   "name": "Deviate Shambler",
+   "display": 1084,
+   "spawns": 24,
+   "type": 4
+  },
+  {
+   "name": "Deviate Ravager",
+   "display": 1747,
+   "spawns": 16,
+   "type": 1
+  },
+  {
+   "name": "Deviate Crocolisk",
+   "display": 2996,
+   "spawns": 14,
+   "type": 1
+  },
+  {
+   "name": "Deviate Guardian",
+   "display": 755,
+   "spawns": 14,
+   "type": 1
+  },
+  {
+   "name": "Deviate Venomwing",
+   "display": 2706,
+   "spawns": 12,
+   "type": 1
+  },
+  {
+   "name": "Deviate Python",
+   "display": 8173,
+   "spawns": 11,
+   "type": 1
+  },
+  {
+   "name": "Deviate Dreadfang",
+   "display": 3006,
+   "spawns": 11,
+   "type": 1
+  },
+  {
+   "name": "Deviate Viper",
+   "display": 4312,
+   "spawns": 8,
+   "type": 1
+  },
+  {
+   "name": "Deviate Adder",
+   "display": 4317,
+   "spawns": 8,
+   "type": 1
+  }
+ ],
+ "dm": [
+  {
+   "name": "Defias Miner",
+   "display": 308,
+   "spawns": 46,
+   "type": 7
+  },
+  {
+   "name": "Defias Strip Miner",
+   "display": 2438,
+   "spawns": 27,
+   "type": 7
+  },
+  {
+   "name": "Defias Pirate",
+   "display": 2347,
+   "spawns": 21,
+   "type": 7
+  },
+  {
+   "name": "Defias Squallshaper",
+   "display": 2349,
+   "spawns": 19,
+   "type": 7
+  },
+  {
+   "name": "Goblin Shipbuilder",
+   "display": 7112,
+   "spawns": 16,
+   "type": 7
+  },
+  {
+   "name": "Goblin Woodcarver",
+   "display": 7111,
+   "spawns": 13,
+   "type": 7
+  },
+  {
+   "name": "Goblin Craftsman",
+   "display": 7110,
+   "spawns": 13,
+   "type": 7
+  },
+  {
+   "name": "Defias Overseer",
+   "display": 2316,
+   "spawns": 12,
+   "type": 7
+  },
+  {
+   "name": "Defias Evoker",
+   "display": 2318,
+   "spawns": 10,
+   "type": 7
+  },
+  {
+   "name": "Goblin Engineer",
+   "display": 7109,
+   "spawns": 6,
+   "type": 7
+  },
+  {
+   "name": "Defias Blackguard",
+   "display": 2314,
+   "spawns": 4,
+   "type": 7
+  },
+  {
+   "name": "Defias Taskmaster",
+   "display": 2440,
+   "spawns": 3,
+   "type": 7
+  },
+  {
+   "name": "Defias Watchman",
+   "display": 184,
+   "spawns": 2,
+   "type": 7
+  },
+  {
+   "name": "Defias Wizard",
+   "display": 2447,
+   "spawns": 2,
+   "type": 7
+  }
+ ],
+ "sfk": [
+  {
+   "name": "Haunted Servitor",
+   "display": 3229,
+   "spawns": 19,
+   "type": 6
+  },
+  {
+   "name": "Shadowfang Moonwalker",
+   "display": 729,
+   "spawns": 14,
+   "type": 7
+  },
+  {
+   "name": "Shadowfang Darksoul",
+   "display": 657,
+   "spawns": 12,
+   "type": 7
+  },
+  {
+   "name": "Wailing Guardsman",
+   "display": 3226,
+   "spawns": 10,
+   "type": 6
+  },
+  {
+   "name": "Slavering Worg",
+   "display": 11421,
+   "spawns": 9,
+   "type": 1
+  },
+  {
+   "name": "Bleak Worg",
+   "display": 801,
+   "spawns": 8,
+   "type": 1
+  },
+  {
+   "name": "Shadowfang Ragetooth",
+   "display": 736,
+   "spawns": 8,
+   "type": 7
+  },
+  {
+   "name": "Son of Arugal",
+   "display": 1098,
+   "spawns": 8,
+   "type": 7
+  },
+  {
+   "name": "Shadowfang Whitescalp",
+   "display": 729,
+   "spawns": 7,
+   "type": 7
+  },
+  {
+   "name": "Lupine Horror",
+   "display": 2446,
+   "spawns": 7,
+   "type": 6
+  },
+  {
+   "name": "Crown Apothecary",
+   "display": 1660,
+   "spawns": 7,
+   "type": 7
+  },
+  {
+   "name": "Tormented Officer",
+   "display": 3225,
+   "spawns": 6,
+   "type": 6
+  },
+  {
+   "name": "Shadowfang Glutton",
+   "display": 202,
+   "spawns": 4,
+   "type": 7
+  },
+  {
+   "name": "Fel Steed",
+   "display": 1951,
+   "spawns": 3,
+   "type": 1
+  }
+ ],
+ "bfd": [
+  {
+   "name": "Blackfathom Sea Witch",
+   "display": 4982,
+   "spawns": 30,
+   "type": 7
+  },
+  {
+   "name": "Blackfathom Myrmidon",
+   "display": 4762,
+   "spawns": 27,
+   "type": 7
+  },
+  {
+   "name": "Snapping Crustacean",
+   "display": 1001,
+   "spawns": 18,
+   "type": 1
+  },
+  {
+   "name": "Fallenroot Shadowstalker",
+   "display": 2014,
+   "spawns": 14,
+   "type": 3
+  },
+  {
+   "name": "Skittering Crustacean",
+   "display": 981,
+   "spawns": 11,
+   "type": 1
+  },
+  {
+   "name": "Fallenroot Hellcaller",
+   "display": 2021,
+   "spawns": 11,
+   "type": 3
+  },
+  {
+   "name": "Twilight Reaver",
+   "display": 2898,
+   "spawns": 11,
+   "type": 7
+  },
+  {
+   "name": "Blindlight Murloc",
+   "display": 4920,
+   "spawns": 10,
+   "type": 7
+  },
+  {
+   "name": "Twilight Loreseeker",
+   "display": 2894,
+   "spawns": 8,
+   "type": 7
+  },
+  {
+   "name": "Deep Pool Threshfin",
+   "display": 2836,
+   "spawns": 8,
+   "type": 1
+  },
+  {
+   "name": "Murkshallow Snapclaw",
+   "display": 2835,
+   "spawns": 7,
+   "type": 7
+  },
+  {
+   "name": "Twilight Aquamancer",
+   "display": 2886,
+   "spawns": 7,
+   "type": 7
+  },
+  {
+   "name": "Twilight Shadowmage",
+   "display": 2876,
+   "spawns": 7,
+   "type": 7
+  },
+  {
+   "name": "Aku'mai Snapjaw",
+   "display": 5026,
+   "spawns": 7,
+   "type": 1
+  }
+ ],
+ "stocks": [
+  {
+   "name": "Defias Inmate",
+   "display": 2146,
+   "spawns": 33,
+   "type": 7
+  },
+  {
+   "name": "Defias Captive",
+   "display": 2144,
+   "spawns": 19,
+   "type": 7
+  },
+  {
+   "name": "Defias Prisoner",
+   "display": 2148,
+   "spawns": 13,
+   "type": 7
+  },
+  {
+   "name": "Defias Convict",
+   "display": 2145,
+   "spawns": 12,
+   "type": 7
+  },
+  {
+   "name": "Defias Insurgent",
+   "display": 2147,
+   "spawns": 10,
+   "type": 7
+  }
+ ],
+ "gnomer": [
+  {
+   "name": "Leprous Assistant",
+   "display": 6967,
+   "spawns": 92,
+   "type": 7
+  },
+  {
+   "name": "Irradiated Pillager",
+   "display": 976,
+   "spawns": 46,
+   "type": 7
+  },
+  {
+   "name": "Dark Iron Agent",
+   "display": 3456,
+   "spawns": 34,
+   "type": 7
+  },
+  {
+   "name": "Mechanized Sentry",
+   "display": 6978,
+   "spawns": 30,
+   "type": 9
+  },
+  {
+   "name": "Leprous Machinesmith",
+   "display": 6936,
+   "spawns": 26,
+   "type": 7
+  },
+  {
+   "name": "Leprous Technician",
+   "display": 6932,
+   "spawns": 24,
+   "type": 7
+  },
+  {
+   "name": "Caverndeep Burrower",
+   "display": 830,
+   "spawns": 22,
+   "type": 7
+  },
+  {
+   "name": "Mechanized Guardian",
+   "display": 6979,
+   "spawns": 17,
+   "type": 9
+  },
+  {
+   "name": "Caverndeep Reaver",
+   "display": 10285,
+   "spawns": 16,
+   "type": 7
+  },
+  {
+   "name": "Leprous Defender",
+   "display": 6982,
+   "spawns": 9,
+   "type": 7
+  },
+  {
+   "name": "Mechano-Frostwalker",
+   "display": 6891,
+   "spawns": 8,
+   "type": 9
+  },
+  {
+   "name": "Mechano-Flamewalker",
+   "display": 6890,
+   "spawns": 8,
+   "type": 9
+  },
+  {
+   "name": "Mechano-Tank",
+   "display": 5926,
+   "spawns": 7,
+   "type": 9
+  },
+  {
+   "name": "Holdout Warrior",
+   "display": 6610,
+   "spawns": 7,
+   "type": 7
+  }
+ ],
+ "rfk": [
+  {
+   "name": "Razorfen Defender",
+   "display": 6103,
+   "spawns": 19,
+   "type": 7
+  },
+  {
+   "name": "Quilguard Champion",
+   "display": 6103,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Kraul Bat",
+   "display": 1955,
+   "spawns": 13,
+   "type": 1
+  },
+  {
+   "name": "Death's Head Adept",
+   "display": 6098,
+   "spawns": 9,
+   "type": 7
+  },
+  {
+   "name": "Death's Head Sage",
+   "display": 6099,
+   "spawns": 7,
+   "type": 7
+  },
+  {
+   "name": "Razorfen Groundshaker",
+   "display": 6111,
+   "spawns": 7,
+   "type": 7
+  },
+  {
+   "name": "Greater Kraul Bat",
+   "display": 1954,
+   "spawns": 6,
+   "type": 1
+  },
+  {
+   "name": "Death's Head Seer",
+   "display": 6100,
+   "spawns": 5,
+   "type": 7
+  },
+  {
+   "name": "Razorfen Earthbreaker",
+   "display": 4647,
+   "spawns": 5,
+   "type": 7
+  },
+  {
+   "name": "Rotting Agam'ar",
+   "display": 4714,
+   "spawns": 4,
+   "type": 1
+  },
+  {
+   "name": "Razorfen Stalker",
+   "display": 6106,
+   "spawns": 4,
+   "type": 7
+  },
+  {
+   "name": "Razorfen Totemic",
+   "display": 6112,
+   "spawns": 4,
+   "type": 7
+  },
+  {
+   "name": "Razorfen Beastmaster",
+   "display": 6105,
+   "spawns": 3,
+   "type": 7
+  },
+  {
+   "name": "Razorfen Dustweaver",
+   "display": 6110,
+   "spawns": 3,
+   "type": 7
+  }
+ ],
+ "sm": [
+  {
+   "name": "Unfettered Spirit",
+   "display": 5430,
+   "spawns": 43,
+   "type": 6
+  },
+  {
+   "name": "Scarlet Myrmidon",
+   "display": 2514,
+   "spawns": 27,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Monk",
+   "display": 2603,
+   "spawns": 26,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Defender",
+   "display": 2462,
+   "spawns": 23,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Centurion",
+   "display": 2499,
+   "spawns": 22,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Gallant",
+   "display": 2463,
+   "spawns": 21,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Soldier",
+   "display": 2522,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Diviner",
+   "display": 2507,
+   "spawns": 16,
+   "type": 7
+  },
+  {
+   "name": "Anguished Dead",
+   "display": 10255,
+   "spawns": 13,
+   "type": 6
+  },
+  {
+   "name": "Scarlet Chaplain",
+   "display": 2501,
+   "spawns": 13,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Torturer",
+   "display": 2607,
+   "spawns": 12,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Wizard",
+   "display": 2525,
+   "spawns": 11,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Protector",
+   "display": 2476,
+   "spawns": 11,
+   "type": 7
+  },
+  {
+   "name": "Scarlet Champion",
+   "display": 2460,
+   "spawns": 9,
+   "type": 7
+  }
+ ],
+ "rfd": [
+  {
+   "name": "Splinterbone Centurion",
+   "display": 7848,
+   "spawns": 30,
+   "type": 6
+  },
+  {
+   "name": "Splinterbone Skeleton",
+   "display": 7550,
+   "spawns": 28,
+   "type": 6
+  },
+  {
+   "name": "Splinterbone Warrior",
+   "display": 5231,
+   "spawns": 19,
+   "type": 6
+  },
+  {
+   "name": "Withered Quilguard",
+   "display": 11383,
+   "spawns": 18,
+   "type": 6
+  },
+  {
+   "name": "Boneflayer Ghoul",
+   "display": 1065,
+   "spawns": 17,
+   "type": 6
+  },
+  {
+   "name": "Withered Reaver",
+   "display": 11384,
+   "spawns": 11,
+   "type": 6
+  },
+  {
+   "name": "Thorn Eater Ghoul",
+   "display": 1065,
+   "spawns": 11,
+   "type": 6
+  },
+  {
+   "name": "Death's Head Necromancer",
+   "display": 11381,
+   "spawns": 10,
+   "type": 7
+  },
+  {
+   "name": "Withered Battle Boar",
+   "display": 6121,
+   "spawns": 8,
+   "type": 6
+  },
+  {
+   "name": "Frozen Soul",
+   "display": 146,
+   "spawns": 8,
+   "type": 6
+  },
+  {
+   "name": "Freezing Spirit",
+   "display": 146,
+   "spawns": 7,
+   "type": 6
+  },
+  {
+   "name": "Withered Spearhide",
+   "display": 11385,
+   "spawns": 7,
+   "type": 6
+  },
+  {
+   "name": "Skeletal Summoner",
+   "display": 1245,
+   "spawns": 6,
+   "type": 6
+  },
+  {
+   "name": "Skeletal Frostweaver",
+   "display": 9783,
+   "spawns": 6,
+   "type": 6
+  }
+ ],
+ "uld": [
+  {
+   "name": "Earthen Custodian",
+   "display": 6025,
+   "spawns": 32,
+   "type": 7
+  },
+  {
+   "name": "Earthen Stonebreaker",
+   "display": 6010,
+   "spawns": 24,
+   "type": 7
+  },
+  {
+   "name": "Earthen Rocksmasher",
+   "display": 6010,
+   "spawns": 24,
+   "type": 7
+  },
+  {
+   "name": "Stonevault Brawler",
+   "display": 11166,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Stonevault Cave Lurker",
+   "display": 722,
+   "spawns": 14,
+   "type": 7
+  },
+  {
+   "name": "Earthen Hallshaper",
+   "display": 6025,
+   "spawns": 12,
+   "type": 7
+  },
+  {
+   "name": "Stone Steward",
+   "display": 2234,
+   "spawns": 10,
+   "type": 4
+  },
+  {
+   "name": "Deadly Cleft Scorpid",
+   "display": 5985,
+   "spawns": 9,
+   "type": 1
+  },
+  {
+   "name": "Stonevault Mauler",
+   "display": 11166,
+   "spawns": 9,
+   "type": 7
+  },
+  {
+   "name": "Earthen Sculptor",
+   "display": 6009,
+   "spawns": 8,
+   "type": 7
+  },
+  {
+   "name": "Earthen Stonecarver",
+   "display": 6009,
+   "spawns": 7,
+   "type": 7
+  },
+  {
+   "name": "Shrike Bat",
+   "display": 1954,
+   "spawns": 7,
+   "type": 1
+  },
+  {
+   "name": "Stonevault Flameweaver",
+   "display": 160,
+   "spawns": 6,
+   "type": 7
+  },
+  {
+   "name": "Earthen Guardian",
+   "display": 6026,
+   "spawns": 6,
+   "type": 7
+  }
+ ],
+ "zf": [
+  {
+   "name": "Scarab",
+   "display": 7470,
+   "spawns": 68,
+   "type": 1
+  },
+  {
+   "name": "Sandfury Blood Drinker",
+   "display": 6423,
+   "spawns": 55,
+   "type": 7
+  },
+  {
+   "name": "Sandfury Witch Doctor",
+   "display": 6421,
+   "spawns": 38,
+   "type": 7
+  },
+  {
+   "name": "Sandfury Shadowhunter",
+   "display": 6425,
+   "spawns": 34,
+   "type": 7
+  },
+  {
+   "name": "Sandfury Shadowcaster",
+   "display": 6419,
+   "spawns": 26,
+   "type": 7
+  },
+  {
+   "name": "Sul'lithuz Sandcrawler",
+   "display": 7345,
+   "spawns": 19,
+   "type": 1
+  },
+  {
+   "name": "Sandfury Soul Eater",
+   "display": 6427,
+   "spawns": 6,
+   "type": 7
+  },
+  {
+   "name": "Sandfury Guardian",
+   "display": 4305,
+   "spawns": 4,
+   "type": 1
+  }
+ ],
+ "mara": [
+  {
+   "name": "Deep Borer",
+   "display": 12333,
+   "spawns": 98,
+   "type": 1
+  },
+  {
+   "name": "Vile Larva",
+   "display": 12346,
+   "spawns": 56,
+   "type": 1
+  },
+  {
+   "name": "Constrictor Vine",
+   "display": 12348,
+   "spawns": 54,
+   "type": 4
+  },
+  {
+   "name": "Subterranean Diemetradon",
+   "display": 13209,
+   "spawns": 31,
+   "type": 1
+  },
+  {
+   "name": "Stolid Snapjaw",
+   "display": 6368,
+   "spawns": 26,
+   "type": 1
+  },
+  {
+   "name": "Putridus Trickster",
+   "display": 11338,
+   "spawns": 22,
+   "type": 3
+  },
+  {
+   "name": "Barbed Lasher",
+   "display": 12347,
+   "spawns": 18,
+   "type": 4
+  },
+  {
+   "name": "Putridus Satyr",
+   "display": 11345,
+   "spawns": 16,
+   "type": 3
+  },
+  {
+   "name": "Primordial Behemoth",
+   "display": 12309,
+   "spawns": 16,
+   "type": 5
+  },
+  {
+   "name": "Sister of Celebras",
+   "display": 12337,
+   "spawns": 12,
+   "type": 7
+  },
+  {
+   "name": "Deeprot Stomper",
+   "display": 2079,
+   "spawns": 12,
+   "type": 4
+  },
+  {
+   "name": "Deeprot Tangler",
+   "display": 13098,
+   "spawns": 10,
+   "type": 4
+  },
+  {
+   "name": "Cavern Lurker",
+   "display": 3386,
+   "spawns": 8,
+   "type": 4
+  },
+  {
+   "name": "Cavern Shambler",
+   "display": 9014,
+   "spawns": 8,
+   "type": 4
+  }
+ ],
+ "st": [
+  {
+   "name": "Atal'ai Slave",
+   "display": 7554,
+   "spawns": 41,
+   "type": 3
+  },
+  {
+   "name": "Nightmare Whelp",
+   "display": 621,
+   "spawns": 38,
+   "type": 2
+  },
+  {
+   "name": "Atal'ai Witch Doctor",
+   "display": 6670,
+   "spawns": 24,
+   "type": 7
+  },
+  {
+   "name": "Deep Lurker",
+   "display": 631,
+   "spawns": 21,
+   "type": 4
+  },
+  {
+   "name": "Atal'ai Deathwalker",
+   "display": 4773,
+   "spawns": 18,
+   "type": 6
+  },
+  {
+   "name": "Nightmare Scalebane",
+   "display": 7903,
+   "spawns": 13,
+   "type": 2
+  },
+  {
+   "name": "Murk Worm",
+   "display": 7549,
+   "spawns": 12,
+   "type": 1
+  },
+  {
+   "name": "Nightmare Wanderer",
+   "display": 181,
+   "spawns": 12,
+   "type": 2
+  },
+  {
+   "name": "Atal'ai Warrior",
+   "display": 7709,
+   "spawns": 11,
+   "type": 7
+  },
+  {
+   "name": "Unliving Atal'ai",
+   "display": 4771,
+   "spawns": 8,
+   "type": 6
+  },
+  {
+   "name": "Hakkari Frostwing",
+   "display": 7569,
+   "spawns": 7,
+   "type": 1
+  },
+  {
+   "name": "Atal'ai Corpse Eater",
+   "display": 4778,
+   "spawns": 7,
+   "type": 6
+  },
+  {
+   "name": "Mummified Atal'ai",
+   "display": 4769,
+   "spawns": 6,
+   "type": 6
+  },
+  {
+   "name": "Nightmare Wyrmkin",
+   "display": 7863,
+   "spawns": 4,
+   "type": 2
+  }
+ ],
+ "brd": [
+  {
+   "name": "Anvilrage Reservist",
+   "display": 8755,
+   "spawns": 236,
+   "type": 7
+  },
+  {
+   "name": "Bloodhound",
+   "display": 8180,
+   "spawns": 95,
+   "type": 3
+  },
+  {
+   "name": "Anvilrage Guardsman",
+   "display": 8750,
+   "spawns": 59,
+   "type": 7
+  },
+  {
+   "name": "Anvilrage Footman",
+   "display": 8718,
+   "spawns": 55,
+   "type": 7
+  },
+  {
+   "name": "Shadowforge Peasant",
+   "display": 8793,
+   "spawns": 42,
+   "type": 7
+  },
+  {
+   "name": "Anvilrage Warden",
+   "display": 8758,
+   "spawns": 35,
+   "type": 7
+  },
+  {
+   "name": "Shadowforge Senator",
+   "display": 8825,
+   "spawns": 34,
+   "type": 7
+  },
+  {
+   "name": "Twilight's Hammer Torturer",
+   "display": 8790,
+   "spawns": 24,
+   "type": 7
+  },
+  {
+   "name": "Doomforge Arcanasmith",
+   "display": 8812,
+   "spawns": 24,
+   "type": 7
+  },
+  {
+   "name": "Arena Spectator",
+   "display": 9069,
+   "spawns": 24,
+   "type": 7
+  },
+  {
+   "name": "Doomforge Craftsman",
+   "display": 8803,
+   "spawns": 24,
+   "type": 7
+  },
+  {
+   "name": "Weapon Technician",
+   "display": 8894,
+   "spawns": 21,
+   "type": 7
+  },
+  {
+   "name": "Blazing Fireguard",
+   "display": 1070,
+   "spawns": 19,
+   "type": 4
+  },
+  {
+   "name": "Twilight Emissary",
+   "display": 8772,
+   "spawns": 18,
+   "type": 7
+  }
+ ],
+ "brs": [
+  {
+   "name": "Scarshield Legionnaire",
+   "display": 9629,
+   "spawns": 49,
+   "type": 7
+  },
+  {
+   "name": "Blackhand Veteran",
+   "display": 9686,
+   "spawns": 35,
+   "type": 7
+  },
+  {
+   "name": "Rage Talon Dragonspawn",
+   "display": 2554,
+   "spawns": 22,
+   "type": 2
+  },
+  {
+   "name": "Scarshield Spellbinder",
+   "display": 9618,
+   "spawns": 20,
+   "type": 7
+  },
+  {
+   "name": "Blackhand Elite",
+   "display": 9734,
+   "spawns": 19,
+   "type": 7
+  },
+  {
+   "name": "Smolderthorn Shadow Priest",
+   "display": 28277,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Firebrand Grunt",
+   "display": 9664,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Blackhand Dreadweaver",
+   "display": 9670,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Bloodaxe Worg Pup",
+   "display": 9563,
+   "spawns": 16,
+   "type": 1
+  },
+  {
+   "name": "Blackhand Summoner",
+   "display": 9849,
+   "spawns": 15,
+   "type": 7
+  },
+  {
+   "name": "Blackhand Iron Guard",
+   "display": 9696,
+   "spawns": 15,
+   "type": 7
+  },
+  {
+   "name": "Smolderthorn Berserker",
+   "display": 7803,
+   "spawns": 14,
+   "type": 7
+  },
+  {
+   "name": "Bloodaxe Veteran",
+   "display": 9633,
+   "spawns": 14,
+   "type": 7
+  },
+  {
+   "name": "Bloodaxe Warmonger",
+   "display": 9617,
+   "spawns": 14,
+   "type": 7
+  }
+ ],
+ "dim": [
+  {
+   "name": "Whip Lasher",
+   "display": 12962,
+   "spawns": 134,
+   "type": 4
+  },
+  {
+   "name": "Gordok Mastiff",
+   "display": 12966,
+   "spawns": 68,
+   "type": 1
+  },
+  {
+   "name": "Carrion Swarmer",
+   "display": 13096,
+   "spawns": 50,
+   "type": 1
+  },
+  {
+   "name": "Mana Remnant",
+   "display": 14272,
+   "spawns": 24,
+   "type": 4
+  },
+  {
+   "name": "Petrified Treant",
+   "display": 2078,
+   "spawns": 21,
+   "type": 4
+  },
+  {
+   "name": "Wildspawn Imp",
+   "display": 911,
+   "spawns": 20,
+   "type": 3
+  },
+  {
+   "name": "Skeletal Highborne",
+   "display": 11078,
+   "spawns": 19,
+   "type": 6
+  },
+  {
+   "name": "Highborne Summoner",
+   "display": 11207,
+   "spawns": 18,
+   "type": 6
+  },
+  {
+   "name": "Rotting Highborne",
+   "display": 14391,
+   "spawns": 17,
+   "type": 6
+  },
+  {
+   "name": "Arcane Feedback",
+   "display": 5490,
+   "spawns": 16,
+   "type": 4
+  },
+  {
+   "name": "Arcane Aberration",
+   "display": 14253,
+   "spawns": 16,
+   "type": 4
+  },
+  {
+   "name": "Gordok Warlock",
+   "display": 14423,
+   "spawns": 15,
+   "type": 7
+  },
+  {
+   "name": "Eldreth Spirit",
+   "display": 10751,
+   "spawns": 15,
+   "type": 6
+  },
+  {
+   "name": "Gordok Reaver",
+   "display": 10709,
+   "spawns": 15,
+   "type": 7
+  }
+ ],
+ "scholo": [
+  {
+   "name": "Risen Aberration",
+   "display": 9786,
+   "spawns": 49,
+   "type": 6
+  },
+  {
+   "name": "Diseased Ghoul",
+   "display": 519,
+   "spawns": 29,
+   "type": 6
+  },
+  {
+   "name": "Reanimated Corpse",
+   "display": 10975,
+   "spawns": 26,
+   "type": 6
+  },
+  {
+   "name": "Plagued Hatchling",
+   "display": 10007,
+   "spawns": 22,
+   "type": 2
+  },
+  {
+   "name": "Unstable Corpse",
+   "display": 10978,
+   "spawns": 21,
+   "type": 6
+  },
+  {
+   "name": "Scholomance Adept",
+   "display": 11161,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Scholomance Neophyte",
+   "display": 11164,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Scholomance Necromancer",
+   "display": 11163,
+   "spawns": 15,
+   "type": 7
+  },
+  {
+   "name": "Scholomance Acolyte",
+   "display": 11157,
+   "spawns": 14,
+   "type": 7
+  },
+  {
+   "name": "Risen Guard",
+   "display": 7848,
+   "spawns": 12,
+   "type": 6
+  },
+  {
+   "name": "Risen Construct",
+   "display": 12074,
+   "spawns": 12,
+   "type": 6
+  },
+  {
+   "name": "Scholomance Necrolyte",
+   "display": 11161,
+   "spawns": 10,
+   "type": 7
+  },
+  {
+   "name": "Spectral Tutor",
+   "display": 3942,
+   "spawns": 7,
+   "type": 6
+  },
+  {
+   "name": "Spectral Researcher",
+   "display": 3942,
+   "spawns": 7,
+   "type": 6
+  }
+ ],
+ "strat": [
+  {
+   "name": "Skeletal Guardian",
+   "display": 9789,
+   "spawns": 55,
+   "type": 6
+  },
+  {
+   "name": "Skeletal Berserker",
+   "display": 9784,
+   "spawns": 54,
+   "type": 6
+  },
+  {
+   "name": "Mangled Cadaver",
+   "display": 10972,
+   "spawns": 35,
+   "type": 6
+  },
+  {
+   "name": "Plague Ghoul",
+   "display": 559,
+   "spawns": 34,
+   "type": 6
+  },
+  {
+   "name": "Ravaged Cadaver",
+   "display": 10974,
+   "spawns": 30,
+   "type": 6
+  },
+  {
+   "name": "Thuzadin Necromancer",
+   "display": 10539,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Ghoul Ravener",
+   "display": 10626,
+   "spawns": 17,
+   "type": 6
+  },
+  {
+   "name": "Crimson Guardsman",
+   "display": 10492,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Crimson Gallant",
+   "display": 10512,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Thuzadin Acolyte",
+   "display": 10535,
+   "spawns": 16,
+   "type": 7
+  },
+  {
+   "name": "Thuzadin Shadowcaster",
+   "display": 10631,
+   "spawns": 14,
+   "type": 7
+  },
+  {
+   "name": "Spectral Citizen",
+   "display": 10483,
+   "spawns": 13,
+   "type": 6
+  },
+  {
+   "name": "Ghostly Citizen",
+   "display": 10478,
+   "spawns": 12,
+   "type": 6
+  },
+  {
+   "name": "Fleshflayer Ghoul",
+   "display": 414,
+   "spawns": 10,
+   "type": 6
+  }
+ ],
+ "zg": [
+  {
+   "name": "Razzashi Serpent",
+   "display": 15182,
+   "spawns": 91,
+   "type": 1
+  },
+  {
+   "name": "Zulian Crocolisk",
+   "display": 833,
+   "spawns": 61,
+   "type": 1
+  },
+  {
+   "name": "Bloodseeker Bat",
+   "display": 14562,
+   "spawns": 53,
+   "type": 1
+  },
+  {
+   "name": "Zulian Panther",
+   "display": 633,
+   "spawns": 52,
+   "type": 1
+  },
+  {
+   "name": "Razzashi Adder",
+   "display": 15150,
+   "spawns": 41,
+   "type": 1
+  },
+  {
+   "name": "Gurubashi Blood Drinker",
+   "display": 11080,
+   "spawns": 36,
+   "type": 7
+  },
+  {
+   "name": "Zulian Tiger",
+   "display": 11031,
+   "spawns": 35,
+   "type": 1
+  },
+  {
+   "name": "Hakkari Priest",
+   "display": 11758,
+   "spawns": 33,
+   "type": 7
+  },
+  {
+   "name": "Razzashi Raptor",
+   "display": 2571,
+   "spawns": 32,
+   "type": 1
+  },
+  {
+   "name": "Hooktooth Frenzy",
+   "display": 15101,
+   "spawns": 31,
+   "type": 1
+  },
+  {
+   "name": "Gurubashi Axe Thrower",
+   "display": 11074,
+   "spawns": 31,
+   "type": 7
+  },
+  {
+   "name": "Razzashi Venombrood",
+   "display": 14950,
+   "spawns": 31,
+   "type": 1
+  },
+  {
+   "name": "Withered Mistress",
+   "display": 14981,
+   "spawns": 28,
+   "type": 6
+  },
+  {
+   "name": "Gurubashi Champion",
+   "display": 11100,
+   "spawns": 24,
+   "type": 7
+  }
+ ],
+ "mc": [
+  {
+   "name": "Flame Imp",
+   "display": 12190,
+   "spawns": 50,
+   "type": 4
+  },
+  {
+   "name": "Core Hound",
+   "display": 12168,
+   "spawns": 25,
+   "type": 1
+  },
+  {
+   "name": "Lava Annihilator",
+   "display": 12164,
+   "spawns": 19,
+   "type": 4
+  },
+  {
+   "name": "Firelord",
+   "display": 12231,
+   "spawns": 18,
+   "type": 4
+  },
+  {
+   "name": "Ancient Core Hound",
+   "display": 12189,
+   "spawns": 15,
+   "type": 1
+  },
+  {
+   "name": "Lava Elemental",
+   "display": 5781,
+   "spawns": 14,
+   "type": 4
+  },
+  {
+   "name": "Molten Giant",
+   "display": 8269,
+   "spawns": 13,
+   "type": 5
+  },
+  {
+   "name": "Firewalker",
+   "display": 1070,
+   "spawns": 13,
+   "type": 4
+  },
+  {
+   "name": "Flameguard",
+   "display": 5488,
+   "spawns": 13,
+   "type": 4
+  },
+  {
+   "name": "Lava Surger",
+   "display": 12239,
+   "spawns": 12,
+   "type": 4
+  },
+  {
+   "name": "Molten Destroyer",
+   "display": 12162,
+   "spawns": 9,
+   "type": 5
+  },
+  {
+   "name": "Firesworn",
+   "display": 5781,
+   "spawns": 8,
+   "type": 4
+  },
+  {
+   "name": "Lava Reaver",
+   "display": 12163,
+   "spawns": 6,
+   "type": 4
+  },
+  {
+   "name": "Flamewaker Protector",
+   "display": 12030,
+   "spawns": 2,
+   "type": 7
+  }
+ ],
+ "ony": [
+  {
+   "name": "Onyxian Warder",
+   "display": 8711,
+   "spawns": 4,
+   "type": 2
+  },
+  {
+   "name": "Onyxian Whelp",
+   "display": 397,
+   "spawns": 0,
+   "type": 0
+  },
+  {
+   "name": "Onyxian Lair Guard",
+   "display": 12891,
+   "spawns": 0,
+   "type": 0
+  }
+ ],
+ "aq20": [
+  {
+   "name": "Silicate Feeder",
+   "display": 13509,
+   "spawns": 41,
+   "type": 1
+  },
+  {
+   "name": "Canal Frenzy",
+   "display": 14528,
+   "spawns": 30,
+   "type": 1
+  },
+  {
+   "name": "Hive'Zara Soldier",
+   "display": 15439,
+   "spawns": 9,
+   "type": 1
+  },
+  {
+   "name": "Hive'Zara Sandstalker",
+   "display": 11084,
+   "spawns": 9,
+   "type": 1
+  },
+  {
+   "name": "Obsidian Destroyer",
+   "display": 15343,
+   "spawns": 9,
+   "type": 4
+  }
+ ],
+ "bwl": [
+  {
+   "name": "Blackwing Technician",
+   "display": 13991,
+   "spawns": 71,
+   "type": 7
+  },
+  {
+   "name": "Corrupted Bronze Whelp",
+   "display": 14720,
+   "spawns": 42,
+   "type": 2
+  },
+  {
+   "name": "Corrupted Blue Whelp",
+   "display": 9994,
+   "spawns": 41,
+   "type": 2
+  },
+  {
+   "name": "Corrupted Red Whelp",
+   "display": 956,
+   "spawns": 40,
+   "type": 2
+  },
+  {
+   "name": "Corrupted Green Whelp",
+   "display": 694,
+   "spawns": 37,
+   "type": 2
+  },
+  {
+   "name": "Blackwing Warlock",
+   "display": 14292,
+   "spawns": 14,
+   "type": 7
+  },
+  {
+   "name": "Death Talon Hatcher",
+   "display": 12892,
+   "spawns": 11,
+   "type": 2
+  },
+  {
+   "name": "Death Talon Overseer",
+   "display": 14355,
+   "spawns": 10,
+   "type": 2
+  },
+  {
+   "name": "Blackwing Taskmaster",
+   "display": 11967,
+   "spawns": 9,
+   "type": 7
+  },
+  {
+   "name": "Death Talon Wyrmguard",
+   "display": 14308,
+   "spawns": 7,
+   "type": 2
+  },
+  {
+   "name": "Blackwing Spellbinder",
+   "display": 18981,
+   "spawns": 6,
+   "type": 2
+  },
+  {
+   "name": "Death Talon Seether",
+   "display": 12893,
+   "spawns": 4,
+   "type": 2
+  },
+  {
+   "name": "Death Talon Wyrmkin",
+   "display": 12894,
+   "spawns": 4,
+   "type": 2
+  },
+  {
+   "name": "Blackwing Guardsman",
+   "display": 12024,
+   "spawns": 2,
+   "type": 7
+  }
+ ],
+ "aq40": [
+  {
+   "name": "Vekniss Guardian",
+   "display": 14521,
+   "spawns": 35,
+   "type": 1
+  },
+  {
+   "name": "Vekniss Warrior",
+   "display": 15334,
+   "spawns": 6,
+   "type": 1
+  },
+  {
+   "name": "Qiraji Lasher",
+   "display": 15465,
+   "spawns": 0,
+   "type": 0
+  },
+  {
+   "name": "Anubisath Defender",
+   "display": 15351,
+   "spawns": 0,
+   "type": 0
+  },
+  {
+   "name": "Vekniss Drone",
+   "display": 15362,
+   "spawns": 0,
+   "type": 0
+  },
+  {
+   "name": "Obsidian Eradicator",
+   "display": 15346,
+   "spawns": 0,
+   "type": 0
+  },
+  {
+   "name": "Spawn of Fankriss",
+   "display": 15582,
+   "spawns": 0,
+   "type": 0
+  }
+ ],
+ "naxx": [
+  {
+   "name": "Poisonous Skitterer",
+   "display": 959,
+   "spawns": 103,
+   "type": 1
+  },
+  {
+   "name": "Plagued Bat",
+   "display": 1954,
+   "spawns": 38,
+   "type": 1
+  },
+  {
+   "name": "Frenzied Bat",
+   "display": 7896,
+   "spawns": 34,
+   "type": 1
+  },
+  {
+   "name": "Marauding Geist",
+   "display": 25627,
+   "spawns": 25,
+   "type": 6
+  },
+  {
+   "name": "Death Knight",
+   "display": 16508,
+   "spawns": 23,
+   "type": 6
+  },
+  {
+   "name": "Rotting Maggot",
+   "display": 15554,
+   "spawns": 22,
+   "type": 1
+  },
+  {
+   "name": "Dark Touched Warrior",
+   "display": 26569,
+   "spawns": 21,
+   "type": 7
+  },
+  {
+   "name": "Dread Creeper",
+   "display": 15937,
+   "spawns": 18,
+   "type": 1
+  },
+  {
+   "name": "Carrion Spinner",
+   "display": 15938,
+   "spawns": 18,
+   "type": 1
+  },
+  {
+   "name": "Naxxramas Acolyte",
+   "display": 16598,
+   "spawns": 17,
+   "type": 7
+  },
+  {
+   "name": "Diseased Maggot",
+   "display": 15978,
+   "spawns": 17,
+   "type": 1
+  },
+  {
+   "name": "Death Knight Captain",
+   "display": 26546,
+   "spawns": 15,
+   "type": 6
+  },
+  {
+   "name": "Naxxramas Cultist",
+   "display": 16594,
+   "spawns": 15,
+   "type": 7
+  },
+  {
+   "name": "Death Knight Cavalier",
+   "display": 26571,
+   "spawns": 13,
+   "type": 6
+  }
+ ]
+}

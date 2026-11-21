@@ -12,6 +12,7 @@ Usage: python3 tools/make_gear.py <data-dir>
 import csv, json, os, re, sys, collections
 
 DATA = sys.argv[1] if len(sys.argv) > 1 else "."
+HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "GearData.lua")
 
 # ------------------------------------------------------------------ tiers
@@ -41,7 +42,7 @@ TIERS = [
     ("strat",    "Stratholme",               2017, 58, 60, 61, False, 236, "Baron Rivendare", ["Crimson Guardsman", "Plagued Ghoul", "Thuzadin Shadowcaster"]),
     ("zg",       "Zul'Gurub",                1977, 60, 60, 63, True,  76,  "Hakkar", ["Gurubashi Berserker", "Hakkari Priest", "Razzashi Serpent"]),
     ("mc",       "Molten Core",              2717, 60, 60, 66, True,  741, "Ragnaros", ["Core Hound", "Lava Surger", "Firelord"]),
-    ("ony",      "Onyxia's Lair",            2159, 60, 60, 67, True,  760, "Onyxia", ["Onyxian Warder", "Onyxian Whelp"]),
+    ("ony",      "Onyxia's Lair",            2159, 60, 60, 67, True,  760, "Onyxia", ["Onyxian Warder", "Onyxian Whelp", "Onyxian Lair Guard"]),
     ("aq20",     "Ruins of Ahn'Qiraj",       3429, 60, 60, 68, True,  743, "Ossirian the Unscarred", ["Qiraji Swarmguard", "Anubisath Guardian", "Hive'Zara Stinger"]),
     ("bwl",      "Blackwing Lair",           2677, 60, 60, 71, True,  742, "Nefarian", ["Death Talon Wyrmguard", "Blackwing Technician", "Chromatic Drakonid"]),
     ("aq40",     "Temple of Ahn'Qiraj",      3428, 60, 60, 74, True,  744, "C'Thun", ["Anubisath Sentinel", "Vekniss Soldier", "Qiraji Champion"]),
@@ -149,7 +150,11 @@ def main():
         "Hogger": "Gnoll", "Kobold Tunneler": "Kobold Miner", "Murloc Forager": "Murloc", "Prowler": "Timber Wolf",
         "Coyote": "Coyote", "Harvest Watcher": "Harvest Golem", "Foe Reaper 4000": "Harvest Reaper",
     }
+    # full Classic creature models from a server database (tools/make_rosters.py), checked first
+    acdisp = json.load(open(os.path.join(HERE_DIR, "creature_displays.json"))) if os.path.exists(os.path.join(HERE_DIR, "creature_displays.json")) else {}
+    rosters = json.load(open(os.path.join(HERE_DIR, "rosters.json"))) if os.path.exists(os.path.join(HERE_DIR, "rosters.json")) else {}
     def lookup(name):
+        if name in acdisp: return acdisp[name]
         if name in disp: return disp[name][1]
         if name in jdisp: return jdisp[name]
         alt = STAND_IN.get(name)
@@ -230,6 +235,11 @@ def main():
                 if not v: missing.append(n)
                 return v
             mob_list = [(m, d(m)) for m in trash]
+            # add the zone's real trash from the creature database (more models, more variety)
+            for c in rosters.get(key, []):
+                if len(mob_list) >= 16: break
+                if c["name"] not in [m for m, _ in mob_list] and c["name"] not in tier_bosses[i]:
+                    mob_list.append((c["name"], c["display"]))
             mob_list = [(m, v) for m, v in mob_list if v]           # never show an enemy without a model
             stand_in = [v for _, v in mob_list] or [11121]
             boss_list = []
