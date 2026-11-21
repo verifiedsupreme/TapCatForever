@@ -144,6 +144,22 @@ local function bindCharacter(sv)
   return char
 end
 
+-- Wipe saved progress and reload. scope "char": this character's gear, cosmetics, professions,
+-- cat levels and adventures. scope "all": everything on the account (settings and position are kept).
+function TCF:ResetProgress(scope)
+  local sv = TapCatForeverDB
+  if scope == "all" then
+    local ui = rawget(sv, "ui")
+    setmetatable(sv, nil)
+    for k in pairs(sv) do sv[k] = nil end
+    sv.ui, sv.charsMigrated = ui, true
+  else
+    sv.chars = sv.chars or {}
+    sv.chars[self.charKey] = { fresh = true }
+  end
+  if ReloadUI then ReloadUI() end
+end
+
 function TCF:InitDB()
   TapCatForeverDB = TapCatForeverDB or {}
   local char = bindCharacter(TapCatForeverDB)

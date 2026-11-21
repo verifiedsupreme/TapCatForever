@@ -970,10 +970,26 @@ function TCF:CreateWindow()
     ui.minimap.hide = not ui.minimap.hide; TCF:UpdateMinimapButton()
   end)
   mmB:SetPoint("TOPLEFT", 280, -328)
+  local function ConfirmReset(which, text)
+    StaticPopupDialogs.TAPCATFOREVER_RESET = {
+      text = text, button1 = "Reset", button2 = CANCEL or "Cancel",
+      OnAccept = function() TCF:ResetProgress(which) end,
+      timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
+    }
+    StaticPopup_Show("TAPCATFOREVER_RESET")
+  end
+  local resetCharB = Button(st, "Reset this character", 160, 22, function()
+    ConfirmReset("char", "Reset TapCatForever progress for THIS character?\n\nGear, cosmetics, professions, cat levels, abilities and adventures go back to the start. TapCoins, quests and achievements are kept.\n\nYour UI will reload.")
+  end)
+  resetCharB:SetPoint("TOPLEFT", 280, -376)
+  local resetAllB = Button(st, "|cffff5555Reset ALL progress|r", 160, 22, function()
+    ConfirmReset("all", "Reset ALL TapCatForever progress on EVERY character?\n\nEverything goes back to level 1: TapCoins, gear, cosmetics, professions, renown, quests and achievements. Your settings are kept.\n\nThis cannot be undone. Your UI will reload.")
+  end)
+  resetAllB:SetPoint("TOPLEFT", 280, -404)
   local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 14); help:SetWidth(490)
   help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
     "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats\n" ..
-    "All progress is shared by every character on your account.")
+    "TapCoins, quests and achievements are shared; gear, cosmetics, professions and cat levels are per character.")
 
   function win:RefreshSettings()
     for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
