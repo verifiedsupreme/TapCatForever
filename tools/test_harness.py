@@ -186,6 +186,18 @@ TEST = r'''
     assert(TCF.db.owned.race_orc, "orc tusks granted at login")
     assert(TCF:GetLoadout("WARRIOR").acc == "race_orc", "tusks worn")
     TCF:GrantRaceAccessory()
+    -- racial toggle hides it; skins buy/equip/drop
+    TCF.db.ui.racial = false
+    assert(TCF:GetAppearance("WARRIOR").acc == nil, "racial hidden")
+    TCF.db.ui.racial = true
+    TCF:AddCoins(20000)
+    assert(TCF:BuySkin("skin_frostsaber")); assert(TCF.db.look.skin == "skin_frostsaber")
+    assert(not TCF:BuySkin("skin_zulian"), "drop-only skin can't be bought")
+    TCF.cat:ApplyAppearance(TCF:GetAppearance())
+    assert(TCF:GrantSkin("skin_zulian", "test"))
+    TCF.db.look.skin = "skin_lion"; TCF.db.owned.skin_lion = 1; TCF.cat:ApplyAppearance(TCF:GetAppearance())
+    TCF:Unequip("skin")
+    assert(TCF.db.look.skin == nil)
     -- per-class levels: a fresh class starts at level 1
     local magelvl = TCF:CD("MAGE").level
     TCF:SetClass("ROGUE")

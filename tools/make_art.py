@@ -990,6 +990,62 @@ def race_accessories():
     b.paint((tips | M(tips)), "white", shade=False)
     save("acc_race_skyborne", a, b)
 
+# ================================================================ CAT SKINS (overlays on the fur)
+def skins():
+    # bold tiger stripes on head and body
+    st = set()
+    for x0, y0, x1, y1 in ((24, 17, 26, 23), (32, 16, 32, 23), (40, 17, 38, 23),
+                           (15, 26, 20, 28), (15, 31, 19, 32),
+                           (14, 46, 22, 49), (13, 52, 21, 54), (14, 58, 21, 60),
+                           (24, 44, 27, 50), (30, 46, 33, 52)):
+        st |= L(x0, y0, x1, y1, 2.0)
+    st |= M(L(15, 26, 20, 28, 2.0) | L(15, 31, 19, 32, 2.0) | L(14, 46, 22, 49, 2.0) | L(13, 52, 21, 54, 2.0) | L(14, 58, 21, 60, 2.0))
+    a = Layer(); a.paint(st & FUR, "light", shade=False)
+    save("skin_stripes", a, outline=False)
+
+    # skeleton: ribs and a skull mask
+    a = Layer()
+    bones = R(31, 40, 32, 62)
+    for y in (44, 48, 52, 56):
+        bones |= arc(32, y - 6, 9, 50, 130, 1.4)
+    bones |= ring(24.5, 29.5, 3.6, 3.4, 1.2) | M(ring(24.5, 29.5, 3.6, 3.4, 1.2)) | R(30, 33, 33, 34)
+    a.paint(bones & FUR, "light", shade=False)
+    save("skin_bones", a, outline=False)
+
+    # mechanical: panel lines (a) and rivets (b)
+    a, b = Layer(), Layer()
+    lines = (L(15, 24, 49, 24, 1) | L(32, 16, 32, 24, 1) | L(14, 46, 50, 46, 1) | L(32, 46, 32, 63, 1)) & FUR
+    a.paint(lines, "light", shade=False)
+    rv = set()
+    for x, y in ((20, 21), (44, 21), (20, 43), (44, 43), (22, 50), (42, 50), (22, 59), (42, 59)):
+        rv |= E(x, y, 1.1, 1.1)
+    b.paint(rv & FUR, "white", shade=False)
+    save("skin_plates", a, b, outline=False)
+
+    # lion mane behind the head
+    a = Layer()
+    mane = set()
+    for k in range(16):
+        ang = k / 16 * 2 * math.pi
+        mane |= E(32 + 19 * math.cos(ang), 30 + 16 * math.sin(ang), 5, 5)
+    a.paint(mane - E(32, 30, 15, 12), "light")
+    save("skin_mane", a)
+
+    # glowing eyes (drawn over the face)
+    a = Layer()
+    for ex in (24, 38):
+        a.paint(R(ex, 28, ex + 1, 31), "white", shade=False)
+        a.paint({(ex - 1, 29), (ex + 2, 29), (ex - 1, 30), (ex + 2, 30)}, "white", shade=False, alpha=110)
+    save("skin_eyes", a, outline=False)
+
+    # stars and sparkles in the fur
+    a = Layer()
+    sm = set()
+    for x, y in ((22, 22), (41, 19), (18, 50), (44, 55), (30, 58), (37, 45), (25, 40)):
+        sm |= star4(x, y, 1.8)
+    a.paint(sm & FUR, "white", shade=False)
+    save("skin_stars", a, outline=False)
+
 def ui_bits():
     # floating heart (for petting) 32x32 logical drawn on 64 canvas
     a = Layer()
@@ -1015,7 +1071,7 @@ def main():
     for side in "LR":
         paw(True, side); paw(False, side)
     for k in ("normal", "blink", "happy", "focus", "sparkle"): face(k)
-    patterns(); head_items(); chest_items(); back_items(); weapons(); offhands(); accessories(); race_accessories(); ui_bits()
+    patterns(); head_items(); chest_items(); back_items(); weapons(); offhands(); accessories(); race_accessories(); skins(); ui_bits()
 
     count = 0
     for name, im in ART.items():

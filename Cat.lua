@@ -55,7 +55,9 @@ function TCF.CreateCat(parent, size, opts)
   T("pattern_a", "BORDER", 1);   T("pattern_b", "BORDER", 2)
   T("chest_a", "BORDER", 3);     T("chest_b", "BORDER", 4)
   T("chest_glow", "BORDER", 5)
-  T("face", "ARTWORK", 0)
+  T("skinMane", "BACKGROUND", 2)
+  T("face", "ARTWORK", -1)
+  T("skinEyes", "ARTWORK", 0)
   T("acc_a", "ARTWORK", 1);      T("acc_b", "ARTWORK", 2)
   T("head_a", "ARTWORK", 3);     T("head_b", "ARTWORK", 4)
   T("head_glow", "ARTWORK", 5)
@@ -151,8 +153,9 @@ end
 function Cat:ApplyAppearance(look)
   self.look = look
   local tex = self.tex
-  -- fur
-  local fur = look.fur or TCF.ITEMS.fur_ginger
+  -- fur (a skin replaces fur colour, markings and eyes)
+  local skin = look.skin
+  local fur = skin or look.fur or TCF.ITEMS.fur_ginger
   self.rainbowFur = fur.rainbow
   local fa = fur.alpha or 1
   tex.fur:SetVertexColor(fur.c1[1], fur.c1[2], fur.c1[3]); tex.fur:SetAlpha(fa)
@@ -162,9 +165,17 @@ function Cat:ApplyAppearance(look)
       t:SetVertexColor(fur.c1[1], fur.c1[2], fur.c1[3]); t:SetAlpha(fa)
     end
   end
+  if skin and skin.eyes then
+    setTex(tex.skinEyes, "skin_eyes"); tex.skinEyes:SetVertexColor(skin.eyes[1], skin.eyes[2], skin.eyes[3]); tex.skinEyes:Show()
+  else tex.skinEyes:Hide() end
+  if skin and skin.mane then
+    setTex(tex.skinMane, "skin_mane"); tex.skinMane:SetVertexColor(skin.mane[1], skin.mane[2], skin.mane[3]); tex.skinMane:Show()
+  else tex.skinMane:Hide() end
+  local skinPattern = skin and skin.overlay and { art = skin.overlay[1], c1 = skin.overlay[2], c2 = skin.overlay[3] }
   -- two-part gear slots
   for _, slot in ipairs({ "back", "pattern", "chest", "acc", "head", "main", "off" }) do
     local it = look[slot]
+    if slot == "pattern" and skin then it = skinPattern end
     local a, b = tex[slot .. "_a"], tex[slot .. "_b"]
     if it then
       if TCF.PART_B[it.art] then

@@ -113,7 +113,49 @@ def race_sheet(path, scale=3):
         d.text((x + 8, y + 4), name, fill=(255, 220, 120, 255))
     out.save(path)
 
+SKINS = [
+    ("Striped Frostsaber", (0.95, 0.97, 1), ("skin_stripes", (0.55, 0.62, 0.75)), (0.5, 0.8, 1), None, 1),
+    ("Striped Nightsaber", (0.36, 0.28, 0.46), ("skin_stripes", (0.16, 0.12, 0.22)), (0.8, 0.6, 1), None, 1),
+    ("Spotted Frostsaber", (0.95, 0.97, 1), ("pat_leopard", (0.55, 0.6, 0.72)), (0.5, 0.8, 1), None, 1),
+    ("Black Panther", (0.16, 0.15, 0.18), None, (1, 0.85, 0.2), None, 1),
+    ("Swift Zulian Tiger", (1, 0.55, 0.15), ("skin_stripes", (0.12, 0.08, 0.05)), (0.4, 1, 0.4), None, 1),
+    ("Winterspring Frostsaber", (0.82, 0.92, 1), ("skin_stripes", (0.62, 0.8, 1)), (0.4, 0.9, 1), None, 1),
+    ("Spectral Tiger", (0.45, 1, 0.9), ("skin_stripes", (0.2, 0.6, 0.6)), (0.6, 1, 1), None, 0.6),
+    ("Skeletal Cat", (0.24, 0.22, 0.27), ("skin_bones", (0.92, 0.9, 0.82)), (0.4, 1, 0.6), None, 1),
+    ("Mechanical Kitty", (0.6, 0.63, 0.68), ("skin_plates", (0.35, 0.37, 0.42), (0.95, 0.8, 0.4)), (1, 0.3, 0.2), None, 1),
+    ("Fel Kitty", (0.38, 0.85, 0.3), ("skin_stripes", (0.15, 0.42, 0.1)), (0.9, 1, 0.3), None, 1),
+    ("Darkmoon Kitty", (0.92, 0.58, 0.88), ("skin_stars", (1, 1, 0.7)), None, None, 1),
+    ("Golden Lion", (1, 0.82, 0.42), None, None, ("skin_mane", (0.78, 0.46, 0.16)), 1),
+]
+
+def skin_cat(fur, overlay, eyes, mane, alpha):
+    c = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    if mane: layer(c, mane[0], mane[1])
+    layer(c, "cat_fur", fur, alpha=alpha)
+    if overlay:
+        if overlay[0] + "_a" in A.ART: layer(c, overlay[0] + "_a", overlay[1]); layer(c, overlay[0] + "_b", overlay[2])
+        else: layer(c, overlay[0], overlay[1])
+    layer(c, "face_normal")
+    if eyes: layer(c, "skin_eyes", eyes)
+    layer(c, "paw_L_up_a", fur, alpha=alpha); layer(c, "paw_L_up_b", (1, .6, .7))
+    layer(c, "paw_R_down_a", fur, alpha=alpha); layer(c, "paw_R_down_b", (1, .6, .7))
+    return c
+
+def skin_sheet(path, scale=3):
+    cols = 4; rows = 3
+    W = 96 * scale; H = 96 * scale + 20
+    out = Image.new("RGBA", (cols * W, rows * H), (38, 34, 46, 255))
+    d = ImageDraw.Draw(out)
+    for i, (name, fur, ov, eyes, mane, alpha) in enumerate(SKINS):
+        c = skin_cat(fur, ov, eyes, mane, alpha).resize((96 * scale, 96 * scale), Image.NEAREST)
+        x, y = (i % cols) * W, (i // cols) * H
+        out.alpha_composite(c, (x, y + 16))
+        d.text((x + 8, y + 4), name, fill=(255, 220, 120, 255))
+    out.save(path)
+
 if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[2] == "skins":
+        skin_sheet(sys.argv[1]); sys.exit(0)
     if len(sys.argv) > 2 and sys.argv[2] == "races":
         race_sheet(sys.argv[1]); sys.exit(0)
     sheet(sys.argv[1] if len(sys.argv) > 1 else "showcase.png")

@@ -27,6 +27,7 @@ TCF.SLOTS = {
   { key = "acc",     name = "Accessory", icon = "INV_Misc_Gift_01" },
   { key = "fur",     name = "Fur",       icon = "Ability_Druid_CatForm", look = true },
   { key = "pattern", name = "Pattern",   icon = "Ability_Druid_Rake",    look = true },
+  { key = "skin",    name = "Skin",      icon = "Ability_Mount_WhiteTiger", look = true },
 }
 TCF.SLOT_BY_KEY = {}
 for _, s in ipairs(TCF.SLOTS) do TCF.SLOT_BY_KEY[s.key] = s end
@@ -459,6 +460,25 @@ TCF.RACE_ITEM = {
   Orc = "race_orc", Scourge = "race_undead", Undead = "race_undead", Tauren = "race_tauren", Troll = "race_troll",
 }
 
+-- Cat skins: replace the whole cat's look (fur, markings, eyes). Bought in the
+-- Appearance tab with TapCoins, or dropped by the boss that drops the real mount.
+-- { id, name, rarity, fur, alpha, overlay {art, c1, c2}, eyes, mane, price, icon, drop }
+local SKINS = {
+  { "skin_frostsaber",   "Striped Frostsaber",      3, c(0.95, 0.97, 1.00), 1,   { "skin_stripes", c(0.55, 0.62, 0.75) }, c(0.50, 0.80, 1.00), nil, 900,  "Ability_Mount_WhiteTiger" },
+  { "skin_nightsaber",   "Striped Nightsaber",      3, c(0.36, 0.28, 0.46), 1,   { "skin_stripes", c(0.16, 0.12, 0.22) }, c(0.80, 0.60, 1.00), nil, 900,  "Ability_Mount_BlackPanther" },
+  { "skin_spotted",      "Spotted Frostsaber",      3, c(0.95, 0.97, 1.00), 1,   { "pat_leopard", c(0.55, 0.60, 0.72) },  c(0.50, 0.80, 1.00), nil, 900,  "Ability_Mount_WhiteTiger" },
+  { "skin_panther",      "Black Panther",           3, c(0.16, 0.15, 0.18), 1,   nil,                                     c(1.00, 0.85, 0.20), nil, 900,  "Ability_Mount_BlackPanther" },
+  { "skin_darkmoon",     "Darkmoon Kitty",          3, c(0.92, 0.58, 0.88), 1,   { "skin_stars", c(1.00, 1.00, 0.70) },   nil,                 nil, 900,  "INV_Misc_Ticket_Darkmoon_01" },
+  { "skin_winterspring", "Winterspring Frostsaber", 4, c(0.82, 0.92, 1.00), 1,   { "skin_stripes", c(0.62, 0.80, 1.00) }, c(0.40, 0.90, 1.00), nil, 2800, "Ability_Mount_PinkTiger" },
+  { "skin_mech",         "Mechanical Kitty",        4, c(0.60, 0.63, 0.68), 1,   { "skin_plates", c(0.35, 0.37, 0.42), c(0.95, 0.80, 0.40) }, c(1.00, 0.30, 0.20), nil, 2800, "INV_Gizmo_01" },
+  { "skin_fel",          "Fel Kitty",               4, c(0.38, 0.85, 0.30), 1,   { "skin_stripes", c(0.15, 0.42, 0.10) }, c(0.90, 1.00, 0.30), nil, 2800, "Spell_Shadow_SummonFelHunter" },
+  { "skin_lion",         "Golden Lion",             4, c(1.00, 0.82, 0.42), 1,   nil,                                     nil, c(0.78, 0.46, 0.16), 2800, "INV_Misc_Head_Dragon_Bronze" },
+  { "skin_zulian",       "Swift Zulian Tiger",      5, c(1.00, 0.55, 0.15), 1,   { "skin_stripes", c(0.12, 0.08, 0.05) }, c(0.40, 1.00, 0.40), nil, nil,  "Ability_Mount_JungleTiger", { "High Priest Thekal", 0.03 } },
+  { "skin_skeletal",     "Skeletal Cat",            5, c(0.24, 0.22, 0.27), 1,   { "skin_bones", c(0.92, 0.90, 0.82) },   c(0.40, 1.00, 0.60), nil, nil,  "Ability_Mount_Undeadhorse", { "Baron Rivendare", 0.03 } },
+  { "skin_spectral",     "Spectral Tiger",          5, c(0.45, 1.00, 0.90), 0.6, { "skin_stripes", c(0.20, 0.60, 0.60) }, c(0.60, 1.00, 1.00), nil, 12000, "Ability_Mount_JungleTiger" },
+}
+TCF.SKIN_DROPS = {}  -- boss name -> { id, chance }
+
 ---------------------------------------------------------------- build item table
 TCF.ITEMS = {}      -- id -> item
 TCF.ITEM_LIST = {}  -- array
@@ -507,6 +527,12 @@ addUniversal(U, "loot")
 addUniversal(ACH_ITEMS, "achievement")
 addUniversal(CRAFT, "craft")
 addUniversal(RACE_ITEMS, "race")
+for _, k in ipairs(SKINS) do
+  local it = { id = k[1], slot = "skin", art = "cat_fur", name = k[2], rarity = k[3], c1 = k[4], alpha = k[5],
+    overlay = k[6], eyes = k[7], mane = k[8], skinPrice = k[9], icon = k[10], source = "skin" }
+  add(it)
+  if k[11] then TCF.SKIN_DROPS[k[11][1]] = { id = k[1], chance = k[11][2] } end
+end
 
 -- Items every player owns from the start: each class's Common chest + main hand,
 -- plus a few basic furs.
@@ -617,6 +643,8 @@ TCF.ACHIEVEMENTS = {
   { id = "trade1m",   name = "Small Business",       stat = "tradeGold", goal = 1000000,  coins = 200,   icon = "INV_Misc_Coin_02" },
   { id = "trade1t",   name = "Trade Prince",         stat = "tradeGold", goal = 1e12,     coins = 2500,  icon = "INV_Misc_Coin_03" },
   { id = "renown1",   name = "Renowned Artisan",     stat = "renown",   goal = 1,         coins = 500,   icon = "INV_Misc_Note_02" },
+  { id = "skins3",    name = "Nine Lives, Many Coats", stat = "skins",  goal = 3,         coins = 500,   icon = "Ability_Mount_WhiteTiger" },
+  { id = "skinrare",  name = "Tiger King",           stat = "dropSkins", goal = 1,        coins = 1500,  icon = "Ability_Mount_JungleTiger" },
   { id = "streak7",   name = "Devoted",             stat = "streak",   goal = 7,         coins = 500,   icon = "INV_Misc_PocketWatch_01", item = "ach_medal" },
   { id = "streak30",  name = "Inseparable",         stat = "streak",   goal = 30,        coins = 3000,  icon = "INV_Misc_PocketWatch_02" },
 }
@@ -631,6 +659,7 @@ local STAT_TEXT = {
   pets = "Pet your cat %s times.", streak = "Log in %s days in a row.",
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",
   tradeGold = "Earn %s Trade Gold in Professions.", renown = "Earn %s Renown by selling your business.",
+  skins = "Own %s cat skins.", dropSkins = "Get %s rare boss-drop skin (Swift Zulian Tiger or Skeletal Cat).",
   races = "Collect %s racial heritage pieces (log in on characters of different races).",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s cosmetic(s) with professions.",

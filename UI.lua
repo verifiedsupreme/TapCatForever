@@ -65,6 +65,13 @@ function TCF:ItemTooltip(tt, it)
     tt:AddLine("Reward from an achievement", 1, 0.82, 0)
   elseif it.source == "craft" then
     tt:AddLine("Crafted with a profession", 1, 0.82, 0)
+  elseif it.slot == "skin" then
+    if it.skinPrice then tt:AddLine("Buy in the Appearance tab for " .. TCF.Commas(it.skinPrice) .. " TapCoins (or find one in a Heroic Cache)", 1, 0.82, 0, true)
+    else
+      for boss, d in pairs(TCF.SKIN_DROPS) do
+        if d.id == it.id then tt:AddLine(string.format("Rare drop from %s in Adventure (%d%%)", boss, d.chance * 100), 1, 0.82, 0, true) end
+      end
+    end
   elseif it.source == "race" then
     tt:AddLine("Racial heritage: log in on a character of this race to get it", 1, 0.82, 0, true)
   else
@@ -92,6 +99,21 @@ local function ItemPicture(parent, size)
   function f:SetItem(it, desat)
     self.base:Hide(); self.b:Hide()
     local art = it.art
+    if it.slot == "skin" then
+      self.base:SetTexture(ART .. "cat_fur", nil, nil, "NEAREST"); CropToBounds(self.base, "cat_fur")
+      self.base:SetVertexColor(it.c1[1], it.c1[2], it.c1[3]); self.base:SetDesaturated(desat); self.base:Show()
+      local ov = it.overlay or (it.mane and { "skin_mane", it.mane })
+      if ov then
+        local pb = TCF.PART_B[ov[1]]
+        self.a:SetTexture(ART .. ov[1] .. (pb and "_a" or ""), nil, nil, "NEAREST"); CropToBounds(self.a, "cat_fur")
+        self.a:SetVertexColor(ov[2][1], ov[2][2], ov[2][3]); self.a:SetDesaturated(desat); self.a:Show()
+        if pb and ov[3] then
+          self.b:SetTexture(ART .. ov[1] .. "_b", nil, nil, "NEAREST"); CropToBounds(self.b, "cat_fur")
+          self.b:SetVertexColor(ov[3][1], ov[3][2], ov[3][3]); self.b:SetDesaturated(desat); self.b:Show()
+        end
+      else self.a:Hide() end
+      return
+    end
     if it.slot == "fur" or it.slot == "pattern" then
       self.base:SetTexture(ART .. "cat_fur", nil, nil, "NEAREST")
       CropToBounds(self.base, "cat_fur")
@@ -527,6 +549,21 @@ function TCF:CreateWindow()
     c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     c:SetScript("OnClick", function(s)
       local it = s.item
+      if it and it.slot == "skin" and not TCF.db.owned[it.id] then
+        if not it.skinPrice then TCF:Print(it.name .. " can only be found as a rare boss drop.") return end
+        if TCF.db.coins < it.skinPrice then TCF:Print("You need " .. TCF.Commas(it.skinPrice) .. " TapCoins for " .. it.name .. ".") return end
+        if StaticPopup_Show then
+          StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN = StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN or {
+            text = "Buy the %s skin for %s TapCoins?", button1 = YES or "Yes", button2 = NO or "No",
+            OnAccept = function(_, data) TCF:BuySkin(data) end, timeout = 0, whileDead = true, hideOnEscape = true,
+          }
+          local dlg = StaticPopup_Show("TAPCATFOREVER_BUY_SKIN", it.name, TCF.Commas(it.skinPrice))
+          if dlg then dlg.data = it.id end
+        else
+          TCF:BuySkin(it.id)
+        end
+        return
+      end
       if not it or not TCF.db.owned[it.id] then return end
       if TCF:IsEquipped(it) then TCF:Unequip(it.slot) else TCF:Equip(it) end
       TCF:PlaySound("click")
@@ -557,7 +594,7 @@ function TCF:CreateWindow()
     local list = {}
     local class = TCF.db.class
     for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.slot == self.slot and (not it.class or it.class == class) and TCF.db.owned[it.id] then
+      if it.slot == self.slot and (not it.class or it.class == class) and (TCF.db.owned[it.id] or it.slot == "skin") then
         list[#list + 1] = it
       end
     end
@@ -585,11 +622,18 @@ function TCF:CreateWindow()
     for _, it in ipairs(list) do if TCF.db.owned[it.id] then owned = owned + 1 end end
     for i = 1, per do
       local it = list[(self.page - 1) * per + i]
-      if it then cells[i]:SetItem(it, TCF.db.owned[it.id], TCF:IsEquipped(it)) else cells[i]:Hide() end
+      if it then
+        cells[i]:SetItem(it, TCF.db.owned[it.id], TCF:IsEquipped(it))
+        if it.slot == "skin" and not TCF.db.owned[it.id] then
+          cells[i].count:SetText(it.skinPrice and ("|cffffd100" .. TCF.Commas(it.skinPrice) .. "|r") or "|cffff8000drop|r")
+          cells[i].pic:SetAlpha(0.7)
+        end
+      else cells[i]:Hide() end
     end
     pageText:SetText(string.format("Page %d / %d", self.page, pagesN))
     prev:SetEnabled(self.page > 1); nextB:SetEnabled(self.page < pagesN)
     unequip:SetEnabled(self.slot ~= "fur")
+    unequip:SetText(self.slot == "skin" and "Remove skin" or "Show real gear")
     collected:SetText(string.format("%d collected", owned))
     if #list == 0 then pageText:SetText("|cff888888Nothing collected for this slot yet. Open chests, craft, or visit the Shop.|r") end
   end
@@ -715,7 +759,7 @@ function TCF:CreateWindow()
     chestCards[i] = c
   end
   local dungeonText = Text(sh, "GameFontHighlightSmall", nil, "LEFT"); dungeonText:SetPoint("TOPLEFT", 16, -326); dungeonText:SetWidth(520)
-  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Daily quests give a Cat Treat Pouch, the weekly quest and every 5 class levels an Adventurer's Strongbox, and zone clears and expeditions can give any chest. Chests hold real gear (65%) or cosmetics (35%).")
+  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Daily quests give a Cat Treat Pouch, the weekly quest and every 5 class levels an Adventurer's Strongbox, and zone clears and expeditions can give any chest. Chests hold real gear (65%) or cosmetics (35%). |cffffd100Cat skins|r are sold in the Appearance tab (Skin slot).")
   local lastLoot = Text(sh, "GameFontHighlight", nil, "LEFT"); lastLoot:SetPoint("BOTTOMLEFT", 16, 14); lastLoot:SetWidth(480)
 
   function win:RefreshShop()
@@ -849,6 +893,7 @@ function TCF:CreateWindow()
   Check("Show TapCoins", "showCoins", 1, 3)
   Check("Popups on cat", "popups", 1, 4, "Floating text for level ups, loot and achievements.")
   Check("Sounds", "sound", 0, 5)
+  Check("Show racial accessory", "racial", 0, 6, "Show the accessory from your character's race (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
   Check("Chat messages", "chat", 1, 5)
 
   local function Slider(label, minV, maxV, step, y, get, set, fmt)
@@ -869,14 +914,14 @@ function TCF:CreateWindow()
     s.Sync = function() s:SetValue(get()); t:SetText(string.format(fmt, label, get())) end
     return s
   end
-  local scaleS = Slider("Cat size", 0.3, 3, 0.05, -250, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx")
-  local alphaS = Slider("Opacity", 0.1, 1, 0.05, -300, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f")
+  local scaleS = Slider("Cat size", 0.3, 3, 0.05, -280, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx")
+  local alphaS = Slider("Opacity", 0.1, 1, 0.05, -330, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f")
   local resetB = Button(st, "Reset position", 130, 22, function() TCF.hud:ResetPosition() end)
-  resetB:SetPoint("TOPLEFT", 280, -246)
+  resetB:SetPoint("TOPLEFT", 280, -276)
   local mmB = Button(st, "Toggle minimap icon", 160, 22, function()
     ui.minimap.hide = not ui.minimap.hide; TCF:UpdateMinimapButton()
   end)
-  mmB:SetPoint("TOPLEFT", 280, -278)
+  mmB:SetPoint("TOPLEFT", 280, -308)
   local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 14); help:SetWidth(490)
   help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
     "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats\n" ..

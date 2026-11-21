@@ -246,6 +246,8 @@ function TCF:AdvMobKilled(m)
       local it = self:RollBossLoot(adv.tier, m.boss)
       if it then self:GrantGear(it, m.name .. " dropped"); self:AdvLog("Loot: " .. TCF.GearLink(it)) end
     end
+    local sd = TCF.SKIN_DROPS[m.name]
+    if sd and random() < sd.chance then self:GrantSkin(sd.id, m.name .. " dropped") end
     if m.final and first then
       self:AwardChest(t.raid and "heroic" or "strong", t.name .. " cleared")
     end

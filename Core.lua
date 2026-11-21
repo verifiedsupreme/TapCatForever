@@ -97,7 +97,7 @@ local DEFAULTS = {
     scale = 1.0, alpha = 1.0, shown = true,
     locked = false, clickThrough = false,
     showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
-    mouse = true, popups = true, sound = true, chat = true,
+    mouse = true, popups = true, sound = true, chat = true, racial = true,
     minimap = { angle = 215, hide = false },
   },
 }
@@ -175,6 +175,9 @@ function TCF:GetAppearance(class, previewItem)
   for slot, id in pairs(lo) do out[slot] = TCF.ITEMS[id] end
   out.fur = TCF.ITEMS[self.db.look.fur]
   out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil
+  out.skin = self.db.look.skin and TCF.ITEMS[self.db.look.skin] or nil
+  -- racial accessory can be hidden in Settings
+  if not self.db.ui.racial and out.acc and out.acc.source == "race" then out.acc = nil end
   if previewItem then out[previewItem.slot] = previewItem end
   return out
 end
@@ -428,6 +431,31 @@ function TCF:ChestCount()
   return n
 end
 
+-- Skins are bought from the Appearance tab
+function TCF:BuySkin(id)
+  local it = TCF.ITEMS[id]
+  if not it or it.slot ~= "skin" or self.db.owned[id] or not it.skinPrice then return false end
+  if not self:SpendCoins(it.skinPrice) then return false end
+  self.db.owned[id] = 1
+  self.db.look.skin = id
+  self:Print("Your cat is now a " .. TCF.ItemLink(it) .. "!")
+  if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "New skin") end
+  self:PlaySound("buy")
+  self:MarkDirty(); self:RefreshAll()
+  return true
+end
+
+function TCF:GrantSkin(id, reason)
+  local it = TCF.ITEMS[id]
+  if not it or self.db.owned[id] then return false end
+  self.db.owned[id] = 1
+  self:Print((reason or "Rare drop") .. ": the " .. TCF.ItemLink(it) .. " skin!")
+  if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, reason or "Rare skin!") end
+  self:PlaySound("rare")
+  self:MarkDirty(); self:RefreshAll()
+  return true
+end
+
 function TCF:OpenChest(key, useKey)
   local ch = TCF.CHEST_BY_KEY[key]
   if not ch then return end
@@ -439,6 +467,18 @@ function TCF:OpenChest(key, useKey)
   end
   self.db.stats.chests = self.db.stats.chests + 1
   local rarity = self:RollRarity(ch.weights)
+  if key == "heroic" and random() < 0.03 then
+    local pool = {}
+    for _, it in ipairs(TCF.ITEM_LIST) do
+      if it.slot == "skin" and it.skinPrice and not self.db.owned[it.id] then pool[#pool + 1] = it end
+    end
+    if #pool > 0 then
+      local it = pool[random(#pool)]
+      self:GrantSkin(it.id, ch.name)
+      self.lastChest = { item = it, isNew = true, salvage = 0 }
+      return it, true
+    end
+  end
   -- 65%: real gear for your current class and level; 35%: a cosmetic
   if self.RollWorldLoot and random() < 0.65 then
     local level = self:CD().level
@@ -556,9 +596,11 @@ function TCF:GrantRaceAccessory()
   if not it or self.db.owned[id] then return end
   self.db.owned[id] = 1
   -- wear it on every class cat that has no accessory yet
-  for _, cl in ipairs(TCF.CLASSES) do
-    local lo = self:GetLoadout(cl.key)
-    if not lo.acc then lo.acc = id end
+  if self.db.ui.racial then
+    for _, cl in ipairs(TCF.CLASSES) do
+      local lo = self:GetLoadout(cl.key)
+      if not lo.acc then lo.acc = id end
+    end
   end
   self:Print(string.format("Your cat feels right at home: it got %s for your %s!", TCF.ItemLink(it), raceName or "character"))
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end
@@ -595,6 +637,12 @@ function TCF:GetStat(stat)
     local best = 1
     for _, cd in pairs(db.classData) do if cd.level > best then best = cd.level end end
     return best
+  elseif stat == "skins" or stat == "dropSkins" then
+    local n = 0
+    for _, it in ipairs(TCF.ITEM_LIST) do
+      if it.slot == "skin" and db.owned[it.id] and (stat == "skins" or not it.skinPrice) then n = n + 1 end
+    end
+    return n
   elseif stat == "tradeGold" then
     return db.trade and db.trade.lifetime or 0
   elseif stat == "renown" then
