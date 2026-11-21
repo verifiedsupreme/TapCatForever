@@ -94,10 +94,10 @@ local DEFAULTS = {
   keys = { pouch = 0, strong = 0, heroic = 0 },  -- free (unopened) chests
   ui = {
     point = { "BOTTOM", "BOTTOM", 0, 160 },
-    scale = 1.0, alpha = 1.0, shown = true,
+    scale = 1.0, alpha = 1.0, textScale = 1.0, shown = true,
     locked = false, clickThrough = false,
     showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
-    mouse = true, popups = true, sound = true, chat = true, racial = true,
+    mouse = true, popups = true, sound = true, chat = true, racial = true, cat3d = true,
     minimap = { angle = 215, hide = false },
   },
 }
@@ -158,6 +158,11 @@ function TCF:InitDB()
     db.look.fur = cl.fur
   end
   for _, id in ipairs(TCF.STARTER) do db.owned[id] = db.owned[id] or 1 end
+  -- every character starts with a basic Orange Tabby
+  if not db.owned.skin_orange then
+    db.owned.skin_orange = 1
+    if not db.look.skin then db.look.skin = "skin_orange" end
+  end
   -- cosmetic overrides per class (empty = the cat shows its real gear)
   for _, cl in ipairs(TCF.CLASSES) do db.loadouts[cl.key] = db.loadouts[cl.key] or {} end
   -- drop references to items that no longer exist
@@ -699,10 +704,19 @@ function TCF:GetStat(stat)
     local best = 1
     for _, cd in pairs(db.classData) do if cd.level > best then best = cd.level end end
     return best
+  elseif stat:match("^clear:") then
+    local key = stat:sub(7)
+    for ti, t in ipairs(TCF.TIERS) do
+      if t.key == key then
+        local code = ti * 100 + #t.bosses * 2
+        for _, cd in pairs(db.classData) do if cd.adv.best >= code then return 1 end end
+      end
+    end
+    return 0
   elseif stat == "skins" or stat == "dropSkins" then
     local n = 0
     for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.slot == "skin" and db.owned[it.id] and (stat == "skins" or not it.skinPrice) then n = n + 1 end
+      if it.slot == "skin" and db.owned[it.id] and (stat == "skins" or it.source == "skin" and not it.skinPrice and not it.skinAch and it.id ~= "skin_orange") then n = n + 1 end
     end
     return n
   elseif stat == "tradeGold" then
@@ -761,6 +775,11 @@ function TCF:CheckAchievements()
       if a.item and TCF.ITEMS[a.item] and not db.owned[a.item] then
         db.owned[a.item] = 1
         extra = " and " .. TCF.ItemLink(TCF.ITEMS[a.item])
+      end
+      if a.skin and TCF.ITEMS[a.skin] and not db.owned[a.skin] then
+        db.owned[a.skin] = 1
+        extra = extra .. " and the " .. TCF.ItemLink(TCF.ITEMS[a.skin]) .. " cat"
+        if self.ShowLootReveal then self:ShowLootReveal(TCF.ITEMS[a.skin], true, 0, a.name) end
       end
       self:Print(string.format("Achievement earned: |cffffd100%s|r! Reward: %d TapCoins%s.", a.name, a.coins, extra))
       if self.cat then self.cat:Celebrate(a.name, 1, 0.82, 0.1, "Achievement!") end

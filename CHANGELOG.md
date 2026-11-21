@@ -11,6 +11,13 @@
 - Real dungeons: below level 20 you get a Cat Treat Pouch, from 20 an Adventurer's Strongbox (chance of a Heroic Cache, higher from 50); raids give a Heroic Cache.
 - Chests now hold real gear (65%) or cosmetics (35%). Epic and Legendary gear is deliberately rare.
 - Appearance only shows cosmetics you've unlocked.
+- **3D cats**: your cat can be a real, animated WoW cat model (on by default; switch to the pixel cat in Settings). It sits facing you and swipes on every key press. Start as an Orange Tabby and collect 29 cats: house cats, saber and panther mounts, a lynx, the Spectral Tiger, and achievement-only cats like Mr. Bigglesworth (defeat Kel'Thuzad), the Primal Flamesaber (clear Molten Core) and the Jeweled Onyx Panther (clear AQ40).
+- **Gear try-on**: hover gear to see it on your own WoW character.
+- **Per-character progress**: gear, cosmetics, skins, chests, professions, cat levels, abilities and Adventure belong to each character; TapCoins, quests, streak and achievements are shared.
+- Adventure waits for you to press Start; only the selected class's cat fights. Rewards are mostly chests. Every enemy is shown as a model, and Elwynn Forest and Westfall have painted scenes.
+- Loot from chests and bosses suits your class (no caster staves for Warriors). The loot box shows what else is waiting and has "OK to all".
+- Racial heritage pieces are bought in the Shop.
+- New "Text size" setting, separate from cat size, so a tiny cat can keep readable text.
 - New quests and achievements for gear, expeditions and crafting.
 
 ## 1.2.0

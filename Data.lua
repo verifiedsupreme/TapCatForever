@@ -460,22 +460,42 @@ TCF.RACE_ITEM = {
   Orc = "race_orc", Scourge = "race_undead", Undead = "race_undead", Tauren = "race_tauren", Troll = "race_troll",
 }
 
--- Cat skins: replace the whole cat's look (fur, markings, eyes). Bought in the
--- Appearance tab with TapCoins, or dropped by the boss that drops the real mount.
--- { id, name, rarity, fur, alpha, overlay {art, c1, c2}, eyes, mane, price, icon, drop }
+-- Cat skins: the cat's base look. In 3D style each is a real WoW creature model
+-- (display3d); in pixel style it's drawn with fur colour, markings and eyes.
+-- source: price (Appearance tab), drop {boss, chance}, or ach (achievement id).
+-- { id, name, rarity, fur, alpha, overlay {art, c1, c2}, eyes, mane, price, icon, drop, display3d, ach }
 local SKINS = {
-  { "skin_frostsaber",   "Striped Frostsaber",      3, c(0.95, 0.97, 1.00), 1,   { "skin_stripes", c(0.55, 0.62, 0.75) }, c(0.50, 0.80, 1.00), nil, 900,  "Ability_Mount_WhiteTiger" },
-  { "skin_nightsaber",   "Striped Nightsaber",      3, c(0.36, 0.28, 0.46), 1,   { "skin_stripes", c(0.16, 0.12, 0.22) }, c(0.80, 0.60, 1.00), nil, 900,  "Ability_Mount_BlackPanther" },
-  { "skin_spotted",      "Spotted Frostsaber",      3, c(0.95, 0.97, 1.00), 1,   { "pat_leopard", c(0.55, 0.60, 0.72) },  c(0.50, 0.80, 1.00), nil, 900,  "Ability_Mount_WhiteTiger" },
-  { "skin_panther",      "Black Panther",           3, c(0.16, 0.15, 0.18), 1,   nil,                                     c(1.00, 0.85, 0.20), nil, 900,  "Ability_Mount_BlackPanther" },
-  { "skin_darkmoon",     "Darkmoon Kitty",          3, c(0.92, 0.58, 0.88), 1,   { "skin_stars", c(1.00, 1.00, 0.70) },   nil,                 nil, 900,  "INV_Misc_Ticket_Darkmoon_01" },
-  { "skin_winterspring", "Winterspring Frostsaber", 4, c(0.82, 0.92, 1.00), 1,   { "skin_stripes", c(0.62, 0.80, 1.00) }, c(0.40, 0.90, 1.00), nil, 2800, "Ability_Mount_PinkTiger" },
-  { "skin_mech",         "Mechanical Kitty",        4, c(0.60, 0.63, 0.68), 1,   { "skin_plates", c(0.35, 0.37, 0.42), c(0.95, 0.80, 0.40) }, c(1.00, 0.30, 0.20), nil, 2800, "INV_Gizmo_01" },
-  { "skin_fel",          "Fel Kitty",               4, c(0.38, 0.85, 0.30), 1,   { "skin_stripes", c(0.15, 0.42, 0.10) }, c(0.90, 1.00, 0.30), nil, 2800, "Spell_Shadow_SummonFelHunter" },
-  { "skin_lion",         "Golden Lion",             4, c(1.00, 0.82, 0.42), 1,   nil,                                     nil, c(0.78, 0.46, 0.16), 2800, "INV_Misc_Head_Dragon_Bronze" },
-  { "skin_zulian",       "Swift Zulian Tiger",      5, c(1.00, 0.55, 0.15), 1,   { "skin_stripes", c(0.12, 0.08, 0.05) }, c(0.40, 1.00, 0.40), nil, nil,  "Ability_Mount_JungleTiger", { "High Priest Thekal", 0.03 } },
-  { "skin_skeletal",     "Skeletal Cat",            5, c(0.24, 0.22, 0.27), 1,   { "skin_bones", c(0.92, 0.90, 0.82) },   c(0.40, 1.00, 0.60), nil, nil,  "Ability_Mount_Undeadhorse", { "Baron Rivendare", 0.03 } },
-  { "skin_spectral",     "Spectral Tiger",          5, c(0.45, 1.00, 0.90), 0.6, { "skin_stripes", c(0.20, 0.60, 0.60) }, c(0.60, 1.00, 1.00), nil, 12000, "Ability_Mount_JungleTiger" },
+  { "skin_orange",       "Orange Tabby",            1, c(1.00, 0.66, 0.32), 1,   { "pat_tabby", c(0.75, 0.40, 0.15) },   nil,                 nil, nil,  "INV_Box_PetCarrier_01", nil, 5554 },
+  { "skin_silvertabby",  "Silver Tabby",            1, c(0.78, 0.80, 0.85), 1,   { "pat_tabby", c(0.40, 0.42, 0.48) },   nil,                 nil, 300,  "INV_Box_PetCarrier_01", nil, 5555 },
+  { "skin_blacktabby",   "Black Tabby",             1, c(0.42, 0.42, 0.46), 1,   { "pat_tabby", c(0.15, 0.15, 0.18) },   nil,                 nil, 300,  "INV_Box_PetCarrier_01", nil, 5448 },
+  { "skin_bombay",       "Bombay",                  2, c(0.14, 0.13, 0.16), 1,   nil,                                    c(1.00, 0.80, 0.20), nil, 500,  "INV_Box_PetCarrier_01", nil, 5556 },
+  { "skin_siamese",      "Siamese",                 2, c(0.96, 0.90, 0.80), 1,   { "pat_points", c(0.40, 0.28, 0.22) },  c(0.40, 0.70, 1.00), nil, 500,  "INV_Box_PetCarrier_01", nil, 5585 },
+  { "skin_cornishrex",   "Cornish Rex",             2, c(0.86, 0.76, 0.66), 1,   nil,                                    nil,                 nil, 500,  "INV_Box_PetCarrier_01", nil, 5586 },
+  { "skin_whitekitten",  "White Kitten",            2, c(1.00, 1.00, 1.00), 1,   nil,                                    c(0.45, 0.75, 1.00), nil, 500,  "INV_Box_PetCarrier_01", nil, 9990 },
+  { "skin_calico",       "Calico",                  3, c(1.00, 0.96, 0.90), 1,   { "pat_calico", c(0.95, 0.58, 0.25), c(0.22, 0.20, 0.22) }, nil, nil, 900, "INV_Box_PetCarrier_01", nil, 11709 },
+  { "skin_frostsaber",   "Striped Frostsaber",      3, c(0.95, 0.97, 1.00), 1,   { "skin_stripes", c(0.55, 0.62, 0.75) }, c(0.50, 0.80, 1.00), nil, 900,  "Ability_Mount_WhiteTiger", nil, 6080 },
+  { "skin_nightsaber",   "Striped Nightsaber",      3, c(0.36, 0.28, 0.46), 1,   { "skin_stripes", c(0.16, 0.12, 0.22) }, c(0.80, 0.60, 1.00), nil, 900,  "Ability_Mount_BlackPanther", nil, 6448 },
+  { "skin_spotted",      "Spotted Frostsaber",      3, c(0.95, 0.97, 1.00), 1,   { "pat_leopard", c(0.55, 0.60, 0.72) },  c(0.50, 0.80, 1.00), nil, 900,  "Ability_Mount_WhiteTiger", nil, 6444 },
+  { "skin_panther",      "Black Nightsaber",        3, c(0.16, 0.15, 0.18), 1,   nil,                                     c(1.00, 0.85, 0.20), nil, 900,  "Ability_Mount_BlackPanther", nil, 9991 },
+  { "skin_darkmoon",     "Darkmoon Kitty",          3, c(0.92, 0.58, 0.88), 1,   { "skin_stars", c(1.00, 1.00, 0.70) },   nil,                 nil, 900,  "INV_Misc_Ticket_Darkmoon_01", nil, 94713 },
+  { "skin_winterspring", "Winterspring Frostsaber", 4, c(0.82, 0.92, 1.00), 1,   { "skin_stripes", c(0.62, 0.80, 1.00) }, c(0.40, 0.90, 1.00), nil, 2800, "Ability_Mount_PinkTiger", nil, 10426 },
+  { "skin_mech",         "X-995 Mechanocat",        4, c(0.60, 0.63, 0.68), 1,   { "skin_plates", c(0.35, 0.37, 0.42), c(0.95, 0.80, 0.40) }, c(1.00, 0.30, 0.20), nil, 2800, "INV_Gizmo_01", nil, 92666 },
+  { "skin_fel",          "Felsaber",                4, c(0.38, 0.85, 0.30), 1,   { "skin_stripes", c(0.15, 0.42, 0.10) }, c(0.90, 1.00, 0.30), nil, 2800, "Spell_Shadow_SummonFelHunter", nil, 67575 },
+  { "skin_lion",         "Golden War Lion",         4, c(1.00, 0.82, 0.42), 1,   nil,                                     nil, c(0.78, 0.46, 0.16), 2800, "INV_Misc_Head_Dragon_Bronze", nil, 73817 },
+  { "skin_lynx",         "Vermillion Lynx",         4, c(0.95, 0.40, 0.25), 1,   { "skin_stripes", c(0.55, 0.15, 0.10) }, c(1.00, 0.85, 0.30), nil, 2800, "Ability_Mount_JungleTiger", nil, 119544 },
+  { "skin_manasaber",    "Arcanist's Manasaber",    4, c(0.45, 0.40, 0.85), 1,   { "skin_stars", c(0.70, 0.90, 1.00) },   c(0.60, 0.90, 1.00), nil, 2800, "Spell_Holy_MagicalSentry", nil, 81468 },
+  { "skin_spectral",     "Spectral Tiger",          5, c(0.45, 1.00, 0.90), 0.6, { "skin_stripes", c(0.20, 0.60, 0.60) }, c(0.60, 1.00, 1.00), nil, 12000, "Ability_Mount_JungleTiger", nil, 21973 },
+  -- rare boss drops
+  { "skin_zulian",       "Swift Zulian Tiger",      5, c(1.00, 0.55, 0.15), 1,   { "skin_stripes", c(0.12, 0.08, 0.05) }, c(0.40, 1.00, 0.40), nil, nil,  "Ability_Mount_JungleTiger", { "High Priest Thekal", 0.03 }, 15290 },
+  { "skin_skeletal",     "Skeletal Cat",            5, c(0.24, 0.22, 0.27), 1,   { "skin_bones", c(0.92, 0.90, 0.82) },   c(0.40, 1.00, 0.60), nil, nil,  "Ability_Mount_Undeadhorse", { "Baron Rivendare", 0.03 }, 94713 },
+  -- achievement-only cats
+  { "skin_mechanocat",   "Mechanocat",              4, c(0.70, 0.72, 0.78), 1,   { "skin_plates", c(0.40, 0.42, 0.48), c(0.30, 0.80, 1.00) }, c(0.30, 0.90, 1.00), nil, nil, "INV_Gizmo_02", nil, 74804, "skin_ach_gnomer" },
+  { "skin_flamesaber",   "Primal Flamesaber",       5, c(1.00, 0.45, 0.15), 1,   { "skin_stripes", c(0.55, 0.10, 0.05) }, c(1.00, 0.90, 0.30), nil, nil, "Spell_Fire_Fire", nil, 74298, "skin_ach_mc" },
+  { "skin_zulpanther",   "Swift Zulian Panther",    5, c(0.18, 0.14, 0.22), 1,   { "skin_stripes", c(0.55, 0.15, 0.55) }, c(0.90, 0.30, 0.90), nil, nil, "Ability_Mount_BlackPanther", nil, 37799, "skin_ach_zg" },
+  { "skin_dreamsaber",   "Shadow Dusk Dreamsaber",  5, c(0.30, 0.25, 0.50), 1,   { "skin_stars", c(0.80, 0.60, 1.00) },   c(0.80, 0.50, 1.00), nil, nil, "Ability_Mount_BlackPanther", nil, 114377, "skin_ach_bwl" },
+  { "skin_onyxpanther",  "Jeweled Onyx Panther",    5, c(0.12, 0.10, 0.14), 1,   { "skin_stars", c(1.00, 1.00, 1.00) },   c(0.40, 1.00, 0.60), nil, nil, "INV_Misc_Gem_Pearl_04", nil, 42185, "skin_ach_aq40" },
+  { "skin_bigglesworth", "Mr. Bigglesworth",        5, c(0.96, 0.94, 0.92), 1,   nil,                                     c(0.40, 0.70, 1.00), nil, nil, "Spell_Shadow_RaiseDead", nil, 46897, "skin_ach_naxx" },
+  { "skin_luckycat",     "Fortune's Waving Cat",    5, c(1.00, 0.98, 0.94), 1,   { "skin_stars", c(1.00, 0.82, 0.30) },   nil,                 nil, nil, "INV_Misc_Coin_02", nil, 137922, "skin_ach_collect" },
 }
 TCF.SKIN_DROPS = {}  -- boss name -> { id, chance }
 
@@ -529,7 +549,7 @@ addUniversal(CRAFT, "craft")
 addUniversal(RACE_ITEMS, "race")
 for _, k in ipairs(SKINS) do
   local it = { id = k[1], slot = "skin", art = "cat_fur", name = k[2], rarity = k[3], c1 = k[4], alpha = k[5],
-    overlay = k[6], eyes = k[7], mane = k[8], skinPrice = k[9], icon = k[10], source = "skin" }
+    overlay = k[6], eyes = k[7], mane = k[8], skinPrice = k[9], icon = k[10], source = "skin", display3d = k[12], skinAch = k[13] }
   add(it)
   if k[11] then TCF.SKIN_DROPS[k[11][1]] = { id = k[1], chance = k[11][2] } end
 end
@@ -645,6 +665,13 @@ TCF.ACHIEVEMENTS = {
   { id = "renown1",   name = "Renowned Artisan",     stat = "renown",   goal = 1,         coins = 500,   icon = "INV_Misc_Note_02" },
   { id = "skins3",    name = "Nine Lives, Many Coats", stat = "skins",  goal = 3,         coins = 500,   icon = "Ability_Mount_WhiteTiger" },
   { id = "skinrare",  name = "Tiger King",           stat = "dropSkins", goal = 1,        coins = 1500,  icon = "Ability_Mount_JungleTiger" },
+  { id = "skin_ach_gnomer",  name = "Clockwork Companion",  stat = "clear:gnomer", goal = 1, coins = 200,  icon = "INV_Gizmo_02",            skin = "skin_mechanocat" },
+  { id = "skin_ach_zg",      name = "Pride of the Zandalari", stat = "clear:zg",    goal = 1, coins = 1000, icon = "Ability_Mount_BlackPanther", skin = "skin_zulpanther" },
+  { id = "skin_ach_mc",      name = "Forged in Flame",      stat = "clear:mc",     goal = 1, coins = 1500, icon = "Spell_Fire_Fire",          skin = "skin_flamesaber" },
+  { id = "skin_ach_bwl",     name = "Dreams of Shadow",     stat = "clear:bwl",    goal = 1, coins = 2500, icon = "Ability_Mount_BlackPanther", skin = "skin_dreamsaber" },
+  { id = "skin_ach_aq40",    name = "Jewel of the Sands",   stat = "clear:aq40",   goal = 1, coins = 4000, icon = "INV_Misc_Gem_Pearl_04",    skin = "skin_onyxpanther" },
+  { id = "skin_ach_naxx",    name = "Bigglesworth, No!",    stat = "clear:naxx",   goal = 1, coins = 8000, icon = "Spell_Shadow_RaiseDead",   skin = "skin_bigglesworth" },
+  { id = "skin_ach_collect", name = "Crazy Cat Collector",  stat = "skins",        goal = 10, coins = 1500, icon = "INV_Misc_Coin_02",        skin = "skin_luckycat" },
   { id = "streak7",   name = "Devoted",             stat = "streak",   goal = 7,         coins = 500,   icon = "INV_Misc_PocketWatch_01", item = "ach_medal" },
   { id = "streak30",  name = "Inseparable",         stat = "streak",   goal = 30,        coins = 3000,  icon = "INV_Misc_PocketWatch_02" },
 }
@@ -665,6 +692,9 @@ local STAT_TEXT = {
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s cosmetic(s) with professions.",
   dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s real WoW raid(s).",
 }
+local CLEAR_NAMES = { gnomer = "Gnomeregan", zg = "Zul'Gurub", mc = "Molten Core", bwl = "Blackwing Lair", aq40 = "the Temple of Ahn'Qiraj", naxx = "Naxxramas (defeat Kel'Thuzad)" }
 for _, a in ipairs(TCF.ACHIEVEMENTS) do
-  a.desc = string.format(STAT_TEXT[a.stat] or "%s", BreakUpLargeNumbers and BreakUpLargeNumbers(a.goal) or tostring(a.goal))
+  local clear = a.stat:match("^clear:(.+)$")
+  if clear then a.desc = "Clear " .. (CLEAR_NAMES[clear] or clear) .. " in Adventure."
+  else a.desc = string.format(STAT_TEXT[a.stat] or "%s", BreakUpLargeNumbers and BreakUpLargeNumbers(a.goal) or tostring(a.goal)) end
 end

@@ -67,6 +67,11 @@ function TCF:ItemTooltip(tt, it)
     tt:AddLine("Crafted with a profession", 1, 0.82, 0)
   elseif it.slot == "skin" then
     if it.skinPrice then tt:AddLine("Buy in the Appearance tab for " .. TCF.Commas(it.skinPrice) .. " TapCoins (or find one in a Heroic Cache)", 1, 0.82, 0, true)
+    elseif it.skinAch then
+      for _, a in ipairs(TCF.ACHIEVEMENTS) do
+        if a.id == it.skinAch then tt:AddLine("Achievement reward: " .. a.name .. " - " .. a.desc, 1, 0.5, 0, true) end
+      end
+    elseif it.id == "skin_orange" then tt:AddLine("Every cat starts as an Orange Tabby.", 0.8, 0.8, 0.8)
     else
       for boss, d in pairs(TCF.SKIN_DROPS) do
         if d.id == it.id then tt:AddLine(string.format("Rare drop from %s in Adventure (%d%%)", boss, d.chance * 100), 1, 0.82, 0, true) end
@@ -259,7 +264,7 @@ function TCF:CreateHUD()
 
   -- info block
   local info = CreateFrame("Frame", nil, f)
-  info:SetSize(CAT_SIZE + 40, 40); info:SetPoint("TOP", cat.frame, "BOTTOM", 0, 2)
+  info:SetSize(CAT_SIZE + 40, 40); info:SetPoint("TOP", cat.frame, "BOTTOM", 0, -4)
   f.info = info
   f.level = Text(info, "GameFontNormalSmall"); f.level:SetPoint("TOP", 0, 0)
   local xp = CreateFrame("StatusBar", nil, info, BT)
@@ -331,6 +336,8 @@ function TCF:CreateHUD()
   function f:ApplySettings()
     self:SetScale(ui.scale)
     self:SetAlpha(ui.alpha)
+    -- text keeps its own size no matter how small the cat is
+    self.info:SetScale((ui.textScale or 1) / ui.scale)
     self:ClearAllPoints()
     local p = ui.point
     self:SetPoint(p[1], UIParent, p[2], p[3], p[4])
@@ -551,7 +558,7 @@ function TCF:CreateWindow()
     c:SetScript("OnClick", function(s)
       local it = s.item
       if it and it.slot == "skin" and not TCF.db.owned[it.id] then
-        if not it.skinPrice then TCF:Print(it.name .. " can only be found as a rare boss drop.") return end
+        if not it.skinPrice then TCF:Print(it.name .. (it.skinAch and " is an achievement reward (see its tooltip)." or " can only be found as a rare boss drop.")) return end
         if TCF.db.coins < it.skinPrice then TCF:Print("You need " .. TCF.Commas(it.skinPrice) .. " TapCoins for " .. it.name .. ".") return end
         if StaticPopup_Show then
           StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN = StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN or {
@@ -626,7 +633,7 @@ function TCF:CreateWindow()
       if it then
         cells[i]:SetItem(it, TCF.db.owned[it.id], TCF:IsEquipped(it))
         if it.slot == "skin" and not TCF.db.owned[it.id] then
-          cells[i].count:SetText(it.skinPrice and ("|cffffd100" .. TCF.Commas(it.skinPrice) .. "|r") or "|cffff8000drop|r")
+          cells[i].count:SetText(it.skinPrice and ("|cffffd100" .. TCF.Commas(it.skinPrice) .. "|r") or it.skinAch and "|cffff8000ach.|r" or "|cffff8000drop|r")
           cells[i].pic:SetAlpha(0.7)
         end
       else cells[i]:Hide() end
@@ -917,6 +924,7 @@ function TCF:CreateWindow()
   Check("Show TapCoins", "showCoins", 1, 3)
   Check("Popups on cat", "popups", 1, 4, "Floating text for level ups, loot and achievements.")
   Check("Sounds", "sound", 0, 5)
+  Check("3D cat (real WoW cat models)", "cat3d", 1, 6, "Show your cat as an animated 3D WoW cat. Turn off for the pixel cat, which also shows your gear and cosmetics.", function() TCF:RefreshAll() end)
   Check("Show racial accessory", "racial", 0, 6, "Show the accessory from your character's race (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
   Check("Chat messages", "chat", 1, 5)
 
@@ -940,6 +948,7 @@ function TCF:CreateWindow()
   end
   local scaleS = Slider("Cat size", 0.3, 3, 0.05, -280, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx")
   local alphaS = Slider("Opacity", 0.1, 1, 0.05, -330, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f")
+  local textS = Slider("Text size", 0.5, 2.5, 0.05, -380, function() return ui.textScale or 1 end, function(v) ui.textScale = v end, "%s: %.2fx")
   local resetB = Button(st, "Reset position", 130, 22, function() TCF.hud:ResetPosition() end)
   resetB:SetPoint("TOPLEFT", 280, -276)
   local mmB = Button(st, "Toggle minimap icon", 160, 22, function()
@@ -953,7 +962,7 @@ function TCF:CreateWindow()
 
   function win:RefreshSettings()
     for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
-    scaleS.Sync(); alphaS.Sync()
+    scaleS.Sync(); alphaS.Sync(); textS.Sync()
   end
 
   ------------------------------------------------ refresh

@@ -32,9 +32,18 @@ function TCF.CreateCat(parent, size, opts)
   f:SetSize(size, size)
   self.frame, self.size, self.opts = f, size, opts
   self.tex = {}
+  -- layers: back effects (f) < pixel cat (pix) or 3D model (m3d) < front effects and popups (top)
+  local pix = CreateFrame("Frame", nil, f); pix:SetAllPoints(f)
+  local m3d = CreateFrame("PlayerModel", nil, f); m3d:SetSize(size, size); m3d:SetPoint("BOTTOM", f, "BOTTOM", 0, 0); m3d:Hide()
+  local top = CreateFrame("Frame", nil, f); top:SetAllPoints(f)
+  if top.SetFrameLevel and f.GetFrameLevel then
+    local lvl = f:GetFrameLevel() or 1
+    pcall(pix.SetFrameLevel, pix, lvl + 1); pcall(m3d.SetFrameLevel, m3d, lvl + 1); pcall(top.SetFrameLevel, top, lvl + 3)
+  end
+  self.pix, self.m3d, self.top = pix, m3d, top
 
   local function T(name, layer, sub)
-    local t = f:CreateTexture(nil, layer, nil, sub)
+    local t = pix:CreateTexture(nil, layer, nil, sub)
     t:SetAllPoints(f)
     t:Hide()
     self.tex[name] = t
@@ -73,7 +82,9 @@ function TCF.CreateCat(parent, size, opts)
   end
   T("main_a", "OVERLAY", 2);     T("main_b", "OVERLAY", 3)
   T("off_a", "OVERLAY", 4);      T("off_b", "OVERLAY", 5)
-  FX("fxFront", "OVERLAY", 7)
+  local front = top:CreateTexture(nil, "OVERLAY", nil, 7)
+  front:SetSize(size * 1.25, size * 1.25); front:SetPoint("CENTER", f, "CENTER", 0, 0); front:Hide()
+  self.tex.fxFront = front
   for _, n in ipairs({ "head_glow", "chest_glow" }) do self.tex[n]:SetBlendMode("ADD") end
 
   setTex(self.tex.fur, "cat_fur"); self.tex.fur:Show()
@@ -101,6 +112,7 @@ end
 function Cat:SetSize(size)
   self.size = size
   self.frame:SetSize(size, size)
+  self.m3d:SetSize(size, size)
   for _, n in ipairs({ "main_a", "main_b", "off_a", "off_b" }) do self.tex[n]:SetSize(size, size) end
   self.tex.fxBack:SetSize(size * 1.25, size * 1.25)
   self.tex.fxFront:SetSize(size * 1.25, size * 1.25)
@@ -137,6 +149,12 @@ end
 function Cat:Tap(side)
   side = side or ((self.lastSide == "L") and "R" or "L")
   self.lastSide = side
+  if self.is3d then
+    -- swipe (attack animation) plus a little hop, since some cats have no attack animation
+    pcall(self.m3d.SetAnimation, self.m3d, ANIM_SWIPE)
+    self.animUntil = GetTime() + 0.45
+    self.hopUntil = GetTime() + 0.09
+  end
   self:SetPaw(side, true)
   self.pawDown[side] = GetTime() + 0.09
 end
@@ -150,9 +168,41 @@ local function applyPart(t, art, color, alpha)
 end
 
 -- look: slot -> item (from TCF:GetAppearance)
+-- 3D pose: sitting, facing you, framed from the chest up like the pixel cat
+local ANIM_SIT, ANIM_SWIPE = 97, 16
+TCF.CAT3D = { facing = 0, zoom = 0.35, sit = ANIM_SIT }
+
+-- 3D models for fur colours when no skin is chosen
+local FUR_3D = {
+  fur_snow = 9990, fur_ginger = 5554, fur_cream = 5586, fur_silver = 5555, fur_peach = 5554, fur_midnight = 5556,
+  fur_chocolate = 5448, fur_bluesmoke = 5555, fur_lilac = 5585, fur_shadow = 5556,
+}
+
 function Cat:ApplyAppearance(look)
   self.look = look
   local tex = self.tex
+  -- 3D style: a real WoW cat model; pixel style: the layered pixel-art cat
+  local disp
+  if TCF.db and TCF.db.ui.cat3d and not self.force2d and not self.opts.pixelOnly then
+    local skin = look.skin
+    disp = (skin and skin.display3d) or (look.fur and FUR_3D[look.fur.id]) or 5554
+  end
+  if disp then
+    if self.disp3d ~= disp then
+      self.disp3d = disp
+      local ok = pcall(self.m3d.SetDisplayInfo, self.m3d, disp)
+      pcall(self.m3d.SetFacing, self.m3d, self.opts.facing or TCF.CAT3D.facing)
+      pcall(self.m3d.SetPortraitZoom, self.m3d, TCF.CAT3D.zoom)
+      pcall(self.m3d.SetAnimation, self.m3d, TCF.CAT3D.sit)
+      if not ok then self.force2d = true; return self:ApplyAppearance(look) end
+      self.m3dCheck = 0.6
+    end
+    self.is3d = true
+    self.m3d:Show(); self.pix:Hide()
+  else
+    self.is3d = false; self.disp3d = nil
+    self.m3d:Hide(); self.pix:Show()
+  end
   -- fur (a skin replaces fur colour, markings and eyes)
   local skin = look.skin
   local fur = skin or look.fur or TCF.ITEMS.fur_ginger
@@ -215,6 +265,19 @@ function Cat:OnUpdate(elapsed)
   local now = GetTime()
   self.t = self.t + elapsed
   local t = self.t
+  if self.is3d then
+    if self.animUntil and now >= self.animUntil then self.animUntil = nil; pcall(self.m3d.SetAnimation, self.m3d, TCF.CAT3D.sit) end
+    self.m3d:ClearAllPoints()
+    self.m3d:SetPoint("BOTTOM", self.frame, "BOTTOM", 0, (self.hopUntil and now < self.hopUntil) and self.size * 0.05 or 0)
+    if self.m3dCheck then
+      self.m3dCheck = self.m3dCheck - elapsed
+      if self.m3dCheck <= 0 then
+        self.m3dCheck = nil
+        local ok, file = pcall(self.m3d.GetModelFileID, self.m3d)
+        if ok and not file and self.m3d.GetModelFileID then self.force2d = true; self.disp3d = nil; if self.look then self:ApplyAppearance(self.look) end end
+      end
+    end
+  end
   -- paws
   for side, untilT in pairs(self.pawDown) do
     if untilT > 0 and now >= untilT then self.pawDown[side] = 0; self:SetPaw(side, false) end
@@ -282,10 +345,10 @@ function Cat:GetFloater(kind)
   for _, o in ipairs(self.pool[kind]) do if not o.inUse then o.inUse = true; o:Show(); return o end end
   local o
   if kind == "tex" then
-    o = self.frame:CreateTexture(nil, "OVERLAY", nil, 7)
+    o = self.top:CreateTexture(nil, "OVERLAY", nil, 7)
     setTex(o, "ui_heart")
   else
-    o = self.frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    o = self.top:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     o:SetShadowOffset(1, -1)
   end
   o.inUse = true

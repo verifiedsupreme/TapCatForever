@@ -287,6 +287,11 @@ TEST = r'''
     local look = TCF:GetAppearance("WARRIOR")
     print("  gear look:", look.head and look.head.art, look.chest and look.chest.art, look.main and look.main.art, look.off and look.off.art)
     win:SelectTab(1); win.gearSlot = "HEAD"; win:Refresh(); win.gearSlot = nil; win:Refresh()
+    local anyGear; for id in pairs(TCF.db.gear) do anyGear = TCF.GEAR[id]; break end
+    TCF.UI.ShowTryOn(win, anyGear); TCF.UI.HideTryOn(win)
+    -- 3D and pixel styles both render
+    TCF.db.ui.cat3d = false; TCF:RefreshAll(); TCF.db.ui.cat3d = true; TCF:RefreshAll()
+    TCF.cat:Tap("L"); for i = 1, 4 do _update(0.25) end
     for id in pairs(TCF.db.gear) do TCF:SellGear(id, true) end
     -- abilities: learn everything affordable
     TCF:AddCoins(50000)

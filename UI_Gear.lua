@@ -27,6 +27,29 @@ function TCF:GearUpgrade(it, class)
   return best
 end
 
+-- 3D preview: your WoW character wearing the hovered item (the game's dressing-room model)
+function TCF.UI.ShowTryOn(win, it)
+  local stage = win.preview and win.preview.frame:GetParent()
+  if not stage then return end
+  if not win.tryOn then
+    local m = CreateFrame("DressUpModel", nil, stage)
+    m:SetPoint("TOPLEFT", 4, -4); m:SetPoint("BOTTOMRIGHT", -4, 4)
+    local label = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("BOTTOM", 0, 6); label:SetText("Preview on your character")
+    m:Hide()
+    win.tryOn = m
+  end
+  local m = win.tryOn
+  local ok = pcall(m.SetUnit, m, "player")
+  if ok then ok = pcall(m.TryOn, m, "item:" .. it.id) end
+  if ok then m:Show(); win.preview.frame:Hide() end
+end
+
+function TCF.UI.HideTryOn(win)
+  if win.tryOn then win.tryOn:Hide() end
+  if win.preview then win.preview.frame:Show() end
+end
+
 TCF.UI.Builders.gear = function(page, win)
   local U = TCF.UI
   local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel
@@ -60,14 +83,16 @@ TCF.UI.Builders.gear = function(page, win)
     end)
     local function enter(self)
       if not r.item then return end
+      TCF.UI.ShowTryOn(win, r.item)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, r.item)
       local d = TCF:GearUpgrade(r.item)
       if d then GameTooltip:AddLine(string.format("Power if equipped: %s%d|r", d >= 0 and "|cff20ff20+" or "|cffff4040", d)) end
       GameTooltip:AddLine("Sells for " .. TCF:GearSellValue(r.item) .. " TapCoins (spare copies only).", 0.7, 0.7, 0.7)
       GameTooltip:Show()
     end
-    r.btn:SetScript("OnEnter", enter); r.btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    r:SetScript("OnEnter", enter); r:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    local function leave() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end
+    r.btn:SetScript("OnEnter", enter); r.btn:SetScript("OnLeave", leave)
+    r:SetScript("OnEnter", enter); r:SetScript("OnLeave", leave)
     rows[i] = r
   end
   local pageText = Text(page, "GameFontHighlightSmall"); pageText:SetPoint("BOTTOM", 0, 14)
