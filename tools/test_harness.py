@@ -239,13 +239,13 @@ TEST = r'''
     for i = 1, 10 do TapCatForeverLootReveal.ok.scripts.OnClick(TapCatForeverLootReveal.ok) end
     TCF:ToggleBag()
     -- real dungeon run: enter, kill 3 bosses, leave after 6 minutes
-    local strongBefore = TCF.db.keys.strong
+    local strongBefore = TCF.db.keys.strong + TCF.db.keys.heroic
     _inInstance = "party"; _fire("PLAYER_ENTERING_WORLD")
     for i = 1, 3 do _fire("ENCOUNTER_END", 1, "Boss", 1, 5, 1) end
     _fire("ENCOUNTER_END", 2, "Boss", 1, 5, _SECRET)   -- secret success value must not error
     TCF.db.dungeonRun.start = TCF.db.dungeonRun.start - 400
     _inInstance = false; _fire("ZONE_CHANGED_NEW_AREA")
-    assert(TCF.db.keys.strong == strongBefore + 1, "dungeon should give a strongbox")
+    assert(TCF.db.keys.strong + TCF.db.keys.heroic == strongBefore + 1, "dungeon at level 20+ gives a Strongbox (or sometimes a Heroic Cache)")
     -- group-finder completion while inside a raid
     local heroicBefore = TCF.db.keys.heroic
     _inInstance = "raid"; _fire("PLAYER_ENTERING_WORLD"); _fire("LFG_COMPLETION_REWARD"); _fire("LFG_COMPLETION_REWARD")
