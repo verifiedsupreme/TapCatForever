@@ -5,7 +5,7 @@ local ADDON, TCF = ...
 local Cat = TCF.CatClass
 local ART = TCF.ART_PATH .. "v\\"
 local CANVAS = 512
-local LIFT = 20          -- how far a resting paw hovers above its tapping spot (canvas units)
+local LIFT = 44          -- how far a resting paw hovers above its tapping spot (canvas units)
 local STRIPE = 0.8       -- tabby stripes are the fur colour, darker
 
 -- draw order: name -> { layer, sublevel }
@@ -118,4 +118,68 @@ function Cat:VecApply(look)
     self:VecSet("off", off); self:VecSet("offw", nil)
   end
   self:VecPaws()
+end
+
+---------------------------------------------------------------- tap effects
+-- A few sprites burst from the paw on every tap; the equipped Tap Effect picks shape and colour.
+local PAW_SPOT = { L = { 180, 432 }, R = { 332, 432 } }
+local MAX_PARTS, LIFE, GRAVITY = 18, 0.55, 520
+
+local function hue(h)
+  local i = math.floor(h * 6) % 6
+  local f = h * 6 - math.floor(h * 6)
+  local q = 1 - f
+  if i == 0 then return 1, f, 0 elseif i == 1 then return q, 1, 0 elseif i == 2 then return 0, 1, f
+  elseif i == 3 then return 0, q, 1 elseif i == 4 then return f, 0, 1 else return 1, 0, q end
+end
+
+function Cat:VecBurst(side)
+  local it = self.look and self.look.tap
+  if not (it and self.vec and self.vec:IsShown()) then return end
+  self.parts = self.parts or {}
+  local spot = PAW_SPOT[side] or PAW_SPOT.L
+  local out = side == "R" and 1 or -1
+  for k = 1, 3 do
+    local p
+    for _, q in ipairs(self.parts) do if not q.on then p = q; break end end
+    if not p then
+      if #self.parts >= MAX_PARTS then return end
+      p = { tex = self.vec:CreateTexture(nil, "OVERLAY", nil, 7) }
+      self.parts[#self.parts + 1] = p
+    end
+    -- fan out upwards, leaning away from the body
+    local a = math.rad(-90 + out * (15 + (k - 1) * 28) + (math.random() - 0.5) * 20)
+    local speed = 170 + math.random() * 90
+    p.on, p.age = true, 0
+    p.x, p.y = spot[1] + out * 10, spot[2]
+    p.vx, p.vy = math.cos(a) * speed, math.sin(a) * speed
+    p.spin = (math.random() - 0.5) * 6
+    p.size = 30 + math.random() * 10
+    p.tex:SetTexture(ART .. "t_" .. it.art)
+    if it.rainbow then p.tex:SetVertexColor(hue(math.random())) else p.tex:SetVertexColor(it.c1[1], it.c1[2], it.c1[3]) end
+    p.tex:Show()
+  end
+end
+
+function Cat:VecUpdate(elapsed)
+  if not self.parts then return end
+  local s = self.size / CANVAS
+  for _, p in ipairs(self.parts) do
+    if p.on then
+      p.age = p.age + elapsed
+      local t = p.age / LIFE
+      if t >= 1 then
+        p.on = false; p.tex:Hide()
+      else
+        local x = p.x + p.vx * p.age
+        local y = p.y + p.vy * p.age + GRAVITY * p.age * p.age * 0.5
+        local sz = p.size * (0.6 + 0.6 * math.min(1, t * 4))
+        p.tex:ClearAllPoints()
+        p.tex:SetSize(sz * s, sz * s)
+        p.tex:SetPoint("CENTER", self.vec, "TOPLEFT", x * s, -y * s)
+        p.tex:SetAlpha(t < 0.55 and 1 or (1 - t) / 0.45)
+        if p.tex.SetRotation then p.tex:SetRotation(p.spin * p.age) end
+      end
+    end
+  end
 end

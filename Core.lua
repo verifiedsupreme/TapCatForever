@@ -167,6 +167,8 @@ function TCF:InitDB()
   self.db = db
   -- 1.3: the level text moved above the cat (once, for saves made before that)
   if not db.ui.textAboveSet then db.ui.textAbove = true; db.ui.textAboveSet = true end
+  -- every cat starts with the basic dust puffs equipped
+  if not db.look.tapSet then db.look.tap = db.look.tap or "tap_puff"; db.look.tapSet = true end
   -- default class = the character's own class the very first time
   if not db.class then
     local _, cls = UnitClass("player")
@@ -240,6 +242,7 @@ function TCF:GetAppearance(class, previewItem, previewGear)
   out.fur = TCF.ITEMS[self.db.look.fur]
   out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil
   out.skin = self.db.look.skin and TCF.ITEMS[self.db.look.skin] or nil
+  out.tap = self.db.look.tap and TCF.ITEMS[self.db.look.tap] or nil
   -- racial accessory can be hidden in Settings
   if not self.db.ui.racial and out.acc and out.acc.source == "race" then out.acc = nil end
   if previewItem then out[previewItem.slot] = previewItem end

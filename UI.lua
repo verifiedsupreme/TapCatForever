@@ -120,6 +120,11 @@ local function ItemPicture(parent, size)
         return
       end
     end
+    if it.slot == "tap" then
+      self.a:SetTexture(ART .. "v\\t_" .. art); self.a:SetTexCoord(0, 1, 0, 1)
+      self.a:SetVertexColor(it.c1[1], it.c1[2], it.c1[3]); self.a:SetDesaturated(desat); self.a:Show()
+      return
+    end
     if it.slot == "skin" then
       self.base:SetTexture(ART .. "cat_fur", nil, nil, "NEAREST"); CropToBounds(self.base, "cat_fur")
       self.base:SetVertexColor(it.c1[1], it.c1[2], it.c1[3]); self.base:SetDesaturated(desat); self.base:Show()
@@ -387,7 +392,7 @@ function TCF:CreateHUD()
     if ui.showCoins then parts[#parts + 1] = coinStr(db.coins, 11) end
     self.stats:SetText(table.concat(parts, "   "))
     local n = TCF:ChestCount()
-    self.badge:SetShown(n > 0 and not ui.catOnly)
+    self.badge:Hide()  -- chests are opened from the window's Treasure Bag button
     self.badge.count:SetText(n)
   end
 

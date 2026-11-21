@@ -174,6 +174,7 @@ function Cat:Tap(side)
   end
   self:SetPaw(side, true)
   self.pawDown[side] = GetTime() + 0.09
+  if self.vec and self.VecBurst then self:VecBurst(side) end
 end
 
 local function applyPart(t, art, color, alpha)
@@ -351,6 +352,7 @@ function Cat:OnUpdate(elapsed)
       end
     end
   end
+  if self.vec and self.VecUpdate then self:VecUpdate(elapsed) end
   -- paws
   for side, untilT in pairs(self.pawDown) do
     if untilT > 0 and now >= untilT then self.pawDown[side] = 0; self:SetPaw(side, false) end

@@ -28,6 +28,7 @@ TCF.SLOTS = {
   { key = "fur",     name = "Fur",       icon = "Ability_Druid_CatForm", look = true },
   { key = "pattern", name = "Pattern",   icon = "Ability_Druid_Rake",    look = true },
   { key = "skin",    name = "Skin",      icon = "Ability_Mount_WhiteTiger", look = true },
+  { key = "tap",     name = "Tap Effect", icon = "Spell_Nature_Lightning",  look = true },
 }
 TCF.SLOT_BY_KEY = {}
 for _, s in ipairs(TCF.SLOTS) do TCF.SLOT_BY_KEY[s.key] = s end
@@ -566,6 +567,27 @@ local function addUniversal(list, source)
     add(it)
   end
 end
+-- Tap effects: a little burst from the paw on every tap (sprites in Art/v/t_<shape>)
+local TAPFX = {
+  { "tap_puff",     "tap", "puff",    "Dust Puffs",        1, { 1, 1, 1 },        nil, "Spell_Nature_Cyclone" },
+  { "tap_paw",      "tap", "paw",     "Paw Prints",        1, { 1, 0.6, 0.72 },   nil, "Ability_Druid_CatForm" },
+  { "tap_star",     "tap", "star",    "Little Stars",      2, { 1, 0.85, 0.3 },   nil, "Spell_Holy_PowerWordShield" },
+  { "tap_heart",    "tap", "heart",   "Hearts",            2, { 1, 0.5, 0.7 },    nil, "INV_ValentinesCandy" },
+  { "tap_note",     "tap", "note",    "Music Notes",       2, { 0.72, 0.52, 1 },  nil, "INV_Misc_Drum_01" },
+  { "tap_bubble",   "tap", "bubble",  "Bubbles",           2, { 0.55, 0.85, 1 },  nil, "Spell_Frost_SummonWaterElemental" },
+  { "tap_leaf",     "tap", "leaf",    "Falling Leaves",    2, { 0.5, 0.85, 0.4 }, nil, "INV_Misc_Herb_10" },
+  { "tap_coin",     "tap", "coin",    "Gold Coins",        3, { 1, 0.8, 0.3 },    nil, "INV_Misc_Coin_01" },
+  { "tap_sparkle",  "tap", "sparkle", "Arcane Sparkles",   3, { 0.45, 0.9, 1 },   nil, "Spell_Holy_MagicalSentry" },
+  { "tap_flame",    "tap", "flame",   "Fire Sparks",       3, { 1, 0.55, 0.2 },   nil, "Spell_Fire_Fire" },
+  { "tap_snow",     "tap", "snow",    "Frost Flakes",      3, { 0.7, 0.9, 1 },    nil, "Spell_Frost_FrostNova" },
+  { "tap_fel",      "tap", "flame",   "Fel Sparks",        4, { 0.55, 1, 0.25 },  nil, "Spell_Fire_FelFire" },
+  { "tap_bolt",     "tap", "bolt",    "Thunder Sparks",    4, { 0.6, 0.85, 1 },   nil, "Spell_Nature_Lightning" },
+  { "tap_skull",    "tap", "skull",   "Tiny Skulls",       4, { 0.95, 0.92, 0.8 },nil, "INV_Misc_Bone_HumanSkull_01" },
+  { "tap_void",     "tap", "sparkle", "Void Motes",        4, { 0.7, 0.4, 1 },    nil, "Spell_Shadow_ShadowBolt" },
+  { "tap_holy",     "tap", "star",    "Holy Light",        5, { 1, 0.95, 0.55 },  nil, "Spell_Holy_HolyBolt" },
+  { "tap_rainbow",  "tap", "star",    "Rainbow Stars",     5, { 1, 0.6, 0.6 },    nil, "Spell_Nature_Starfall", { rainbow = true } },
+}
+addUniversal(TAPFX, "loot")
 addUniversal(U, "loot")
 addUniversal(EFFECTS, "loot")
 
@@ -581,7 +603,7 @@ end
 
 -- Items every player owns from the start: each class's Common chest + main hand,
 -- plus a few basic furs.
-TCF.STARTER = { "fur_snow", "fur_ginger", "fur_cream", "fur_silver", "fur_peach" }
+TCF.STARTER = { "fur_snow", "fur_ginger", "fur_cream", "fur_silver", "fur_peach", "tap_puff" }
 for _, cl in ipairs(TCF.CLASSES) do
   local gotChest, gotMain
   for _, g in ipairs(cl.gear) do
