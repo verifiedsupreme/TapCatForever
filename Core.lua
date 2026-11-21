@@ -139,6 +139,12 @@ local function bindCharacter(sv)
     end
   end
   sv.charsMigrated = true
+  -- a key that just became per-character (e.g. the Daily Wares shop) moves to the first
+  -- character that logs in after the update instead of being dropped
+  for k in pairs(TCF.PER_CHARACTER) do
+    local v = rawget(sv, k)
+    if v ~= nil and char[k] == nil then char[k] = v end
+  end
   for k in pairs(TCF.PER_CHARACTER) do rawset(sv, k, nil) end
   setmetatable(sv, {
     __index = function(_, k) if TCF.PER_CHARACTER[k] then return char[k] end end,
@@ -549,6 +555,9 @@ function TCF:GrantSkin(id, reason)
   return true
 end
 
+-- chests hold gear this often, otherwise a cosmetic (also used by the chest reel and the Shop text)
+TCF.CHEST_GEAR_CHANCE = 0.9
+
 function TCF:OpenChest(key, useKey)
   local ch = TCF.CHEST_BY_KEY[key]
   if not ch then return end
@@ -573,7 +582,7 @@ function TCF:OpenChest(key, useKey)
     end
   end
   -- 90%: real gear for your current class and level; 10%: a cosmetic
-  if self.RollWorldLoot and random() < 0.9 then
+  if self.RollWorldLoot and random() < TCF.CHEST_GEAR_CHANCE then
     local level = self:CD().level
     local gear
     if rarity >= 5 then

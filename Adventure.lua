@@ -286,6 +286,7 @@ function TCF:AdvPackCleared()
   local adv = cd.adv
   local code = stageCode(adv.tier, adv.stage)
   if code > adv.best then adv.best = code; adv.newStages = (adv.newStages or 0) + 1 end
+  if self.advRun then self.advRun.losses = 0 end
   run.catHP = min(run.catMax, run.catHP + run.catMax * 0.35)
   run.shield = 0
   if adv.auto then
@@ -316,7 +317,20 @@ function TCF:AdvDefeat()
   local m = pickTarget(run)
   local line = string.format("|cffff6060%s was too strong.|r Your cat retreats to heal. |cff999999(Better gear, levels and abilities help.)|r", m and m.name or "The enemy")
   if not self.advLog or self.advLog[1] ~= line then self:AdvLog(line) end
-  -- with Auto-advance off the cat retries the same stage (it was told to farm here)
+  -- with Auto-advance off the cat retries the same stage (it was told to farm here),
+  -- but after 3 losses in a row it drops back to an easier pack instead of losing forever
+  run.losses = (run.losses or 0) + 1
+  if not adv.auto and run.losses >= 3 and (adv.stage > 1 or adv.tier > 1) then
+    run.losses = 0
+    if adv.stage == 1 then
+      adv.tier = adv.tier - 1
+      adv.stage = max(1, self:AdvStages(adv.tier) - 1)
+    else
+      adv.stage = max(1, adv.stage - 1)
+      if adv.stage % 2 == 0 then adv.stage = max(1, adv.stage - 1) end
+    end
+    self:AdvLog("Your cat lost 3 times in a row and drops back to an easier pack.")
+  end
   if adv.auto then
     if adv.stage == 1 and adv.tier > 1 then
       -- losing at the very start of a zone: fall back to the previous zone's last trash pack

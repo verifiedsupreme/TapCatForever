@@ -86,12 +86,13 @@ TCF.UI.Builders.expeditions = function(page, win)
       tt:AddLine(e.name, 1, 0.82, 0)
       tt:AddLine(string.format("Duration: %s   Recommended party power: %d", TCF.FormatDuration(e.dur), e.rec), 1, 1, 1)
       local chestName = TCF.CHEST_BY_KEY[e.chest[1]].name
-      local rewards = string.format("Rewards: %d XP for each cat, about %d TapCoins and a %d%% chance of a %s.",
-        floor(e.dur / 60 * 5), floor(e.coins * 0.5), floor(e.chest[2] * 100 + 0.5), chestName)
+      local function an(n) return (n:match("^[AEIOUaeiou]") and "an " or "a ") .. n end
+      local rewards = string.format("Rewards: %d XP for each cat, about %d TapCoins and a %d%% chance of %s.",
+        floor(e.dur / 60 * 5), floor(e.coins * 0.5), floor(e.chest[2] * 100 + 0.5), an(chestName))
       if e.rolls > 0 then
         local bonusName = TCF.CHEST_BY_KEY[e.chest[1] == "heroic" and "strong" or "pouch"].name
-        rewards = rewards .. string.format(" Also %d bonus roll%s with a %d%% chance each of a %s.", e.rolls, e.rolls == 1 and "" or "s",
-          floor(TCF.ExpeditionBonusChance(e) * 100 + 0.5), bonusName)
+        rewards = rewards .. string.format(" Also %d bonus roll%s with a %d%% chance each of %s.", e.rolls, e.rolls == 1 and "" or "s",
+          floor(TCF.ExpeditionBonusChance(e) * 100 + 0.5), an(bonusName))
       else
         rewards = rewards .. " Short trips are mostly for XP and TapCoins; longer ones bring more chests."
       end

@@ -41,7 +41,7 @@ function TCF.DungeonChestFor(kind, level)
   if math.random() < (level >= 50 and 0.25 or 0.10) then return "heroic" end
   return "strong"
 end
-TCF.DUNGEON_CHEST_TEXT = "Finish a real dungeon in WoW: below level 20 you get a Cat Treat Pouch; from level 20 an Adventurer's Strongbox (10% chance of a Heroic Cache, 25% from level 50). Raids always give a Heroic Cache. Each dungeon gives a chest once a day and each raid once a week, and you can earn up to " .. DUNGEON_CHESTS_PER_DAY .. " dungeon chests a day."
+TCF.DUNGEON_CHEST_TEXT = "Finish a real dungeon in WoW: below level 20 you get a Cat Treat Pouch; from level 20 an Adventurer's Strongbox (10% chance of a Heroic Cache, 25% from level 50). Raids always give a Heroic Cache. Each dungeon gives a chest once a day and each raid once a week, and up to " .. DUNGEON_CHESTS_PER_DAY .. " dungeon chests a day across all your characters."
 
 -- When the current weekly reset started (raids pay once per reset).
 local function lastWeeklyReset(now)
@@ -76,7 +76,7 @@ local function chestBlocked(db, run)
   if run.type == "party" then
     local day = db.dungeonDay
     if day and day.day == date("%Y%m%d") and day.n >= DUNGEON_CHESTS_PER_DAY then
-      return "You already got " .. DUNGEON_CHESTS_PER_DAY .. " dungeon chests today. Come back tomorrow for more."
+      return "Your characters already got " .. DUNGEON_CHESTS_PER_DAY .. " dungeon chests today. Come back tomorrow for more."
     end
   end
 end
@@ -88,7 +88,8 @@ function TCF:DungeonComplete(run, how)
   local blocked = chestBlocked(db, run)
   if blocked then
     -- boss TapCoins were already paid; repeats don't count as new runs
-    self:Print(blocked .. " Bosses still give TapCoins.")
+    self:Print(blocked .. " Bosses still give TapCoins.", true)
+    if self.cat and self.cat.Toast then self.cat:Toast("No chest this time", 1, 0.6, 0.2) end
     return
   end
   if run.id ~= -1 then paidLog(db)[run.type .. ":" .. run.id] = time() end

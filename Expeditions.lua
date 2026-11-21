@@ -137,6 +137,8 @@ notifier:SetScript("OnUpdate", function(_, elapsed)
       ex.notified = true
       local e = TCF.EXPEDITION_BY_KEY[ex.key]
       TCF:Print(string.format("Your party is back from |cffffd100%s|r. Open the Expeditions tab to claim the rewards.", e and e.name or "an expedition"))
+      -- chat is off by default, so also say it over the cat
+      if TCF.cat and TCF.cat.Toast then TCF.cat:Toast((e and e.name or "Expedition") .. ": party is back!", 1, 0.82, 0.2) end
       TCF:MarkDirty()
     end
   end

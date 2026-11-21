@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.4.0
+
+**More enemies in Adventure**
+- Every zone, dungeon and raid now has its real Classic creatures: up to 16 different enemies per zone (335 in all, up from 56), with real models taken from a full Classic creature database. Molten Core goes from 2 creature types to 13, Naxxramas from 3 to 15, Elwynn Forest from 3 to 13.
+- More bosses now use their own real models instead of stand-ins.
+- A pack no longer has the same creature twice when the zone has enough variety.
+- Enemies play their death animation and fade out (including the last one in a pack and bosses), and killing blows show their spell effect.
+- Damage and healing numbers float above enemies instead of behind them, and the ability buttons flash when your cat uses an ability.
+
+**Adventure fixes and balance**
+- Fixed a bug that kept Divine Shield, Ice Block, Recklessness and other buffs up almost all the time and reset every cooldown at the start of each fight. Abilities now last and recharge as their tooltips say, so some raid bosses are harder.
+- Adventure chests are now based on time spent fighting: about one Cat Treat Pouch per 15-25 minutes in zones and dungeons, and one Adventurer's Strongbox per 30 minutes in raids, dropped by a boss. Trash no longer drops pouches.
+- Auto-advance off now really means "keep farming this stage": a lost fight retries the same stage. After 3 losses in a row your cat drops back to an easier pack. With Auto-advance on, a cat that loses at the start of a zone falls back to the previous zone.
+- Bandages in fights work again after their cooldown, instead of staying locked.
+
+**Gear and chests**
+- A chest's Rare or Epic roll no longer quietly turns into a green item; the chest looks a little wider for your level before dropping a quality.
+- Chests keep giving proper gear after your cat passes level 60.
+- Brand-new cats no longer get very strong endgame gear: items with no level requirement now need roughly their item level minus 5. Every class starts with a fair level-10 weapon.
+- Boss drops are always gear your class can wear. Blizzard's leftover test items are gone from loot.
+- Equipping a one-hander while wearing a two-hander now replaces the two-hander. With both ring or trinket slots full, Equip replaces the weaker one. The "+power" number is now correct in every case, and you can equip a second copy of a ring, trinket or one-hander.
+- Selling: tooltips say exactly what Sell does, you're asked before selling your only copy of a rare or epic, and "Sell unequipped" no longer stutters with a big bag.
+- Hovering gear previews it on your cat even when that slot has a cosmetic.
+- The Shop shows the real chest odds (90% gear, 10% cosmetic).
+
+**Cartoon cat**
+- Hunter bows, guns, crossbows and thrown weapons now show in your cat's paw, and capes show on its back in their own colours.
+- Gear that shares another slot's icon now draws in the right place (no more belts on helms or daggers from necklaces).
+- Floating effects bob smoothly and stay centred.
+- Scrolling over the cat zooms the camera again (hold Ctrl or Shift to resize or fade the cat).
+- The cat no longer leaves an invisible strip that blocked clicks, and it stays exactly where you put it after this update.
+
+**Professions**
+- Pickaxe swings on higher veins now pay a fair share of that vein's output instead of beating your whole business.
+- Mr. Pinchy's gold wish now gives about 10 minutes of what your mines make. Your fishing buddy finds treasure much less often than you do when you fish yourself, and lists offline finds in one line.
+- Cooking: ingredients taken from the pot before you cook now empty the pot (no more free dishes), Burnt Mess rarely raises your skill, and there's a new recipe to discover that uses Raptor Flesh.
+- First Aid: the Field Medic makes the best bandage you have cloth for, and stalled queues say what cloth they need.
+- Herbalism: clicking a locked plot no longer buys a different plot.
+
+**Expeditions, quests and dungeons**
+- Short expeditions are now mainly for XP and TapCoins; chests come mostly from the long ones. Tooltips show the real chest odds.
+- You're told when a party gets back (on the cat, and in chat if chat messages are on), even if it came back while you were offline.
+- Quests track progress correctly across your characters and can't show negative numbers. Boss quests take about as long as the others.
+- Real dungeon and raid chests: re-entering after stepping out or a wipe continues the same run. Each dungeon gives a chest once a day, each raid once a week, and up to 2 dungeon chests a day across your characters. You're told when a run gives no chest.
+
+**Account and characters**
+- Achievement rewards (cosmetics and cat skins such as Mr. Bigglesworth) now appear on all your characters, and you keep them after "Reset this character".
+- "Citizen of Azeroth" counts heritage pieces from all your characters, and "Completionist" can reach 100% again.
+- Each character has its own Daily Wares.
+- Playing past midnight gives you the new day's treat and keeps your streak.
+- Slash commands and replies to your own clicks always show in chat, even with "Chat messages" turned off; that setting now only mutes passive notices.
+
+**Interface**
+- The Treasure Bag is wider so chest names aren't hidden, the loot box switches to a new reel's item instead of hiding it, and "Open all" no longer freezes the game with a big pile of chests.
+- Achievements show their cat-skin rewards, and the Appearance and Shop pages no longer overlap their buttons.
+
 ## 1.3.3
 - The loot box only pops up while the TapCatForever window or Treasure Bag is open; otherwise drops show as a small note above the cat.
 - "Sell spare copies" is now "Sell unequipped": it says it sells every piece of gear the cat isn't wearing, and asks you to confirm with the item count and TapCoins.

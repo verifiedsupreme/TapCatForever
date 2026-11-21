@@ -734,7 +734,7 @@ local STAT_TEXT = {
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",
   tradeGold = "Earn %s Trade Gold in Professions.", renown = "Earn %s Renown by selling your business.",
   skins = "Own %s cat skins.", dropSkins = "Get %s rare boss-drop skin (Swift Zulian Tiger or Skeletal Cat).",
-  races = "Collect %s different racial heritage pieces across your characters (each character can buy its own race's piece in the Shop).",
+  races = "Collect %s different racial heritage pieces across your characters.",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s cosmetic(s) with professions.",
   dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s real WoW raid(s).",

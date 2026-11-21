@@ -416,8 +416,22 @@ function TCF:CreateHUD()
       cat.frame:SetPoint("TOP", self, "TOP", 0, 0)
       self.info:SetPoint("TOP", cat.frame, "BOTTOM", 0, -4)
     end
-    self:ClearAllPoints()
+    -- keep the cat's feet where they were when the frame's layout changes (text above/below,
+    -- text hidden, or the first load after 1.3.3, when the frame was 160 tall with the cat on top)
+    local height = (showInfo and (ui.showLevel or ui.showXP or ui.showTaps or ui.showCoins)) and CAT_SIZE + 40 or CAT_SIZE
     local p = ui.point
+    local function catBottom(h, above)
+      local a = p[1]
+      local frameBottom = a:find("BOTTOM") and 0 or a:find("TOP") and -h or -h / 2
+      return frameBottom + (above and 0 or h - CAT_SIZE)
+    end
+    local was = ui.hudLayout or { CAT_SIZE + 40, false }
+    local now = { height, ui.textAbove and true or false }
+    if was[1] ~= now[1] or was[2] ~= now[2] then
+      p[4] = p[4] + catBottom(was[1], was[2]) - catBottom(now[1], now[2])
+      ui.hudLayout = now
+    end
+    self:ClearAllPoints()
     self:SetPoint(p[1], UIParent, p[2], p[3], p[4])
     self:SetShown(ui.shown)
     local interactive = not (ui.locked and ui.clickThrough)
@@ -851,7 +865,8 @@ function TCF:CreateWindow()
   end
   local gearPct = floor((TCF.CHEST_GEAR_CHANCE or 0.9) * 100 + 0.5)  -- same odds as TCF:OpenChest
   local dungeonText = Text(sh, "GameFontHighlightSmall", nil, "LEFT"); dungeonText:SetPoint("TOPLEFT", 16, -326); dungeonText:SetWidth(520)
-  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Daily quests give a Cat Treat Pouch, the weekly quest and every 5 class levels an Adventurer's Strongbox, and zone clears and expeditions can give any chest. Chests hold gear (" .. gearPct .. "%) or a cosmetic (" .. (100 - gearPct) .. "%); Heroic Caches can also hold a cat skin. |cffffd100Cat skins|r are sold in the Appearance tab (Skin slot).")
+  -- kept to about five lines so it clears the heritage panel below
+  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Quests, levels, zone clears and expeditions give chests too. Chests hold gear (" .. gearPct .. "%) or a cosmetic (" .. (100 - gearPct) .. "%).")
   -- racial heritage offer for the current character's race
   local her = Panel(sh, 528, 58, 0.9); her:SetPoint("TOPLEFT", 14, -384)
   her.cell = ItemCell(her, 46); her.cell:SetPoint("LEFT", 6, 0)
