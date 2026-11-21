@@ -541,6 +541,29 @@ function TCF:BuyItem(id)
 end
 
 ---------------------------------------------------------------- daily login
+-- Gives the cat the racial accessory matching the character you logged in on.
+function TCF:GrantRaceAccessory()
+  if not UnitRace then return end
+  local raceName, raceFile = UnitRace("player")
+  if self.IsSecret(raceName) or self.IsSecret(raceFile) then return end
+  local id = raceFile and TCF.RACE_ITEM[raceFile]
+  if not id then
+    local n = ((raceName or "") .. " " .. (raceFile or "")):lower()
+    if n:find("sky") or n:find("high order") or n:find("windshaper") then id = "race_skyborne" end
+  end
+  local it = id and TCF.ITEMS[id]
+  if not it or self.db.owned[id] then return end
+  self.db.owned[id] = 1
+  -- wear it on every class cat that has no accessory yet
+  for _, cl in ipairs(TCF.CLASSES) do
+    local lo = self:GetLoadout(cl.key)
+    if not lo.acc then lo.acc = id end
+  end
+  self:Print(string.format("Your cat feels right at home: it got %s for your %s!", TCF.ItemLink(it), raceName or "character"))
+  if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end
+  self:MarkDirty()
+end
+
 function TCF:CheckDaily()
   local d = self.db.daily
   local t = today()
@@ -571,6 +594,12 @@ function TCF:GetStat(stat)
     local best = 1
     for _, cd in pairs(db.classData) do if cd.level > best then best = cd.level end end
     return best
+  elseif stat == "races" then
+    local n = 0
+    for _, id in pairs(TCF.RACE_ITEM) do if db.owned[id] then n = n + 1 end end
+    if db.owned.race_undead and TCF.RACE_ITEM.Undead then n = n - 1 end -- Scourge/Undead share one item
+    if db.owned.race_skyborne then n = n + 1 end
+    return n
   elseif stat == "epicGear" or stat == "legendGear" then
     local q, n = stat == "epicGear" and 4 or 5, 0
     for id in pairs(db.gear) do local it = TCF.GEAR[id]; if it and it.q == q then n = n + 1 end end
@@ -684,6 +713,7 @@ ev:SetScript("OnEvent", function(_, event, a1)
     TCF:RegisterSettingsPanel()
     TCF:SetupKeyboard()
     TCF:CheckDaily()
+    TCF:GrantRaceAccessory()
     TCF:EnsureQuests()
     TCF:ProfessionsTick(true)
     TCF:BuildShop()

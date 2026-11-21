@@ -92,5 +92,28 @@ def sheet(path, scale=3):
         d.text((x + 8, y + 4), title, fill=(255, 220, 120, 255))
     out.save(path)
 
+RACES = [("Human", (0.25, 0.4, 0.85), (1, 0.82, 0.3)), ("Dwarf", (0.8, 0.4, 0.15), (1, 0.8, 0.3)),
+         ("Night Elf", (0.72, 0.58, 0.92), (0.35, 0.85, 0.75)), ("Gnome", (0.75, 0.55, 0.3), (0.6, 0.9, 1)),
+         ("Orc", (0.95, 0.92, 0.82), (0.65, 0.15, 0.15)), ("Undead", (0.25, 0.22, 0.28), (0.9, 0.88, 0.8)),
+         ("Tauren", (0.95, 0.9, 0.78), (1, 0.8, 0.3)), ("Troll", (0.95, 0.92, 0.82), (0.9, 0.3, 0.25)),
+         ("Skyborne", (0.55, 0.8, 1), (1, 1, 1))]
+
+def race_sheet(path, scale=3):
+    cols = 5; rows = 2
+    W = 96 * scale; H = 96 * scale + 20
+    out = Image.new("RGBA", (cols * W, rows * H), (38, 34, 46, 255))
+    d = ImageDraw.Draw(out)
+    furs = [(1, .75, .45), (.85, .85, .9), (.45, .42, .5), (1, 1, 1), (.75, .55, .4)]
+    for i, (name, c1, c2) in enumerate(RACES):
+        key = "acc_race_" + name.lower().replace(" ", "")
+        c = cat(fur=furs[i % len(furs)], g={"acc": (key, c1, c2)})
+        c = c.resize((96 * scale, 96 * scale), Image.NEAREST)
+        x, y = (i % cols) * W, (i // cols) * H
+        out.alpha_composite(c, (x, y + 16))
+        d.text((x + 8, y + 4), name, fill=(255, 220, 120, 255))
+    out.save(path)
+
 if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[2] == "races":
+        race_sheet(sys.argv[1]); sys.exit(0)
     sheet(sys.argv[1] if len(sys.argv) > 1 else "showcase.png")

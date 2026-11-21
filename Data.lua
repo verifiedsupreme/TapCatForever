@@ -441,6 +441,24 @@ local CRAFT = {
   { "craft_pinchy_gift",      "effect", "fx_coins",        "Mr. Pinchy's Gift",      5, c(1.00, 0.40, 0.30), nil, "INV_Misc_Fish_35" },
 }
 
+-- Racial heritage accessories: given to the cat when you log in on a character of that race
+local RACE_ITEMS = {
+  { "race_human",    "acc", "acc_race_human",    "Stormwind Crest",           3, c(0.25, 0.40, 0.85), c(1.00, 0.82, 0.30), "Achievement_Character_Human_Male" },
+  { "race_dwarf",    "acc", "acc_race_dwarf",    "Ironforge Braids",          3, c(0.80, 0.40, 0.15), c(1.00, 0.80, 0.30), "Achievement_Character_Dwarf_Male" },
+  { "race_nightelf", "acc", "acc_race_nightelf", "Kaldorei Ears",             3, c(0.72, 0.58, 0.92), c(0.35, 0.85, 0.75), "Achievement_Character_Nightelf_Female" },
+  { "race_gnome",    "acc", "acc_race_gnome",    "Gnomish Goggles",           3, c(0.75, 0.55, 0.30), c(0.60, 0.90, 1.00), "Achievement_Character_Gnome_Male" },
+  { "race_orc",      "acc", "acc_race_orc",      "Orcish Tusks",              3, c(0.95, 0.92, 0.82), c(0.65, 0.15, 0.15), "Achievement_Character_Orc_Male" },
+  { "race_undead",   "acc", "acc_race_undead",   "Forsaken Stitches",         3, c(0.25, 0.22, 0.28), c(0.90, 0.88, 0.80), "Achievement_Character_Undead_Male" },
+  { "race_tauren",   "acc", "acc_race_tauren",   "Tauren Horns & Nose Ring",  3, c(0.95, 0.90, 0.78), c(1.00, 0.80, 0.30), "Achievement_Character_Tauren_Male" },
+  { "race_troll",    "acc", "acc_race_troll",    "Darkspear Tusks & Mohawk",  3, c(0.95, 0.92, 0.82), c(0.90, 0.30, 0.25), "Achievement_Character_Troll_Male" },
+  { "race_skyborne", "acc", "acc_race_skyborne", "Skyborne Feathers",         3, c(0.55, 0.80, 1.00), c(1, 1, 1), "INV_Feather_02" },
+}
+-- UnitRace() file names (and name fragments for newer races) -> item
+TCF.RACE_ITEM = {
+  Human = "race_human", Dwarf = "race_dwarf", NightElf = "race_nightelf", Gnome = "race_gnome",
+  Orc = "race_orc", Scourge = "race_undead", Undead = "race_undead", Tauren = "race_tauren", Troll = "race_troll",
+}
+
 ---------------------------------------------------------------- build item table
 TCF.ITEMS = {}      -- id -> item
 TCF.ITEM_LIST = {}  -- array
@@ -488,6 +506,7 @@ end
 addUniversal(U, "loot")
 addUniversal(ACH_ITEMS, "achievement")
 addUniversal(CRAFT, "craft")
+addUniversal(RACE_ITEMS, "race")
 
 -- Items every player owns from the start: each class's Common chest + main hand,
 -- plus a few basic furs.
@@ -594,6 +613,7 @@ TCF.ACHIEVEMENTS = {
   { id = "exp50",     name = "Expedition Leader",    stat = "expeditionWins", goal = 50,  coins = 1500,  icon = "INV_Misc_Map02" },
   { id = "craft1",    name = "Handmade",             stat = "crafted",   goal = 1,        coins = 75,    icon = "Trade_BlackSmithing" },
   { id = "craft10",   name = "Master Crafter",       stat = "crafted",   goal = 10,       coins = 1000,  icon = "Trade_BlackSmithing" },
+  { id = "races4",    name = "Citizen of Azeroth",   stat = "races",    goal = 4,         coins = 400,   icon = "INV_Misc_Map02" },
   { id = "streak7",   name = "Devoted",             stat = "streak",   goal = 7,         coins = 500,   icon = "INV_Misc_PocketWatch_01", item = "ach_medal" },
   { id = "streak30",  name = "Inseparable",         stat = "streak",   goal = 30,        coins = 3000,  icon = "INV_Misc_PocketWatch_02" },
 }
@@ -607,6 +627,7 @@ local STAT_TEXT = {
   frenzies = "Enter a Paw Frenzy %s times.", peakTPS = "Tap %s times in one second.",
   pets = "Pet your cat %s times.", streak = "Log in %s days in a row.",
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",
+  races = "Collect %s racial heritage pieces (log in on characters of different races).",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s cosmetic(s) with professions.",
   dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s real WoW raid(s).",

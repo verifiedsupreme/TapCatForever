@@ -29,6 +29,7 @@ local KNOWN_EVENTS = { ADDON_LOADED = 1, PLAYER_LOGIN = 1, PLAYER_REGEN_ENABLED 
   LFG_COMPLETION_REWARD = 1 } -- SENT left out on purpose to exercise the fallback
 _inInstance = false
 function UnitLevel() return 25 end
+function UnitRace() return "Orc", "Orc", 2 end
 function IsInInstance() if _inInstance then return true, _inInstance end return false, "none" end
 function GetInstanceInfo() return "The Deadmines", _inInstance, 1, "Normal", 5, 0, false, 36 end
 function UnitClass() return "Mage", "MAGE" end
@@ -181,6 +182,10 @@ TEST = r'''
     local n, total = TCF:CountOwned()
     local ach = 0; for _ in pairs(TCF.db.achievements) do ach = ach + 1 end
     print(string.format("owned %d/%d, achievements %d/%d, level %d, chests %d, pets %d", n, total, ach, #TCF.ACHIEVEMENTS, TCF:CD().level, TCF.db.stats.chests, TCF.db.stats.pets))
+    -- racial heritage: an Orc character gives the cat tusks once
+    assert(TCF.db.owned.race_orc, "orc tusks granted at login")
+    assert(TCF:GetLoadout("WARRIOR").acc == "race_orc", "tusks worn")
+    TCF:GrantRaceAccessory()
     -- per-class levels: a fresh class starts at level 1
     local magelvl = TCF:CD("MAGE").level
     TCF:SetClass("ROGUE")

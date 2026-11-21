@@ -910,6 +910,86 @@ EFFECTS = {
 }
 
 # ================================================================ UI bits
+# ================================================================ RACIAL ACCESSORIES
+def race_accessories():
+    # Human: Stormwind crest on the chest
+    a, b = Layer(), Layer()
+    crest = P([(26.5, 40), (37.5, 40), (37.5, 46), (32, 51), (26.5, 46)])
+    a.paint(crest, "light")
+    b.paint(diamond(32, 44.5, 2.6) | R(27, 40, 37, 41), "light", shade=False)
+    save("acc_race_human", a, b)
+
+    # Dwarf: braided beard and mustache
+    a, b = Layer(), Layer()
+    beard = P([(22, 35), (42, 35), (40.5, 43), (36, 49), (32, 52), (28, 49), (23.5, 43)])
+    stache = P([(31, 33.5), (24, 34.5), (21.5, 37.5), (27, 36.5), (32, 35.5)])
+    a.paint(beard | stache | M(stache), "light")
+    b.paint(R(29, 45, 34, 46) | R(29, 48, 34, 49), "light", shade=False)
+    save("acc_race_dwarf", a, b)
+
+    # Night Elf: long ears and face markings
+    a, b = Layer(), Layer()
+    ear = P([(18, 25), (2, 12), (19, 19)])
+    a.paint(ear | M(ear), "light")
+    mark = L(21.5, 33, 25.5, 36, 1.3) | L(30, 18, 34, 18, 1.2)
+    b.paint(mark | M(L(21.5, 33, 25.5, 36, 1.3)), "light", shade=False)
+    save("acc_race_nightelf", a, b)
+
+    # Gnome: goggles pushed up on the forehead
+    a, b = Layer(), Layer()
+    band = R(15, 19, 48, 21) & E(32, 30, 18, 14.5)
+    frames = ring(25, 20, 4.4, 3.8, 1.4) | M(ring(25, 20, 4.4, 3.8, 1.4))
+    a.paint(band | frames, "light")
+    b.paint(E(25, 20, 3.0, 2.4) | M(E(25, 20, 3.0, 2.4)), "white")
+    save("acc_race_gnome", a, b)
+
+    # Orc: tusks and war paint
+    a, b = Layer(), Layer()
+    tusk = P([(26, 39), (29, 38.5), (27, 31.5)])
+    a.paint(tusk | M(tusk), "white")
+    paint = L(21, 36.5, 24, 39.5, 1.0) | L(19, 37, 22, 40, 1.0)
+    b.paint(paint | M(paint), "light", shade=False)
+    save("acc_race_orc", a, b)
+
+    # Undead: stitches and a bandaged ear
+    a, b = Layer(), Layer()
+    st = L(36, 37, 45, 32, 0.9)
+    for t in (0.2, 0.5, 0.8):
+        x, y = 36 + 9 * t, 37 - 5 * t
+        st |= L(x - 1, y - 1.5, x + 1, y + 1.5, 0.8)
+    a.paint(st, "light", shade=False)
+    b.paint(P([(16, 12), (24, 16.5), (22, 20), (15, 15.5)]), "light")
+    save("acc_race_undead", a, b)
+
+    # Tauren: horns and a nose ring
+    a, b = Layer(), Layer()
+    horn = poly_line([(17.5, 23), (11, 20), (7, 15), (7.5, 9)], 3.6) | poly_line([(7.5, 9), (9, 6)], 2)
+    a.paint(horn | M(horn), "light")
+    b.paint(ring(31.5, 36, 2.4, 2.2, 0.9), "light", shade=False)
+    save("acc_race_tauren", a, b)
+
+    # Troll: big tusks and a mohawk
+    a, b = Layer(), Layer()
+    tusk = poly_line([(27, 38.5), (24, 37), (22, 33), (23, 29.5)], 2.2)
+    a.paint(tusk | M(tusk), "white")
+    hawk = P([(25, 18.5), (26, 9), (29, 5), (32, 3), (35, 5), (38, 9), (39, 18.5)])
+    b.paint(hawk - E(32, 30, 17, 13.5) | (hawk & R(0, 0, 63, 17)), "light")
+    b.paint(L(32, 4, 32, 16, 1), "dark", shade=False)
+    save("acc_race_troll", a, b)
+
+    # Skyborne: feathers swept back from the temples
+    a, b = Layer(), Layer()
+    fe = set()
+    for ang, ln in ((200, 14), (215, 16), (230, 13)):
+        x1 = 17 + ln * math.cos(math.radians(ang)); y1 = 24 + ln * math.sin(math.radians(ang))
+        fe |= L(17, 24, x1, y1, 3.2)
+    a.paint(fe | M(fe), "light")
+    tips = set()
+    for ang, ln in ((200, 14), (215, 16), (230, 13)):
+        tips |= E(17 + ln * math.cos(math.radians(ang)), 24 + ln * math.sin(math.radians(ang)), 1.6, 1.6)
+    b.paint((tips | M(tips)), "white", shade=False)
+    save("acc_race_skyborne", a, b)
+
 def ui_bits():
     # floating heart (for petting) 32x32 logical drawn on 64 canvas
     a = Layer()
@@ -935,7 +1015,7 @@ def main():
     for side in "LR":
         paw(True, side); paw(False, side)
     for k in ("normal", "blink", "happy", "focus", "sparkle"): face(k)
-    patterns(); head_items(); chest_items(); back_items(); weapons(); offhands(); accessories(); ui_bits()
+    patterns(); head_items(); chest_items(); back_items(); weapons(); offhands(); accessories(); race_accessories(); ui_bits()
 
     count = 0
     for name, im in ART.items():

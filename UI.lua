@@ -65,6 +65,8 @@ function TCF:ItemTooltip(tt, it)
     tt:AddLine("Reward from an achievement", 1, 0.82, 0)
   elseif it.source == "craft" then
     tt:AddLine("Crafted with a profession", 1, 0.82, 0)
+  elseif it.source == "race" then
+    tt:AddLine("Racial heritage: log in on a character of this race to get it", 1, 0.82, 0, true)
   else
     tt:AddLine("Not collected - found in chests, random drops and the daily shop", 0.6, 0.6, 0.6, true)
   end
