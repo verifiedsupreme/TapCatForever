@@ -27,27 +27,14 @@ function TCF:GearUpgrade(it, class)
   return best
 end
 
--- 3D preview: your WoW character wearing the hovered item (the game's dressing-room model)
+-- Hover preview: the cat on the left tries the item on
 function TCF.UI.ShowTryOn(win, it)
-  local stage = win.preview and win.preview.frame:GetParent()
-  if not stage then return end
-  if not win.tryOn then
-    local m = CreateFrame("DressUpModel", nil, stage)
-    m:SetPoint("TOPLEFT", 4, -4); m:SetPoint("BOTTOMRIGHT", -4, 4)
-    local label = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    label:SetPoint("BOTTOM", 0, 6); label:SetText("Preview on your character")
-    m:Hide()
-    win.tryOn = m
-  end
-  local m = win.tryOn
-  local ok = pcall(m.SetUnit, m, "player")
-  if ok then ok = pcall(m.TryOn, m, "item:" .. it.id) end
-  if ok then m:Show(); win.preview.frame:Hide() end
+  if not win.preview then return end
+  win.preview:ApplyAppearance(TCF:GetAppearance(nil, nil, it))
 end
 
 function TCF.UI.HideTryOn(win)
-  if win.tryOn then win.tryOn:Hide() end
-  if win.preview then win.preview.frame:Show() end
+  if win.preview then win.preview:ApplyAppearance(TCF:GetAppearance()) end
 end
 
 TCF.UI.Builders.gear = function(page, win)

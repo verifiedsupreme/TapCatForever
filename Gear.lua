@@ -453,11 +453,17 @@ local function look(art, it, slot)
 end
 
 -- Visible look items for a class from its equipped gear: head, chest, back, main, off
-function TCF:GearAppearance(class)
+-- override: a gear item to show as if equipped (hover preview), in its first usable slot
+function TCF:GearAppearance(class, override)
   class = class or self.db.class
   local eq = self:GearEquipped(class)
   local out = {}
-  local function get(k) return eq[k] and TCF.GEAR[eq[k]] end
+  local oslot = override and (self:GearTargetSlots(override, class) or {})[1]
+  local function get(k)
+    if oslot and (k == oslot or (k == "FINGER1" and oslot == "FINGER2")) then return override end
+    if oslot == "MAINHAND" and override.slot == "2H" and k == "OFFHAND" then return nil end
+    return eq[k] and TCF.GEAR[eq[k]]
+  end
   local h = get("HEAD")
   if h then
     local art = (h.sub == "cloth" and CLASS_HEAD_CLOTH[class]) or ART_FOR.HEAD[h.sub] or "head_circlet"

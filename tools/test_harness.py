@@ -116,6 +116,7 @@ TEST = r'''
     local TCF = TapCatForever
     _fire("ADDON_LOADED", "TapCatForever")
     _fire("PLAYER_LOGIN")
+    TCF.db.ui.chat = true; TCF.db.ui.sound = true  -- off by default; on here so the test exercises them
     assert(TCF.kbReady, "keyboard listener not set up")
     local kb = TapCatForeverKeyListener
     local keys = { "1", "2", "3", "Q", "E", "R", "F", "SPACE", "7", "8", "LSHIFT" }

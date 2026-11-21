@@ -97,7 +97,7 @@ local DEFAULTS = {
     scale = 1.0, alpha = 1.0, textScale = 1.0, shown = true,
     locked = false, clickThrough = false,
     showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
-    mouse = true, popups = true, sound = true, chat = true, racial = true, cartoon = true, cat3d = true, show3dWeapons = true,
+    mouse = true, popups = true, sound = false, chat = false, racial = true, cartoon = true, showDesk = true, textAbove = false, cat3d = true, show3dWeapons = true,
     minimap = { angle = 215, hide = false },
   },
 }
@@ -231,9 +231,9 @@ function TCF:GetLoadout(class) return self.db.loadouts[class or self.db.class] e
 
 -- Returns a flat table slot -> item for drawing, optionally with one item previewed.
 -- The cat wears its real gear; a cosmetic chosen for a slot overrides it (transmog).
-function TCF:GetAppearance(class, previewItem)
+function TCF:GetAppearance(class, previewItem, previewGear)
   local lo = self:GetLoadout(class)
-  local out = self.GearAppearance and self:GearAppearance(class) or {}
+  local out = self.GearAppearance and self:GearAppearance(class, previewGear) or {}
   for slot, id in pairs(lo) do out[slot] = TCF.ITEMS[id] end
   out.fur = TCF.ITEMS[self.db.look.fur]
   out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil

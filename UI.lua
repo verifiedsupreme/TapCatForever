@@ -354,6 +354,13 @@ function TCF:CreateHUD()
     self:SetAlpha(ui.alpha)
     -- text keeps its own size no matter how small the cat is
     self.info:SetScale((ui.textScale or 1) / ui.scale)
+    -- text block below the cat (default) or above it
+    self.info:ClearAllPoints()
+    if ui.textAbove then
+      self.info:SetPoint("BOTTOM", cat.frame, "TOP", 0, 4)
+    else
+      self.info:SetPoint("TOP", cat.frame, "BOTTOM", 0, -4)
+    end
     self:ClearAllPoints()
     local p = ui.point
     self:SetPoint(p[1], UIParent, p[2], p[3], p[4])
@@ -942,6 +949,8 @@ function TCF:CreateWindow()
   Check("Sounds", "sound", 0, 5)
   Check("Show racial accessory", "racial", 0, 6, "Show your race's accessory (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
   Check("Chat messages", "chat", 1, 5)
+  Check("Show desk", "showDesk", 0, 7, "Show the little desk the cartoon cat taps on.", function() TCF:RefreshAll() end)
+  Check("Text above the cat", "textAbove", 1, 7, "Put the level, XP bar and counters above the cat instead of below. (\"Cat only\" hides them.)")
   Check("Cartoon cat (off = pixel art)", "cartoon", 1, 6, "The hand-drawn cartoon cat, with a drawing for every helm, chest, belt, necklace, ring, weapon and shield. Turn off for the classic pixel cat.", function() TCF:RefreshAll() end)
 
   local function Slider(label, minV, maxV, step, y, get, set, fmt)
@@ -1300,7 +1309,7 @@ end
 ---------------------------------------------------------------- Treasure Bag (unopened chests)
 function TCF:CreateBag()
   local f = CreateFrame("Frame", "TapCatForeverBag", UIParent, BT)
-  f:SetSize(300, 260); f:SetPoint("CENTER", 260, 0)
+  f:SetSize(300, 290); f:SetPoint("CENTER", 260, 0)
   f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
   f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -1319,7 +1328,9 @@ function TCF:CreateBag()
     local n = Text(r, "GameFontNormal", ch.name, "LEFT"); n:SetPoint("TOPLEFT", ic, "TOPRIGHT", 8, -2)
     local d = Text(r, "GameFontDisableSmall", nil, "LEFT"); d:SetPoint("BOTTOMLEFT", ic, "BOTTOMRIGHT", 8, 2)
     d:SetText(({ pouch = "Daily quests, dungeons below 20", strong = "Dungeons 20+, weekly quest, levels", heroic = "Raids, zone clears, 20 levels" })[ch.key])
-    r.open = Button(r, "Open", 60, 22, function() TCF:OpenChest(ch.key, true) end); r.open:SetPoint("RIGHT", -8, 0)
+    r.all = Button(r, "All", 40, 22, function() TCF:OpenAllChests(ch.key) end); r.all:SetPoint("RIGHT", -8, 0)
+    Tip(r.all, function(tt) tt:AddLine("Open all " .. ch.name .. "s", 1, 0.82, 0) end)
+    r.open = Button(r, "Open", 52, 22, function() TCF:OpenChest(ch.key, true) end); r.open:SetPoint("RIGHT", r.all, "LEFT", -4, 0)
     Tip(r, function(tt)
       tt:AddLine(ch.name, 1, 0.82, 0)
       for rr = 1, 5 do
@@ -1332,12 +1343,14 @@ function TCF:CreateBag()
     r.chest = ch
     f.rows[i] = r
   end
+  local openAll = Button(f, "Open everything", 140, 22, function() TCF:OpenAllChests() end)
+  openAll:SetPoint("BOTTOM", 0, 14)
   function f:Refresh()
     local any = false
     for _, r in ipairs(self.rows) do
       local k = TCF.db.keys[r.chest.key] or 0
       r.count:SetText(k > 0 and k or "")
-      r.open:SetEnabled(k > 0)
+      r.open:SetEnabled(k > 0); r.all:SetEnabled(k > 1)
       r:SetShown(k > 0)
       any = any or k > 0
     end
@@ -1347,10 +1360,21 @@ function TCF:CreateBag()
       if r:IsShown() then r:ClearAllPoints(); r:SetPoint("TOP", 0, y); y = y - 62 end
     end
     empty:SetShown(not any)
+    openAll:SetShown(any)
   end
   f:SetScript("OnShow", function(s) s:Refresh() end)
   self.bag = f
   return f
+end
+
+-- Open every chest of one kind (or every chest) at once; the loot window queues the results
+function TCF:OpenAllChests(key)
+  for _, ch in ipairs(TCF.CHESTS) do
+    if not key or ch.key == key then
+      for _ = 1, math.min(TCF.db.keys[ch.key] or 0, 200) do self:OpenChest(ch.key, true) end
+    end
+  end
+  if self.bag and self.bag:IsShown() then self.bag:Refresh() end
 end
 
 function TCF:ToggleBag()

@@ -108,6 +108,7 @@ function Cat:VecApply(look)
     self:VecSet(slot, iconOf(look[slot]))
   end
   -- main hand in the right paw
+  if TCF.db and TCF.db.ui and TCF.db.ui.showDesk == false then self.vt.desk:Hide() else self:VecSet("desk", "cat:desk") end
   self:VecSet("main", iconOf(look.main))
   -- off hand: weapons are mirrored into the left paw; shields and held items have their own place
   local off = iconOf(look.off)
