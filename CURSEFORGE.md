@@ -73,8 +73,8 @@ FAQ
 **Does it change how I play?**
 No. It only listens to your key presses and mouse clicks and never presses anything for you.
 
-**Does it work in combat?**
-Yes. Out of combat every key press counts; in combat, WoW doesn't let addons see raw key presses, so your spell casts count instead.
+**What counts as a tap?**
+Every key press (movement, abilities, chat keys, everything), every mouse click, and your spell casts. Your cat keeps tapping in combat too.
 
 **Can I turn off the sounds, chat messages or chest animation?**
 Yes, all of them are in Settings (right-click the cat, then the Settings tab). Sounds and chat messages start off.
