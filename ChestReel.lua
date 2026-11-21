@@ -17,13 +17,14 @@ local function gearPool(q)
   return gearByQ[q] or {}
 end
 
--- a random thing this chest could hold: gear (90%) or a cosmetic (10%) of a rolled rarity
+-- a random thing this chest could hold: gear (90%) or a cosmetic (10%) of a rolled rarity,
+-- the same split as TCF:OpenChest
 local function randomLoot(ch, seen)
   local class = TCF.db.class
   for _ = 1, 30 do
     local r = TCF:RollRarity(ch.weights)
     local it, rarity
-    if random() < 0.9 then
+    if random() < (TCF.CHEST_GEAR_CHANCE or 0.9) then
       local pool = gearPool(max(2, r))
       local g = pool[random(max(1, #pool))]
       if g and TCF:GearUsable(g, class) then it, rarity = g, g.q end
@@ -99,7 +100,13 @@ local function createReel()
     self:Hide()
     local queue = self.queue
     self.queue = {}
-    for _, args in ipairs(queue) do TCF.ShowLootRevealDirect(TCF, unpack(args)) end
+    local lr = TCF.lootReveal
+    for i, args in ipairs(queue) do
+      -- the item the reel landed on takes over a loot box that is already up, so the box
+      -- shows what you just watched (everything else still queues behind it)
+      if i == 1 and lr and lr:IsShown() and lr.ShowFront then lr:ShowFront(args)
+      else TCF.ShowLootRevealDirect(TCF, unpack(args)) end
+    end
   end
   f.queue = {}
   f:Hide()
@@ -129,8 +136,10 @@ TCF.ShowLootRevealDirect = TCF.ShowLootReveal
 function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   local args = { it, isNew, salvage, title, chestKey, isGear }
   -- the loot box only pops up while you're in the addon's windows; otherwise a small note over the cat
+  -- (chest openings always come from your own click, so they always get the box)
   local open = (self.window and self.window:IsShown()) or (self.bag and self.bag:IsShown())
     or (self.lootReveal and self.lootReveal:IsShown()) or (self.reel and self.reel:IsShown())
+    or chestKey or self.forceReveal
   if not open then
     if self.cat and it then
       if isGear then
@@ -145,5 +154,9 @@ function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
     return self:PlayChestReel(it, rarity, chestKey, args)
   end
   if self.reel and self.reel:IsShown() then table.insert(self.reel.queue, args); return end
+  -- no reel (animation off): a single chest opened while the box is up still shows at once
+  if ch and it and not self.openingAll and self.lootReveal and self.lootReveal:IsShown() and self.lootReveal.ShowFront then
+    return self.lootReveal:ShowFront(args)
+  end
   return TCF.ShowLootRevealDirect(self, unpack(args))
 end

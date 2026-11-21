@@ -1,15 +1,19 @@
 -- TapCatForever: Expeditions. Send a party of 3 of your class cats away for
 -- real time (it keeps going while you're offline); they come back with
--- TapCoins, chests and gear. Stronger parties succeed more often.
+-- TapCoins, XP and sometimes chests. Stronger parties succeed more often.
+-- Short trips are mostly for XP and TapCoins; chests come from the long ones.
 local ADDON, TCF = ...
 
 local floor, min, max, random = math.floor, math.min, math.max, math.random
 
 -- rec: recommended total party power; tier: which Adventure tier's loot they find
+-- chest: { chest key, chance on success }; rolls: bonus chest rolls (see ExpeditionBonusChance).
+-- The trips under 2 hours can be re-sent all day, so they give no bonus rolls and only a
+-- small chest chance (about 0.3 Pouches per slot-hour), well below the long trips.
 TCF.EXPEDITIONS = {
-  { key = "elwynn", name = "Scout Elwynn Forest",       dur = 15 * 60,    rec = 700,   coins = 12,  tier = 1,  rolls = 1, chest = { "pouch", 0.25 },  icon = "INV_Misc_Map_01" },
-  { key = "westfall", name = "Westfall Bounty Hunt",    dur = 30 * 60,    rec = 1000,  coins = 25,  tier = 2,  rolls = 1, chest = { "pouch", 0.4 },   icon = "INV_Misc_Bandana_03" },
-  { key = "dm", name = "Raid the Deadmines",             dur = 60 * 60,    rec = 1600,  coins = 45,  tier = 5,  rolls = 1, chest = { "pouch", 0.6 },   icon = "INV_Misc_Bandana_03" },
+  { key = "elwynn", name = "Scout Elwynn Forest",       dur = 15 * 60,    rec = 700,   coins = 12,  tier = 1,  rolls = 0, chest = { "pouch", 0.08 },  icon = "INV_Misc_Map_01" },
+  { key = "westfall", name = "Westfall Bounty Hunt",    dur = 30 * 60,    rec = 1000,  coins = 25,  tier = 2,  rolls = 0, chest = { "pouch", 0.15 },  icon = "INV_Misc_Bandana_03" },
+  { key = "dm", name = "Raid the Deadmines",             dur = 60 * 60,    rec = 1600,  coins = 45,  tier = 5,  rolls = 0, chest = { "pouch", 0.3 },   icon = "INV_Misc_Bandana_03" },
   { key = "sm", name = "Storm Scarlet Monastery",        dur = 2 * 3600,   rec = 3400,  coins = 90,  tier = 11, rolls = 2, chest = { "strong", 0.25 }, icon = "INV_Shield_03" },
   { key = "brd", name = "Delve Blackrock Depths",        dur = 4 * 3600,   rec = 5800,  coins = 160, tier = 17, rolls = 2, chest = { "strong", 0.5 },  icon = "INV_Hammer_09" },
   { key = "strat", name = "Purge Stratholme",            dur = 6 * 3600,   rec = 6600,  coins = 230, tier = 21, rolls = 2, chest = { "strong", 0.7 },  icon = "Spell_Shadow_RaiseDead" },
@@ -20,6 +24,12 @@ TCF.EXPEDITIONS = {
 TCF.EXPEDITION_BY_KEY = {}
 for _, e in ipairs(TCF.EXPEDITIONS) do TCF.EXPEDITION_BY_KEY[e.key] = e end
 TCF.MAX_EXPEDITIONS = 2
+
+-- Chance for each bonus chest roll. It grows with time away (full 50% from 4 hours),
+-- so chests per hour don't reward re-sending short trips over and over.
+function TCF.ExpeditionBonusChance(e)
+  return 0.5 * min(1, e.dur / (4 * 3600))
+end
 
 local function state(self)
   self.db.expeditions = self.db.expeditions or { active = {} }
@@ -59,7 +69,7 @@ function TCF:StartExpedition(key, members)
   table.insert(st.active, { key = key, members = { members[1], members[2], members[3] }, start = now,
     finish = now + e.dur, power = power, chance = self:ExpeditionChance(power, e.rec) })
   self.db.stats.expeditionsSent = (self.db.stats.expeditionsSent or 0) + 1
-  self:Print(string.format("Your party set out: |cffffd100%s|r (back in %s).", e.name, TCF.FormatDuration(e.dur)))
+  self:Print(string.format("Your party set out: |cffffd100%s|r (back in %s).", e.name, TCF.FormatDuration(e.dur)), true)
   self:MarkDirty(); self:RefreshAll()
   return true
 end
@@ -87,18 +97,19 @@ function TCF:ClaimExpedition(index)
   if not won then
     local coins = floor(e.coins * 0.1)
     self:AddCoins(coins)
-    self:Print(string.format("|cffff6060%s failed.|r Your cats limped home with %d TapCoins and %d XP each. Stronger gear raises the odds.", e.name, coins, xp))
+    self:Print(string.format("|cffff6060%s failed.|r Your cats limped home with %d TapCoins and %d XP each. Stronger gear raises the odds.", e.name, coins, xp), true)
     self:MarkDirty(); self:RefreshAll()
     return false
   end
   self.db.stats.expeditionWins = (self.db.stats.expeditionWins or 0) + 1
   local coins = floor(e.coins * 0.5 * (0.8 + random() * 0.4))
   self:AddCoins(coins)
-  self:Print(string.format("|cff20ff20%s succeeded!|r +%d TapCoins, +%d XP for each cat.", e.name, coins, xp))
+  self:Print(string.format("|cff20ff20%s succeeded!|r +%d TapCoins, +%d XP for each cat.", e.name, coins, xp), true)
   if random() < e.chest[2] then self:AwardChest(e.chest[1], e.name) end
   -- extra chests instead of loose gear
+  local bonus = TCF.ExpeditionBonusChance(e)
   for i = 1, e.rolls do
-    if random() < 0.5 then self:AwardChest(e.chest[1] == "heroic" and "strong" or "pouch", e.name) end
+    if random() < bonus then self:AwardChest(e.chest[1] == "heroic" and "strong" or "pouch", e.name) end
   end
   self:MarkDirty(); self:RefreshAll()
   return true
@@ -109,3 +120,24 @@ function TCF:ExpeditionsReady()
   for _, ex in ipairs(state(self).active) do if now >= ex.finish then n = n + 1 end end
   return n
 end
+
+-- Tell the player once when a party is back (also for parties that came home while
+-- they were offline), and keep the window's countdown and Claim button current.
+local notifier = CreateFrame("Frame")
+local notifyAcc = 0
+notifier:SetScript("OnUpdate", function(_, elapsed)
+  notifyAcc = notifyAcc + elapsed
+  if notifyAcc < 1 then return end
+  notifyAcc = 0
+  local db = TCF.db
+  if not db or not db.expeditions then return end
+  local now = time()
+  for _, ex in ipairs(db.expeditions.active) do
+    if now >= ex.finish and not ex.notified then
+      ex.notified = true
+      local e = TCF.EXPEDITION_BY_KEY[ex.key]
+      TCF:Print(string.format("Your party is back from |cffffd100%s|r. Open the Expeditions tab to claim the rewards.", e and e.name or "an expedition"))
+      TCF:MarkDirty()
+    end
+  end
+end)

@@ -10,12 +10,23 @@ TCF.BOSS_LOOT = {}   -- [tier][boss] = { item, ... }
 TCF.TIER_POOL = {}   -- [tier] = { item, ... } (zone drops, other bosses)
 TCF.WORLD_POOL = {}  -- [level band (req level // 5)] = { item, ... }
 
+-- Blizzard's placeholder/test items that leaked into the data. They stay known (so old
+-- saves still show them) but never drop.
+local function isPlaceholder(name, ilvl)
+  return ilvl == 0 or name:sub(1, 2) == "zz" or name:find("OLD", 1, true) or name:find("(Extra Effects)", 1, true)
+    or name:sub(1, 6) == "Bland "
+end
+
 -- Called once per item by GearData.lua
 function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss, dc, cls)
+  -- Many quest/vendor items have no level requirement in the data, which would put
+  -- ilvl 40-70 gear in the level 1-4 loot band. Give them the usual "item level - 5".
+  if req == 0 and ilvl > 10 then req = min(60, max(1, ilvl - 5)) end
   local it = { id = id, name = name, icon = icon, q = q, ilvl = ilvl, req = req, slot = slot, sub = sub,
     statStr = stats, tier = tier, boss = boss, dc = dc, cls = cls }
   TCF.GEAR[id] = it
   TCF.GEAR_LIST[#TCF.GEAR_LIST + 1] = it
+  if isPlaceholder(name, ilvl) then return end
   if tier > 0 then
     if boss > 0 then
       TCF.BOSS_LOOT[tier] = TCF.BOSS_LOOT[tier] or {}
@@ -176,6 +187,14 @@ function TCF:GearTargetSlots(it, class)
 end
 
 ---------------------------------------------------------------- ownership & equipping
+-- How many copies of an item are equipped on a class (rings/trinkets/1H can be doubled)
+local function equippedCount(eq, id)
+  local n = 0
+  for _, v in pairs(eq) do if v == id then n = n + 1 end end
+  return n
+end
+TCF.GearEquippedCount = equippedCount
+
 function TCF:GearEquipped(class)
   local cd = self:CD(class)
   cd.gear = cd.gear or {}
@@ -194,6 +213,9 @@ function TCF:Bag(class)
         if (pool[id] or 0) > 0 then
           cd.bag[id] = (cd.bag[id] or 0) + 1; pool[id] = pool[id] - 1
           if pool[id] <= 0 then pool[id] = nil end
+        elseif (cd.bag[id] or 0) < equippedCount(cd.gear, id) then
+          -- the old shared bag let several classes wear one copy: each wearer keeps one
+          cd.bag[id] = (cd.bag[id] or 0) + 1
         end
       end
     end
@@ -204,6 +226,16 @@ function TCF:Bag(class)
   end
   local cd = self:CD(class)
   cd.bag = cd.bag or {}
+  -- Saves split by 1.3.1-1.3.3 (before the repair above) can have worn-but-unowned
+  -- copies: once per class, top the bag up to what the class is wearing.
+  -- Selling never takes worn copies, so this cannot hand back something already sold.
+  if not cd.bagChecked then
+    for _, id in pairs(cd.gear or {}) do
+      local worn = equippedCount(cd.gear, id)
+      if (cd.bag[id] or 0) < worn then cd.bag[id] = worn end
+    end
+    cd.bagChecked = true
+  end
   return cd.bag
 end
 
@@ -222,26 +254,41 @@ function TCF:CanEquipGear(it, class, slotKey)
   return true
 end
 
--- How many copies of an item are equipped on a class (rings/trinkets/1H can be doubled)
-local function equippedCount(eq, id)
-  local n = 0
-  for _, v in pairs(eq) do if v == id then n = n + 1 end end
-  return n
+local function isTwoHand(id) return id and TCF.GEAR[id] and TCF.GEAR[id].slot == "2H" end
+
+-- Which slot "Equip" puts an item in when the player didn't pick one. The Gear page's
+-- "+N power" uses the same choice, so the number shown is what the click does.
+function TCF:BestGearSlot(it, class)
+  class = class or self.db.class
+  local targets = self:GearTargetSlots(it, class)
+  if #targets == 1 then return targets[1] end
+  local eq = self:GearEquipped(class)
+  -- a one-hander replaces a two-hander (it can't go next to it)
+  if it.slot == "1H" and isTwoHand(eq.MAINHAND) then return "MAINHAND" end
+  -- fill an empty slot first (main hand before off hand, ring 1 before ring 2)
+  for _, s in ipairs(targets) do if not eq[s] then return s end end
+  -- all full: replace whichever gives the most power; a slot already holding this
+  -- item only counts if every slot holds it (wearing a second copy is the point)
+  local best, bestPower
+  for _, s in ipairs(targets) do
+    if eq[s] ~= it.id then
+      local p = self:CombatStats(class, it, s).power
+      if not bestPower or p > bestPower then best, bestPower = s, p end
+    end
+  end
+  return best or targets[1]
 end
 
 function TCF:EquipGear(id, slotKey, class)
   class = class or self.db.class
   local it = TCF.GEAR[id]
   if not it then return false end
-  local targets = self:GearTargetSlots(it, class)
-  slotKey = slotKey or targets[1]
+  slotKey = slotKey or self:BestGearSlot(it, class)
   local eq = self:GearEquipped(class)
-  -- prefer an empty second ring/trinket/offhand slot
-  if not slotKey or (#targets > 1 and eq[slotKey] and not eq[targets[2]]) then slotKey = targets[2] or targets[1] end
   local ok, why = self:CanEquipGear(it, class, slotKey)
-  if not ok then self:Print(why); return false end
+  if not ok then self:Print(why, true); return false end
   if equippedCount(eq, id) >= (self:Bag(class)[id] or 0) and eq[slotKey] ~= id then
-    self:Print("You need another copy of " .. TCF.GearLink(it) .. " to equip it twice."); return false
+    self:Print("You need another copy of " .. TCF.GearLink(it) .. " to equip it twice.", true); return false
   end
   eq[slotKey] = id
   if it.slot == "2H" then eq.OFFHAND = nil end
@@ -252,6 +299,7 @@ function TCF:EquipGear(id, slotKey, class)
 end
 
 function TCF:UnequipGear(slotKey, class)
+  self:Bag(class) -- runs the one-time bag repair first, so the item stays owned
   self:GearEquipped(class)[slotKey] = nil
   self:MarkDirty()
   self:RefreshAll()
@@ -278,22 +326,47 @@ function TCF:UnequippedGearValue()
   return count, coins
 end
 
-function TCF:SellGear(id, all)
+-- Copies of an item this class could sell (everything it isn't wearing)
+function TCF:GearSpare(id)
+  return (self:Bag()[id] or 0) - equippedCount(self:GearEquipped(), id)
+end
+
+-- Removes unworn copies and pays for them. No chat line, no refresh.
+local function sellCopies(self, id, all)
   local it = TCF.GEAR[id]
-  local bag = self:Bag()
-  local have = bag[id] or 0
-  -- keep copies this class is wearing
-  local inUse = equippedCount(self:GearEquipped(), id)
-  local spare = have - inUse
-  if spare <= 0 then return 0 end
+  local spare = self:GearSpare(id)
+  if not it or spare <= 0 then return 0, 0 end
   local n = all and spare or 1
-  bag[id] = have - n
+  local bag = self:Bag()
+  bag[id] = bag[id] - n
   if bag[id] <= 0 then bag[id] = nil end
   local coins = self:GearSellValue(it) * n
   self:AddCoins(coins)
-  self:Print(string.format("Sold %s%s for %d TapCoins.", TCF.GearLink(it), n > 1 and (" x" .. n) or "", coins))
+  return n, coins
+end
+
+function TCF:SellGear(id, all)
+  local it = TCF.GEAR[id]
+  local n, coins = sellCopies(self, id, all)
+  if n == 0 then return 0 end
+  self:Print(string.format("Sold %s%s for %d TapCoins.", TCF.GearLink(it), n > 1 and (" x" .. n) or "", coins), true)
   self:MarkDirty(); self:RefreshAll()
   return coins
+end
+
+-- "Sell unequipped": one chat line and one refresh for the whole bag
+function TCF:SellAllUnequipped()
+  local ids = {}
+  for id in pairs(self:Bag()) do ids[#ids + 1] = id end
+  local count, total = 0, 0
+  for _, id in ipairs(ids) do
+    local n, coins = sellCopies(self, id, true)
+    count, total = count + n, total + coins
+  end
+  if count == 0 then return 0 end
+  self:Print(string.format("Sold %d %s for %s TapCoins.", count, count == 1 and "item" or "items", TCF.Commas(total)), true)
+  self:MarkDirty(); self:RefreshAll()
+  return total
 end
 
 -- Gives a gear item. Returns isNewItem.
@@ -339,36 +412,58 @@ function TCF:RollBossLoot(tier, boss, class)
   local list = TCF.BOSS_LOOT[tier] and TCF.BOSS_LOOT[tier][boss]
   if not list or #list == 0 then list = TCF.TIER_POOL[tier] end
   if not list then return nil end
+  -- 80% something made for this class; 20% anything it can wear (maybe off-spec).
+  -- Never gear it can't use at all: bags are per class, so that would be dead loot.
   local own = random() < 0.8
-  local pick = weightedPick(list, function(it) return (not own) or self:GearSuits(it, class) end)
+  local pick = weightedPick(list, function(it)
+    if own then return self:GearSuits(it, class) end
+    return self:GearUsable(it, class)
+  end)
   if not pick and own then pick = weightedPick(list, function(it) return self:GearUsable(it, class) end) end
   return pick
 end
 
 -- Trash / world loot near a level, by quality weights {unc, rare, epic}
+-- If the rolled quality has nothing near the level, the search widens (a little higher
+-- level, plus zone and boss loot of zones at this level) before dropping one quality.
 function TCF:RollWorldLoot(level, class, weights, tier)
   class = class or self.db.class
+  -- cat levels keep climbing but world gear ends at level 60
+  level = min(60, max(1, level or 1))
   weights = weights or { 85, 13, 2 }
   local q = 2
   local r, acc = random() * (weights[1] + weights[2] + weights[3]), 0
   for i = 1, 3 do acc = acc + weights[i]; if r <= acc then q = i + 1; break end end
-  local cands = {}
-  local function scan(list)
-    if not list then return end
-    for _, it in ipairs(list) do
-      if it.q == q and it.req <= level + 2 and it.req >= level - 8 and self:GearSuits(it, class) then cands[#cands + 1] = it end
+  local suits = function(it) return self:GearSuits(it, class) end
+  local usable = function(it) return self:GearUsable(it, class) end
+  local function find(wq, test, wide)
+    local lo, hi = level - 8, level + (wide and 5 or 2)
+    local cands, seen = {}, {}
+    local function scan(list)
+      if not list then return end
+      for _, it in ipairs(list) do
+        if it.q == wq and it.req <= hi and it.req >= lo and not seen[it] and test(it) then
+          seen[it] = true; cands[#cands + 1] = it
+        end
+      end
     end
-  end
-  if tier and TCF.TIER_POOL[tier] then scan(TCF.TIER_POOL[tier]) end
-  local band = floor(level / 5)
-  for b = band - 2, band do scan(TCF.WORLD_POOL[b]) end
-  if #cands == 0 then
-    for b = band - 2, band do
-      for _, it in ipairs(TCF.WORLD_POOL[b] or {}) do if it.q == 2 and self:GearUsable(it, class) then cands[#cands + 1] = it end end
+    if tier then scan(TCF.TIER_POOL[tier]) end
+    for b = floor(max(0, lo) / 5), floor(hi / 5) do scan(TCF.WORLD_POOL[b]) end
+    if wide and TCF.TIERS then
+      for ti, t in ipairs(TCF.TIERS) do
+        if level >= t.min and level <= t.max then
+          scan(TCF.TIER_POOL[ti])
+          for _, list in pairs(TCF.BOSS_LOOT[ti] or {}) do scan(list) end
+        end
+      end
     end
+    if #cands > 0 then return cands[random(#cands)] end
   end
-  if #cands == 0 then return nil end
-  return cands[random(#cands)]
+  for wq = q, 2, -1 do
+    local it = find(wq, suits) or find(wq, suits, true) or find(wq, usable, true)
+    if it then return it end
+  end
+  return nil
 end
 
 ---------------------------------------------------------------- combat stats from gear
@@ -393,10 +488,16 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
   local t = { str = 0, agi = 0, sta = 0, int = 0, spi = 0, arm = 0, ap = 0, rap = 0, sp = 0, heal = 0,
     crit = 0, critr = 0, hit = 0, hitr = 0, def = 0, blk = 0, mp5 = 0, dodger = 0 }
   local eq = self:GearEquipped(class)
+  -- what equipping the override would also take off: a 2H empties the off hand,
+  -- and an off-hand item can't stay next to a 2H
+  local cleared
+  if overrideItem and overrideSlot == "MAINHAND" and overrideItem.slot == "2H" then cleared = "OFFHAND"
+  elseif overrideItem and overrideSlot == "OFFHAND" and isTwoHand(eq.MAINHAND) then cleared = "MAINHAND" end
   local wMain, wOff, wRanged, ilvlSum, nItems = nil, nil, nil, 0, 0
   for _, s in ipairs(TCF.GEAR_SLOTS) do
     local id = eq[s.key]
     if overrideSlot == s.key then id = overrideItem and overrideItem.id end
+    if cleared == s.key then id = nil end
     local it = id and TCF.GEAR[id]
     if it then
       local st = TCF.GearStats(it)

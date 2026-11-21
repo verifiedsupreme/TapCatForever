@@ -6,7 +6,7 @@ TCF.UI.Builders.expeditions = function(page, win)
   local U = TCF.UI
   local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel
   local title = Text(page, "GameFontNormalLarge", "Expeditions", "LEFT"); title:SetPoint("TOPLEFT", 16, -12)
-  local sub = Text(page, "GameFontDisableSmall", "Send three of your class cats away. They return with TapCoins, chests and gear, even while you're offline.", "LEFT")
+  local sub = Text(page, "GameFontDisableSmall", "Send three of your class cats away. They return with TapCoins, XP and chests, even while you're offline.", "LEFT")
   sub:SetPoint("TOPLEFT", 16, -30); sub:SetWidth(530)
 
   -- active expeditions
@@ -78,22 +78,31 @@ TCF.UI.Builders.expeditions = function(page, win)
       local members = {}
       for _, cl in ipairs(TCF.CLASSES) do if win.party[cl.key] then members[#members + 1] = cl.key end end
       local ok, why = TCF:StartExpedition(e.key, members)
-      if ok then win.party = {} elseif why then TCF:Print(why) end
+      if ok then win.party = {} elseif why then TCF:Print(why, true) end
       win:Refresh()
     end)
     r.go:SetPoint("RIGHT", -6, 0)
     Tip(r, function(tt)
       tt:AddLine(e.name, 1, 0.82, 0)
       tt:AddLine(string.format("Duration: %s   Recommended party power: %d", TCF.FormatDuration(e.dur), e.rec), 1, 1, 1)
-      tt:AddLine(string.format("Rewards: %d XP for each cat, about %d TapCoins, a chance at a %s and up to %d more chests.",
-        floor(e.dur / 60 * 5), floor(e.coins * 0.5), TCF.CHEST_BY_KEY[e.chest[1]].name, e.rolls), 0.8, 0.8, 0.8, true)
+      local chestName = TCF.CHEST_BY_KEY[e.chest[1]].name
+      local rewards = string.format("Rewards: %d XP for each cat, about %d TapCoins and a %d%% chance of a %s.",
+        floor(e.dur / 60 * 5), floor(e.coins * 0.5), floor(e.chest[2] * 100 + 0.5), chestName)
+      if e.rolls > 0 then
+        local bonusName = TCF.CHEST_BY_KEY[e.chest[1] == "heroic" and "strong" or "pouch"].name
+        rewards = rewards .. string.format(" Also %d bonus roll%s with a %d%% chance each of a %s.", e.rolls, e.rolls == 1 and "" or "s",
+          floor(TCF.ExpeditionBonusChance(e) * 100 + 0.5), bonusName)
+      else
+        rewards = rewards .. " Short trips are mostly for XP and TapCoins; longer ones bring more chests."
+      end
+      tt:AddLine(rewards, 0.8, 0.8, 0.8, true)
       tt:AddLine("A failed expedition brings back half the XP and only a few TapCoins.", 0.7, 0.7, 0.7, true)
     end)
     r.exp = e
     rows[i] = r
   end
 
-  return function()
+  local function refresh()
     local st = TCF.db.expeditions or { active = {} }
     local now = time()
     for i, r in ipairs(act) do
@@ -140,4 +149,15 @@ TCF.UI.Builders.expeditions = function(page, win)
       r.go:SetEnabled(n == 3 and not full)
     end
   end
+
+  -- keep the countdown and the Claim button current while this page is open
+  -- (OnUpdate only runs while the page is shown)
+  local acc = 0
+  page:HookScript("OnUpdate", function(_, elapsed)
+    acc = acc + elapsed
+    if acc < 1 then return end
+    acc = 0
+    if TCF.db and TCF.db.expeditions and #TCF.db.expeditions.active > 0 then refresh() end
+  end)
+  return refresh
 end

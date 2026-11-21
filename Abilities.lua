@@ -127,9 +127,13 @@ function TCF:LearnAbility(class, key)
   for _, a in ipairs(TCF.ABILITIES[class]) do if a.key == key then ab = a end end
   if not ab or self:AbilityKnown(class, key) then return false end
   if self:CD(class).level < ab.level then return false end
-  if not self:SpendCoins(TCF.AbilityCost(ab.level)) then return false end
+  if not self:SpendCoins(TCF.AbilityCost(ab.level)) then
+    self:Print(string.format("You need %d TapCoins to learn %s.", TCF.AbilityCost(ab.level), ab.name), true)
+    return false
+  end
   self:CD(class).abilities[key] = true
-  self:Print(string.format("Your %s cat learned |cffffd100%s|r!", TCF.CLASS_BY_KEY[class].name, ab.name))
+  -- a reply to the player's own click, so it shows even with chat messages turned off
+  self:Print(string.format("Your %s cat learned |cffffd100%s|r!", TCF.CLASS_BY_KEY[class].name, ab.name), true)
   self:PlaySound("ach")
   self:MarkDirty(); self:RefreshAll()
   return true

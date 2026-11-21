@@ -353,6 +353,7 @@ TEST = r'''
     -- First Aid: cloth -> bandages -> used in Adventure
     assert(TCF:BuyCloth("linen", 50))
     assert(TCF:QueueBandages("b_linen", 5))
+    if TCF.advRun then TCF.advRun.bandageReady = 1e9 end  -- the fighting cat would drink one; count only what was made
     for k = 1, 120 do _update(0.25) end
     assert((ps.mats.b_linen or 0) >= 5, "bandages made: " .. tostring(ps.mats.b_linen))
     TCF:BuyAidUpgrade("medic")
@@ -477,7 +478,8 @@ def main():
     bad = lua.execute('''
       local bad = {}
       for _, it in ipairs(TapCatForever.ITEM_LIST) do
-        local names = TapCatForever.PART_B[it.art] and { it.art .. "_a", it.art .. "_b" } or { it.art }
+        -- tap effects are cartoon sprites in Art/v (t_<shape>)
+        local names = it.slot == "tap" and { "v/t_" .. it.art } or TapCatForever.PART_B[it.art] and { it.art .. "_a", it.art .. "_b" } or { it.art }
         for _, n in ipairs(names) do bad[#bad + 1] = n end
       end
       return bad''')

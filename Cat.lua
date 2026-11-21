@@ -285,6 +285,8 @@ function Cat:ApplyAppearance(look)
     t:SetTexture(ART .. fx.art)  -- smooth filtering for soft effects
     t:SetVertexColor(fx.c1[1], fx.c1[2], fx.c1[3])
     t:SetRotation(0)
+    -- start centred and opaque: a previous 'float' effect may have left it offset or faded
+    t:ClearAllPoints(); t:SetPoint("CENTER", self.frame, "CENTER", 0, 0); t:SetAlpha(1)
     t:Show()
     self.fx = { tex = t, anim = fx.fxAnim, item = fx }
   end
@@ -378,7 +380,8 @@ function Cat:OnUpdate(elapsed)
     elseif a == "flicker" then tex:SetAlpha(0.6 + 0.25 * sin(t * 9) * sin(t * 3.7))
     elseif a == "twinkle" then tex:SetAlpha(0.55 + 0.4 * sin(t * 3.1)); tex:SetRotation(sin(t * 0.5) * 0.15)
     elseif a == "float" then
-      tex:ClearAllPoints(); tex:SetPoint("CENTER", self.frame, "CENTER", 0, (t * 6 % 12) - 6)
+      -- gentle bob, scaled to the cat (a sawtooth here used to snap back every 2s)
+      tex:ClearAllPoints(); tex:SetPoint("CENTER", self.frame, "CENTER", 0, sin(t * 1.6) * self.size * 0.03)
       tex:SetAlpha(0.75 + 0.2 * sin(t * 2))
     end
     if fx.item.rainbow then tex:SetVertexColor(hsv((t * 0.12) % 1)) end

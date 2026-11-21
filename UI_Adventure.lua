@@ -74,12 +74,17 @@ TCF.UI.Builders.adventure = function(page, win)
     slots[i] = f
   end
 
+  -- spell effects and floating numbers play above the models (child frames of the
+  -- scene draw over the scene's own font strings, so they need their own raised layer)
+  local fxLayer = CreateFrame("Frame", nil, scene); fxLayer:SetAllPoints(scene)
+  if fxLayer.SetFrameLevel then fxLayer:SetFrameLevel((scene:GetFrameLevel() or 1) + 20) end
+
   local floats = {}
   local function FloatText(txt, x, y, r, g, b, big)
     local fs
     for _, f in ipairs(floats) do if not f.active then fs = f; break end end
     if not fs then
-      fs = scene:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); fs:SetShadowOffset(1, -1)
+      fs = fxLayer:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); fs:SetShadowOffset(1, -1)
       floats[#floats + 1] = fs
     end
     fs:SetFontObject(big and "GameFontNormalHuge" or "GameFontNormalLarge")
@@ -125,7 +130,7 @@ TCF.UI.Builders.adventure = function(page, win)
     -- cooldown: a dark cover that shrinks as the ability comes back, plus seconds left
     b.cover = b:CreateTexture(nil, "OVERLAY", nil, 1); b.cover:SetPoint("BOTTOMLEFT"); b.cover:SetPoint("BOTTOMRIGHT"); b.cover:SetColorTexture(0, 0, 0, 0.7)
     b.cd = Text(b, "NumberFontNormal"); b.cd:SetPoint("CENTER", 0, 0)
-    b.flash = b:CreateTexture(nil, "OVERLAY", nil, 2); b.flash:SetAllPoints(); b.flash:SetTexture("Interface\Buttons\ButtonHilight-Square"); b.flash:SetBlendMode("ADD"); b.flash:SetAlpha(0)
+    b.flash = b:CreateTexture(nil, "OVERLAY", nil, 2); b.flash:SetAllPoints(); b.flash:SetTexture("Interface\\Buttons\\ButtonHilight-Square"); b.flash:SetBlendMode("ADD"); b.flash:SetAlpha(0)
     b:EnableMouse(true)
     b:SetScript("OnEnter", function(s)
       if not s.a then return end
@@ -172,9 +177,6 @@ TCF.UI.Builders.adventure = function(page, win)
     end
   end
 
-  -- spell effects play above the models
-  local fxLayer = CreateFrame("Frame", nil, scene); fxLayer:SetAllPoints(scene)
-  if fxLayer.SetFrameLevel then fxLayer:SetFrameLevel((scene:GetFrameLevel() or 1) + 20) end
   local fxPool = {}
   local function fxSprite()
     for _, f in ipairs(fxPool) do if not f.on then return f end end
@@ -249,27 +251,38 @@ TCF.UI.Builders.adventure = function(page, win)
     for i, f in ipairs(slots) do
       local m = pack and pack[i]
       f:ClearAllPoints()
-      if m then
+      -- the slot keeps its own enemy, so a dying enemy can finish its death fade
+      -- (and take its killing-blow effect) after the sim has moved on
+      f.mob = m
+      if m and not m.alive then
+        -- died while the window was closed: don't stand it back up
+        f.fade, f.modelCheck, f.gone = 0, nil, true
+        f:SetAlpha(0); f:Hide()
+      elseif m then
         local w, h = boss and 170 or 110, boss and 200 or 140
         f:SetSize(w, h)
         f.baseX = boss and -50 or (-12 - (n - i) * 112)
         f:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", f.baseX, 8)
         f.name:SetText(m.boss and ("|cffff8000" .. m.name .. "|r") or m.name)
         f.bar:SetWidth(boss and 150 or 96)
-        f.fade = 0
+        f.fade, f.gone = 0, false
         f:SetAlpha(1)
         f:Show()
-        -- candidate models: this enemy's own, then the zone's other enemies
-        local cands = { m.display }
+        -- candidate models: this enemy's own, then the zone's other enemies (each ID once,
+        -- so a broken ID isn't retried)
+        local cands, seen = {}, {}
+        local function add(id) if id and id > 0 and not seen[id] then seen[id] = true; cands[#cands + 1] = id end end
+        add(m.display)
         local t = TCF:AdvTier(TCF:CD().adv.tier)
-        for _, x in ipairs(t.mobs) do cands[#cands + 1] = x[2] end
-        for _, x in ipairs(t.bosses) do cands[#cands + 1] = x[2] end
+        for _, x in ipairs(t.mobs) do add(x[2]) end
+        for _, x in ipairs(t.bosses) do add(x[2]) end
         f.cands, f.candIdx, f.isBoss = cands, 0, boss
         f.tryNext = function()
           f.candIdx = f.candIdx + 1
           local id = f.cands[f.candIdx]
-          while id and id <= 0 do f.candIdx = f.candIdx + 1; id = f.cands[f.candIdx] end
-          if id and f.candIdx <= 4 then
+          if id and f.candIdx <= 6 then
+            -- clear first so the model-file check can't see the previous enemy's model
+            if f.model.ClearModel then pcall(f.model.ClearModel, f.model) end
             local ok = pcall(f.model.SetDisplayInfo, f.model, id)
             pcall(f.model.SetFacing, f.model, -0.7)
             pcall(f.model.SetCamDistanceScale, f.model, f.isBoss and 1.3 or 1.15)
@@ -340,7 +353,9 @@ TCF.UI.Builders.adventure = function(page, win)
     retreat:SetEnabled(active and true or false)
     local away = TCF:IsOnExpedition(TCF.db.class)
     awayText:SetText(away and ("|cffffd100Your " .. TCF.CLASS_BY_KEY[TCF.db.class].name .. " cat is away on an expedition.|r\nPick another class, or wait for it to return.") or "")
-    if run and not run.pack then layoutSlots(nil) end
+    -- between packs the slots stay up so the last enemy can play its death fade;
+    -- the next "spawn" lays them out again. Only clear them once the cat stops.
+    if run and not run.pack and (not active or away) then layoutSlots(nil) end
   end
 
   local refreshT = 0
@@ -378,7 +393,8 @@ TCF.UI.Builders.adventure = function(page, win)
         if info then
           castFx(info, function(i)
             local f = i and slots[i]
-            if f and f:IsShown() and run.pack and run.pack[i] and run.pack[i].alive then return 532 + f.baseX - 55, 80 end
+            -- a just-killed enemy still gets the killing blow; long-faded corpses are skipped
+            if f and f:IsShown() and f.mob and (f.mob.alive or not f.gone) then return 532 + f.baseX - 55, 80 end
           end)
           for _, b in ipairs(abtns) do if b.a and b.a.key == info.key then b.flashA = 1; b.flash:SetAlpha(1) end end
         end
@@ -395,14 +411,17 @@ TCF.UI.Builders.adventure = function(page, win)
     catBar:SetMinMaxValues(0, run.catMax); catBar:SetValue(max(0, run.catHP))
     catBar.text:SetText(short(max(0, run.catHP)) .. " / " .. short(run.catMax) .. (run.shield > 0 and (" |cff99ccff+" .. short(run.shield) .. "|r") or ""))
     for i, f in ipairs(slots) do
-      local m = run.pack and run.pack[i]
+      local m = f.mob
       if f:IsShown() and m then
         f.bar:SetMinMaxValues(0, m.max); f.bar:SetValue(max(0, m.hp))
         f.bar.text:SetText(short(max(0, m.hp)))
         f.shake = max(0, f.shake - e)
         f:ClearAllPoints()
         f:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", f.baseX + (f.shake > 0 and random(-4, 4) or 0), 8)
-        if f.fade > 0 then f.fade = max(0, f.fade - e); f:SetAlpha(min(1, f.fade * 1.5)) end
+        if f.fade > 0 then
+          f.fade = max(0, f.fade - e); f:SetAlpha(min(1, f.fade * 1.5))
+          if f.fade == 0 then f.gone = true end -- faded out: AoE effects skip it now
+        end
         if f.anim > 0 then f.anim = f.anim - e; if f.anim <= 0 and m.alive then pcall(f.model.SetAnimation, f.model, ANIM_STAND) end end
         if f.modelCheck then
           f.modelCheck = f.modelCheck - e

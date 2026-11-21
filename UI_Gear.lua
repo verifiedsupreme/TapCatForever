@@ -14,23 +14,24 @@ function TCF.GearSummary(it)
   return table.concat(parts, "  ")
 end
 
--- Power change if this item replaced what's in its slot (best of its possible slots)
+-- Power change if this item were equipped with the Equip button (same slot choice)
 function TCF:GearUpgrade(it, class)
   class = class or self.db.class
   if not self:GearUsable(it, class) then return nil end
   local base = self:CombatStats(class).power
-  local best
-  for _, s in ipairs(self:GearTargetSlots(it, class)) do
-    local d = self:CombatStats(class, it, s).power - base
-    if not best or d > best then best = d end
-  end
-  return best
+  return self:CombatStats(class, it, self:BestGearSlot(it, class)).power - base
 end
 
 -- Hover preview: the cat on the left tries the item on
 function TCF.UI.ShowTryOn(win, it)
   if not win.preview then return end
-  win.preview:ApplyAppearance(TCF:GetAppearance(nil, nil, it))
+  local out = TCF:GetAppearance(nil, nil, it)
+  -- a chosen cosmetic would hide the previewed piece: show the item in the slots it changes
+  local with, without = TCF:GearAppearance(nil, it), TCF:GearAppearance()
+  for k, v in pairs(with) do
+    if not without[k] or without[k].id ~= v.id then out[k] = v end
+  end
+  win.preview:ApplyAppearance(out)
 end
 
 function TCF.UI.HideTryOn(win)
@@ -61,12 +62,27 @@ TCF.UI.Builders.gear = function(page, win)
     r.delta = Text(r, "GameFontNormal", nil, "RIGHT"); r.delta:SetPoint("RIGHT", -148, 0)
     r.equip = Button(r, "Equip", 58, 20, function() if r.item then TCF:EquipGear(r.item.id) end end)
     r.equip:SetPoint("RIGHT", -84, 0)
-    r.sell = Button(r, "Sell", 76, 20, function() if r.item then TCF:SellGear(r.item.id) end end)
+    r.sell = Button(r, "Sell", 76, 20, function()
+      local it = r.item
+      if not it then return end
+      -- gear is scarce: ask before selling the only copy of a rare or better item
+      if it.q >= 3 and (TCF:Bag()[it.id] or 0) <= 1 then
+        StaticPopupDialogs.TAPCATFOREVER_SELL_LAST = {
+          text = "Sell your only %s for %s TapCoins?\n\nThis can't be undone.",
+          button1 = "Sell", button2 = CANCEL or "Cancel",
+          OnAccept = function(_, id) if id then TCF:SellGear(id) end end,
+          timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
+        }
+        StaticPopup_Show("TAPCATFOREVER_SELL_LAST", TCF.GearLink(it), TCF.Commas(TCF:GearSellValue(it)), it.id)
+      else
+        TCF:SellGear(it.id)
+      end
+    end)
     r.sell:SetPoint("RIGHT", -6, 0)
     Tip(r.sell, function(tt)
       if not r.item then return end
       tt:AddLine("Sell", 1, 0.82, 0)
-      tt:AddLine(string.format("Sell one spare copy for %d TapCoins. Your last copy and anything a cat is wearing are never sold.", TCF:GearSellValue(r.item)), 1, 1, 1, true)
+      tt:AddLine(string.format("Sells one copy for %d TapCoins. Copies your cat is wearing are kept. You'll be asked first before selling your only copy of a rare or epic item.", TCF:GearSellValue(r.item)), 1, 1, 1, true)
     end)
     local function enter(self)
       if not r.item then return end
@@ -74,7 +90,7 @@ TCF.UI.Builders.gear = function(page, win)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, r.item)
       local d = TCF:GearUpgrade(r.item)
       if d then GameTooltip:AddLine(string.format("Power if equipped: %s%d|r", d >= 0 and "|cff20ff20+" or "|cffff4040", d)) end
-      GameTooltip:AddLine("Sells for " .. TCF:GearSellValue(r.item) .. " TapCoins (spare copies only).", 0.7, 0.7, 0.7)
+      GameTooltip:AddLine("Sells for " .. TCF:GearSellValue(r.item) .. " TapCoins (worn copies are kept).", 0.7, 0.7, 0.7)
       GameTooltip:Show()
     end
     local function leave() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end
@@ -89,14 +105,11 @@ TCF.UI.Builders.gear = function(page, win)
   nextB:SetPoint("LEFT", pageText, "RIGHT", 10, 0)
   local sellAll = Button(page, "Sell unequipped", 130, 22, function()
     local n, coins = TCF:UnequippedGearValue()
-    if n == 0 then TCF:Print("Nothing to sell: everything this cat owns is equipped."); return end
+    if n == 0 then TCF:Print("Nothing to sell: everything this cat owns is equipped.", true); return end
     StaticPopupDialogs.TAPCATFOREVER_SELL_ALL = {
       text = "Sell %s gear you're not wearing for %s TapCoins?\n\nEquipped gear is kept. This can't be undone.",
       button1 = "Sell", button2 = CANCEL or "Cancel",
-      OnAccept = function()
-        for id in pairs(TCF:Bag()) do TCF:SellGear(id, true) end
-        win:Refresh()
-      end,
+      OnAccept = function() TCF:SellAllUnequipped() end,
       timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
     }
     StaticPopup_Show("TAPCATFOREVER_SELL_ALL", n == 1 and "1 piece of" or (n .. " pieces of"), TCF.Commas(coins))
@@ -136,8 +149,7 @@ TCF.UI.Builders.gear = function(page, win)
     end)
     local pagesN = max(1, math.ceil(#list / ROWS))
     win.gearPage = min(max(1, win.gearPage or 1), pagesN)
-    local equippedIds = {}
-    for _, id in pairs(eq) do equippedIds[id] = true end
+    local level = TCF:CD(class).level
     for i, r in ipairs(rows) do
       local it = list[(win.gearPage - 1) * ROWS + i]
       r.item = it
@@ -146,19 +158,22 @@ TCF.UI.Builders.gear = function(page, win)
         r.btn:SetGear(it)
         local n = TCF:Bag()[it.id]
         r.btn.count:SetText(n > 1 and n or "")
+        local worn = TCF.GearEquippedCount(eq, it.id)
+        -- a second ring/trinket/one-hander can be worn too, if you own another copy
+        local canWearMore = worn == 0 or (worn < n and #TCF:GearTargetSlots(it, class) > 1)
         local col = TCF.RARITY[it.q]
-        r.name:SetText("|c" .. col.hex .. it.name .. "|r" .. (equippedIds[it.id] and "  |cff20ff20(equipped)|r" or "")
+        r.name:SetText("|c" .. col.hex .. it.name .. "|r" .. (worn > 0 and "  |cff20ff20(equipped)|r" or "")
           .. ((not TCF:GearSuits(it, class) and TCF:GearUsable(it, class)) and "  |cffff9933(not ideal)|r" or ""))
         r.info:SetText(string.format("|cffffd100%d|r  %s %s  |cff999999%s|r", it.ilvl, TCF.ITEM_TYPE_NAMES[it.sub] or "",
           TCF.ITEM_SLOT_NAMES[it.slot] or "", TCF.GearSummary(it)))
         local d = TCF:GearUpgrade(it)
-        if d and not equippedIds[it.id] then
+        if d and canWearMore then
           r.delta:SetText(d > 0 and ("|cff20ff20+" .. d .. "|r") or d < 0 and ("|cffff4040" .. d .. "|r") or "|cff999999=|r")
         else r.delta:SetText("") end
         local can = TCF:CanEquipGear(it, class)
-        r.equip:SetEnabled(can and not equippedIds[it.id])
-        r.equip:SetText(it.req > TCF:CD(class).level and ("Lv " .. it.req) or "Equip")
-        local spare = (TCF:Bag()[it.id] or 0) - (equippedIds[it.id] and 1 or 0)
+        r.equip:SetEnabled(can and canWearMore)
+        r.equip:SetText(it.req > level and ("Lv " .. it.req) or "Equip")
+        local spare = n - worn
         r.sell:SetText("Sell " .. U.coinStr(TCF:GearSellValue(it), 12))
         r.sell:SetEnabled(spare > 0)
       else

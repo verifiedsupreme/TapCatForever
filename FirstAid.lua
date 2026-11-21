@@ -39,7 +39,7 @@ end
 TCF.BANDAGE_COOLDOWN = 20
 
 TCF.AID_UPGRADES = {
-  { key = "medic",    name = "Hire a Field Medic",  desc = "Keeps crafting your best bandage whenever you have cloth, even offline.", cost = 1e6 },
+  { key = "medic",    name = "Hire a Field Medic",  desc = "Keeps making bandages, even offline: your best one when you have its cloth, otherwise the best one you have cloth for.", cost = 1e6 },
   { key = "contract", name = "Cloth Contract",      desc = "Buys cloth for the field medic automatically (costs Trade Gold).",      cost = 5e6 },
   { key = "fast",     name = "Steady Hands",        desc = "Bandages are made twice as fast.",                                       cost = 2e7 },
 }
@@ -83,6 +83,30 @@ local function bestRecipe(self)
   return best
 end
 
+local function clothOf(b)
+  for _, c in ipairs(TCF.CLOTH) do if c[1] == b[4] then return c end end
+end
+
+-- the Cloth Contract buys 10 bandages' worth of cloth for b
+local function contractBuy(self, a, s, b)
+  if not (a.up.contract and self:SpendGold(clothOf(b)[4] * b[5] * 10)) then return false end
+  s.mats[b[4]] = (s.mats[b[4]] or 0) + b[5] * 10
+  return true
+end
+
+-- what the field medic makes next: your best bandage if you have its cloth (or the
+-- contract can buy it), otherwise the best bandage you do have cloth for
+local function medicRecipe(self, a, s)
+  local best = bestRecipe(self)
+  if not best then return end
+  if (s.mats[best[4]] or 0) >= best[5] or contractBuy(self, a, s, best) then return best end
+  local skill = self:ProfSkill("firstaid")
+  for k = #TCF.BANDAGES, 1, -1 do
+    local b = TCF.BANDAGES[k]
+    if skill >= b[7] and (s.mats[b[4]] or 0) >= b[5] then return b end
+  end
+end
+
 local function advance(self, dt, offline)
   local a, s = A(self)
   local guard = 0
@@ -91,31 +115,28 @@ local function advance(self, dt, offline)
     guard = guard + 1
     if not a.queue or a.queue.left <= 0 then
       if not a.up.medic then a.queue = nil; return end
-      local b = bestRecipe(self)
-      if not b then return end
-      a.queue = { key = b[1], left = 1000000, p = 0, auto = true }
+      local b = medicRecipe(self, a, s)
+      if not b then a.queue = nil; return end
+      -- one bandage at a time, so the medic picks again after each one
+      a.queue = { key = b[1], left = 1, p = 0, auto = true }
     end
     local b = TCF.BANDAGE_BY_KEY[a.queue.key]
-    if (s.mats[b[4]] or 0) < b[5] then
-      -- out of cloth: the contract buys more, otherwise wait
-      local cloth
-      for _, c in ipairs(TCF.CLOTH) do if c[1] == b[4] then cloth = c end end
-      if not (a.up.contract and self:SpendGold(cloth[4] * b[5] * 10)) then
-        if a.queue.auto then a.queue = nil end
-        return
+    if (s.mats[b[4]] or 0) < b[5] and not contractBuy(self, a, s, b) then
+      -- out of cloth: the field medic switches to another bandage, a manual queue waits
+      if not a.queue.auto then return end
+      a.queue = nil
+    else
+      local need = b[6] / (a.up.fast and 2 or 1)
+      local step = min(remaining, (1 - a.queue.p) * need)
+      a.queue.p = a.queue.p + step / need
+      remaining = remaining - step
+      if a.queue.p >= 1 - 1e-9 then
+        s.mats[b[4]] = s.mats[b[4]] - b[5]
+        s.mats[b[1]] = (s.mats[b[1]] or 0) + 1
+        a.queue.p = 0
+        a.queue.left = a.queue.left - 1
+        self:ProfSkillUp("firstaid", b[7])
       end
-      s.mats[b[4]] = (s.mats[b[4]] or 0) + b[5] * 10
-    end
-    local need = b[6] / (a.up.fast and 2 or 1)
-    local step = min(remaining, (1 - a.queue.p) * need)
-    a.queue.p = a.queue.p + step / need
-    remaining = remaining - step
-    if a.queue.p >= 1 - 1e-9 then
-      s.mats[b[4]] = s.mats[b[4]] - b[5]
-      s.mats[b[1]] = (s.mats[b[1]] or 0) + 1
-      a.queue.p = 0
-      a.queue.left = a.queue.left - 1
-      self:ProfSkillUp("firstaid", b[7])
     end
   end
 end

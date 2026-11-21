@@ -143,17 +143,27 @@ local function iconOf(it)
   return it and it.icon and string.lower(it.icon)
 end
 
--- the drawing keys for a look item: gear -> its icon drawing; cosmetic -> its tintable layers
-local function artOf(it)
+-- which drawing kinds each slot accepts. Real items often reuse another slot's icon (a belt icon
+-- on a helm, a hood icon on a cape); that drawing sits where its own slot belongs, so refuse it.
+local SLOT_KIND = { head = { head = true }, chest = { chest = true }, back = { back = true }, main = { weapon = true },
+  off = { shield = true, held = true, weapon = true }, offw = { weapon = true } }
+
+-- the drawing keys for a look item: gear -> its icon drawing when it has one that fits the slot,
+-- otherwise (most bows, guns and capes) the cosmetic version tinted with the gear's colours
+local function artOf(it, slot)
   if not it then return nil end
-  if it.gear then local k = iconOf(it); return k and TCF.VEC[k] and k, nil end
+  if it.gear then
+    local k = iconOf(it)
+    local e, ok = k and TCF.VEC[k], SLOT_KIND[slot]
+    if e and (not ok or ok[e[8]]) then return k, nil end
+  end
   local base = it.art and ("cos:" .. it.art .. ":")
   if base and (TCF.VEC[base .. "a"] or TCF.VEC[base .. "f"]) then return nil, base end
 end
 
 -- fill a three-part slot (prefix_a/_b/_f) from a look item
 function Cat:VecSlot(prefix, it, flip)
-  local gearKey, cosBase = artOf(it)
+  local gearKey, cosBase = artOf(it, prefix)
   if gearKey then
     self:VecSet(prefix .. "_f", gearKey, flip); self.vt[prefix .. "_f"]:SetVertexColor(1, 1, 1)
     self:VecSet(prefix .. "_a", nil); self:VecSet(prefix .. "_b", nil)
@@ -168,8 +178,8 @@ function Cat:VecSlot(prefix, it, flip)
 end
 
 -- what kind of drawing an item is (weapon, shield, held, ...)
-local function kindOf(it)
-  local gearKey, cosBase = artOf(it)
+local function kindOf(it, slot)
+  local gearKey, cosBase = artOf(it, slot)
   local e = gearKey and TCF.VEC[gearKey] or cosBase and (TCF.VEC[cosBase .. "a"] or TCF.VEC[cosBase .. "f"])
   return e and e[8]
 end
@@ -185,13 +195,16 @@ function Cat:VecApply(look)
   self.rainbowFur = fur.rainbow
   self:VecTint(fur.c1[1], fur.c1[2], fur.c1[3], fur.alpha or 1)
   self:VecMarkings(look, fur)
+  -- small pieces: only a drawing made for this very slot (no belt on the ring finger)
   for _, slot in ipairs({ "neck", "belt", "ring" }) do
     local it = look[slot]
-    self:VecSet(slot, it and it.gear and iconOf(it))
+    local k = it and it.gear and iconOf(it)
+    local e = k and TCF.VEC[k]
+    self:VecSet(slot, e and e[8] == slot and k or nil)
   end
   for _, slot in ipairs({ "head", "chest", "back", "acc", "main" }) do self:VecSlot(slot, look[slot]) end
   -- off hand: weapons are mirrored into the left paw; shields and held items have their own place
-  if kindOf(look.off) == "weapon" then
+  if kindOf(look.off, "off") == "weapon" then
     self:VecSlot("offw", look.off, true); self:VecSlot("off", nil)
   else
     self:VecSlot("off", look.off); self:VecSlot("offw", nil)

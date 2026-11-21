@@ -164,6 +164,15 @@ function TCF:OpRevenue(prof, i)
   return OPS[i].rev * S(self).ops.mining[i].n * self:UpgradeMult(prof, i)
 end
 
+-- Trade Gold per second from every mine you own, as if all veins were running (before Renown)
+function TCF:MiningIncome()
+  local s, g = S(self), 0
+  for i = 1, 6 do
+    if s.ops.mining[i].n > 0 then g = g + self:OpRevenue("mining", i) / self:OpCycleTime("mining", i) end
+  end
+  return g
+end
+
 function TCF:OpMatsPerCycle(prof, i)
   local n = S(self).ops.mining[i].n
   return 1 + (n >= 100 and 1 or 0) + (n >= 300 and 1 or 0)
@@ -180,8 +189,10 @@ function TCF:PickCycleShare(i) return min(1, TCF.PICK_SECONDS * self:PickMult() 
 function TCF:PickGold(i)
   local n = S(self).ops.mining[i].n
   local share = OPS[i].rev * n * self:UpgradeMult("mining", i) * self:PickCycleShare(i)
-  -- never less than a quarter of one mine's cycle, so you can dig your way to the first mine
-  local floorGold = OPS[i].rev * 0.25 * self:PickMult() * self:UpgradeMult("mining", i)
+  -- Copper only: never less than a quarter of one mine's cycle, so you can dig your way to
+  -- the first mine. Other veins need a mine first and use the cycle share alone (a floor
+  -- there would let a few swings on a high vein outpay all of its mines).
+  local floorGold = (i == 1) and OPS[1].rev * 0.25 * self:PickMult() * self:UpgradeMult("mining", 1) or 0
   return max(share, floorGold)
 end
 function TCF:PickOre(lvl) return 1 + floor((lvl or self:PickLevel()) / 15) end
@@ -256,7 +267,7 @@ function TCF:HireForeman(prof, i)
   local st = s.ops.mining[i]
   if st.mgr or st.n < 1 or not self:SpendGold(OPS[i].foreman) then return false end
   st.mgr = true; st.run = true
-  self:Print(TCF.MINING_OPS[i][1] .. " is now automated.")
+  self:Print(TCF.MINING_OPS[i][1] .. " is now automated.", true)
   self:MarkDirty()
   return true
 end
@@ -353,10 +364,10 @@ function TCF:PrestigeTrade()
   for _, mod in ipairs(TCF.PROF_MODULES) do if mod.reset then mod.reset(self, s) end end
   local coins = min(1000, gain * 3)
   self:AddCoins(coins)
-  self:Print(string.format("Your cat sold its business for |cffffd100%d Renown|r (+%d%% profits forever) and %d TapCoins!", gain, gain * 2, coins))
+  self:Print(string.format("Your cat sold its business for |cffffd100%d Renown|r (+%d%% profits forever) and %d TapCoins!", gain, gain * 2, coins), true)
   for _, p in ipairs(TCF.PROFESSIONS) do
     if p.renown > 0 and s.renownEver >= p.renown and s.renownEver - gain < p.renown then
-      self:Print("You can now learn |cffffd100" .. p.name .. "|r!")
+      self:Print("You can now learn |cffffd100" .. p.name .. "|r!", true)
     end
   end
   self:PlaySound("ach")

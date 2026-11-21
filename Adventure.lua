@@ -15,10 +15,14 @@ TCF.ADV = {
   K = { hp = 5.5, hpExp = 1.12, dps = 0.9, dpsExp = 1.0, raidHp = 1.085, raidDps = 1.065 },
   BOSS = { hp = 5, dps = 2.4 },
   RAIDBOSS = { hp = 6, dps = 2.0 },
-  -- chest odds are low on purpose: players idle here for months (~3 chests/hour)
-  TRASH_CHEST = 0.003,  -- chance per trash enemy of a Cat Treat Pouch
-  BOSS_CHEST = 0.06,    -- dungeon boss: chance of a Cat Treat Pouch
-  RAID_CHEST = 0.10,    -- raid boss: chance of an Adventurer's Strongbox
+  -- Chests are paced by time spent fighting, not by kill count, so fast farming
+  -- of an easy zone doesn't flood you (players idle here for months).
+  -- A chest clock counts seconds while a fight is on; once it passes CHEST_MIN,
+  -- each boss kill has a growing chance ((clock - MIN) / RAMP) to drop a chest,
+  -- which resets the clock. Dungeons/zones: a Cat Treat Pouch every ~18 min of
+  -- fighting (~3/hour). Raids: an Adventurer's Strongbox every ~30 min.
+  CHEST_MIN = 900, CHEST_RAMP = 600,
+  RAID_CHEST_MIN = 1500, RAID_CHEST_RAMP = 900,
 }
 local K, ADV = TCF.ADV.K, TCF.ADV
 
@@ -63,8 +67,12 @@ function TCF:AdvPack(tier, stage)
   else
     local n = 1 + (stage % 3 == 1 and 1 or 0) + ((stage > 2 and random() < 0.5) and 1 or 0)
     n = min(3, n)
+    -- different creatures in one pack whenever the zone has enough of them
+    local pickFrom = {}
+    for i = 1, #t.mobs do pickFrom[i] = t.mobs[i] end
     for i = 1, n do
-      local m = t.mobs[random(#t.mobs)]
+      local m = table.remove(pickFrom, random(#pickFrom))
+      if #pickFrom == 0 then for k = 1, #t.mobs do pickFrom[k] = t.mobs[k] end end
       pack[i] = { name = m[1], display = m[2], level = D, max = floor(hp * (0.85 + random() * 0.3)), dmg = dps * ADV.MOB_SWING }
     end
   end
@@ -97,9 +105,9 @@ function TCF:AdvSpawn()
   run.pack, run.level = self:AdvPack(adv.tier, adv.stage)
   run.target = 1
   run.dots = {}
-  run.t = 0
-  run.cds = {}
-  run.stunUntil = 0
+  -- run.t keeps counting across packs: buffs, cooldowns and bandages all use it,
+  -- so resetting it here would leave buffs up forever and refresh every cooldown
+  run.stunUntil = run.t
   self:AdvEvent("spawn")
 end
 
@@ -255,16 +263,17 @@ function TCF:AdvMobKilled(m)
       self:AddCoins(coins)
       self:AwardChest(t.raid and "heroic" or "strong", t.name .. " cleared")
       self:AdvLog(string.format("|cff20ff20%s cleared for the first time!|r +%d TapCoins and a chest", t.name, coins))
-    elseif random() < (t.raid and ADV.RAID_CHEST or ADV.BOSS_CHEST) then
-      local chest = t.raid and "strong" or "pouch"
-      self:AwardChest(chest, m.name)
-      self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY[chest].name .. " from " .. m.name)
+    else
+      local lo, ramp = ADV.CHEST_MIN, ADV.CHEST_RAMP
+      if t.raid then lo, ramp = ADV.RAID_CHEST_MIN, ADV.RAID_CHEST_RAMP end
+      if random() < min(1, max(0, ((adv.chestClock or 0) - lo) / ramp)) then
+        adv.chestClock = 0
+        local chest = t.raid and "strong" or "pouch"
+        self:AwardChest(chest, m.name)
+        self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY[chest].name .. " from " .. m.name)
+      end
     end
   else
-    if random() < ADV.TRASH_CHEST then
-      self:AwardChest("pouch", m.name)
-      self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY.pouch.name)
-    end
     -- profession ingredients: cloth for First Aid, meat for Cooking
     if self.DropCloth then self:DropCloth(m.level) end
     if self.DropMeat then self:DropMeat(m.level) end
@@ -307,8 +316,18 @@ function TCF:AdvDefeat()
   local m = pickTarget(run)
   local line = string.format("|cffff6060%s was too strong.|r Your cat retreats to heal. |cff999999(Better gear, levels and abilities help.)|r", m and m.name or "The enemy")
   if not self.advLog or self.advLog[1] ~= line then self:AdvLog(line) end
-  adv.stage = max(1, adv.stage - 1)
-  if adv.stage % 2 == 0 then adv.stage = max(1, adv.stage - 1) end -- back to the last trash pack
+  -- with Auto-advance off the cat retries the same stage (it was told to farm here)
+  if adv.auto then
+    if adv.stage == 1 and adv.tier > 1 then
+      -- losing at the very start of a zone: fall back to the previous zone's last trash pack
+      adv.tier = adv.tier - 1
+      adv.stage = max(1, self:AdvStages(adv.tier) - 1)
+      self:AdvLog("Your cat falls back to " .. self:AdvTier(adv.tier).name .. ".")
+    else
+      adv.stage = max(1, adv.stage - 1)
+      if adv.stage % 2 == 0 then adv.stage = max(1, adv.stage - 1) end -- back to the last trash pack
+    end
+  end
   run.catHP = run.catMax
   run.pack = nil
   run.respawn = 2.5
@@ -338,6 +357,8 @@ function TCF:AdvTick(dt)
   end
   if not run.pack then return end
   run.t = run.t + dt
+  local cadv = self:CD().adv
+  cadv.chestClock = (cadv.chestClock or 0) + dt -- only counts while a fight is on
   for key, d in pairs(run.dots) do
     if d["until"] < run.t then run.dots[key] = nil
     else

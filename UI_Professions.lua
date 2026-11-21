@@ -128,8 +128,11 @@ TCF.UI.Builders.professions = function(page, win)
     end)
     Tip(r.pick, function(tt)
       tt:AddLine(TCF:PickName(), 1, 0.82, 0)
+      -- show what a swing really pays against a full cycle (Copper's starter floor can beat the share)
+      local cycle = TCF:OpRevenue("mining", i)
+      local share = cycle > 0 and TCF:PickGold(i) / cycle or TCF:PickCycleShare(i)
       tt:AddLine(string.format("Click to mine %s by hand: %s per swing (%d%% of a full cycle of all your mines here) and a %d%% chance of ore%s.", TCF.MINING_OPS[i][1],
-        TCF.GoldStr(TCF:PickGold(i)), floor(TCF:PickCycleShare(i) * 100 + 0.5), TCF.PICK_ORE_CHANCE * 100, TCF:PickOre() > 1 and (" (x" .. TCF:PickOre() .. " rolls)") or ""), 1, 1, 1, true)
+        TCF.GoldStr(TCF:PickGold(i)), floor(share * 100 + 0.5), TCF.PICK_ORE_CHANCE * 100, TCF:PickOre() > 1 and (" (x" .. TCF:PickOre() .. " rolls)") or ""), 1, 1, 1, true)
       tt:AddLine(string.format("One swing every %.2fs.", TCF:PickCooldown()), 0.7, 0.7, 0.7)
       tt:AddLine("Upgrade your pickaxe with the button below the veins.", 0.7, 0.7, 0.7, true)
     end)
@@ -256,9 +259,12 @@ TCF.UI.Builders.professions = function(page, win)
     p:SetScript("OnClick", function()
       local g = TCF:GardenState()
       local ok, why
-      if i > g.n then
+      if i == g.n + 1 then
         ok = TCF:BuyPlot()
-        if not ok then why = "Not enough Trade Gold for this plot (" .. TCF.GoldStr(TCF:PlotCost(i)) .. ")." end
+        if not ok then why = "Not enough Trade Gold for this plot (" .. TCF.GoldStr(TCF:PlotCost(g.n + 1)) .. ")." end
+      elseif i > g.n + 1 then
+        -- plots are bought in order: a locked plot further out does nothing
+        ok, why = false, "Buy plot " .. (g.n + 1) .. " first."
       else ok, why = TCF:PlotClick(i, win.seedSel) end
       win.gardenMsg = (not ok and why) and { "|cffff5050" .. why .. "|r", GetTime() + 4 } or nil
       win:Refresh()
@@ -353,7 +359,13 @@ TCF.UI.Builders.professions = function(page, win)
     if a.queue and a.queue.left > 0 then
       local bd = TCF.BANDAGE_BY_KEY[a.queue.key]
       queueBar:SetMinMaxValues(0, 1); queueBar:SetValue(a.queue.p)
-      queueBar.text:SetText("Making " .. bd[2] .. (a.queue.auto and " (field medic)" or ("  -  " .. a.queue.left .. " left")))
+      -- a manual queue waits when its cloth runs out and the contract can't buy more
+      -- (not owned, or not enough Trade Gold): say so
+      local cloth
+      for _, c in ipairs(TCF.CLOTH) do if c[1] == bd[4] then cloth = c end end
+      local short = (s.mats[bd[4]] or 0) < bd[5] and not (a.up.contract and cloth and s.gold >= cloth[4] * bd[5] * 10)
+      queueBar.text:SetText("Making " .. bd[2] .. (a.queue.auto and " (field medic)" or ("  -  " .. a.queue.left .. " left"))
+        .. (short and ("  |cffff5050(needs " .. TCF.MAT_BY_KEY[bd[4]].name .. ")|r") or ""))
     else
       queueBar:SetValue(0); queueBar.text:SetText("|cffaaaaaaNothing being made. Pick a bandage below.|r")
     end
@@ -490,7 +502,7 @@ TCF.UI.Builders.professions = function(page, win)
   local buffText = Text(cookView, "GameFontNormalSmall", nil, "LEFT"); buffText:SetPoint("TOPLEFT", 12, -112); buffText:SetWidth(520)
   local crows = {}
   for i, r in ipairs(TCF.COOK_RECIPES) do
-    local row = CreateFrame("Frame", nil, cookView); row:SetSize(532, 20); row:SetPoint("TOPLEFT", 6, -128 - (i - 1) * 21)
+    local row = CreateFrame("Frame", nil, cookView); row:SetSize(532, 18); row:SetPoint("TOPLEFT", 6, -128 - (i - 1) * 19)
     row.icon = row:CreateTexture(nil, "ARTWORK"); row.icon:SetSize(18, 18); row.icon:SetPoint("LEFT", 4, 0)
     row.name = Text(row, "GameFontHighlightSmall", nil, "LEFT"); row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0); row.name:SetWidth(300)
     row.count = Text(row, "GameFontNormalSmall", nil, "RIGHT"); row.count:SetPoint("RIGHT", -184, 0)
@@ -593,7 +605,7 @@ TCF.UI.Builders.professions = function(page, win)
   local renView = View()
   local renInfo = Text(renView, "GameFontHighlight", nil, "LEFT"); renInfo:SetPoint("TOPLEFT", 16, -10); renInfo:SetWidth(520); renInfo:SetSpacing(4)
   local renBtn = Button(renView, "Sell the business", 180, 26, function()
-    if IsShiftKeyDown() then TCF:PrestigeTrade() else TCF:Print("Shift-click to sell everything you bought with Trade Gold for Renown.") end
+    if IsShiftKeyDown() then TCF:PrestigeTrade() else TCF:Print("Shift-click to sell everything you bought with Trade Gold for Renown.", true) end
   end)
   renBtn:SetPoint("TOPLEFT", 16, -250)
   local function refreshRenown()

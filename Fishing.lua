@@ -47,29 +47,51 @@ TCF.FishState = F
 
 function TCF:FishLuck() return self.FoodBuff and self:FoodBuff("fishing") or 1 end
 
+-- Rare catch odds. The buddy fishes all day (and offline), so his rare odds are much
+-- lower and food luck doesn't help him; luck only boosts your own Reel in! catches.
+TCF.FISH_ODDS = { pinchy = 0.004, treasure = 0.011, buddyPinchy = 0.0005, buddyTreasure = 0.0015 }
+-- Mr. Pinchy's gold wish: this many seconds of your mines' output
+TCF.PINCHY_GOLD_SECONDS = 600
+
+-- a chest from fishing; with a bag (offline catch-up) it is collected quietly for one summary line
+local function giveChest(self, key, source, bag)
+  if bag then
+    self.db.keys[key] = (self.db.keys[key] or 0) + 1
+    bag[key] = (bag[key] or 0) + 1
+    self:MarkDirty()
+  else self:AwardChest(key, source) end
+end
+
 -- One catch at the current spot. Returns name, kind ("fish", "junk", "treasure", "pinchy")
-function TCF:CatchFish(byBuddy)
+function TCF:CatchFish(byBuddy, bag)
   local f, s = F(self)
   local spot = TCF.FISHING_SPOTS[f.spot]
-  local luck = self:FishLuck()
+  local odds, luck = TCF.FISH_ODDS, self:FishLuck()
+  local pPinchy = byBuddy and odds.buddyPinchy or odds.pinchy * luck
+  local pTreasure = byBuddy and odds.buddyTreasure or odds.treasure * luck
   local r = random()
   local key, kind
-  if r < 0.004 * luck then key, kind = "pinchy", "pinchy"
-  elseif r < 0.015 * luck then kind = "treasure"
+  if r < pPinchy then key, kind = "pinchy", "pinchy"
+  elseif r < pPinchy + pTreasure then kind = "treasure"
   elseif r < 0.10 then key, kind = "boot", "junk"
   else key, kind = spot.fish[random(#spot.fish)], "fish" end
   if key then s.mats[key] = (s.mats[key] or 0) + 1 end
   self:ProfSkillUp("fishing", spot.skill)
   if kind == "treasure" then
-    self:AwardChest("pouch", "Message in a Bottle")
+    giveChest(self, "pouch", "Message in a Bottle", bag)
     return "Message in a Bottle", kind
   elseif kind == "pinchy" then
     -- Mr. Pinchy grants a wish
-    local w = random(3)
-    if w == 1 then self:AwardChest("strong", "Mr. Pinchy's wish")
-    elseif w == 2 then self:AddCoins(25)
-    else self:EarnGold(max(1e4, s.gold * 0.5)) end
-    if not byBuddy then self:Print("You caught |cffa335eeMr. Pinchy|r! He grants you a wish.") end
+    local w, wish = random(3)
+    -- the chest announces itself (or joins the offline summary), so it needs no wish line
+    if w == 1 then giveChest(self, "strong", "Mr. Pinchy's wish", bag)
+    elseif w == 2 then self:AddCoins(25); wish = "25 TapCoins"
+    else
+      -- gold based on what your mines make, not on the gold you hold (that would snowball)
+      local g = self:EarnGold(max(1e4, self:MiningIncome() * TCF.PINCHY_GOLD_SECONDS))
+      wish = TCF.GoldStr(g) .. " Trade Gold"
+    end
+    if not byBuddy and wish then self:Print("You caught |cffa335eeMr. Pinchy|r! His wish gives you " .. wish .. ".", true) end
     return "Mr. Pinchy", kind
   end
   return TCF.MAT_BY_KEY[key].name, kind
@@ -132,10 +154,19 @@ local function advance(self, dt, offline)
     local every = TCF.BUDDY_LEVELS[f.buddy].every
     f.bp = (f.bp or 0) + dt
     local guard = 0
+    local bag = offline and {} or nil
     while f.bp >= every and guard < 2000 do
       guard = guard + 1
       f.bp = f.bp - every
-      self:CatchFish(true)
+      self:CatchFish(true, bag)
+    end
+    -- offline catch-up: one line for every chest the buddy fished up
+    if bag and next(bag) then
+      local parts = {}
+      for _, ch in ipairs(TCF.CHESTS) do
+        if bag[ch.key] then parts[#parts + 1] = "|cff1eff00" .. ch.name .. "|r x" .. bag[ch.key] end
+      end
+      self:Print("While you were away your fishing buddy found " .. table.concat(parts, ", ") .. ". Open them from your Treasure Bag.")
     end
   end
   if not offline then self:FishUpdate(dt) end

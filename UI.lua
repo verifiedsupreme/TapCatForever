@@ -379,6 +379,20 @@ function TCF:CreateHUD()
     tt:AddLine("Ctrl+wheel: size   Shift+wheel: opacity", 0.8, 0.8, 0.8)
   end)
 
+  -- A wheel-enabled frame swallows every scroll, so the wheel is only taken while Ctrl or
+  -- Shift is held; plain scrolls over the cat still reach the camera zoom.
+  function f:UpdateWheel()
+    local want = self.interactive and (IsControlKeyDown() or IsShiftKeyDown()) and true or false
+    if want ~= self.wheelOn and self.EnableMouseWheel then self.wheelOn = want; self:EnableMouseWheel(want) end
+  end
+  if pcall(f.RegisterEvent, f, "MODIFIER_STATE_CHANGED") then
+    f:SetScript("OnEvent", function(s) s:UpdateWheel() end)
+  else
+    -- no modifier event in this client: check the keys only while the mouse is over the cat
+    f:HookScript("OnEnter", function(s) s:SetScript("OnUpdate", s.UpdateWheel) end)
+    f:HookScript("OnLeave", function(s) s:SetScript("OnUpdate", nil); s:UpdateWheel() end)
+  end
+
   function f:ResetPosition()
     ui.point = { "BOTTOM", "BOTTOM", 0, 160 }
     self:ApplySettings()
@@ -389,11 +403,17 @@ function TCF:CreateHUD()
     self:SetAlpha(ui.alpha)
     -- text keeps its own size no matter how small the cat is
     self.info:SetScale((ui.textScale or 1) / ui.scale)
-    -- text block below the cat (default) or above it
-    self.info:ClearAllPoints()
+    -- text block below the cat or above it (default). The cat moves to the other end of the
+    -- frame so the frame always covers cat + text: no empty click-eating strip, and the
+    -- screen clamp keeps the text on screen too. With no text shown the frame shrinks to the cat.
+    local showInfo = not ui.catOnly
+    self:SetHeight((showInfo and (ui.showLevel or ui.showXP or ui.showTaps or ui.showCoins)) and CAT_SIZE + 40 or CAT_SIZE)
+    self.info:ClearAllPoints(); cat.frame:ClearAllPoints()
     if ui.textAbove then
+      cat.frame:SetPoint("BOTTOM", self, "BOTTOM", 0, 0)
       self.info:SetPoint("BOTTOM", cat.frame, "TOP", 0, 4)
     else
+      cat.frame:SetPoint("TOP", self, "TOP", 0, 0)
       self.info:SetPoint("TOP", cat.frame, "BOTTOM", 0, -4)
     end
     self:ClearAllPoints()
@@ -401,9 +421,9 @@ function TCF:CreateHUD()
     self:SetPoint(p[1], UIParent, p[2], p[3], p[4])
     self:SetShown(ui.shown)
     local interactive = not (ui.locked and ui.clickThrough)
+    self.interactive = interactive
     self:EnableMouse(interactive)
-    if self.EnableMouseWheel then self:EnableMouseWheel(interactive) end
-    local showInfo = not ui.catOnly
+    self:UpdateWheel()
     self.level:SetShown(showInfo and ui.showLevel)
     self.xp:SetShown(showInfo and ui.showXP)
     self.stats:SetShown(showInfo and (ui.showTaps or ui.showCoins))
@@ -616,8 +636,8 @@ function TCF:CreateWindow()
     c:SetScript("OnClick", function(s)
       local it = s.item
       if it and it.slot == "skin" and not TCF.db.owned[it.id] then
-        if not it.skinPrice then TCF:Print(it.name .. (it.skinAch and " is an achievement reward (see its tooltip)." or " can only be found as a rare boss drop.")) return end
-        if TCF.db.coins < it.skinPrice then TCF:Print("You need " .. TCF.Commas(it.skinPrice) .. " TapCoins for " .. it.name .. ".") return end
+        if not it.skinPrice then TCF:Print(it.name .. (it.skinAch and " is an achievement reward (see its tooltip)." or " can only be found as a rare boss drop."), true) return end
+        if TCF.db.coins < it.skinPrice then TCF:Print("You need " .. TCF.Commas(it.skinPrice) .. " TapCoins for " .. it.name .. ".", true) return end
         if StaticPopup_Show then
           StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN = StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN or {
             text = "Buy the %s skin for %s TapCoins?", button1 = YES or "Yes", button2 = NO or "No",
@@ -653,6 +673,9 @@ function TCF:CreateWindow()
   local unequip = Button(wd, "Show real gear", 120, 22, function() TCF:Unequip(win.slot) end)
   unequip:SetPoint("BOTTOMLEFT", 12, 12)
   local collected = Text(wd, "GameFontDisableSmall", nil, "RIGHT"); collected:SetPoint("BOTTOMRIGHT", -14, 18)
+  -- shown in the middle of the empty grid (not in the page line, where it would push the arrows onto the buttons)
+  local emptyText = Text(wd, "GameFontHighlight", "|cff888888Nothing collected for this slot yet.\nOpen chests, craft, or visit the Shop.|r")
+  emptyText:SetPoint("CENTER", 0, 0); emptyText:SetWidth(420)
   wd:EnableMouseWheel(true)
   wd:SetScript("OnMouseWheel", function(_, d) win.page = max(1, (win.page or 1) - d); win:RefreshWardrobe() end)
 
@@ -701,7 +724,9 @@ function TCF:CreateWindow()
     unequip:SetEnabled(self.slot ~= "fur")
     unequip:SetText(self.slot == "skin" and "Remove skin" or "Show real gear")
     collected:SetText(string.format("%d collected", owned))
-    if #list == 0 then pageText:SetText("|cff888888Nothing collected for this slot yet. Open chests, craft, or visit the Shop.|r") end
+    local empty = #list == 0
+    emptyText:SetShown(empty)
+    pageText:SetShown(not empty); prev:SetShown(not empty); nextB:SetShown(not empty)
   end
 
   ------------------------------------------------ Quests
@@ -729,7 +754,7 @@ function TCF:CreateWindow()
   for i = 1, 3 do QuestRow(-40 - (i - 1) * 70) end
   QuestRow(-288)
   local qHelp = Text(qp, "GameFontDisableSmall", nil, "LEFT"); qHelp:SetPoint("BOTTOMLEFT", 16, 12); qHelp:SetWidth(500)
-  qHelp:SetText("Quests are your main source of TapCoins. Three daily quests (each with a free Cat Treat Pouch) appear every day, and a bigger weekly quest (with a free Adventurer's Strongbox) every Tuesday. Open free chests in the Shop.")
+  qHelp:SetText("Quests are your main source of TapCoins. Three daily quests (each with a free Cat Treat Pouch) appear every day, and a bigger weekly quest (with a free Adventurer's Strongbox) every Tuesday. Open free chests from the Treasure Bag (the Bag button in the Shop or at the top of this window).")
 
   function win:RefreshQuests()
     TCF:EnsureQuests()
@@ -824,8 +849,9 @@ function TCF:CreateWindow()
     c.chest = ch
     chestCards[i] = c
   end
+  local gearPct = floor((TCF.CHEST_GEAR_CHANCE or 0.9) * 100 + 0.5)  -- same odds as TCF:OpenChest
   local dungeonText = Text(sh, "GameFontHighlightSmall", nil, "LEFT"); dungeonText:SetPoint("TOPLEFT", 16, -326); dungeonText:SetWidth(520)
-  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Daily quests give a Cat Treat Pouch, the weekly quest and every 5 class levels an Adventurer's Strongbox, and zone clears and expeditions can give any chest. Chests hold real gear (65%) or cosmetics (35%). |cffffd100Cat skins|r are sold in the Appearance tab (Skin slot).")
+  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Daily quests give a Cat Treat Pouch, the weekly quest and every 5 class levels an Adventurer's Strongbox, and zone clears and expeditions can give any chest. Chests hold gear (" .. gearPct .. "%) or a cosmetic (" .. (100 - gearPct) .. "%); Heroic Caches can also hold a cat skin. |cffffd100Cat skins|r are sold in the Appearance tab (Skin slot).")
   -- racial heritage offer for the current character's race
   local her = Panel(sh, 528, 58, 0.9); her:SetPoint("TOPLEFT", 14, -384)
   her.cell = ItemCell(her, 46); her.cell:SetPoint("LEFT", 6, 0)
@@ -936,14 +962,16 @@ function TCF:CreateWindow()
         r.bar:SetStatusBarColor(got and 0.2 or 0.15, got and 0.8 or 0.45, got and 0.2 or 0.9)
         r.barText:SetText(got and "Complete" or (TCF.Commas(cur) .. " / " .. TCF.Commas(a.goal)))
         local rw = coinStr(a.coins, 12)
-        if a.item then rw = rw .. " + " .. TCF.ItemLink(TCF.ITEMS[a.item]) end
+        local rid = a.item or a.skin
+        if rid and TCF.ITEMS[rid] then rw = rw .. " + " .. TCF.ItemLink(TCF.ITEMS[rid]) end
         r.reward:SetText(rw)
         if r.SetBackdropBorderColor then
           if got then r:SetBackdropBorderColor(1, 0.82, 0.2, 1) else r:SetBackdropBorderColor(0.45, 0.40, 0.55, 1) end
         end
         r:SetScript("OnEnter", function(s)
-          if not a.item then return end
-          GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, TCF.ITEMS[a.item]); GameTooltip:Show()
+          local rit = TCF.ITEMS[a.item or a.skin or ""]
+          if not rit then return end
+          GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, rit); GameTooltip:Show()
         end)
       else
         r:Hide()
@@ -1039,17 +1067,18 @@ function TCF:CreateWindow()
 
   -- test mode shortcuts (/tcf testmode)
   local testBox = CreateFrame("Frame", nil, st)
-  testBox:SetSize(380, 90); testBox:SetPoint("TOPLEFT", 480, -280)
+  testBox:SetSize(380, 72); testBox:SetPoint("TOPLEFT", 16, -418)  -- takes the help text's spot
   local tt = Text(testBox, "GameFontNormal", "|cffff6060Test mode|r (/tcf testmode to hide)", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
   local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
                    { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" } }
   for i, c in ipairs(cheats) do
     local b = Button(testBox, c[1], 124, 22, function() TCF:TestCheat(c[2]) end)
-    b:SetPoint("TOPLEFT", ((i - 1) % 3) * 128, -20 - math.floor((i - 1) / 3) * 26)
+    b:SetPoint("TOPLEFT", ((i - 1) % 3) * 128, -18 - math.floor((i - 1) / 3) * 24)
   end
 
   function win:RefreshSettings()
     testBox:SetShown(ui.testMode and true or false)
+    help:SetShown(not ui.testMode)
     for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
     scaleS.Sync(); alphaS.Sync(); textS.Sync()
   end
@@ -1258,7 +1287,8 @@ function TCF:CreateLootReveal()
   f.again = Button(f, "Open another", 110, 24, function()
     local key = f.chestKey
     f:Next(true)
-    if key then TCF:OpenChest(key, true) end
+    -- the box is hidden for the reel, so tell the pop-up gate this open came from a click here
+    if key then TCF.forceReveal = true; TCF:OpenChest(key, true); TCF.forceReveal = nil end
   end)
   f.again:SetPoint("BOTTOMLEFT", 18, 16)
   function f:UpdateQueue()
@@ -1343,7 +1373,14 @@ function TCF:CreateLootReveal()
     table.remove(revealQueue, 1)
     if not skipQueue and revealQueue[1] then self:Show1(revealQueue[1]) else self:Hide() end
   end
-  f:SetScript("OnHide", function() if not f.chaining then wipe(revealQueue) end end)
+  -- Show a fresh chest reward right away in place of the item on show (already in your bags),
+  -- keeping anything else that is waiting. Used when you open a chest while the box is up.
+  function f:ShowFront(entry)
+    if not self:IsShown() or not revealQueue[1] then return (TCF.ShowLootRevealDirect or TCF.ShowLootReveal)(TCF, unpack(entry)) end
+    revealQueue[1] = entry
+    self:Show1(entry)
+  end
+  f:SetScript("OnHide", function() wipe(revealQueue) end)
   self.lootReveal = f
   return f
 end
@@ -1358,7 +1395,7 @@ end
 ---------------------------------------------------------------- Treasure Bag (unopened chests)
 function TCF:CreateBag()
   local f = CreateFrame("Frame", "TapCatForeverBag", UIParent, BT)
-  f:SetSize(300, 290); f:SetPoint("CENTER", 260, 0)
+  f:SetSize(400, 290); f:SetPoint("CENTER", 310, 0)
   f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
   f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -1371,11 +1408,13 @@ function TCF:CreateBag()
   empty:SetPoint("CENTER", 0, -10)
   f.rows = {}
   for i, ch in ipairs(TCF.CHESTS) do
-    local r = Panel(f, 260, 56, 0.9); r:SetPoint("TOP", 0, -44 - (i - 1) * 62)
+    local r = Panel(f, 360, 56, 0.9); r:SetPoint("TOP", 0, -44 - (i - 1) * 62)
     local ic = r:CreateTexture(nil, "ARTWORK"); ic:SetSize(40, 40); ic:SetPoint("LEFT", 8, 0); ic:SetTexture(TCF.Icon(ch.icon))
     r.count = Text(r, "NumberFontNormalLarge", nil, "RIGHT"); r.count:SetPoint("BOTTOMRIGHT", ic, "BOTTOMRIGHT", 2, -2)
-    local n = Text(r, "GameFontNormal", ch.name, "LEFT"); n:SetPoint("TOPLEFT", ic, "TOPRIGHT", 8, -2)
-    local d = Text(r, "GameFontDisableSmall", nil, "LEFT"); d:SetPoint("BOTTOMLEFT", ic, "BOTTOMRIGHT", 8, 2)
+    -- text stops 8px short of the Open button (row x 56 to 252; Open starts at 256)
+    local n = Text(r, "GameFontNormal", ch.name, "LEFT"); n:SetPoint("TOPLEFT", ic, "TOPRIGHT", 8, -2); n:SetWidth(192)
+    local d = Text(r, "GameFontDisableSmall", nil, "LEFT"); d:SetPoint("BOTTOMLEFT", ic, "BOTTOMRIGHT", 8, 2); d:SetWidth(192)
+    if n.SetWordWrap then n:SetWordWrap(false); d:SetWordWrap(false) end
     d:SetText(({ pouch = "Daily quests, dungeons below 20", strong = "Dungeons 20+, weekly quest, levels", heroic = "Raids, zone clears, 20 levels" })[ch.key])
     r.all = Button(r, "All", 40, 22, function() TCF:OpenAllChests(ch.key) end); r.all:SetPoint("RIGHT", -8, 0)
     Tip(r.all, function(tt) tt:AddLine("Open all " .. ch.name .. "s", 1, 0.82, 0) end)
@@ -1416,16 +1455,41 @@ function TCF:CreateBag()
   return f
 end
 
--- Open every chest of one kind (or every chest) at once; the loot window queues the results
+-- Open every chest of one kind (or every chest) at once; the loot window queues the results.
+-- Every grant normally refreshes the whole UI, plays a sound and prints a line; for hundreds of
+-- chests in one click that freezes the client, so those are muted for the batch and done once after.
 function TCF:OpenAllChests(key)
-  for _, ch in ipairs(TCF.CHESTS) do
-    if not key or ch.key == key then
-      self.openingAll = true
-      for _ = 1, math.min(TCF.db.keys[ch.key] or 0, 200) do self:OpenChest(ch.key, true) end
-      self.openingAll = nil
-    end
+  local refreshAll, playSound, print = self.RefreshAll, self.PlaySound, self.Print
+  local opened, lines, rare = 0, {}, false
+  self.RefreshAll = function() end
+  -- muted for the batch, but remember if any drop asked for the rare sound
+  self.PlaySound = function(_, kind) if kind == "rare" then rare = true end end
+  self.Print = function(s, msg, force)
+    if force then return print(s, msg, force) end
+    lines[#lines + 1] = msg
   end
-  if self.bag and self.bag:IsShown() then self.bag:Refresh() end
+  self.openingAll = true
+  local ok, err = pcall(function()
+    for _, ch in ipairs(TCF.CHESTS) do
+      if not key or ch.key == key then
+        for _ = 1, math.min(TCF.db.keys[ch.key] or 0, 200) do
+          self:OpenChest(ch.key, true); opened = opened + 1
+        end
+      end
+    end
+  end)
+  self.openingAll = nil
+  self.RefreshAll, self.PlaySound, self.Print = refreshAll, playSound, print
+  if not ok then error(err, 0) end
+  if opened == 0 then return end
+  -- a few lines go to chat as usual; a big batch gets one summary instead of a wall of text
+  if #lines <= 5 then
+    for _, msg in ipairs(lines) do self:Print(msg) end
+  else
+    self:Print(string.format("Opened %d chests. Everything is already yours; the loot window lists it all.", opened), true)
+  end
+  self:PlaySound(rare and "rare" or "loot")
+  self:RefreshAll()
 end
 
 function TCF:ToggleBag()

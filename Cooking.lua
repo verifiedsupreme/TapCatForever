@@ -30,6 +30,7 @@ TCF.COOK_RECIPES = {
   { "d_snapper", "Longjaw Mud Snapper",  "INV_Misc_Fish_04", { "longjaw", "mildspice" },                  50,  "mining",  0.25, 30,  "A muddy snapper, lightly spiced." },
   { "d_stew",    "Westfall Stew",        "INV_Misc_Food_15", { "boarmeat", "mildspice", "wolfmeat" },     75,  "hp",      0.10, 30,  "Two kinds of meat in one pot." },
   { "d_egg",     "Herb Baked Egg",       "INV_Misc_Food_57", { "egg", "peacebloom" },                     90,  "garden",  0.25, 60,  "An egg and a flower." },
+  { "d_raptor",  "Roast Raptor",         "INV_Misc_Food_06", { "hotspice", "raptor" },                    150, "dmg",     0.08, 30,  "A raptor steak with a bit of heat." },
   { "d_cod",     "Rockscale Cod",        "INV_Misc_Fish_16", { "hotspice", "rockscale" },                 175, "dmg",     0.10, 30,  "A cod from Stranglethorn, with heat." },
   { "d_chili",   "Dragonbreath Chili",   "INV_Misc_Food_49", { "hotspice", "kingsblood", "mystery" },     200, "dmg",     0.15, 60,  "Mysterious meat, a royal herb and fire." },
   { "d_soup",    "Nightfin Soup",        "INV_Drink_17",     { "mageroyal", "nightfin" },                 225, "mining",  0.50, 60,  "A Feralas fish with a mage's herb." },
@@ -97,7 +98,7 @@ local function matchRecipe(list)
 end
 
 local function consume(s, list)
-  for _, k in ipairs(list) do s.mats[k] = (s.mats[k] or 0) - 1 end
+  for _, k in ipairs(list) do s.mats[k] = max(0, (s.mats[k] or 0) - 1) end
 end
 
 -- Cook what's in the pot. Returns result text, recipe (if any), discovered (bool)
@@ -108,10 +109,21 @@ function TCF:CookPot()
   if r and self:ProfSkill("cooking") < r[5] then
     return "You're not skilled enough to cook this yet (needs " .. r[5] .. ").", nil, false
   end
+  -- the pot doesn't reserve anything: selling, crafting or the sous-chef may have used
+  -- the ingredients since they went in, so count them again
+  local need = {}
+  for _, k in ipairs(c.pot) do need[k] = (need[k] or 0) + 1 end
+  for k, n in pairs(need) do
+    if (s.mats[k] or 0) < n then
+      c.pot = {}
+      return "Some ingredients are no longer in your bags.", nil, false
+    end
+  end
   consume(s, c.pot)
   c.pot = {}
   if not r then
-    self:ProfSkillUp("cooking", self:ProfSkill("cooking") + 50)
+    -- a failed experiment rarely teaches anything (5% chance of a skill point)
+    self:ProfSkillUp("cooking", self:ProfSkill("cooking") - 75)
     return "Burnt Mess. That didn't work...", nil, false
   end
   local discovered = not c.known[r[1]]
@@ -120,7 +132,7 @@ function TCF:CookPot()
   self:ProfSkillUp("cooking", r[5])
   if discovered then
     self.db.stats.recipesFound = (self.db.stats.recipesFound or 0) + 1
-    self:Print("New recipe discovered: |cffffd100" .. r[2] .. "|r!")
+    self:Print("New recipe discovered: |cffffd100" .. r[2] .. "|r!", true)
     self:PlaySound("ach")
   end
   self:MarkDirty()
@@ -155,7 +167,7 @@ function TCF:EatDish(key)
   if not r or (s.mats[key] or 0) < 1 then return false end
   s.mats[key] = s.mats[key] - 1
   c.buff = { key = key, kind = r[6], value = r[7], ["until"] = time() + r[8] * 60 }
-  self:Print(string.format("Well Fed: +%d%% %s for %d minutes.", r[7] * 100, TCF.BUFF_TEXT[r[6]], r[8]))
+  self:Print(string.format("Well Fed: +%d%% %s for %d minutes.", r[7] * 100, TCF.BUFF_TEXT[r[6]], r[8]), true)
   self:PlaySound("click")
   self:MarkDirty(); self:RefreshAll()
   return true

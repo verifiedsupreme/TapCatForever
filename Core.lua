@@ -55,8 +55,10 @@ function TCF.Icon(path, fallback)
   return cached
 end
 
-function TCF:Print(msg)
-  if self.db and not self.db.ui.chat then return end
+-- The "Chat messages" setting only mutes passive notifications. force = true is for
+-- direct replies to the player's own click or command, which must always show.
+function TCF:Print(msg, force)
+  if not force and self.db and not self.db.ui.chat then return end
   DEFAULT_CHAT_FRAME:AddMessage("|cffffb84dTapCat|r|cffffffffForever|r: " .. msg)
 end
 
@@ -104,9 +106,11 @@ local DEFAULTS = {
 
 -- Saved data that belongs to the current character. Everything else (TapCoins,
 -- quests, daily streak, achievements, settings) is shared by the whole account.
+-- The Daily Wares (shop) are per character: the stock is picked for this character's
+-- cat class and collection, and keeping it per character means relogging can't reroll it.
 TCF.PER_CHARACTER = {
   owned = true, gear = true, loadouts = true, look = true, keys = true, classData = true,
-  trade = true, expeditions = true, class = true, prof = true, dungeonRun = true,
+  trade = true, expeditions = true, class = true, prof = true, dungeonRun = true, shop = true,
 }
 
 local function characterKey()
@@ -180,6 +184,14 @@ function TCF:InitDB()
   for _, id in ipairs(TCF.STARTER) do db.owned[id] = db.owned[id] or 1 end
   -- every character owns a basic Orange Tabby skin
   db.owned.skin_orange = db.owned.skin_orange or 1
+  -- Achievements are account-wide but cosmetics are per character: give alts (and a
+  -- character after "Reset this character") the rewards of achievements already earned.
+  for _, a in ipairs(TCF.ACHIEVEMENTS) do
+    if db.achievements[a.id] then
+      if a.item and TCF.ITEMS[a.item] then db.owned[a.item] = db.owned[a.item] or 1 end
+      if a.skin and TCF.ITEMS[a.skin] then db.owned[a.skin] = db.owned[a.skin] or 1 end
+    end
+  end
   -- cosmetic overrides per class (empty = the cat shows its real gear)
   for _, cl in ipairs(TCF.CLASSES) do db.loadouts[cl.key] = db.loadouts[cl.key] or {} end
   -- drop references to items that no longer exist
@@ -519,7 +531,7 @@ function TCF:BuySkin(id)
   if not self:SpendCoins(it.skinPrice) then return false end
   self.db.owned[id] = 1
   self.db.look.skin = id
-  self:Print("Your cat is now a " .. TCF.ItemLink(it) .. "!")
+  self:Print("Your cat is now a " .. TCF.ItemLink(it) .. "!", true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "New skin") end
   self:PlaySound("buy")
   self:MarkDirty(); self:RefreshAll()
@@ -665,7 +677,7 @@ function TCF:BuyItem(id)
   if not self:SpendCoins(it.price) then return false end
   self.db.owned[id] = 1
   self.db.shop.bought[id] = true
-  self:Print("Purchased " .. TCF.ItemLink(it) .. ".")
+  self:Print("Purchased " .. TCF.ItemLink(it) .. ".", true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "Purchased") end
   self:PlaySound("buy")
   self:MarkDirty()
@@ -699,7 +711,7 @@ function TCF:BuyRaceAccessory()
     local lo = self:GetLoadout(cl.key)
     if not lo.acc then lo.acc = it.id end
   end
-  self:Print(string.format("Your cat shows its %s pride: %s!", raceName or "racial", TCF.ItemLink(it)))
+  self:Print(string.format("Your cat shows its %s pride: %s!", raceName or "racial", TCF.ItemLink(it)), true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end
   self:PlaySound("buy")
   self:MarkDirty(); self:RefreshAll()
@@ -710,7 +722,10 @@ function TCF:CheckDaily()
   local d = self.db.daily
   local t = today()
   if d.last == t then return end
-  local yesterday = date("%Y%m%d", time() - 86400)
+  -- noon of the previous calendar day, so 23/25-hour DST days can't skip or repeat a day
+  local y = date("*t")
+  y.day, y.hour, y.min, y.sec, y.isdst = y.day - 1, 12, 0, 0, nil
+  local yesterday = date("%Y%m%d", time(y))
   d.streak = (d.last == yesterday) and (d.streak + 1) or 1
   d.best = max(d.best, d.streak)
   d.last = t
@@ -722,10 +737,16 @@ end
 ---------------------------------------------------------------- stats & achievements
 function TCF:CountOwned()
   local n, total, r = 0, 0, { 0, 0, 0, 0, 0 }
+  -- A character can only buy its own race's heritage piece, so other races' pieces
+  -- count toward the total only if this character already owns them.
+  local myRace = self:RaceItemForPlayer()
   for _, it in ipairs(TCF.ITEM_LIST) do
     if it.source ~= "retired" then
-      total = total + 1
-      if self.db.owned[it.id] then n = n + 1; r[it.rarity] = r[it.rarity] + 1 end
+      local owned = self.db.owned[it.id]
+      if it.source ~= "race" or owned or (myRace and myRace.id == it.id) then
+        total = total + 1
+        if owned then n = n + 1; r[it.rarity] = r[it.rarity] + 1 end
+      end
     end
   end
   return n, total, r
@@ -758,10 +779,17 @@ function TCF:GetStat(stat)
   elseif stat == "renown" then
     return db.trade and db.trade.renown or 0
   elseif stat == "races" then
-    local n = 0
-    for _, id in pairs(TCF.RACE_ITEM) do if db.owned[id] then n = n + 1 end end
-    if db.owned.race_undead and TCF.RACE_ITEM.Undead then n = n - 1 end -- Scourge/Undead share one item
-    if db.owned.race_skyborne then n = n + 1 end
+    -- heritage pieces are bought per character, so count distinct pieces across the account
+    local seen, n = {}, 0
+    local chars = TapCatForeverDB and rawget(TapCatForeverDB, "chars") or {}
+    for _, ch in pairs(chars) do
+      if type(ch) == "table" and ch.owned then
+        for id in pairs(ch.owned) do
+          local it = TCF.ITEMS[id]
+          if it and it.source == "race" and not seen[id] then seen[id] = true; n = n + 1 end
+        end
+      end
+    end
     return n
   elseif stat == "epicGear" or stat == "legendGear" then
     local q, n = stat == "epicGear" and 4 or 5, 0
@@ -843,7 +871,7 @@ end
 
 -- 4x per second housekeeping
 local ticker = CreateFrame("Frame")
-local acc = 0
+local acc, dailyAcc = 0, 0
 ticker:SetScript("OnUpdate", function(_, elapsed)
   acc = acc + elapsed
   if acc < 0.25 then return end
@@ -853,6 +881,9 @@ ticker:SetScript("OnUpdate", function(_, elapsed)
   if self.inFrenzy and GetTime() > (self.frenzyUntil or 0) then self.inFrenzy = false end
   if self.AdvTick then self:AdvTick(0.25) end
   if self.ProfessionsTick then self:ProfessionsTick(false, 0.25) end
+  -- a session that runs past midnight still collects the new day's treat and keeps the streak
+  dailyAcc = dailyAcc + 0.25
+  if dailyAcc >= 60 then dailyAcc = 0; self:CheckDaily() end
   if self.dirty then
     self.dirty = false
     self:CheckAchievements()
@@ -926,7 +957,7 @@ function TCF:TestCheat(kind)
   elseif kind == "gold" then local s = self:ProfState(); s.gold = s.gold + 1e7; s.lifetime = s.lifetime + 1e7
   elseif kind == "renown" then
     local s = self:ProfState(); s.renown = s.renown + 150; s.renownEver = math.max(s.renownEver or 0, s.renown)
-    self:Print("All professions unlocked.")
+    self:Print("All professions unlocked.", true)
   elseif kind == "chests" then for _, ch in ipairs(TCF.CHESTS) do db.keys[ch.key] = (db.keys[ch.key] or 0) + 5 end
   elseif kind == "levels" then
     local cd = self:CD()
@@ -936,7 +967,7 @@ function TCF:TestCheat(kind)
       if self.AdvTick then self:AdvTick(10) end
       if self.ProfAdvance then self:ProfAdvance(10) end
     end
-    self:Print("Skipped one hour of Adventure and professions.")
+    self:Print("Skipped one hour of Adventure and professions.", true)
   end
   self:MarkDirty(); self:RefreshAll()
 end
@@ -952,27 +983,27 @@ SlashCmdList.TAPCATFOREVER = function(msg)
   elseif cmd == "show" then ui.shown = true; TCF.hud:ApplySettings()
   elseif cmd == "hide" then ui.shown = false; TCF.hud:ApplySettings()
   elseif cmd == "toggle" then ui.shown = not ui.shown; TCF.hud:ApplySettings()
-  elseif cmd == "lock" then ui.locked = true; TCF.hud:ApplySettings(); TCF:Print("Cat locked.")
-  elseif cmd == "unlock" then ui.locked = false; TCF.hud:ApplySettings(); TCF:Print("Cat unlocked - drag to move.")
-  elseif cmd == "reset" then TCF.hud:ResetPosition(); TCF:Print("Position reset.")
+  elseif cmd == "lock" then ui.locked = true; TCF.hud:ApplySettings(); TCF:Print("Cat locked.", true)
+  elseif cmd == "unlock" then ui.locked = false; TCF.hud:ApplySettings(); TCF:Print("Cat unlocked - drag to move.", true)
+  elseif cmd == "reset" then TCF.hud:ResetPosition(); TCF:Print("Position reset.", true)
   elseif cmd == "scale" and tonumber(arg) then
     ui.scale = max(0.3, min(3, tonumber(arg))); TCF.hud:ApplySettings()
   elseif cmd == "bag" then TCF:ToggleBag()
   elseif cmd == "welcome" then TCF:ShowWelcome()
   elseif cmd == "testmode" then
     if not ui.testMode and not isDevCharacter() and keyHash(arg or "") ~= TEST_KEY then
-      TCF:Print("/tapcat - open window | bag | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats")
+      TCF:Print("/tapcat - open window | bag | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats", true)
       return
     end
     ui.testMode = not ui.testMode
-    TCF:Print(ui.testMode and "Test mode ON: shortcuts are in Settings." or "Test mode off.")
+    TCF:Print(ui.testMode and "Test mode ON: shortcuts are in Settings." or "Test mode off.", true)
     if TCF.window and TCF.window:IsShown() then TCF.window:Refresh() end
   elseif cmd == "stats" then
     local n, total = TCF:CountOwned()
     TCF:Print(string.format("Level %d (%s), %s lifetime taps, %s TapCoins, %d/%d cosmetics.",
-      TCF:CD().level, TCF:GetTitle(), TCF.Commas(TCF.db.taps), TCF.Commas(TCF.db.coins), n, total))
+      TCF:CD().level, TCF:GetTitle(), TCF.Commas(TCF.db.taps), TCF.Commas(TCF.db.coins), n, total), true)
   else
-    TCF:Print("/tapcat - open window | bag | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats")
+    TCF:Print("/tapcat - open window | bag | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats", true)
   end
 end
 
