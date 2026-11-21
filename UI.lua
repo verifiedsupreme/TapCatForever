@@ -461,8 +461,7 @@ function TCF:CreateHUD()
     tt:AddLine(string.format("Level %d %s %s", TCF:CD().level, cl.name, TCF:GetTitle()), 1, 1, 1)
     local friends = TCF.PartyCount and TCF:PartyCount() or 0
     if friends > 0 then
-      local pct = floor((TCF:PartyBonus() - 1) * 100 + 0.5)
-      tt:AddLine(string.format("Party bonus: +%d%% cat XP and Trade Gold", pct), 0.4, 1, 0.4)
+      tt:AddLine("Party bonus: each tap counts as 1.5 taps", 0.4, 1, 0.4)
       tt:AddLine(string.format(friends == 1 and "%d party member has TapCatForever" or "%d party members have TapCatForever", friends), 0.8, 0.8, 0.8)
     end
     tt:AddLine(" ")
@@ -1232,11 +1231,9 @@ function TCF:CreateWindow()
 
   function win:RefreshSettings()
     testBox:SetShown(ui.testMode and true or false)
-    local note = "Play with friends: each group member who also has TapCatForever gives you +5% cat XP and Trade Gold, up to +20%."
+    local note = "Play with friends: when someone in your group also has TapCatForever, each of your taps counts as 1.5 taps."
     local friends = TCF.PartyCount and TCF:PartyCount() or 0
-    if friends > 0 then
-      note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyBonus() - 1) * 100 + 0.5))
-    end
+    if friends > 0 then note = note .. " |cff66ff66Active now.|r" end
     partyNote:SetText(note)
     help:SetShown(not ui.testMode)
     for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end

@@ -811,13 +811,13 @@ TEST = r'''
     local function msg(text, sender, ch, prefix) _fire("CHAT_MSG_ADDON", prefix or _prefix, text, ch or "PARTY", sender) end
     TCF:SetClass("WARRIOR"); local aliceText = "H1;" .. TCF:PartyPayload("WARRIOR"); TCF:SetClass("MAGE")
     msg(aliceText, "Alice-Forever")
-    check(TCF:PartyCount() == 1 and near(TCF:PartyBonus(), 1.05), "fake hello counted")
+    check(TCF:PartyCount() == 1 and TCF:PartyTapMult() == 1.5, "fake hello counted")
     local row = TapCatForeverPartyCats
     check(row and row:IsShown() and row.cells[1]:IsShown() and not row.cells[2]:IsShown(), "one small cat shown")
     for k = 1, 22 do _update(0.5) end
     check(#_sent == 2 and _sent[2][2]:match("^U1;"), "hello answered after the 10 s gap")
     msg("U1;ROGUE;12;fur_snow;;;h=nonexistent_hat", "Bob-OtherRealm")
-    check(TCF:PartyCount() == 2 and near(TCF:PartyBonus(), 1.10) and row.cells[2]:IsShown(), "second friend")
+    check(TCF:PartyCount() == 2 and TCF:PartyTapMult() == 1.5 and row.cells[2]:IsShown(), "second friend: the bonus does not stack")
     for _, t in ipairs({ "garbage", "H1;NOTACLASS;5;;;;", "H1;MAGE;abc;;;;", "H1;MAGE;0;;;;", "H1;MAGE;5;fur|cffff;;;", "H2;MAGE;5;;;;",
       "H1;MAGE;5;;;;" .. string.rep("h=x,", 80), "" }) do msg(t, "Mallory-Forever") end
     msg("H1;MAGE;5;;;;", "Eve-Forever", "WHISPER"); msg("H1;MAGE;5;;;;", "Eve-Forever", "GUILD")
@@ -827,9 +827,16 @@ TEST = r'''
     check(TCF:PartyCount() == 2, "malformed, secret and foreign messages are ignored")
     local g0 = ps.gold
     local got = TCF:EarnGold(100)
-    check(near(got, ps.gold - g0) and near(got, 100 * 1.10 * (1 + 0.02 * ps.renown)), "Trade Gold +10%: " .. tostring(got))
-    check(near(TCF:FoodBuff("xp"), xpAlone * 1.10) and TCF:FoodBuff("dmg") == TCF:FoodBuff("dmg"), "cat XP boosted +10%: " .. TCF:FoodBuff("xp"))
-    local coinsP = TCF.db.coins; TCF:AddCoins(10); check(TCF.db.coins == coinsP + 10, "TapCoins are not boosted")
+    check(near(got, 100 * (1 + 0.02 * ps.renown)), "Trade Gold is not boosted: " .. tostring(got))
+    check(near(TCF:FoodBuff("xp"), xpAlone), "food XP buff unchanged by the party")
+    -- each tap counts 1.5: 10 taps -> 15 on the tap counter, 1.5x the cat XP
+    do
+      local taps0, xp0, lvl0 = TCF.db.taps, TCF:CD().xp, TCF:CD().level
+      for k = 1, 10 do _clock = _clock + 0.5; TCF:Tap() end
+      check(TCF.db.taps - taps0 == 15, "party: 10 taps count as 15 (" .. (TCF.db.taps - taps0) .. ")")
+      if TCF:CD().level == lvl0 then check(near(TCF:CD().xp - xp0, 10 * 1.5 * xpAlone), "party: 1.5x cat XP from taps") end
+    end
+    local coinsP = TCF.db.coins; TCF:AddCoins(10); check(TCF.db.coins == coinsP + 10, "direct TapCoin awards are not boosted")
     _group.party3 = { _SECRET, nil }
     _fire("GROUP_ROSTER_UPDATE"); check(TCF:PartyCount() == 2, "a secret roster name prunes nobody")
     _group.party3 = nil; _group.party2 = nil
@@ -837,15 +844,15 @@ TEST = r'''
     _raid, _group = true, {}
     for i, n in ipairs({ "Alice", "Cara", "Dan", "Fay", "Gus", "Hal" }) do _group["raid" .. i] = { n, nil }; msg("U1;HUNTER;" .. (10 + i) .. ";;;;", n .. "-Forever", "RAID") end
     _fire("GROUP_ROSTER_UPDATE")
-    check(TCF:PartyCount() == 6 and near(TCF:PartyBonus(), 1.20), "bonus capped at +20%: " .. TCF:PartyBonus())
+    check(TCF:PartyCount() == 6 and TCF:PartyTapMult() == 1.5, "a raid full of friends is still 1.5x: " .. TCF:PartyTapMult())
     check(row.cells[4]:IsShown() and row.more:IsShown() and row.more:GetText() == "+2", "4 small cats and +2")
-    for k = 1, 4 do check(TCF:PartyBonus() >= 1 and TCF:PartyBonus() <= 1.2, "bonus range") end
+    check(TCF:PartyBonus() == TCF:PartyTapMult(), "old name still answers")
     _group, _raid = nil, false
     _fire("GROUP_ROSTER_UPDATE")
     check(TCF:PartyCount() == 0 and TCF:PartyBonus() == 1 and not row:IsShown(), "left the group: no bonus, no row")
     check(TCF:PartyTestInject(3) == nil, "fake party cats need test mode")
     TCF.db.ui.testMode = true
-    check(TCF:PartyTestInject(3) == 3 and row:IsShown() and row.cells[3]:IsShown() and near(TCF:PartyBonus(), 1.15), "3 fake cats")
+    check(TCF:PartyTestInject(3) == 3 and row:IsShown() and row.cells[3]:IsShown() and TCF:PartyTapMult() == 1.5, "3 fake cats")
     check(TCF:PartyTestInject(0) == 0 and not row:IsShown() and TCF:PartyBonus() == 1, "fakes cleared")
     TCF.db.ui.testMode = nil
     -- back to the main character

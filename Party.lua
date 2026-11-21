@@ -1,6 +1,7 @@
 -- TapCatForever: party cats. Group members who also run TapCatForever say hello over a hidden
--- addon channel; their cats sit in a little row beside yours, and each one (up to four) gives
--- you +5% cat XP and +5% Trade Gold. TapCoins and chests are not boosted.
+-- addon channel; their cats sit in a little row beside yours. While at least one of them is in
+-- your group, each tap counts as 1.5 taps (tap count, cat XP and TapCoins from tapping; Core.lua
+-- TCF:Tap asks TCF:PartyTapMult). More friends don't stack it. Lucky finds and chests are unchanged.
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel only, every field checked):
 --   H1;<class>;<level>;<fur>;<pattern>;<skin>;<slot>=<id>,<slot>=<id>...   hello, please answer
@@ -15,8 +16,6 @@ local MAX_MSG = 240          -- bytes we send at most (addon messages allow 255)
 local SEND_GAP = 10          -- seconds between our own messages
 local MAX_KNOWN = 40
 local MAX_SLOTS = 12         -- slot entries read from one message
-local MAX_COUNTED = 4        -- party cats that count toward the bonus
-local BONUS_EACH = 0.05
 local MINI, MINI_GAP, MAX_SHOWN = 40, 2, 4
 
 local SLOT_CODES = { "h", "c", "m", "o", "b", "a", "e", "n", "w", "r" }  -- send order (most visible first)
@@ -225,10 +224,13 @@ function TCF:PartyCount()
   return n + #fakes
 end
 
--- 1 + 5% per other group member with the addon, at most four counted (1.0 .. 1.2)
-function TCF:PartyBonus()
-  return 1 + BONUS_EACH * min(MAX_COUNTED, self:PartyCount())
+-- each tap counts as this many taps: 1.5 with at least one other group member who has the addon
+TCF.PARTY_TAP_MULT = 1.5
+function TCF:PartyTapMult()
+  return self:PartyCount() > 0 and TCF.PARTY_TAP_MULT or 1
 end
+-- older name kept for anything that still asks
+function TCF:PartyBonus() return self:PartyTapMult() end
 
 local function forget(name)
   known[name] = nil
@@ -286,33 +288,6 @@ local function onRoster()
   refreshRow()
 end
 
----------------------------------------------------------------- bonus (wraps; no other file changes)
--- Trade Gold
-if TCF.EarnGold then
-  local earnGold = TCF.EarnGold
-  function TCF:EarnGold(n, ...)
-    if type(n) == "number" and n > 0 then n = n * self:PartyBonus() end
-    return earnGold(self, n, ...)
-  end
-end
--- cat XP from expeditions and other direct awards
-if TCF.AddClassXP then
-  local addXP = TCF.AddClassXP
-  function TCF:AddClassXP(class, n, ...)
-    if type(n) == "number" and n > 0 then n = n * self:PartyBonus() end
-    return addXP(self, class, n, ...)
-  end
-end
--- cat XP from taps: Core.lua's tap multiplies its XP by FoodBuff("xp")
-do
-  local foodBuff = TCF.FoodBuff
-  function TCF:FoodBuff(kind, ...)
-    local v = foodBuff and foodBuff(self, kind, ...) or 1
-    if kind == "xp" then v = v * self:PartyBonus() end
-    return v
-  end
-end
-
 ---------------------------------------------------------------- mini cats beside the HUD cat
 local function tooltip(btn)
   local m = btn.member
@@ -324,7 +299,7 @@ local function tooltip(btn)
   local cl = TCF.CLASS_BY_KEY[m.class]
   if cl then tt:AddLine(string.format("Level %d %s cat", m.level or 1, cl.name), cl.color[1], cl.color[2], cl.color[3]) end
   if m.fake then tt:AddLine("Test party cat (test mode only)", 0.7, 0.7, 0.7) end
-  tt:AddLine("Party bonus: +5% cat XP and Trade Gold for you", 0.4, 1, 0.4, true)
+  tt:AddLine("Party bonus: each of your taps counts as 1.5 taps", 0.4, 1, 0.4, true)
   tt:Show()
 end
 

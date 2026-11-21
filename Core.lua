@@ -386,10 +386,16 @@ function TCF:Tap(side)
   recent[recentHead] = now
   tps = tps + 1
 
-  db.taps = db.taps + 1
+  -- party bonus (Party.lua): with a friend who has the addon in your group, each tap counts
+  -- as 1.5 taps (tap count, cat XP and TapCoins from tapping; lucky finds are unchanged)
+  local mult = self.PartyTapMult and self:PartyTapMult() or 1
+  self.tapCarry = (self.tapCarry or 0) + mult
+  local credit = floor(self.tapCarry)
+  self.tapCarry = self.tapCarry - credit
+  db.taps = db.taps + credit
   local cd = self:CD()
-  cd.xp = cd.xp + (self.FoodBuff and self:FoodBuff("xp") or 1)
-  db.coinFrac = db.coinFrac + COINS_PER_TAP
+  cd.xp = cd.xp + (self.FoodBuff and self:FoodBuff("xp") or 1) * mult
+  db.coinFrac = db.coinFrac + COINS_PER_TAP * mult
   if db.coinFrac >= 1 then
     local whole = floor(db.coinFrac)
     db.coinFrac = db.coinFrac - whole

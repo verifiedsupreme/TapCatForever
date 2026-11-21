@@ -8,7 +8,7 @@ local TILES = {
   { "INV_Misc_Map_01",      "Expeditions", "Send three cats out for loot" },
   { "Trade_Mining",         "Professions", "Gather, craft real gear and run a business" },
   { "INV_Box_02",           "Collect",     "Open chests for gear, skins and hats" },
-  { "INV_Misc_GroupNeedMore", "Play with friends", "Friends with the addon in your group boost your XP and gold" },
+  { "INV_Misc_GroupNeedMore", "Play with friends", "Group with friends who have the addon: every tap counts as 1.5" },
 }
 
 function TCF:ShowWelcome()
