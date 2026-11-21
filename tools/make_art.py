@@ -1046,6 +1046,113 @@ def skins():
     a.paint(sm & FUR, "white", shade=False)
     save("skin_stars", a, outline=False)
 
+# ================================================================ ADVENTURE SCENES (pixel art, 128x64 -> 256x128)
+def scene_canvas():
+    return Image.new("RGBA", (128, 64), (0, 0, 0, 255))
+
+def vgrad(im, y0, y1, c0, c1):
+    px = im.load()
+    for y in range(y0, y1):
+        t = (y - y0) / max(1, y1 - y0 - 1)
+        c = tuple(int(c0[i] + (c1[i] - c0[i]) * t) for i in range(3)) + (255,)
+        for x in range(128): px[x, y] = c
+
+def fill(im, pts, col):
+    px = im.load()
+    for (x, y) in pts:
+        if 0 <= x < 128 and 0 <= y < 64: px[x, y] = col + (255,) if len(col) == 3 else col
+
+def disc(cx, cy, r):
+    return {(x, y) for x in range(int(cx - r - 1), int(cx + r + 2)) for y in range(int(cy - r - 1), int(cy + r + 2))
+            if (x + .5 - cx) ** 2 + (y + .5 - cy) ** 2 <= r * r}
+
+def rect(x0, y0, x1, y1):
+    return {(x, y) for x in range(x0, x1 + 1) for y in range(y0, y1 + 1)}
+
+def tri(pts):
+    s = set()
+    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+    for y in range(int(min(ys)), int(max(ys)) + 1):
+        for x in range(int(min(xs)), int(max(xs)) + 1):
+            px, py = x + .5, y + .5; inside = False; j = len(pts) - 1
+            for i in range(len(pts)):
+                xi, yi = pts[i]; xj, yj = pts[j]
+                if (yi > py) != (yj > py) and px < (xj - xi) * (py - yi) / (yj - yi) + xi: inside = not inside
+                j = i
+            if inside: s.add((x, y))
+    return s
+
+def scene_elwynn():
+    im = scene_canvas(); rnd = random.Random(4)
+    vgrad(im, 0, 40, (110, 170, 235), (190, 225, 250))
+    fill(im, disc(100, 10, 5), (255, 245, 200))
+    for cx, cy, r in ((20, 12, 5), (28, 11, 6), (36, 13, 4), (70, 8, 4), (77, 7, 5)):
+        fill(im, disc(cx, cy, r), (250, 252, 255))
+    for x in range(128):  # far hills
+        h = 30 + int(4 * math.sin(x / 11) + 3 * math.sin(x / 5 + 1))
+        fill(im, rect(x, h, x, 44), (70, 120, 70))
+    # Goldshire inn: stone walls, blue roof
+    fill(im, rect(78, 30, 100, 44), (205, 195, 170)); fill(im, rect(78, 30, 100, 31), (150, 140, 120))
+    fill(im, tri([(75, 31), (89, 20), (103, 31)]), (50, 80, 160))
+    fill(im, rect(86, 37, 89, 44), (90, 60, 40)); fill(im, rect(81, 33, 83, 35), (255, 220, 120)); fill(im, rect(94, 33, 96, 35), (255, 220, 120))
+    fill(im, rect(97, 18, 99, 27), (170, 160, 140))
+    vgrad(im, 44, 64, (95, 160, 70), (60, 120, 45))
+    px = im.load()
+    for y in range(46, 64):  # dirt path
+        w = 5 + (y - 46) // 2
+        for x in range(60 - w, 60 + w):
+            if 0 <= x < 128: px[x, y] = (165, 130, 85, 255) if (x + y) % 7 else (140, 110, 70, 255)
+    for tx in (6, 18, 40, 112, 122):  # oak trees
+        th = rnd.randint(14, 20)
+        fill(im, rect(tx - 1, 46 - th // 2, tx + 1, 48), (95, 65, 40))
+        for k in range(5):
+            fill(im, disc(tx + rnd.randint(-4, 4), 46 - th + rnd.randint(-3, 3), rnd.uniform(4, 6.5)), (40 + k * 6, 100 + k * 8, 45))
+    for _ in range(140):
+        x, y = rnd.randrange(128), rnd.randrange(48, 64)
+        if not (abs(x - 60) < 5 + (y - 46) // 2): px[x, y] = (120, 185, 85, 255)
+    for _ in range(12):
+        x, y = rnd.randrange(128), rnd.randrange(50, 64)
+        px[x, y] = rnd.choice([(250, 220, 80, 255), (240, 120, 160, 255), (255, 255, 255, 255)])
+    return im
+
+def scene_westfall():
+    im = scene_canvas(); rnd = random.Random(8)
+    vgrad(im, 0, 40, (235, 170, 110), (250, 225, 170))
+    fill(im, disc(24, 12, 6), (255, 240, 190))
+    for x in range(128):
+        h = 34 + int(3 * math.sin(x / 9) + 2 * math.sin(x / 4))
+        fill(im, rect(x, h, x, 44), (170, 140, 80))
+    # red farmhouse / barn
+    fill(im, rect(14, 30, 34, 44), (165, 55, 45)); fill(im, tri([(11, 31), (24, 21), (37, 31)]), (95, 60, 45))
+    fill(im, rect(22, 36, 26, 44), (70, 40, 30)); fill(im, rect(16, 33, 18, 35), (255, 220, 140))
+    # windmill
+    fill(im, rect(98, 22, 104, 44), (215, 200, 170)); fill(im, tri([(97, 23), (101, 15), (105, 23)]), (120, 80, 60))
+    for ang in (0.6, 0.6 + math.pi / 2, 0.6 + math.pi, 0.6 + 3 * math.pi / 2):
+        for r in range(1, 13):
+            x, y = 101 + r * math.cos(ang), 20 + r * math.sin(ang)
+            fill(im, {(int(x), int(y)), (int(x) + 1, int(y))}, (240, 235, 220))
+    vgrad(im, 44, 64, (215, 180, 80), (180, 140, 55))
+    px = im.load()
+    for y in range(46, 64, 3):  # wheat rows
+        for x in range(128):
+            if (x + y) % 4 == 0: px[x, y] = (240, 205, 100, 255)
+    for x in range(0, 128, 6):  # fence
+        fill(im, rect(x, 45, x, 49), (110, 75, 45))
+    fill(im, rect(0, 46, 127, 46), (130, 90, 55))
+    # scarecrow
+    fill(im, rect(70, 40, 70, 52), (100, 70, 40)); fill(im, rect(66, 43, 74, 43), (100, 70, 40))
+    fill(im, disc(70.5, 39, 2.2), (230, 200, 120)); fill(im, rect(67, 44, 73, 48), (90, 110, 160))
+    return im
+
+def mob_shadow():
+    """Last-resort enemy picture: a shadowy pixel monster with glowing eyes (64x64)."""
+    a = Layer()
+    body = E(32, 40, 18, 20) | E(32, 22, 12, 11) | P([(20, 16), (16, 4), (26, 13)]) | M(P([(20, 16), (16, 4), (26, 13)]))
+    a.paint(body, color=(60, 45, 75))
+    a.paint(E(26, 22, 2.5, 2) | E(38, 22, 2.5, 2), color=(255, 90, 70))
+    a.paint(P([(26, 30), (38, 30), (32, 34)]), color=(30, 20, 35))
+    save("mob_shadow", a)
+
 def ui_bits():
     # floating heart (for petting) 32x32 logical drawn on 64 canvas
     a = Layer()
@@ -1071,6 +1178,7 @@ def main():
     for side in "LR":
         paw(True, side); paw(False, side)
     for k in ("normal", "blink", "happy", "focus", "sparkle"): face(k)
+    mob_shadow()
     patterns(); head_items(); chest_items(); back_items(); weapons(); offhands(); accessories(); race_accessories(); skins(); ui_bits()
 
     count = 0
@@ -1081,6 +1189,10 @@ def main():
         im = fn(); ART[name] = im
         write_tga(im.resize((256, 256), Image.BILINEAR), os.path.join(OUT, name + ".tga")); count += 1
         BOUNDS[name] = (0, 0, N, N)
+
+    for name, fn in (("bg_elwynn", scene_elwynn), ("bg_westfall", scene_westfall)):
+        im = fn(); im.save(os.path.join(HERE, "..", "media", name + ".png"))
+        write_tga(im.resize((256, 128), Image.NEAREST), os.path.join(OUT, name + ".tga")); count += 1
 
     with open(os.path.join(HERE, "..", "ArtData.lua"), "w") as f:
         f.write("-- Generated by tools/make_art.py. Do not edit by hand.\n")

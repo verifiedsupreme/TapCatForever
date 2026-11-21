@@ -29,7 +29,10 @@ local KNOWN_EVENTS = { ADDON_LOADED = 1, PLAYER_LOGIN = 1, PLAYER_REGEN_ENABLED 
   LFG_COMPLETION_REWARD = 1 } -- SENT left out on purpose to exercise the fallback
 _inInstance = false
 function UnitLevel() return 25 end
-function UnitRace() return "Orc", "Orc", 2 end
+function UnitRace() return _race or "Orc", _race or "Orc", 2 end
+_charName = "Kittyhawk"
+function UnitName() return _charName end
+function GetRealmName() return "Forever" end
 function IsInInstance() if _inInstance then return true, _inInstance end return false, "none" end
 function GetInstanceInfo() return "The Deadmines", _inInstance, 1, "Normal", 5, 0, false, 36 end
 function UnitClass() return "Mage", "MAGE" end
@@ -184,9 +187,11 @@ TEST = r'''
     print(string.format("owned %d/%d, achievements %d/%d, level %d, chests %d, pets %d", n, total, ach, #TCF.ACHIEVEMENTS, TCF:CD().level, TCF.db.stats.chests, TCF.db.stats.pets))
     -- racial heritage: an Orc character gives the cat tusks once
     assert(TCF.db.owned.race_orc, "orc tusks granted at login")
-    assert(TCF:GetLoadout("WARRIOR").acc == "race_orc", "tusks worn")
+    -- (auto-equip is checked on the fresh alt character below)
     TCF:GrantRaceAccessory()
     -- racial toggle hides it; skins buy/equip/drop
+    TCF:GetLoadout("WARRIOR").acc = "race_orc"
+    assert(TCF:GetAppearance("WARRIOR").acc.id == "race_orc", "racial shown")
     TCF.db.ui.racial = false
     assert(TCF:GetAppearance("WARRIOR").acc == nil, "racial hidden")
     TCF.db.ui.racial = true
@@ -213,6 +218,9 @@ TEST = r'''
     win:SelectTab(2)
     TCF.advWatching = true
     local adv = TCF:CD().adv
+    for i = 1, 20 do _update(0.25) end
+    assert(adv.kills == 0, "no fighting before Start")
+    TCF:AdvStart()
     for i = 1, 7200 do
       _update(0.25)
       if i % 4 == 0 then kb.scripts.OnKeyDown(kb, "Q") end
@@ -278,7 +286,7 @@ TEST = r'''
     end
     win:SelectTab(3)
     -- adventure in a raid with abilities, models and events
-    TCF:AdvGoTo(23, 1); win:SelectTab(2)
+    TCF:AdvGoTo(23, 1); TCF:AdvStart(); win:SelectTab(2)
     for i = 1, 2400 do _update(0.25) end
     print("adventure raid: tier", TCF:CD().adv.tier, "stage", TCF:CD().adv.stage, "best", TCF:CD().adv.best)
     -- expeditions: send two parties, fast-forward, claim
@@ -331,6 +339,41 @@ TEST = r'''
     _fire("ADDON_LOADED", "TapCatForever")
     assert(TCF:CD("PALADIN").level == 17 and TCF:CD("WARRIOR").level == 1, "migration")
     TapCatForeverDB = old
+    -- per-character data: a second character has its own gear, cosmetics, professions and levels
+    _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
+    local coinsBefore = TCF.db.coins
+    local mainOwned = 0; for _ in pairs(TCF.db.owned) do mainOwned = mainOwned + 1 end
+    local mainLevel = TCF:CD("WARRIOR").level
+    _charName = "Altcat"; _race = "Tauren"
+    _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
+    assert(TCF.db.coins == coinsBefore, "TapCoins are shared: " .. tostring(coinsBefore) .. " -> " .. tostring(TCF.db.coins) .. " " .. tostring(_chat[#_chat]))
+    assert(TCF:CD("WARRIOR").level == 1, "alt cats start at level 1")
+    assert(TCF.db.owned.race_tauren and not TCF.db.owned.race_orc, "alt has its own cosmetics")
+    assert(TCF:GetLoadout("MAGE").acc == "race_tauren", "racial piece worn by the alt's cats")
+    -- only the selected class's cat adventures: others stay paused
+    TCF:SetClass("MAGE"); TCF:AdvStart()
+    for i = 1, 400 do _update(0.25) end
+    local mageKills = TCF:CD("MAGE").adv.kills
+    assert(mageKills > 0, "selected cat fights")
+    local rogueKills = TCF:CD("ROGUE").adv.kills
+    TCF:SetClass("ROGUE")
+    for i = 1, 400 do _update(0.25) end
+    assert(TCF:CD("ROGUE").adv.kills == rogueKills, "a cat that wasn't started stays home")
+    assert(TCF:CD("MAGE").adv.kills == mageKills, "the mage pauses while another class is selected")
+    TCF:SetClass("MAGE"); for i = 1, 200 do _update(0.25) end
+    assert(TCF:CD("MAGE").adv.kills > mageKills, "the mage resumes when selected again")
+    assert(not TCF.db.trade or TCF.db.trade.renown == 0, "alt has its own professions")
+    local altGear = 0; for _ in pairs(TCF.db.gear) do altGear = altGear + 1 end
+    assert(altGear <= 9, "alt starts with just starter weapons")
+    TCF:AddCoins(1)
+    local coinsAlt = TCF.db.coins
+    _charName = "Kittyhawk"; _race = nil
+    _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
+    local back = 0; for _ in pairs(TCF.db.owned) do back = back + 1 end
+    assert(back == mainOwned and TCF:CD("WARRIOR").level == mainLevel, "main character data intact")
+    assert(TCF.db.coins == coinsAlt, "coins shared both ways")
+    assert(rawget(TapCatForeverDB, "owned") == nil and TapCatForeverDB.chars.Altcat_Forever == nil, "per-char data lives under chars")
+    print("characters:", (function() local n = 0 for _ in pairs(TapCatForeverDB.chars) do n = n + 1 end return n end)())
     -- re-login with existing saved data
     TCF.db = nil
     _fire("ADDON_LOADED", "TapCatForever")

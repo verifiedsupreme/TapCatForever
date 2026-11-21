@@ -102,8 +102,51 @@ local DEFAULTS = {
   },
 }
 
+-- Saved data that belongs to the current character. Everything else (TapCoins,
+-- quests, daily streak, achievements, settings) is shared by the whole account.
+TCF.PER_CHARACTER = {
+  owned = true, gear = true, loadouts = true, look = true, keys = true, classData = true,
+  trade = true, expeditions = true, class = true, prof = true, dungeonRun = true,
+}
+
+local function characterKey()
+  local name = UnitName and UnitName("player")
+  local realm = GetRealmName and GetRealmName()
+  if TCF.IsSecret(name) or not name or name == "" then name = "Unknown" end
+  if TCF.IsSecret(realm) or not realm then realm = "" end
+  return name .. "-" .. realm
+end
+
+-- Point the per-character keys of the saved table at this character's own data.
+local function bindCharacter(sv)
+  setmetatable(sv, nil)
+  sv.chars = sv.chars or {}
+  local key = characterKey()
+  local char = sv.chars[key]
+  if not char then
+    char = {}
+    sv.chars[key] = char
+    -- the first character after this update inherits the old shared data
+    if not sv.charsMigrated then
+      for k in pairs(TCF.PER_CHARACTER) do char[k] = sv[k] end
+      char.migrated = true
+    else
+      char.fresh = true
+    end
+  end
+  sv.charsMigrated = true
+  for k in pairs(TCF.PER_CHARACTER) do rawset(sv, k, nil) end
+  setmetatable(sv, {
+    __index = function(_, k) if TCF.PER_CHARACTER[k] then return char[k] end end,
+    __newindex = function(t, k, v) if TCF.PER_CHARACTER[k] then char[k] = v else rawset(t, k, v) end end,
+  })
+  TCF.charKey, TCF.charData = key, char
+  return char
+end
+
 function TCF:InitDB()
   TapCatForeverDB = TapCatForeverDB or {}
+  local char = bindCharacter(TapCatForeverDB)
   local db = copyDefaults(DEFAULTS, TapCatForeverDB)
   self.db = db
   -- default class = the character's own class the very first time
@@ -147,8 +190,8 @@ function TCF:InitDB()
     adv.cleared = adv.cleared or {}
     adv.newStages = adv.newStages or 0
   end
-  -- v2 -> v3: real gear. Every class starts with a simple weapon.
-  if (db.version or 0) < 3 and self.StarterGear then
+  -- v2 -> v3: real gear. Every class starts with a simple weapon (also for new characters).
+  if ((db.version or 0) < 3 or (char.fresh and not char.started)) and self.StarterGear then
     for _, cl in ipairs(TCF.CLASSES) do
       self:StarterGear(cl.key)
       db.loadouts[cl.key] = {}   -- show real gear instead of the old starter cosmetics
@@ -157,6 +200,7 @@ function TCF:InitDB()
       adv.tier, adv.stage, adv.best, adv.cleared = 1, 1, 0, {}
     end
   end
+  char.started = true
   db.version = 3
   db.stats.classesPlayed[db.class] = true
 end

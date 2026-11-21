@@ -46,7 +46,7 @@ cd.abilities = {}
 for _, a in ipairs(TCF.ABILITIES[class]) do if a.level <= level then cd.abilities[a.key] = true end end
 local st = TCF:CombatStats(class)
 local adv = cd.adv
-adv.tier, adv.stage, adv.auto, adv.best, adv.cleared = tierIdx, 1, true, 0, {}
+adv.tier, adv.stage, adv.auto, adv.best, adv.cleared, adv.active = tierIdx, 1, true, 0, {}, true
 TCF.advRun = nil
 local deaths = 0
 local oldDefeat = TCF.AdvDefeat

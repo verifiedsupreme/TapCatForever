@@ -116,6 +116,53 @@ function TCF:GearUsable(it, class)
   return true
 end
 
+-- How much each class values each stat, and the weapons it actually wants.
+local STAT_WEIGHTS = {
+  WARRIOR = { str = 1, agi = 0.8, sta = 0.6, ap = 0.5, critr = 0.8, hitr = 0.8, crit = 1, hit = 1, def = 0.5 },
+  PALADIN = { str = 1, sta = 0.6, int = 0.5, agi = 0.4, sp = 0.3, heal = 0.3, critr = 0.6, crit = 1, hit = 1, hitr = 0.6, def = 0.4 },
+  HUNTER  = { agi = 1, ap = 0.5, rap = 0.5, int = 0.3, sta = 0.5, critr = 0.8, hitr = 0.8, crit = 1, hit = 1 },
+  ROGUE   = { agi = 1, str = 0.6, ap = 0.5, sta = 0.4, critr = 0.8, hitr = 0.8, crit = 1, hit = 1 },
+  PRIEST  = { int = 1, spi = 0.8, sp = 1, heal = 0.8, sta = 0.4, mp5 = 1 },
+  SHAMAN  = { int = 0.8, str = 0.7, agi = 0.4, sp = 0.8, heal = 0.5, sta = 0.4, mp5 = 0.8, crit = 0.8 },
+  MAGE    = { int = 1, sp = 1, sta = 0.5, spi = 0.5, hit = 1, crit = 1 },
+  WARLOCK = { int = 1, sp = 1, sta = 0.6, spi = 0.5, hit = 1, crit = 1 },
+  DRUID   = { int = 0.8, agi = 0.7, str = 0.6, sp = 0.7, heal = 0.6, spi = 0.6, sta = 0.4, mp5 = 0.6 },
+}
+local PREFERRED_WEAPONS = {
+  WARRIOR = "sword axe mace polearm fist dagger bow gun xbow thrown",
+  PALADIN = "sword axe mace polearm",
+  HUNTER  = "sword axe polearm staff dagger fist bow gun xbow",
+  ROGUE   = "sword mace dagger fist bow gun xbow thrown",
+  PRIEST  = "staff mace dagger wand",
+  SHAMAN  = "axe mace staff fist dagger",
+  MAGE    = "staff sword dagger wand",
+  WARLOCK = "staff sword dagger wand",
+  DRUID   = "staff mace dagger fist",
+}
+for k, v in pairs(PREFERRED_WEAPONS) do
+  local t = {}
+  for w in v:gmatch("%a+") do t[w] = true end
+  PREFERRED_WEAPONS[k] = t
+end
+local PRIMARY = { str = true, agi = true, sta = true, int = true, spi = true, ap = true, rap = true, sp = true,
+  heal = true, critr = true, hitr = true, crit = true, hit = true, mp5 = true, def = true }
+
+-- Does this item's stats and type fit what the class actually wants?
+function TCF:GearSuits(it, class)
+  if not self:GearUsable(it, class) then return false end
+  local w = STAT_WEIGHTS[class]
+  if it.sub and TYPE_NAMES[it.sub] and not ARMOR_RANK[it.sub] and it.sub ~= "shield" and it.sub ~= "misc" then
+    if not PREFERRED_WEAPONS[class][it.sub] then return false end
+  end
+  local st = TCF.GearStats(it)
+  local total, good = 0, 0
+  for k, v in pairs(st) do
+    if PRIMARY[k] then total = total + v; good = good + v * (w[k] or 0) end
+  end
+  if total == 0 then return true end
+  return good / total >= 0.45
+end
+
 -- Equip slots an item can go in, for a class
 function TCF:GearTargetSlots(it, class)
   local s = it.slot
@@ -255,7 +302,9 @@ function TCF:RollBossLoot(tier, boss, class)
   if not list or #list == 0 then list = TCF.TIER_POOL[tier] end
   if not list then return nil end
   local own = random() < 0.8
-  return weightedPick(list, function(it) return (not own) or self:GearUsable(it, class) end)
+  local pick = weightedPick(list, function(it) return (not own) or self:GearSuits(it, class) end)
+  if not pick and own then pick = weightedPick(list, function(it) return self:GearUsable(it, class) end) end
+  return pick
 end
 
 -- Trash / world loot near a level, by quality weights {unc, rare, epic}
@@ -269,7 +318,7 @@ function TCF:RollWorldLoot(level, class, weights, tier)
   local function scan(list)
     if not list then return end
     for _, it in ipairs(list) do
-      if it.q == q and it.req <= level + 2 and it.req >= level - 8 and self:GearUsable(it, class) then cands[#cands + 1] = it end
+      if it.q == q and it.req <= level + 2 and it.req >= level - 8 and self:GearSuits(it, class) then cands[#cands + 1] = it end
     end
   end
   if tier and TCF.TIER_POOL[tier] then scan(TCF.TIER_POOL[tier]) end

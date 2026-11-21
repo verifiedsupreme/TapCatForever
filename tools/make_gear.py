@@ -47,8 +47,18 @@ TIERS = [
     ("aq40",     "Temple of Ahn'Qiraj",      3428, 60, 60, 74, True,  744, "C'Thun", ["Anubisath Sentinel", "Vekniss Soldier", "Qiraji Champion"]),
     ("naxx",     "Naxxramas",                3456, 60, 60, 78, True,  754, "Kel'Thuzad", ["Patchwork Golem", "Plagued Ghoul", "Crypt Reaver", "Death Knight Captain"]),
 ]
-OUTDOOR_ART = 343001  # Eastern Kingdoms wide loading screen
+OUTDOOR_ART = {"elwynn": "bg_elwynn", "westfall": "bg_westfall"}  # pixel scenes in Art/
 MAX_BOSSES = 6
+# bosses missing from the client model table borrow a look-alike's model
+BOSS_STAND_IN = {
+    "Morgaine the Sly": "Defias Thug", "Fedfennel": "Kobold Miner", "Gruff Swiftbite": "Timber Wolf",
+    "Slark": "Murloc", "Brack": "Murloc", "Leprithus": "Skeleton", "Taragaman the Hungerer": "Searing Blade Cultist",
+    "Ghamoo-ra": "Snapjaw", "Gelihast": "Murloc", "Old Serra'kis": "Thresher", "Bruegal Ironknuckle": "Dark Iron Dwarf",
+    "Kam Deepfury": "Dark Iron Dwarf", "Bazil Thredd": "Defias Thug", "Azshir the Sleepless": "Banshee",
+    "Herod": "Scarlet Champion", "Ragglesnout": "Razorfen Quilguard", "Tuten'kash": "Tomb Fiend",
+    "Dustwraith": "Dust Devil", "Ras Frostwhisper": "Lich", "Kormok": "Ogre", "Eldreth Spectre": "Ghost",
+    "Blackwing Technician": "Goblin",
+}
 
 SLOT_MAP = {
     "Head": "HEAD", "Neck": "NECK", "Shoulder": "SHOULDER", "Back": "BACK", "Chest": "CHEST", "Wrist": "WRIST",
@@ -210,15 +220,26 @@ def main():
         missing = []
         for i, t in enumerate(TIERS):
             key, name, zone, lo, hi, diff, raid, jid, final, trash = t
-            bg, lore = art.get(jid, (OUTDOOR_ART, 0)) if jid else (OUTDOOR_ART, 0)
+            if jid:
+                bg, lore = art.get(jid, (0, 0))
+                bg_lua = str(bg)
+            else:
+                bg_lua, lore = lua_str(OUTDOOR_ART[key]), 0
             def d(n):
                 v = lookup(n)
                 if not v: missing.append(n)
                 return v
-            bosses = ", ".join("{%s, %d}" % (lua_str(b), d(b)) for b in tier_bosses[i])
-            mobs = ", ".join("{%s, %d}" % (lua_str(m), d(m)) for m in trash)
-            f.write("  { key = %s, name = %s, min = %d, max = %d, diff = %d, raid = %s, art = %d, lore = %d,\n    bosses = { %s },\n    mobs = { %s } },\n"
-                    % (lua_str(key), lua_str(name), lo, hi, diff, "true" if raid else "false", bg, lore, bosses, mobs))
+            mob_list = [(m, d(m)) for m in trash]
+            mob_list = [(m, v) for m, v in mob_list if v]           # never show an enemy without a model
+            stand_in = [v for _, v in mob_list] or [11121]
+            boss_list = []
+            for bi, b in enumerate(tier_bosses[i]):
+                v = d(b) or BOSS_STAND_IN.get(b) and lookup(BOSS_STAND_IN[b]) or stand_in[bi % len(stand_in)]
+                boss_list.append((b, v))
+            bosses = ", ".join("{%s, %d}" % (lua_str(b), v) for b, v in boss_list)
+            mobs = ", ".join("{%s, %d}" % (lua_str(m), v) for m, v in mob_list)
+            f.write("  { key = %s, name = %s, min = %d, max = %d, diff = %d, raid = %s, art = %s, lore = %d,\n    bosses = { %s },\n    mobs = { %s } },\n"
+                    % (lua_str(key), lua_str(name), lo, hi, diff, "true" if raid else "false", bg_lua, lore, bosses, mobs))
         f.write("}\n\n")
         f.write("-- Items: id, name, icon, quality(2-5), itemLevel, reqLevel, slot, type, stats, tier, boss, dropChance(per mille), classes\n")
         f.write("local G = TCF.AddGear\nTCF.GEAR_LIST = {}\n")

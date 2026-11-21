@@ -235,7 +235,8 @@ function TCF:GearTooltip(tt, it, class)
   else
     tt:AddLine("World drop", 0.6, 0.8, 1)
   end
-  if not self:GearUsable(it, class) then tt:AddLine("Your " .. TCF.CLASS_BY_KEY[class].name .. " can't use this.", 1, 0.2, 0.2) end
+  if not self:GearUsable(it, class) then tt:AddLine("Your " .. TCF.CLASS_BY_KEY[class].name .. " can't use this.", 1, 0.2, 0.2)
+  elseif not self:GearSuits(it, class) then tt:AddLine("Not ideal for a " .. TCF.CLASS_BY_KEY[class].name .. " (wrong stats or weapon type).", 1, 0.6, 0.2, true) end
   local have = self.db.gear[it.id]
   if have then tt:AddLine("In your collection" .. (have > 1 and (" (x" .. have .. ")") or ""), 0.3, 1, 0.3) end
 end

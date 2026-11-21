@@ -3,7 +3,9 @@ local ADDON, TCF = ...
 local floor, max, min, random = math.floor, math.max, math.min, math.random
 
 local ANIM_STAND, ANIM_DEATH, ANIM_ATTACK, ANIM_WOUND = 0, 1, 16, 9
-local ICON_FALLBACK = "INV_Misc_Bone_HumanSkull_01"
+-- if a creature model can't load, borrow another enemy's model from the zone;
+-- as a last resort show a pixel-art monster (never an icon)
+local PIXEL_MONSTER = "Interface\\AddOns\\TapCatForever\\Art\\mob_shadow"
 
 local function short(n)
   n = floor(n + 0.5)
@@ -63,8 +65,8 @@ TCF.UI.Builders.adventure = function(page, win)
     local m = CreateFrame("PlayerModel", nil, f)
     m:SetAllPoints()
     f.model = m
-    f.icon = f:CreateTexture(nil, "ARTWORK"); f.icon:SetSize(60, 60); f.icon:SetPoint("BOTTOM", 0, 20)
-    f.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    f.icon = f:CreateTexture(nil, "ARTWORK"); f.icon:SetSize(96, 96); f.icon:SetPoint("BOTTOM", 0, 10)
+    f.icon:SetTexture(PIXEL_MONSTER, nil, nil, "NEAREST")
     f.bar = Bar(f, 96, 0.85, 0.15, 0.15); f.bar:SetPoint("TOP", 0, 8)
     f.name = Text(f, "GameFontNormalSmall"); f.name:SetPoint("BOTTOM", f.bar, "TOP", 0, 2); f.name:SetWidth(130)
     f.shake, f.fade, f.anim = 0, 0, 0
@@ -86,6 +88,11 @@ TCF.UI.Builders.adventure = function(page, win)
   end
 
   local awayText = Text(scene, "GameFontNormalLarge"); awayText:SetPoint("CENTER", 60, 30); awayText:SetWidth(300)
+  local startPanel = CreateFrame("Frame", nil, scene); startPanel:SetAllPoints()
+  local startDim = startPanel:CreateTexture(nil, "OVERLAY", nil, -1); startDim:SetAllPoints(); startDim:SetColorTexture(0, 0, 0, 0.45)
+  local startText = Text(startPanel, "GameFontHighlightLarge"); startText:SetPoint("CENTER", 0, 26); startText:SetWidth(420)
+  local startBtn = Button(startPanel, "Start Adventure", 170, 30, function() TCF:AdvStart(); win:Refresh() end)
+  startBtn:SetPoint("TOP", startText, "BOTTOM", 0, -12)
 
   local stats = Text(page, "GameFontHighlight", nil, "LEFT"); stats:SetPoint("TOPLEFT", 18, -308); stats:SetWidth(520)
   local autoCB = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
@@ -96,6 +103,9 @@ TCF.UI.Builders.adventure = function(page, win)
     tt:AddLine("Auto-advance", 1, 0.82, 0)
     tt:AddLine("On: move on after each win and into the next zone when your level allows. Off: keep farming this stage.", 1, 1, 1, true)
   end)
+  local retreat = Button(page, "Retreat", 76, 22, function() TCF:AdvRetreat(); win:Refresh() end)
+  retreat:SetPoint("TOPLEFT", 130, -327)
+  Tip(retreat, function(tt) tt:AddLine("Retreat", 1, 0.82, 0); tt:AddLine("Stop fighting. Your cat rests until you press Start again.", 1, 1, 1, true) end)
   local nextStage = Button(page, "Stage >", 76, 22, function() TCF:AdvStep(1); win:Refresh() end)
   nextStage:SetPoint("TOPRIGHT", -14, -327)
   local prevStage = Button(page, "< Stage", 76, 22, function() TCF:AdvStep(-1); win:Refresh() end)
@@ -121,17 +131,29 @@ TCF.UI.Builders.adventure = function(page, win)
         f.fade = 0
         f:SetAlpha(1)
         f:Show()
-        local ok = false
-        if m.display and m.display > 0 then
-          ok = pcall(f.model.SetDisplayInfo, f.model, m.display)
-          pcall(f.model.SetFacing, f.model, -0.7)
-          pcall(f.model.SetCamDistanceScale, f.model, boss and 1.3 or 1.15)
-          pcall(f.model.SetAnimation, f.model, ANIM_STAND)
+        -- candidate models: this enemy's own, then the zone's other enemies
+        local cands = { m.display }
+        local t = TCF:AdvTier(TCF:CD().adv.tier)
+        for _, x in ipairs(t.mobs) do cands[#cands + 1] = x[2] end
+        for _, x in ipairs(t.bosses) do cands[#cands + 1] = x[2] end
+        f.cands, f.candIdx, f.isBoss = cands, 0, boss
+        f.tryNext = function()
+          f.candIdx = f.candIdx + 1
+          local id = f.cands[f.candIdx]
+          while id and id <= 0 do f.candIdx = f.candIdx + 1; id = f.cands[f.candIdx] end
+          if id and f.candIdx <= 4 then
+            local ok = pcall(f.model.SetDisplayInfo, f.model, id)
+            pcall(f.model.SetFacing, f.model, -0.7)
+            pcall(f.model.SetCamDistanceScale, f.model, f.isBoss and 1.3 or 1.15)
+            pcall(f.model.SetAnimation, f.model, ANIM_STAND)
+            f.model:Show(); f.icon:Hide()
+            f.modelCheck = 0.6
+            if not ok then f.tryNext() end
+          else
+            f.model:Hide(); f.icon:Show(); f.modelCheck = nil
+          end
         end
-        f.model:SetShown(ok)
-        f.icon:SetShown(not ok)
-        f.icon:SetTexture(TCF.Icon(ICON_FALLBACK))
-        f.modelCheck = ok and 0.6 or nil
+        f.tryNext()
       else
         f:Hide()
       end
@@ -145,10 +167,11 @@ TCF.UI.Builders.adventure = function(page, win)
     zoneText:SetText(t.name .. (t.raid and "  |cffff8000(Raid)|r" or ""))
     zoneSub:SetText(string.format("Levels %d-%d   Stage %d / %d   %s", t.min, t.max, adv.stage, TCF:AdvStages(adv.tier),
       adv.stage % 2 == 0 and ("|cffff8000Boss: " .. t.bosses[adv.stage / 2][1] .. "|r") or "|cffaaaaaaTrash pack|r"))
-    if t.art and t.art > 0 then
-      art:SetTexture(t.art)
-      if t.art == 343001 then art:SetTexCoord(0, 1, 0.12, 0.88) else art:SetTexCoord(0, 0.78, 0.05, 0.62) end
-      art:Show()
+    if type(t.art) == "string" then
+      art:SetTexture("Interface\\AddOns\\TapCatForever\\Art\\" .. t.art, nil, nil, "NEAREST")
+      art:SetTexCoord(0, 1, 0, 1); art:Show()
+    elseif t.art and t.art > 0 then
+      art:SetTexture(t.art); art:SetTexCoord(0, 0.78, 0.05, 0.62); art:Show()
     else art:Hide() end
     advCat:ApplyAppearance(TCF:GetAppearance())
     local run = TCF.advRun
@@ -164,6 +187,10 @@ TCF.UI.Builders.adventure = function(page, win)
     nextTier:SetEnabled(TCF:AdvCanGoTo(adv.tier + 1, 1))
     prevTier:SetEnabled(adv.tier > 1)
     logText:SetText(table.concat(TCF.advLog or { "|cff888888Your cat sets out on an adventure...|r" }, "\n"))
+    local active = adv.active
+    startPanel:SetShown(not active and not TCF:IsOnExpedition(TCF.db.class))
+    startText:SetText(string.format("Your %s cat is resting.\nPress Start to fight through %s.", TCF.CLASS_BY_KEY[TCF.db.class].name, t.name))
+    retreat:SetEnabled(active and true or false)
     local away = TCF:IsOnExpedition(TCF.db.class)
     awayText:SetText(away and ("|cffffd100Your " .. TCF.CLASS_BY_KEY[TCF.db.class].name .. " cat is away on an expedition.|r\nPick another class, or wait for it to return.") or "")
     if run and not run.pack then layoutSlots(nil) end
@@ -227,7 +254,7 @@ TCF.UI.Builders.adventure = function(page, win)
           if f.modelCheck <= 0 then
             f.modelCheck = nil
             local okFile, file = pcall(f.model.GetModelFileID, f.model)
-            if okFile and not file then f.model:Hide(); f.icon:Show() end
+            if okFile and not file then f.tryNext() end
           end
         end
       end

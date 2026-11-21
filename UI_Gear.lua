@@ -118,7 +118,8 @@ TCF.UI.Builders.gear = function(page, win)
         local n = TCF.db.gear[it.id]
         r.btn.count:SetText(n > 1 and n or "")
         local col = TCF.RARITY[it.q]
-        r.name:SetText("|c" .. col.hex .. it.name .. "|r" .. (equippedIds[it.id] and "  |cff20ff20(equipped)|r" or ""))
+        r.name:SetText("|c" .. col.hex .. it.name .. "|r" .. (equippedIds[it.id] and "  |cff20ff20(equipped)|r" or "")
+          .. ((not TCF:GearSuits(it, class) and TCF:GearUsable(it, class)) and "  |cffff9933(not ideal)|r" or ""))
         r.info:SetText(string.format("|cffffd100%d|r  %s %s  |cff999999%s|r", it.ilvl, TCF.ITEM_TYPE_NAMES[it.sub] or "",
           TCF.ITEM_SLOT_NAMES[it.slot] or "", TCF.GearSummary(it)))
         local d = TCF:GearUpgrade(it)

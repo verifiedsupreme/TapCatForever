@@ -149,7 +149,7 @@ end
 
 function TCF:AdvTapStrike()
   local run = self.advRun
-  if not run or not run.pack or run.respawn > 0 or run.class ~= self.db.class or run.away then return end
+  if not run or not run.pack or run.respawn > 0 or run.class ~= self.db.class or run.away or not self:CD().adv.active then return end
   local m, i = pickTarget(run)
   if m then self:AdvHitMob(m, i, run.stats.dps * ADV.TAP_STRIKE * dmgMult(self, run), "tap") end
   if run.pack and alive(run) == 0 then self:AdvPackCleared() end
@@ -313,6 +313,8 @@ function TCF:AdvTick(dt)
   -- a cat away on an expedition can't fight here
   run.away = self.IsOnExpedition and self:IsOnExpedition(run.class) or false
   if run.away then return end
+  -- nothing happens until the player presses Start
+  if not self:CD().adv.active then return end
   local st = self:CombatStats()
   run.stats = st
   if st.hp ~= run.catMax then
@@ -394,4 +396,25 @@ function TCF:AdvStep(delta)
   if stage > self:AdvStages(tier) then tier, stage = tier + 1, 1
   elseif stage < 1 then tier = tier - 1; if tier >= 1 then stage = self:AdvStages(tier) end end
   return self:AdvGoTo(tier, stage)
+end
+
+---------------------------------------------------------------- start / retreat
+function TCF:AdvStart()
+  local adv = self:CD().adv
+  if adv.active then return end
+  adv.active = true
+  if self.advRun then self.advRun.pack = nil; self.advRun.respawn = 0.8; self.advRun.catHP = self.advRun.catMax end
+  self:AdvLog("Your cat sets out into " .. self:AdvTier(adv.tier).name .. "!")
+  self:PlaySound("click")
+  self:MarkDirty()
+end
+
+function TCF:AdvRetreat()
+  local adv = self:CD().adv
+  adv.active = false
+  local run = self.advRun
+  if run then run.pack = nil; run.respawn = 0.5; run.catHP = run.catMax; run.buffs = {}; run.shield = 0 end
+  self:AdvLog("Your cat heads home to rest.")
+  self:AdvEvent("defeat")
+  self:MarkDirty()
 end
