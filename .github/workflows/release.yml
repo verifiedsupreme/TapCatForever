@@ -29,33 +29,42 @@ jobs:
       - name: Tag the version from the TOC
         id: tag
         if: github.ref_type == 'branch'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(grep -m1 '^## Version:' TapCatForever.toc | awk '{print $3}' | tr -d '\r')
           TAG="v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            if [ "$(git rev-list -n1 "${TAG}")" != "$(git rev-parse HEAD)" ]; then
-              echo "::error::Tag ${TAG} already exists on another commit. Bump '## Version:' in TapCatForever.toc before releasing."
+            if [ "$(git rev-list -n1 "${TAG}")" = "$(git rev-parse HEAD)" ]; then
+              echo "Tag ${TAG} already points at this commit; publishing it again."
+            elif gh release view "${TAG}" >/dev/null 2>&1; then
+              echo "::error::${TAG} was already released. Bump '## Version:' in TapCatForever.toc before releasing."
               exit 1
+            else
+              echo "Tag ${TAG} was never released; moving it to this commit."
+              git tag -f -a "${TAG}" -m "TapCatForever ${VERSION}"
+              git push -f origin "refs/tags/${TAG}"
             fi
-            echo "Tag ${TAG} already points at this commit; publishing it again."
           else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "${TAG}" -m "TapCatForever ${VERSION}"
-            git push origin "${TAG}"
+            git push origin "refs/tags/${TAG}"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      # Branch push: run the packager as a build of the new tag. (A tag pushed by
+      # Branch push: run the packager as a build of the new tag. A tag pushed by
       # this workflow does not start another run, and the packager skips branch
-      # builds whose commit is already tagged, so tell it this is the tag build.)
+      # builds whose commit is already tagged, so present this run as the tag
+      # build. (These must be exported in the shell; step env cannot override
+      # GitHub's own GITHUB_* variables.)
       - name: Package and upload (release branch)
         if: github.ref_type == 'branch'
-        env:
-          GITHUB_EVENT_NAME: workflow_dispatch
-          GITHUB_REF: refs/tags/${{ steps.tag.outputs.tag }}
-          GITHUB_REF_NAME: ${{ steps.tag.outputs.tag }}
-        run: curl -sSfL https://raw.githubusercontent.com/BigWigsMods/packager/v2/release.sh | bash
+        run: |
+          export GITHUB_EVENT_NAME=workflow_dispatch
+          export GITHUB_REF="refs/tags/${{ steps.tag.outputs.tag }}"
+          export GITHUB_REF_NAME="${{ steps.tag.outputs.tag }}"
+          curl -sSfL https://raw.githubusercontent.com/BigWigsMods/packager/v2/release.sh | bash
 
       # Tag push made by a person: use the packager action as usual.
       - name: Package and upload (tag)
