@@ -47,7 +47,8 @@ function TCF:ShowWelcome()
       local d = U.Text(tile, "GameFontHighlightSmall", t[3]); d:SetPoint("TOP", name, "BOTTOM", 0, -2); d:SetWidth(166)
     end
     local tip = U.Text(p2, "GameFontNormal", "Right-click your cat to open the window. Drag it to move it.")
-    tip:SetPoint("BOTTOMLEFT", 26, 28)
+    -- sits between the tiles and the buttons so nothing overlaps it
+    tip:SetPoint("BOTTOM", 0, 58); tip:SetWidth(540)
     local back = U.Button(p2, "Back", 80, 26, function() f:Page(1) end); back:SetPoint("BOTTOMRIGHT", -154, 20)
     local go2 = U.Button(p2, "Let's tap!", 120, 26, function() f:Hide() end); go2:SetPoint("BOTTOMRIGHT", -24, 20)
 
