@@ -310,19 +310,32 @@ function TCF:SpendCoins(n)
   return true
 end
 
-function TCF:LevelUp()
+function TCF:LevelUp(class)
   local db = self.db
-  local cd = self:CD()
+  class = class or db.class
+  local cd = self:CD(class)
   cd.level = cd.level + 1
   local reward = 10 + 2 * cd.level
   self:AddCoins(reward)
   local extra, chest = "", nil
   if cd.level % 20 == 0 then chest = "heroic" elseif cd.level % 5 == 0 then chest = "strong" end
-  local cl = TCF.CLASS_BY_KEY[db.class]
-  self:Print(string.format("Your %s cat reached |cffffd100level %d|r (%s)! +%d TapCoins%s.", cl.name, cd.level, self:GetTitle(), reward, extra))
-  if self.cat then self.cat:Celebrate("LEVEL " .. cd.level .. "!", 1, 0.82, 0.1) end
+  local cl = TCF.CLASS_BY_KEY[class]
+  self:Print(string.format("Your %s cat reached |cffffd100level %d|r! +%d TapCoins%s.", cl.name, cd.level, reward, extra))
+  if self.cat and class == db.class then self.cat:Celebrate("LEVEL " .. cd.level .. "!", 1, 0.82, 0.1) end
   self:PlaySound("level")
   if chest then self:AwardChest(chest, "Level " .. cd.level) end
+end
+
+-- XP for any class cat (expeditions level up the cats that went, not just the current one)
+function TCF:AddClassXP(class, n)
+  local cd = self:CD(class)
+  if not cd or n <= 0 then return end
+  cd.xp = (cd.xp or 0) + n
+  while cd.xp >= TCF.XPForLevel(cd.level) do
+    cd.xp = cd.xp - TCF.XPForLevel(cd.level)
+    self:LevelUp(class)
+  end
+  self:MarkDirty()
 end
 
 ---------------------------------------------------------------- tapping

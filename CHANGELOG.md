@@ -16,6 +16,7 @@
 - **Herbalism**: seeds show their price (or the skill they need), the garden says what you're planting and what it costs, and failed plants explain why.
 - Professions page: buttons no longer miss clicks (the page was redrawing its views underneath the mouse).
 - Cooking: spice buttons show their price, and the tooltip explains what spices are for and which known dishes use them.
+- Expeditions give XP to every cat that went (5 XP per minute away, half on a failure).
 - **Test mode** (`/tcf testmode`): shortcuts in Settings for TapCoins, Trade Gold, unlocking professions, chests, cat levels and skipping an hour.
 - **Tap Effects**: a new cosmetic slot. A little burst pops from the paw on every tap: 17 to collect (Dust Puffs and Paw Prints up to Holy Light and Rainbow Stars), from chests and the shop.
 - Paws move further on each tap. The chest badge next to the cat is gone (open chests from the Treasure Bag button in the window).

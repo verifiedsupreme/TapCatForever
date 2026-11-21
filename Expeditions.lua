@@ -80,17 +80,21 @@ function TCF:ClaimExpedition(index)
   local e = TCF.EXPEDITION_BY_KEY[ex.key]
   st.done = (st.done or 0) + 1
   self.db.stats.expeditions = (self.db.stats.expeditions or 0) + 1
-  if random() > ex.chance then
+  -- every cat that went earns a little XP (5 per minute away; half if it failed)
+  local won = random() <= ex.chance
+  local xp = floor(e.dur / 60 * 5 * (won and 1 or 0.5))
+  for _, c in ipairs(ex.members) do self:AddClassXP(c, xp) end
+  if not won then
     local coins = floor(e.coins * 0.1)
     self:AddCoins(coins)
-    self:Print(string.format("|cffff6060%s failed.|r Your cats limped home with %d TapCoins. Stronger gear raises the odds.", e.name, coins))
+    self:Print(string.format("|cffff6060%s failed.|r Your cats limped home with %d TapCoins and %d XP each. Stronger gear raises the odds.", e.name, coins, xp))
     self:MarkDirty(); self:RefreshAll()
     return false
   end
   self.db.stats.expeditionWins = (self.db.stats.expeditionWins or 0) + 1
   local coins = floor(e.coins * 0.5 * (0.8 + random() * 0.4))
   self:AddCoins(coins)
-  self:Print(string.format("|cff20ff20%s succeeded!|r +%d TapCoins.", e.name, coins))
+  self:Print(string.format("|cff20ff20%s succeeded!|r +%d TapCoins, +%d XP for each cat.", e.name, coins, xp))
   if random() < e.chest[2] then self:AwardChest(e.chest[1], e.name) end
   -- extra chests instead of loose gear
   for i = 1, e.rolls do

@@ -85,9 +85,9 @@ TCF.UI.Builders.expeditions = function(page, win)
     Tip(r, function(tt)
       tt:AddLine(e.name, 1, 0.82, 0)
       tt:AddLine(string.format("Duration: %s   Recommended party power: %d", TCF.FormatDuration(e.dur), e.rec), 1, 1, 1)
-      tt:AddLine(string.format("Rewards: about %d TapCoins, a chance at a %s and up to %d more chests.",
-        floor(e.coins * 0.5), TCF.CHEST_BY_KEY[e.chest[1]].name, e.rolls), 0.8, 0.8, 0.8, true)
-      tt:AddLine("A failed expedition brings back only a few TapCoins.", 0.7, 0.7, 0.7, true)
+      tt:AddLine(string.format("Rewards: %d XP for each cat, about %d TapCoins, a chance at a %s and up to %d more chests.",
+        floor(e.dur / 60 * 5), floor(e.coins * 0.5), TCF.CHEST_BY_KEY[e.chest[1]].name, e.rolls), 0.8, 0.8, 0.8, true)
+      tt:AddLine("A failed expedition brings back half the XP and only a few TapCoins.", 0.7, 0.7, 0.7, true)
     end)
     r.exp = e
     rows[i] = r
