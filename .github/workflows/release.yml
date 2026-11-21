@@ -27,18 +27,37 @@ jobs:
           fetch-depth: 0
 
       - name: Tag the version from the TOC
+        id: tag
         if: github.ref_type == 'branch'
         run: |
           VERSION=$(grep -m1 '^## Version:' TapCatForever.toc | awk '{print $3}' | tr -d '\r')
           TAG="v${VERSION}"
           if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            echo "::error::Tag ${TAG} already exists. Bump '## Version:' in TapCatForever.toc before releasing."
-            exit 1
+            if [ "$(git rev-list -n1 "${TAG}")" != "$(git rev-parse HEAD)" ]; then
+              echo "::error::Tag ${TAG} already exists on another commit. Bump '## Version:' in TapCatForever.toc before releasing."
+              exit 1
+            fi
+            echo "Tag ${TAG} already points at this commit; publishing it again."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "${TAG}" -m "TapCatForever ${VERSION}"
+            git push origin "${TAG}"
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "${TAG}" -m "TapCatForever ${VERSION}"
-          git push origin "${TAG}"
-          echo "Tagged ${TAG}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - uses: BigWigsMods/packager@v2
+      # Branch push: run the packager as a build of the new tag. (A tag pushed by
+      # this workflow does not start another run, and the packager skips branch
+      # builds whose commit is already tagged, so tell it this is the tag build.)
+      - name: Package and upload (release branch)
+        if: github.ref_type == 'branch'
+        env:
+          GITHUB_EVENT_NAME: workflow_dispatch
+          GITHUB_REF: refs/tags/${{ steps.tag.outputs.tag }}
+          GITHUB_REF_NAME: ${{ steps.tag.outputs.tag }}
+        run: curl -sSfL https://raw.githubusercontent.com/BigWigsMods/packager/v2/release.sh | bash
+
+      # Tag push made by a person: use the packager action as usual.
+      - name: Package and upload (tag)
+        if: github.ref_type == 'tag'
+        uses: BigWigsMods/packager@v2
