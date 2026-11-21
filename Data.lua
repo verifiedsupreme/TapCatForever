@@ -614,6 +614,9 @@ TCF.ACHIEVEMENTS = {
   { id = "craft1",    name = "Handmade",             stat = "crafted",   goal = 1,        coins = 75,    icon = "Trade_BlackSmithing" },
   { id = "craft10",   name = "Master Crafter",       stat = "crafted",   goal = 10,       coins = 1000,  icon = "Trade_BlackSmithing" },
   { id = "races4",    name = "Citizen of Azeroth",   stat = "races",    goal = 4,         coins = 400,   icon = "INV_Misc_Map02" },
+  { id = "trade1m",   name = "Small Business",       stat = "tradeGold", goal = 1000000,  coins = 200,   icon = "INV_Misc_Coin_02" },
+  { id = "trade1t",   name = "Trade Prince",         stat = "tradeGold", goal = 1e12,     coins = 2500,  icon = "INV_Misc_Coin_03" },
+  { id = "renown1",   name = "Renowned Artisan",     stat = "renown",   goal = 1,         coins = 500,   icon = "INV_Misc_Note_02" },
   { id = "streak7",   name = "Devoted",             stat = "streak",   goal = 7,         coins = 500,   icon = "INV_Misc_PocketWatch_01", item = "ach_medal" },
   { id = "streak30",  name = "Inseparable",         stat = "streak",   goal = 30,        coins = 3000,  icon = "INV_Misc_PocketWatch_02" },
 }
@@ -627,6 +630,7 @@ local STAT_TEXT = {
   frenzies = "Enter a Paw Frenzy %s times.", peakTPS = "Tap %s times in one second.",
   pets = "Pet your cat %s times.", streak = "Log in %s days in a row.",
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",
+  tradeGold = "Earn %s Trade Gold in Professions.", renown = "Earn %s Renown by selling your business.",
   races = "Collect %s racial heritage pieces (log in on characters of different races).",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s cosmetic(s) with professions.",

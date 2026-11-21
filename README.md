@@ -15,7 +15,8 @@ Every key press earns XP and TapCoins. Level the cat up, collect class-themed ge
 - **Adventure.** An idle game through 28 real zones, dungeons and raids with their real bosses and loot, 3D creature models and each dungeon's artwork.
 - **Class abilities.** Learn real class abilities with TapCoins; the cat uses them in fights.
 - **Expeditions.** Send parties of 3 cats away for real time to bring back TapCoins, chests and gear.
-- **Professions.** Gather materials over time and craft exclusive cosmetics.
+- **Professions.** An idle tycoon: buy and automate gathering operations, earn Trade Gold, prestige for Renown, and craft exclusive cosmetics from the materials.
+- **Racial heritage.** Each character's cat gets an accessory for its race.
 - **Quests.** Daily and weekly quests for TapCoins and free chests.
 - **Real dungeon and raid rewards.** Finish a dungeon or raid in WoW and your cat gets a chest.
 - **Daily shop.** Three items a day, with a re-roll option.
@@ -36,6 +37,7 @@ Copy the `TapCatForever` folder to `World of Warcraft\_forever_\Interface\AddOns
 Data sources (regenerate `GearData.lua` with `python3 tools/make_gear.py <data-dir>`):
 - Items: the MIT-licensed [wow-classic-items](https://www.npmjs.com/package/wow-classic-items) package (`npm pack wow-classic-items@2.0.1`, then untar into `<data-dir>`).
 - Creature models and dungeon artwork: WoW client data tables exported by wago.tools (`Creature`, `JournalEncounterCreature`, `JournalInstance` as CSV into `<data-dir>`). The addon only references file IDs already in the game client.
+- `python3 tools/trade_sim.py [hours]` simulates the Professions tycoon with optimal buying.
 - `python3 tools/balance.py [CLASS ...]` simulates Adventure with typical real gear at each level, for tuning enemy strength.
 
 - `python3 tools/make_art.py` regenerates every texture in `Art/` and `ArtData.lua`.

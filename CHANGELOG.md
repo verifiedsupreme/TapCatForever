@@ -5,7 +5,8 @@
 - **Adventure rebuilt around Azeroth**: 28 real zones, dungeons and raids in level order (Elwynn Forest, Deadmines, Scarlet Monastery... Molten Core, Blackwing Lair, Naxxramas) with their real bosses and real loot tables. Packs of 1-3 enemies shown as 3D creature models, over each dungeon's own artwork. Zones unlock by class level; raids need raid gear.
 - **Class abilities**: 9-10 real abilities per class (Heroic Strike, Fireball, Frost Nova, Shadow Word: Pain, Holy Light...) bought with TapCoins and used automatically in fights.
 - **Expeditions**: send a party of 3 cats away for 15 minutes to 24 hours (even offline); they come back with TapCoins, chests and gear.
-- **Professions**: Mining, Herbalism, Skinning and Fishing gather real materials over time (also offline) from skill 1 to 300; craft 20 exclusive cosmetics like the Arcanite Reaper and Onyxia Scale Cloak.
+- **Professions are an idle tycoon**: each profession (Mining, Herbalism, Skinning, Fishing) is a board of six operations, from Copper Vein to Arcane Crystal Geode. Run them for Trade Gold and materials (every key press in WoW restarts idle ones), buy more to earn more, hire foremen to automate them (also offline, up to 24 hours), hit 25/50/100... owned for speed boosts and free chests, buy x3 upgrades, unlock more professions, and sell the business for permanent Renown. Materials craft 20 exclusive cosmetics like the Arcanite Reaper and Onyxia Scale Cloak.
+- **Racial heritage**: log in on a character and its cat gets that race's accessory (Orc tusks, Tauren horns, Night Elf ears, Gnome goggles, Skyborne feathers and more).
 - Real dungeons: below level 20 you get a Cat Treat Pouch, from 20 an Adventurer's Strongbox (chance of a Heroic Cache, higher from 50); raids give a Heroic Cache.
 - Chests now hold real gear (65%) or cosmetics (35%). Epic and Legendary gear is deliberately rare.
 - Appearance only shows cosmetics you've unlocked.

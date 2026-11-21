@@ -297,6 +297,7 @@ function TCF:Tap(side)
     self:LevelUp()
   end
   if self.AdvTapStrike then self:AdvTapStrike() end
+  if self.ProfTap then self:ProfTap() end
   if tps > db.stats.peakTPS then db.stats.peakTPS = tps end
   if tps >= FRENZY_TPS then
     if not self.inFrenzy then
@@ -594,6 +595,10 @@ function TCF:GetStat(stat)
     local best = 1
     for _, cd in pairs(db.classData) do if cd.level > best then best = cd.level end end
     return best
+  elseif stat == "tradeGold" then
+    return db.trade and db.trade.lifetime or 0
+  elseif stat == "renown" then
+    return db.trade and db.trade.renown or 0
   elseif stat == "races" then
     local n = 0
     for _, id in pairs(TCF.RACE_ITEM) do if db.owned[id] then n = n + 1 end end
@@ -681,8 +686,7 @@ ticker:SetScript("OnUpdate", function(_, elapsed)
   if not self.db then return end
   if self.inFrenzy and GetTime() > (self.frenzyUntil or 0) then self.inFrenzy = false end
   if self.AdvTick then self:AdvTick(0.25) end
-  self.profTimer = (self.profTimer or 0) + 1
-  if self.profTimer >= 20 and self.ProfessionsTick then self.profTimer = 0; self:ProfessionsTick() end
+  if self.ProfessionsTick then self:ProfessionsTick(false, 0.25) end
   if self.dirty then
     self.dirty = false
     self:CheckAchievements()

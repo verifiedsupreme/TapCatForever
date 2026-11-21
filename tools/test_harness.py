@@ -279,19 +279,36 @@ TEST = r'''
     for _, ex in ipairs(TCF.db.expeditions.active) do ex.finish = time() - 1 end
     TCF:ClaimExpedition(1); TCF:ClaimExpedition(1)
     assert(#TCF.db.expeditions.active == 0)
-    -- professions: learn two, gather 12h offline, craft
-    assert(TCF:LearnProfession("mining")); assert(TCF:LearnProfession("fishing")); assert(not TCF:LearnProfession("herbalism"))
+    -- professions (idle tycoon): buy, run by tapping, foremen, offline, unlock, upgrades, craft, renown
     local ps = TCF:ProfState()
-    ps.last.mining = time() - 13 * 3600; ps.last.fishing = time() - 3600
+    assert(TCF:BuyOp("mining", 1, 1), "buy first copper vein")
+    for k = 1, 4000 do
+      kb.scripts.OnKeyDown(kb, "Q"); _update(0.25)
+      for i = 6, 1, -1 do TCF:BuyOp("mining", i, "max") end
+      for i = 1, 6 do TCF:HireForeman("mining", i) end
+      for _, u in ipairs(TCF.UPGRADES.mining) do TCF:BuyUpgrade(u.id) end
+      if not ps.unlocked.herbalism then TCF:UnlockProfession("herbalism") end
+      if ps.unlocked.herbalism then for i = 6, 1, -1 do TCF:BuyOp("herbalism", i, "max") end; for i = 1, 6 do TCF:HireForeman("herbalism", i) end end
+    end
+    local o = ps.ops.mining
+    print(string.format("trade after ~17 min: gold %s lifetime %s | mining owned %d/%d/%d/%d/%d/%d foremen %s | herbalism %s | copper %d | chests %d/%d/%d",
+      TCF.FormatBig(ps.gold), TCF.FormatBig(ps.lifetime), o[1].n, o[2].n, o[3].n, o[4].n, o[5].n, o[6].n,
+      tostring(o[1].mgr), tostring(ps.unlocked.herbalism), ps.mats.copper or 0, TCF.db.keys.pouch, TCF.db.keys.strong, TCF.db.keys.heroic))
+    win.profSel = "mining"
+    for _, v in ipairs({ "ops", "upg", "craft", "renown" }) do win.profView = v; win:SelectTab(5); _update(0.2) end
+    win.profSel = "fishing"; win.profView = "ops"; win:SelectTab(5); _update(0.2)
+    -- offline: foremen keep working
+    ps.last = time() - 3 * 3600
+    local g0 = ps.gold
     TCF:ProfessionsTick(true)
-    print("professions: mining", ps.skill.mining, "fishing", ps.skill.fishing, "copper", ps.mats.copper, "smallfish", ps.mats.smallfish)
-    ps.skill.mining = 300; ps.mats.arcane = 5; ps.mats.thorium = 50
-    assert(TCF:Craft(TCF.RECIPES.mining[5]), "craft arcanite reaper")
-    assert(TCF.db.owned["craft_arcanite_reaper"])
-    TCF:SellMaterial("copper", 5)
-    win:SelectTab(5)
-    TCF:UnlearnProfession("fishing")
-    win:SelectTab(5)
+    assert(ps.gold > g0, "offline foremen earn")
+    ps.mats.copper = 100
+    assert(TCF:Craft(TCF.RECIPES.mining[1]), "craft copper circlet")
+    ps.lifetime = 1e12
+    local r0 = ps.renown
+    assert(TCF:PrestigeTrade(), "prestige")
+    assert(ps.renown > r0 and ps.ops.mining[1].n == 0)
+    print("renown after selling:", ps.renown)
     -- paperdoll click (right click unequips, left click jumps to the wardrobe)
     for tab = 1, 10 do win:SelectTab(tab) end
     for i = 1, 20 do _update(0.25) end
