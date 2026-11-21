@@ -548,6 +548,17 @@ TCF.ACHIEVEMENTS = {
   { id = "frenzy100", name = "Button Masher",       stat = "frenzies", goal = 100,       coins = 400,   icon = "Ability_Druid_Berserk", item = "ach_bongo" },
   { id = "tps12",     name = "Speed Demon",         stat = "peakTPS",  goal = 12,        coins = 300,   icon = "Ability_Rogue_Sprint", item = "ach_shades" },
   { id = "pet100",    name = "Good Kitty",          stat = "pets",     goal = 100,       coins = 200,   icon = "INV_ValentinesCandy" },
+  { id = "adv1",      name = "Hogger Down!",         stat = "advTier",  goal = 1,         coins = 100,   icon = "Ability_Hunter_Pet_Hyena" },
+  { id = "adv3",      name = "Dungeon Crawler",      stat = "advTier",  goal = 3,         coins = 300,   icon = "Spell_Shadow_RaiseDead" },
+  { id = "adv6",      name = "Seasoned Raider",      stat = "advTier",  goal = 6,         coins = 800,   icon = "INV_Misc_Head_Troll_01" },
+  { id = "adv9",      name = "Ragnaros Falls",       stat = "advTier",  goal = 9,         coins = 2000,  icon = "Spell_Fire_Elemental_Totem" },
+  { id = "adv12",     name = "Naxxramas Conquered",  stat = "advTier",  goal = 12,        coins = 5000,  icon = "Spell_Shadow_AbominationExplosion" },
+  { id = "boss50",    name = "Boss Slayer",          stat = "bossKills", goal = 50,       coins = 750,   icon = "INV_Misc_Bone_HumanSkull_01" },
+  { id = "quest10",   name = "Errand Cat",           stat = "questsDone", goal = 10,      coins = 150,   icon = "INV_Misc_Note_01" },
+  { id = "quest100",  name = "Hero of the Realm",    stat = "questsDone", goal = 100,     coins = 1500,  icon = "INV_Misc_Note_02" },
+  { id = "dungeon1",  name = "Delving Deeper",       stat = "dungeons", goal = 1,         coins = 100,   icon = "INV_Misc_Key_03" },
+  { id = "dungeon25", name = "Dungeon Regular",      stat = "dungeons", goal = 25,        coins = 1000,  icon = "INV_Misc_Key_10" },
+  { id = "raid1",     name = "Raid Cat",             stat = "raids",    goal = 1,         coins = 300,   icon = "INV_Misc_Key_14" },
   { id = "streak7",   name = "Devoted",             stat = "streak",   goal = 7,         coins = 500,   icon = "INV_Misc_PocketWatch_01", item = "ach_medal" },
   { id = "streak30",  name = "Inseparable",         stat = "streak",   goal = 30,        coins = 3000,  icon = "INV_Misc_PocketWatch_02" },
 }
@@ -560,6 +571,8 @@ local STAT_TEXT = {
   chests = "Open %s chests.", drops = "Find %s random loot drops while tapping.",
   frenzies = "Enter a Paw Frenzy %s times.", peakTPS = "Tap %s times in one second.",
   pets = "Pet your cat %s times.", streak = "Log in %s days in a row.",
+  advTier = "Clear Adventure tier %s.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",
+  dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s real WoW raid(s).",
 }
 for _, a in ipairs(TCF.ACHIEVEMENTS) do
   a.desc = string.format(STAT_TEXT[a.stat] or "%s", BreakUpLargeNumbers and BreakUpLargeNumbers(a.goal) or tostring(a.goal))

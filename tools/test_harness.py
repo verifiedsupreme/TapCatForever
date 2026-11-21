@@ -25,7 +25,11 @@ Settings = { RegisterCanvasLayoutCategory = function(f, n) return { name = n } e
              RegisterAddOnCategory = function(c) _settingsRegistered = true end }
 BreakUpLargeNumbers = function(n) return tostring(n) end
 local KNOWN_EVENTS = { ADDON_LOADED = 1, PLAYER_LOGIN = 1, PLAYER_REGEN_ENABLED = 1, GLOBAL_MOUSE_DOWN = 1,
-  UNIT_SPELLCAST_SUCCEEDED = 1 } -- pretend SENT is unavailable to exercise the fallback
+  UNIT_SPELLCAST_SUCCEEDED = 1, PLAYER_ENTERING_WORLD = 1, ZONE_CHANGED_NEW_AREA = 1, ENCOUNTER_END = 1,
+  LFG_COMPLETION_REWARD = 1 } -- SENT left out on purpose to exercise the fallback
+_inInstance = false
+function IsInInstance() if _inInstance then return true, _inInstance end return false, "none" end
+function GetInstanceInfo() return "The Deadmines", _inInstance, 1, "Normal", 5, 0, false, 36 end
 function UnitClass() return "Mage", "MAGE" end
 function InCombatLockdown() return false end
 function GetAddOnMetadata() return "1.0.0" end
@@ -126,7 +130,7 @@ TEST = r'''
     assert(TCF.Icon("INV_Helmet_47"):find("CatForm"), "icon fallback failed")
     for i = 1, 20 do _update(0.3) end
     print(string.format("taps=%d level=%d xp=%d coins=%d earned=%d frenzies=%d peak=%d drops=%d",
-      TCF.db.taps, TCF.db.level, TCF.db.xp, TCF.db.coins, TCF.db.coinsEarned, TCF.db.stats.frenzies, TCF.db.stats.peakTPS, TCF.db.stats.drops))
+      TCF.db.taps, TCF:CD().level, TCF:CD().xp, TCF.db.coins, TCF.db.coinsEarned, TCF.db.stats.frenzies, TCF.db.stats.peakTPS, TCF.db.stats.drops))
     -- window and all tabs
     TCF:ToggleWindow()
     local win = TCF.window
@@ -158,7 +162,7 @@ TEST = r'''
       win.slot = s.key; win.page = 1; win:RefreshWardrobe()
     end
     -- hit every tab via its functions
-    for tab = 1, 4 do win.tab = tab; win:Refresh() end
+    for tab = 1, 6 do win.tab = tab; win:Refresh() end
     win.acScroll = 100; win:RefreshAchievements()
     for i = 1, 200 do _update(0.05) end
     -- pet the cat
@@ -167,7 +171,7 @@ TEST = r'''
     _ctrl = true; TCF.hud.scripts.OnMouseWheel(TCF.hud, 1); _ctrl = false
     for i = 1, 10 do _update(0.3) end
     -- slash commands
-    for _, c in ipairs({ "", "show", "hide", "toggle", "lock", "unlock", "reset", "scale 1.5", "stats", "help" }) do SlashCmdList.TAPCATFOREVER(c) end
+    for _, c in ipairs({ "", "bag", "show", "hide", "toggle", "lock", "unlock", "reset", "scale 1.5", "stats", "help" }) do SlashCmdList.TAPCATFOREVER(c) end
     TapCatForever_OnAddonCompartmentClick()
     -- minimap
     TapCatForeverMinimapButton.scripts.OnClick(TapCatForeverMinimapButton, "RightButton")
@@ -175,7 +179,70 @@ TEST = r'''
     _update(0.1)
     local n, total = TCF:CountOwned()
     local ach = 0; for _ in pairs(TCF.db.achievements) do ach = ach + 1 end
-    print(string.format("owned %d/%d, achievements %d/%d, level %d, chests %d, pets %d", n, total, ach, #TCF.ACHIEVEMENTS, TCF.db.level, TCF.db.stats.chests, TCF.db.stats.pets))
+    print(string.format("owned %d/%d, achievements %d/%d, level %d, chests %d, pets %d", n, total, ach, #TCF.ACHIEVEMENTS, TCF:CD().level, TCF.db.stats.chests, TCF.db.stats.pets))
+    -- per-class levels: a fresh class starts at level 1
+    local magelvl = TCF:CD("MAGE").level
+    TCF:SetClass("ROGUE")
+    assert(TCF:CD().level == 1 or TCF:CD().level < magelvl, "rogue should have its own level")
+    TCF:SetClass("MAGE")
+    -- key mapping: A = left, D = right
+    local catobj = TCF.cat
+    kb.scripts.OnKeyDown(kb, "A"); assert(catobj.lastSide == "L", "A should tap left")
+    kb.scripts.OnKeyDown(kb, "D"); assert(catobj.lastSide == "R", "D should tap right")
+    _fire("GLOBAL_MOUSE_DOWN", "LeftButton"); assert(catobj.lastSide == "L")
+    _fire("GLOBAL_MOUSE_DOWN", "RightButton"); assert(catobj.lastSide == "R")
+    -- Adventure: watch the tab and simulate 30 minutes of fighting
+    win.tab = 2; win:Refresh()
+    TCF.advWatching = true
+    local adv = TCF:CD().adv
+    for i = 1, 7200 do
+      _update(0.25)
+      if i % 4 == 0 then kb.scripts.OnKeyDown(kb, "Q") end
+    end
+    print(string.format("adventure: tier %d stage %d best %d kills %d bosses %d atk %.0f hp %.0f",
+      adv.tier, adv.stage, adv.best, adv.kills, adv.bossKills, TCF:AdvStats().atk, TCF:AdvStats().hp))
+    for i = 1, 5 do print("  log: " .. (TCF.advLog[i] or "")) end
+    TCF:AdvStep(-1); TCF:AdvStep(1); TCF:AdvStep(50)
+    -- quests: finish and claim
+    TCF:EnsureQuests()
+    local pouchBefore = TCF.db.keys.pouch
+    for _, q in ipairs(TCF.db.quests.daily) do q.base = -1e9 end
+    TCF.db.quests.weekly[1].base = -1e9
+    win.tab = 3; win:Refresh()
+    for _, q in ipairs(TCF.db.quests.daily) do TCF:ClaimQuest(q) end
+    TCF:ClaimQuest(TCF.db.quests.weekly[1])
+    assert(TCF.db.keys.pouch == pouchBefore + 3, "daily quests should give pouches")
+    TCF:ToggleBag(); TapCatForeverBag:Refresh()
+    TCF:OpenChest("pouch", true)
+    assert(TapCatForeverLootReveal:IsShown(), "loot reveal should show")
+    TapCatForeverLootReveal.again.scripts.OnClick(TapCatForeverLootReveal.again)
+    TapCatForeverLootReveal.equip.scripts.OnClick(TapCatForeverLootReveal.equip)
+    for i = 1, 5 do TCF:OpenChest("strong") end
+    for i = 1, 10 do TapCatForeverLootReveal.ok.scripts.OnClick(TapCatForeverLootReveal.ok) end
+    TCF:ToggleBag()
+    -- real dungeon run: enter, kill 3 bosses, leave after 6 minutes
+    local strongBefore = TCF.db.keys.strong
+    _inInstance = "party"; _fire("PLAYER_ENTERING_WORLD")
+    for i = 1, 3 do _fire("ENCOUNTER_END", 1, "Boss", 1, 5, 1) end
+    _fire("ENCOUNTER_END", 2, "Boss", 1, 5, _SECRET)   -- secret success value must not error
+    TCF.db.dungeonRun.start = TCF.db.dungeonRun.start - 400
+    _inInstance = false; _fire("ZONE_CHANGED_NEW_AREA")
+    assert(TCF.db.keys.strong == strongBefore + 1, "dungeon should give a strongbox")
+    -- group-finder completion while inside a raid
+    local heroicBefore = TCF.db.keys.heroic
+    _inInstance = "raid"; _fire("PLAYER_ENTERING_WORLD"); _fire("LFG_COMPLETION_REWARD"); _fire("LFG_COMPLETION_REWARD")
+    assert(TCF.db.keys.heroic == heroicBefore + 1, "raid completion once")
+    _inInstance = false; _fire("PLAYER_ENTERING_WORLD")
+    -- paperdoll click (right click unequips, left click jumps to the wardrobe)
+    for tab = 1, 6 do win.tab = tab; win:Refresh() end
+    for i = 1, 20 do _update(0.25) end
+    print("coins now", TCF.db.coins, "quests done", TCF.db.stats.questsDone, "dungeons", TCF.db.stats.dungeons, "raids", TCF.db.stats.raids)
+    -- migration from v1 save (shared level)
+    local old = TapCatForeverDB
+    TapCatForeverDB = { level = 17, xp = 50, class = "PALADIN", taps = 5 }
+    _fire("ADDON_LOADED", "TapCatForever")
+    assert(TCF:CD("PALADIN").level == 17 and TCF:CD("WARRIOR").level == 1, "migration")
+    TapCatForeverDB = old
     -- re-login with existing saved data
     TCF.db = nil
     _fire("ADDON_LOADED", "TapCatForever")

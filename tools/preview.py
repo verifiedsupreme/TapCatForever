@@ -43,10 +43,10 @@ def cat(fur=(1, .78, .5), face="normal", L="down", Rp="up", g=None):
     if "head" in g: two(c, *g["head"])
     rdx, rdy = (6, -14) if Rp == "up" else (0, 0)
     ldx, ldy = (-6, -14) if L == "up" else (0, 0)
-    if "main" in g: two(c, *g["main"], dx=rdx, dy=rdy)
-    if "off" in g: two(c, *g["off"], dx=ldx, dy=ldy)
     layer(c, "paw_L_%s_a" % L, fur); layer(c, "paw_L_%s_b" % L, (1, .6, .7))
     layer(c, "paw_R_%s_a" % Rp, fur); layer(c, "paw_R_%s_b" % Rp, (1, .6, .7))
+    if "main" in g: two(c, *g["main"], dx=rdx, dy=rdy)
+    if "off" in g: two(c, *g["off"], dx=ldx, dy=ldy)
     if "fx_front" in g: layer(c, g["fx_front"][0], g["fx_front"][1], alpha=.8)
     return c
 

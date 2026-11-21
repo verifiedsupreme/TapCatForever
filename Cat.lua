@@ -59,17 +59,18 @@ function TCF.CreateCat(parent, size, opts)
   T("acc_a", "ARTWORK", 1);      T("acc_b", "ARTWORK", 2)
   T("head_a", "ARTWORK", 3);     T("head_b", "ARTWORK", 4)
   T("head_glow", "ARTWORK", 5)
-  T("main_a", "OVERLAY", 0);     T("main_b", "OVERLAY", 1)
-  T("off_a", "OVERLAY", 2);      T("off_b", "OVERLAY", 3)
+  -- paws first, then held items, so weapons/shields sit in front of the paws
   for _, side in ipairs({ "L", "R" }) do
     for _, pose in ipairs({ "up", "down" }) do
-      local a = T("paw" .. side .. pose .. "_a", "OVERLAY", 4)
-      local b = T("paw" .. side .. pose .. "_b", "OVERLAY", 5)
+      local a = T("paw" .. side .. pose .. "_a", "OVERLAY", 0)
+      local b = T("paw" .. side .. pose .. "_b", "OVERLAY", 1)
       setTex(a, "paw_" .. side .. "_" .. pose .. "_a")
       setTex(b, "paw_" .. side .. "_" .. pose .. "_b")
       b:SetVertexColor(PAD_COLOR[1], PAD_COLOR[2], PAD_COLOR[3])
     end
   end
+  T("main_a", "OVERLAY", 2);     T("main_b", "OVERLAY", 3)
+  T("off_a", "OVERLAY", 4);      T("off_b", "OVERLAY", 5)
   FX("fxFront", "OVERLAY", 7)
   for _, n in ipairs({ "head_glow", "chest_glow" }) do self.tex[n]:SetBlendMode("ADD") end
 
@@ -320,4 +321,11 @@ function Cat:ShowLoot(it, isNew)
   fs:SetText("|T" .. TCF.Icon(it.icon) .. ":18:18|t " .. it.name .. (isNew and "" or " |cffaaaaaa(dupe)|r"))
   fs:SetTextColor(col[1], col[2], col[3])
   self:Float(fs, 3.5, 0, self.size * 0.45, self.size * 0.3)
+end
+
+function Cat:Toast(text, r, g, b)
+  if not TCF.db.ui.popups or not self.floaters then return end
+  local fs = self:GetFloater("text")
+  fs:SetText(text); fs:SetTextColor(r or 1, g or 1, b or 1)
+  self:Float(fs, 3, 0, self.size * 0.45, self.size * 0.3)
 end

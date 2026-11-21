@@ -9,9 +9,12 @@ Every key press earns XP and TapCoins. Level the cat up, collect class-themed ge
 - **Tapping cat.** Keys on the left half of the keyboard tap the left paw, the rest tap the right paw. Mouse clicks count too (this can be turned off). The cat blinks, makes a "focus" face during a Paw Frenzy (7+ taps a second) and sparkles when it gets loot.
 - **9 classes.** Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock and Druid. Each class has its own gear (head, chest, back, main hand, off hand) in five material tiers, from Rusty or Novice's up to Titanforged, Ashbringer, Dragonstalker and the rest. Each class also has its own effects, and keeps its own saved outfit.
 - **612 cosmetics** in Common, Uncommon, Rare, Epic and Legendary. They include fur colours (with animated Prismatic and Spectral furs), fur patterns, accessories, party hats, crowns, fishing poles and more. Legendary head and chest pieces shimmer.
-- **Progression.** Levels and titles (Kitten up to Eternal Tapper), a lifetime tap counter, TapCoins (1 per 10 taps, plus level-up rewards and a daily login treat with a streak bonus).
+- **Progression.** Levels and titles (Kitten up to Eternal Tapper), a lifetime tap counter, TapCoins (earned mostly from quests and Adventure, plus a trickle from key presses, level-ups and daily logins).
 - **Loot.** Random drops while you tap, three kinds of treasure chest, free chest keys every 5 and every 20 levels, and duplicates salvaged into TapCoins.
-- **Daily shop.** Six items a day, with a re-roll option.
+- **Adventure.** An idle game where the cat fights through Azeroth's zones, dungeons and raids with the gear it wears.
+- **Quests.** Daily and weekly quests for TapCoins and free chests.
+- **Real dungeon and raid rewards.** Finish a dungeon or raid in WoW and your cat gets a chest.
+- **Daily shop.** Three items a day, with a re-roll option.
 - **43 achievements**, with TapCoin rewards and exclusive cosmetics such as the Crown of the Tapmaster.
 - **Shared progression.** Every character on the account shares the same level, coins, collection and achievements.
 - **Fits around your UI.** Drag it anywhere, scale it from 0.3x to 3x, change its opacity, hide every counter (cat-only mode), and make it click-through when locked.
