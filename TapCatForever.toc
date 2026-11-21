@@ -29,6 +29,7 @@ Cooking.lua
 Quests.lua
 Dungeons.lua
 UI.lua
+Welcome.lua
 UI_Gear.lua
 UI_Adventure.lua
 UI_Abilities.lua

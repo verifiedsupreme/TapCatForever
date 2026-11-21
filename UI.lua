@@ -1012,6 +1012,8 @@ function TCF:CreateWindow()
     ui.minimap.hide = not ui.minimap.hide; TCF:UpdateMinimapButton()
   end)
   mmB:SetPoint("TOPLEFT", 280, -328)
+  local welB = Button(st, "Welcome tour", 130, 22, function() TCF:ShowWelcome() end)
+  welB:SetPoint("TOPLEFT", 280, -352)
   local function ConfirmReset(which, text)
     StaticPopupDialogs.TAPCATFOREVER_RESET = {
       text = text, button1 = "Reset", button2 = CANCEL or "Cancel",

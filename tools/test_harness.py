@@ -200,6 +200,7 @@ TEST = r'''
     assert(TCF:GetAppearance("WARRIOR").acc == nil, "racial hidden")
     TCF.db.ui.racial = true
     TCF:AddCoins(20000)
+    TCF.db.owned.skin_frostsaber = nil; TCF.db.owned.skin_zulian = nil  -- chests can drop skins at random
     assert(TCF:BuySkin("skin_frostsaber")); assert(TCF.db.look.skin == "skin_frostsaber")
     assert(not TCF:BuySkin("skin_zulian"), "drop-only skin can't be bought")
     TCF.cat:ApplyAppearance(TCF:GetAppearance())

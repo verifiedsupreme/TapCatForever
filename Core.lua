@@ -887,6 +887,7 @@ ev:SetScript("OnEvent", function(_, event, a1)
     TCF:BuildShop()
     TCF:RefreshAll()
     TCF:MarkDirty()
+    if not TCF.db.welcomed and TCF.ShowWelcome then TCF:ShowWelcome() end
   elseif event == "PLAYER_REGEN_ENABLED" then
     TCF:SetupKeyboard()
   elseif event == "GLOBAL_MOUSE_DOWN" then
@@ -956,6 +957,7 @@ SlashCmdList.TAPCATFOREVER = function(msg)
   elseif cmd == "scale" and tonumber(arg) then
     ui.scale = max(0.3, min(3, tonumber(arg))); TCF.hud:ApplySettings()
   elseif cmd == "bag" then TCF:ToggleBag()
+  elseif cmd == "welcome" then TCF:ShowWelcome()
   elseif cmd == "testmode" then
     if not ui.testMode and not isDevCharacter() and keyHash(arg or "") ~= TEST_KEY then
       TCF:Print("/tapcat - open window | bag | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats")
@@ -969,7 +971,7 @@ SlashCmdList.TAPCATFOREVER = function(msg)
     TCF:Print(string.format("Level %d (%s), %s lifetime taps, %s TapCoins, %d/%d cosmetics.",
       TCF:CD().level, TCF:GetTitle(), TCF.Commas(TCF.db.taps), TCF.Commas(TCF.db.coins), n, total))
   else
-    TCF:Print("/tapcat - open window | bag | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats")
+    TCF:Print("/tapcat - open window | bag | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats")
   end
 end
 
