@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.2
 - Adventure: you can move on to the next zone as soon as you beat the current one, whatever your level (Auto-advance still waits for the right level).
 - Every boss drops a guaranteed piece of its real loot the first time you beat it.
 - Adventure shows what the next zone needs next to the zone arrows (clear the final boss, or the level required).
