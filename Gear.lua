@@ -314,16 +314,31 @@ function TCF:GearSellValue(it)
   return max(1, floor(it.ilvl * (it.q == 2 and 0.15 or it.q == 3 and 0.35 or it.q == 4 and 1.0 or 3) ))
 end
 
--- What "Sell unequipped" would sell for the current class: item count and TapCoins
-function TCF:UnequippedGearValue()
-  local count, coins = 0, 0
-  local eq = self:GearEquipped()
-  for id, have in pairs(self:Bag()) do
-    local spare = have - equippedCount(eq, id)
+-- "Junk" for the current class: copies of an item beyond what the cat can wear at once, and
+-- every unworn copy of an item that would lower the cat's Power. Better items (including ones
+-- the cat isn't high enough level for yet) and items this class can't use are never junk.
+-- Returns { [id] = copies } plus the item count and TapCoins.
+function TCF:JunkGear(class)
+  class = class or self.db.class
+  local eq = self:GearEquipped(class)
+  local junk, count, coins = {}, 0, 0
+  for id, have in pairs(self:Bag(class)) do
     local it = TCF.GEAR[id]
-    if it and spare > 0 then count = count + spare; coins = coins + self:GearSellValue(it) * spare end
+    if it and have > 0 and self:GearUsable(it, class) then
+      local worn = equippedCount(eq, id)
+      local keep = math.max(worn, #self:GearTargetSlots(it, class))
+      if worn == 0 then
+        local d = self:GearUpgrade(it, class)
+        if d and d < 0 then keep = 0 end
+      end
+      local n = have - keep
+      if n > 0 then
+        junk[id] = n
+        count, coins = count + n, coins + self:GearSellValue(it) * n
+      end
+    end
   end
-  return count, coins
+  return junk, count, coins
 end
 
 -- Copies of an item this class could sell (everything it isn't wearing)
@@ -354,17 +369,21 @@ function TCF:SellGear(id, all)
   return coins
 end
 
--- "Sell unequipped": one chat line and one refresh for the whole bag
-function TCF:SellAllUnequipped()
-  local ids = {}
-  for id in pairs(self:Bag()) do ids[#ids + 1] = id end
+-- "Sell junk": one chat line and one refresh for the whole bag
+function TCF:SellJunk()
+  local junk = self:JunkGear()
+  local bag = self:Bag()
   local count, total = 0, 0
-  for _, id in ipairs(ids) do
-    local n, coins = sellCopies(self, id, true)
+  for id, n in pairs(junk) do
+    local it = TCF.GEAR[id]
+    bag[id] = bag[id] - n
+    if bag[id] <= 0 then bag[id] = nil end
+    local coins = self:GearSellValue(it) * n
+    self:AddCoins(coins)
     count, total = count + n, total + coins
   end
   if count == 0 then return 0 end
-  self:Print(string.format("Sold %d %s for %s TapCoins.", count, count == 1 and "item" or "items", TCF.Commas(total)), true)
+  self:Print(string.format("Sold %d %s of junk for %s TapCoins.", count, count == 1 and "item" or "items", TCF.Commas(total)), true)
   self:MarkDirty(); self:RefreshAll()
   return total
 end

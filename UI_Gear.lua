@@ -22,6 +22,43 @@ function TCF:GearUpgrade(it, class)
   return self:CombatStats(class, it, self:BestGearSlot(it, class)).power - base
 end
 
+-- Every gear tooltip ends with a comparison against what the cat is wearing in that slot
+-- (both slots for rings, trinkets and one-handers), as a Power change.
+function TCF:GearCompareLines(tt, it, class)
+  class = class or self.db.class
+  if not self:GearUsable(it, class) then return end
+  local eq = self:GearEquipped(class)
+  local base = self:CombatStats(class).power
+  local lines = {}
+  for _, slot in ipairs(self:GearTargetSlots(it, class)) do
+    if eq[slot] ~= it.id then
+      local d = self:CombatStats(class, it, slot).power - base
+      local cur = eq[slot] and TCF.GEAR[eq[slot]]
+      local slotName = TCF.GEAR_SLOT_BY_KEY[slot] and TCF.GEAR_SLOT_BY_KEY[slot].name or slot
+      local what = cur and ("|c" .. TCF.RARITY[cur.q].hex .. cur.name .. "|r") or ("|cff888888empty " .. slotName .. " slot|r")
+      local diff = d > 0 and ("|cff20ff20+" .. d .. " Power|r") or d < 0 and ("|cffff4040" .. d .. " Power|r") or "|cffaaaaaano change|r"
+      lines[#lines + 1] = { "Instead of " .. what, diff }
+    end
+  end
+  if #lines == 0 then
+    tt:AddLine(" "); tt:AddLine("Your cat is wearing this.", 0.3, 1, 0.3)
+    return
+  end
+  tt:AddLine(" ")
+  tt:AddLine("Compared with what you're wearing:", 1, 0.82, 0)
+  for _, l in ipairs(lines) do tt:AddDoubleLine(l[1], l[2], 1, 1, 1, 1, 1, 1) end
+  if it.req > self:CD(class).level then
+    tt:AddLine("You can equip it at class level " .. it.req .. ".", 1, 0.5, 0.25)
+  end
+end
+do
+  local base = TCF.GearTooltip
+  function TCF:GearTooltip(tt, it, class)
+    base(self, tt, it, class)
+    self:GearCompareLines(tt, it, class)
+  end
+end
+
 -- Hover preview: the cat on the left tries the item on
 function TCF.UI.ShowTryOn(win, it)
   if not win.preview then return end
@@ -52,7 +89,7 @@ TCF.UI.Builders.gear = function(page, win)
   local ut = Text(page, "GameFontHighlightSmall", "Usable only"); ut:SetPoint("LEFT", usable, "RIGHT", 0, 1)
   usable:SetScript("OnClick", function(s) win.gearUsable = s:GetChecked() and true or false; win.gearPage = 1; win:Refresh() end)
 
-  local ROWS = 9
+  local ROWS = 8
   local rows = {}
   for i = 1, ROWS do
     local r = Panel(page, 528, 44, 0.85); r:SetPoint("TOP", 0, -54 - (i - 1) * 47)
@@ -88,8 +125,6 @@ TCF.UI.Builders.gear = function(page, win)
       if not r.item then return end
       TCF.UI.ShowTryOn(win, r.item)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, r.item)
-      local d = TCF:GearUpgrade(r.item)
-      if d then GameTooltip:AddLine(string.format("Power if equipped: %s%d|r", d >= 0 and "|cff20ff20+" or "|cffff4040", d)) end
       GameTooltip:AddLine("Sells for " .. TCF:GearSellValue(r.item) .. " TapCoins (worn copies are kept).", 0.7, 0.7, 0.7)
       GameTooltip:Show()
     end
@@ -103,22 +138,22 @@ TCF.UI.Builders.gear = function(page, win)
   prev:SetPoint("RIGHT", pageText, "LEFT", -10, 0)
   local nextB = Button(page, ">", 28, 22, function() win.gearPage = (win.gearPage or 1) + 1; win:Refresh() end)
   nextB:SetPoint("LEFT", pageText, "RIGHT", 10, 0)
-  local sellAll = Button(page, "Sell unequipped", 130, 22, function()
-    local n, coins = TCF:UnequippedGearValue()
-    if n == 0 then TCF:Print("Nothing to sell: everything this cat owns is equipped.", true); return end
-    StaticPopupDialogs.TAPCATFOREVER_SELL_ALL = {
-      text = "Sell %s gear you're not wearing for %s TapCoins?\n\nEquipped gear is kept. This can't be undone.",
+  local sellAll = Button(page, "Sell junk", 100, 22, function()
+    local _, n, coins = TCF:JunkGear()
+    if n == 0 then TCF:Print("No junk to sell: every item is either worn, better than what you're wearing, or your only copy.", true); return end
+    StaticPopupDialogs.TAPCATFOREVER_SELL_JUNK = {
+      text = "Sell %s of junk for %s TapCoins?\n\nJunk is gear that would lower your Power, and extra copies you can't wear. Better items are kept, even ones you're not high enough level for yet.",
       button1 = "Sell", button2 = CANCEL or "Cancel",
-      OnAccept = function() TCF:SellAllUnequipped() end,
+      OnAccept = function() TCF:SellJunk() end,
       timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
     }
-    StaticPopup_Show("TAPCATFOREVER_SELL_ALL", n == 1 and "1 piece of" or (n .. " pieces of"), TCF.Commas(coins))
+    StaticPopup_Show("TAPCATFOREVER_SELL_JUNK", n == 1 and "1 item" or (n .. " items"), TCF.Commas(coins))
   end)
   sellAll:SetPoint("BOTTOMLEFT", 12, 10)
   Tip(sellAll, function(tt)
-    local n, coins = TCF:UnequippedGearValue()
-    tt:AddLine("Sell unequipped", 1, 0.82, 0)
-    tt:AddLine("Sells every piece of gear this cat isn't wearing. Equipped gear is kept. You'll be asked to confirm.", 1, 1, 1, true)
+    local _, n, coins = TCF:JunkGear()
+    tt:AddLine("Sell junk", 1, 0.82, 0)
+    tt:AddLine("Sells gear that would lower your cat's Power, and extra copies beyond what your cat can wear at once. Worn gear, upgrades (even ones you need a higher level for) and items your class can't use are kept. You'll be asked to confirm.", 1, 1, 1, true)
     tt:AddLine(string.format("Right now: %d items for %s TapCoins.", n, TCF.Commas(coins)), 0.7, 0.7, 0.7)
   end)
   page:EnableMouseWheel(true)
