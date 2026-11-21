@@ -1,0 +1,7 @@
+package-as: TapCatForever
+
+ignore:
+  - tools
+  - media
+  - README.md
+  - .github

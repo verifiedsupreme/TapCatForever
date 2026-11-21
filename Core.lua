@@ -1,0 +1,629 @@
+-- TapCatForever: core (saved data, input, progression, loot, shop, achievements)
+local ADDON, TCF = ...
+_G.TapCatForever = TCF
+
+local floor, min, max, random = math.floor, math.min, math.max, math.random
+local GetTime = GetTime
+
+local GetMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+TCF.version = GetMeta and GetMeta(ADDON, "Version") or "dev"
+
+-- WoW: Forever runs the modern (Midnight 12.x) addon API, which can hand addons
+-- "secret" values during combat. TapCatForever never reads combat data, but any
+-- value that comes from the game is checked before use.
+local function isSecret(v) return issecretvalue ~= nil and issecretvalue(v) end
+TCF.IsSecret = isSecret
+
+---------------------------------------------------------------- utils
+local function copyDefaults(src, dst)
+  for k, v in pairs(src) do
+    if type(v) == "table" then
+      if type(dst[k]) ~= "table" then dst[k] = {} end
+      copyDefaults(v, dst[k])
+    elseif dst[k] == nil then
+      dst[k] = v
+    end
+  end
+  return dst
+end
+
+function TCF.Commas(n)
+  n = floor(n or 0)
+  if BreakUpLargeNumbers then return BreakUpLargeNumbers(n) end
+  local s = tostring(n)
+  local k
+  repeat s, k = s:gsub("^(-?%d+)(%d%d%d)", "%1,%2") until k == 0
+  return s
+end
+
+function TCF.ItemLink(it)
+  if not it then return "?" end
+  return "|c" .. TCF.RARITY[it.rarity].hex .. "[" .. it.name .. "]|r"
+end
+
+-- Resolves a game icon name; falls back to a safe icon if this client lacks it.
+local iconCache = {}
+local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+function TCF.Icon(path)
+  local full = TCF.ICON .. path
+  local cached = iconCache[full]
+  if cached then return cached end
+  local ok = true
+  if GetFileIDFromPath then ok = GetFileIDFromPath(full) ~= nil end
+  cached = ok and full or (TCF.ICON .. "Ability_Druid_CatForm")
+  iconCache[full] = cached
+  return cached
+end
+
+function TCF:Print(msg)
+  if self.db and not self.db.ui.chat then return end
+  DEFAULT_CHAT_FRAME:AddMessage("|cffffb84dTapCat|r|cffffffffForever|r: " .. msg)
+end
+
+function TCF:PlaySound(kind)
+  if not self.db.ui.sound or not PlaySound then return end
+  local map = {
+    level = { "UI_EPICLOOT_TOAST", "LEVELUPSOUND", "IG_QUEST_LIST_COMPLETE" },
+    loot  = { "LOOTWINDOWCOINSOUND", "IG_BACKPACK_COIN_SELECT" },
+    rare  = { "UI_EPICLOOT_TOAST", "IG_QUEST_LIST_COMPLETE" },
+    click = { "IG_MAINMENU_OPTION_CHECKBOX_ON", "IG_CHARACTER_INFO_TAB" },
+    ach   = { "ACHIEVEMENT_MENU_OPEN", "IG_QUEST_LIST_COMPLETE" },
+    buy   = { "LOOTWINDOWCOINSOUND", "IG_BACKPACK_COIN_SELECT" },
+  }
+  for _, name in ipairs(map[kind] or {}) do
+    local id = SOUNDKIT and SOUNDKIT[name]
+    if id then pcall(PlaySound, id, "Master"); return end
+  end
+end
+
+---------------------------------------------------------------- saved variables (account-wide)
+local DEFAULTS = {
+  version = 1,
+  taps = 0, xp = 0, level = 1,
+  coins = 0, coinsEarned = 0, coinsSpent = 0, coinFrac = 0,
+  owned = {},
+  class = nil,
+  loadouts = {},
+  look = { fur = "fur_ginger", pattern = nil },
+  achievements = {},
+  stats = { chests = 0, drops = 0, frenzies = 0, pets = 0, peakTPS = 0, classesPlayed = {} },
+  daily = { last = "", streak = 0, best = 0 },
+  shop = { day = "", rerolls = 0, stock = {}, bought = {} },
+  keys = { strong = 0, heroic = 0 },
+  ui = {
+    point = { "BOTTOM", "BOTTOM", 0, 160 },
+    scale = 1.0, alpha = 1.0, shown = true,
+    locked = false, clickThrough = false,
+    showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
+    mouse = true, popups = true, sound = true, chat = true,
+    minimap = { angle = 215, hide = false },
+  },
+}
+
+function TCF:InitDB()
+  TapCatForeverDB = TapCatForeverDB or {}
+  local db = copyDefaults(DEFAULTS, TapCatForeverDB)
+  self.db = db
+  -- default class = the character's own class the very first time
+  if not db.class then
+    local _, cls = UnitClass("player")
+    if isSecret(cls) then cls = nil end
+    db.class = (cls and TCF.CLASS_BY_KEY[cls]) and cls or "WARRIOR"
+    local cl = TCF.CLASS_BY_KEY[db.class]
+    db.look.fur = cl.fur
+  end
+  for _, id in ipairs(TCF.STARTER) do db.owned[id] = db.owned[id] or 1 end
+  for _, cl in ipairs(TCF.CLASSES) do
+    if not db.loadouts[cl.key] then
+      local lo = {}
+      for _, g in ipairs(cl.gear) do
+        if g[1] == "chest" and not lo.chest then lo.chest = cl.key .. ":" .. g[2] .. ":1" end
+        if g[1] == "main" and not lo.main then lo.main = cl.key .. ":" .. g[2] .. ":1" end
+      end
+      db.loadouts[cl.key] = lo
+    end
+  end
+  -- drop references to items that no longer exist
+  for id in pairs(db.owned) do if not TCF.ITEMS[id] then db.owned[id] = nil end end
+  for _, lo in pairs(db.loadouts) do
+    for slot, id in pairs(lo) do if not TCF.ITEMS[id] then lo[slot] = nil end end
+  end
+  if db.look.fur and not TCF.ITEMS[db.look.fur] then db.look.fur = "fur_ginger" end
+  if db.look.pattern and not TCF.ITEMS[db.look.pattern] then db.look.pattern = nil end
+  db.stats.classesPlayed[db.class] = true
+end
+
+---------------------------------------------------------------- appearance
+function TCF:GetLoadout(class) return self.db.loadouts[class or self.db.class] end
+
+-- Returns a flat table slot -> item for drawing, optionally with one item previewed.
+function TCF:GetAppearance(class, previewItem)
+  local lo = self:GetLoadout(class)
+  local out = {}
+  for slot, id in pairs(lo) do out[slot] = TCF.ITEMS[id] end
+  out.fur = TCF.ITEMS[self.db.look.fur]
+  out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil
+  if previewItem then out[previewItem.slot] = previewItem end
+  return out
+end
+
+function TCF:CanEquip(it, class)
+  class = class or self.db.class
+  return it and (not it.class or it.class == class)
+end
+
+function TCF:IsEquipped(it, class)
+  if not it then return false end
+  if TCF.SLOT_BY_KEY[it.slot].look then return self.db.look[it.slot] == it.id end
+  return self:GetLoadout(class)[it.slot] == it.id
+end
+
+function TCF:Equip(it, class)
+  if not it or not self.db.owned[it.id] or not self:CanEquip(it, class) then return end
+  if TCF.SLOT_BY_KEY[it.slot].look then
+    self.db.look[it.slot] = it.id
+  else
+    self:GetLoadout(class)[it.slot] = it.id
+  end
+  self:RefreshAll()
+end
+
+function TCF:Unequip(slot, class)
+  if slot == "fur" then return end
+  if TCF.SLOT_BY_KEY[slot].look then self.db.look[slot] = nil
+  else self:GetLoadout(class)[slot] = nil end
+  self:RefreshAll()
+end
+
+function TCF:SetClass(key)
+  if not TCF.CLASS_BY_KEY[key] then return end
+  self.db.class = key
+  self.db.stats.classesPlayed[key] = true
+  self:MarkDirty()
+  self:RefreshAll()
+end
+
+---------------------------------------------------------------- progression
+function TCF.XPForLevel(level) return floor(120 * level ^ 1.25) end
+
+function TCF:GetTitle(level)
+  level = level or self.db.level
+  local t = TCF.TITLES[1][2]
+  for _, e in ipairs(TCF.TITLES) do if level >= e[1] then t = e[2] end end
+  return t
+end
+
+function TCF:AddCoins(n, silent)
+  if n <= 0 then return end
+  self.db.coins = self.db.coins + n
+  self.db.coinsEarned = self.db.coinsEarned + n
+  self:MarkDirty()
+end
+
+function TCF:SpendCoins(n)
+  if self.db.coins < n then return false end
+  self.db.coins = self.db.coins - n
+  self.db.coinsSpent = self.db.coinsSpent + n
+  self:MarkDirty()
+  return true
+end
+
+function TCF:LevelUp()
+  local db = self.db
+  db.level = db.level + 1
+  local reward = 25 + 5 * db.level
+  self:AddCoins(reward)
+  local extra = ""
+  if db.level % 20 == 0 then
+    db.keys.heroic = db.keys.heroic + 1; extra = " + a free Heroic Cache"
+  elseif db.level % 5 == 0 then
+    db.keys.strong = db.keys.strong + 1; extra = " + a free Adventurer's Strongbox"
+  end
+  self:Print(string.format("Your cat reached |cffffd100level %d|r (%s)! +%d TapCoins%s.", db.level, self:GetTitle(), reward, extra))
+  if self.cat then self.cat:Celebrate("LEVEL " .. db.level .. "!", 1, 0.82, 0.1) end
+  self:PlaySound("level")
+end
+
+---------------------------------------------------------------- tapping
+local TAP_CAP = 20          -- max counted taps per second (anti-macro)
+local FRENZY_TPS = 7        -- taps/second to trigger frenzy face
+local DROP_CHANCE = 1 / 3000
+local COINS_PER_TAP = 0.1   -- 1 TapCoin per 10 taps
+
+local recent, recentHead = {}, 0     -- ring buffer of tap times
+for i = 1, 32 do recent[i] = 0 end
+local lastInput = 0
+
+function TCF:TapsLastSecond(now)
+  local n = 0
+  for i = 1, 32 do if now - recent[i] <= 1 then n = n + 1 end end
+  return n
+end
+
+function TCF:Tap(side)
+  local db = self.db
+  if not db then return end
+  local now = GetTime()
+  lastInput = now
+  if self.cat then self.cat:Tap(side) end
+  local tps = self:TapsLastSecond(now)
+  if tps >= TAP_CAP then return end
+  recentHead = recentHead % 32 + 1
+  recent[recentHead] = now
+  tps = tps + 1
+
+  db.taps = db.taps + 1
+  db.xp = db.xp + 1
+  db.coinFrac = db.coinFrac + COINS_PER_TAP
+  if db.coinFrac >= 1 then
+    local whole = floor(db.coinFrac)
+    db.coinFrac = db.coinFrac - whole
+    self:AddCoins(whole)
+  end
+  while db.xp >= TCF.XPForLevel(db.level) do
+    db.xp = db.xp - TCF.XPForLevel(db.level)
+    self:LevelUp()
+  end
+  if tps > db.stats.peakTPS then db.stats.peakTPS = tps end
+  if tps >= FRENZY_TPS then
+    if not self.inFrenzy then
+      self.inFrenzy = true
+      db.stats.frenzies = db.stats.frenzies + 1
+    end
+    self.frenzyUntil = now + 0.6
+  end
+  if random() < DROP_CHANCE then
+    db.stats.drops = db.stats.drops + 1
+    local it = self:RollItem(self:RollRarity({ 45, 32, 16, 6, 1 }), true)
+    if it then self:GrantItem(it, "Lucky find while tapping") end
+  end
+  self:MarkDirty()
+end
+
+-- keyboard side: left half of a QWERTY keyboard taps the left paw
+local LEFT_KEYS = {}
+for k in ("` 1 2 3 4 5 Q W E R T A S D F G Z X C V B TAB ESCAPE CAPSLOCK SPACE F1 F2 F3 F4 F5 F6"):gmatch("%S+") do LEFT_KEYS[k] = true end
+local IGNORE = { LSHIFT = true, RSHIFT = true, LCTRL = true, RCTRL = true, LALT = true, RALT = true, LMETA = true, RMETA = true, UNKNOWN = true }
+
+function TCF:OnKey(key)
+  if IGNORE[key] then return end
+  self:Tap(LEFT_KEYS[key] and "L" or "R")
+end
+
+-- The listener propagates every key to the game, so it never swallows input.
+-- SetPropagateKeyboardInput is restricted in combat on some clients, so set up
+-- only out of combat, and only enable the keyboard once propagation is set.
+function TCF:SetupKeyboard()
+  if self.kbReady then return true end
+  local f = self.kbFrame
+  if not f then
+    f = CreateFrame("Frame", "TapCatForeverKeyListener", UIParent)
+    f:SetSize(1, 1); f:SetPoint("TOPLEFT"); f:Show()
+    self.kbFrame = f
+  end
+  if not f.SetPropagateKeyboardInput or not f.EnableKeyboard then return false end
+  if InCombatLockdown and InCombatLockdown() then return false end
+  local ok = pcall(f.SetPropagateKeyboardInput, f, true)
+  if not ok then return false end
+  ok = pcall(f.EnableKeyboard, f, true)
+  if not ok then return false end
+  f:SetScript("OnKeyDown", function(_, key) TCF:OnKey(key) end)
+  self.kbReady = true
+  return true
+end
+
+---------------------------------------------------------------- loot
+function TCF:RollRarity(weights)
+  local total = 0
+  for i = 1, 5 do total = total + (weights[i] or 0) end
+  local r = random() * total
+  for i = 1, 5 do
+    r = r - (weights[i] or 0)
+    if r <= 0 and (weights[i] or 0) > 0 then return i end
+  end
+  return 1
+end
+
+-- Pick an item of a rarity: favours the current class and unowned items.
+function TCF:RollItem(rarity, preferUnowned)
+  local class = self.db.class
+  local wantClass = random() < 0.65
+  local pools = { {}, {} } -- [1] unowned, [2] all
+  for _, it in ipairs(TCF.ITEM_LIST) do
+    if it.rarity == rarity and it.source ~= "achievement" then
+      local fits = wantClass and (it.class == class) or (not wantClass and it.class ~= class)
+      if fits then
+        pools[2][#pools[2] + 1] = it
+        if not self.db.owned[it.id] then pools[1][#pools[1] + 1] = it end
+      end
+    end
+  end
+  if #pools[2] == 0 then -- fallback to anything of that rarity
+    for _, it in ipairs(TCF.ITEM_LIST) do
+      if it.rarity == rarity and it.source ~= "achievement" then pools[2][#pools[2] + 1] = it end
+    end
+  end
+  local pool = (preferUnowned and #pools[1] > 0 and random() < 0.85) and pools[1] or pools[2]
+  if #pool == 0 then return nil end
+  return pool[random(#pool)]
+end
+
+-- Gives an item; duplicates are salvaged into TapCoins. Returns isNew, salvage.
+function TCF:GrantItem(it, reason)
+  local db = self.db
+  local salvage = 0
+  local isNew = not db.owned[it.id]
+  if isNew then
+    db.owned[it.id] = 1
+  else
+    db.owned[it.id] = db.owned[it.id] + 1
+    salvage = TCF.RARITY[it.rarity].salvage
+    self:AddCoins(salvage)
+  end
+  local msg = (reason and (reason .. ": ") or "") .. TCF.ItemLink(it)
+  if not isNew then msg = msg .. string.format(" (duplicate, salvaged for %d TapCoins)", salvage) end
+  self:Print(msg)
+  if self.cat then self.cat:ShowLoot(it, isNew) end
+  self:PlaySound(it.rarity >= 4 and "rare" or "loot")
+  self:MarkDirty()
+  self:RefreshAll()
+  return isNew, salvage
+end
+
+function TCF:OpenChest(key, useKey)
+  local ch = TCF.CHEST_BY_KEY[key]
+  if not ch then return end
+  if useKey then
+    if (self.db.keys[key] or 0) <= 0 then return end
+    self.db.keys[key] = self.db.keys[key] - 1
+  elseif not self:SpendCoins(ch.cost) then
+    return
+  end
+  self.db.stats.chests = self.db.stats.chests + 1
+  local it = self:RollItem(self:RollRarity(ch.weights), true)
+  local isNew, salvage = self:GrantItem(it, ch.name)
+  self.lastChest = { item = it, isNew = isNew, salvage = salvage }
+  return it, isNew, salvage
+end
+
+---------------------------------------------------------------- daily shop
+local function today() return date("%Y%m%d") end
+
+local function seededRandom(seed)
+  local s = seed % 2147483647
+  if s <= 0 then s = s + 2147483646 end
+  return function(n)
+    s = (s * 16807) % 2147483647
+    return n and (s % n) + 1 or s / 2147483647
+  end
+end
+
+function TCF:SecondsUntilReset()
+  local t = date("*t")
+  return (23 - t.hour) * 3600 + (59 - t.min) * 60 + (60 - t.sec)
+end
+
+function TCF:RerollCost() return 50 * (2 ^ min(self.db.shop.rerolls, 5)) end
+
+function TCF:BuildShop(force)
+  local shop = self.db.shop
+  local day = today()
+  if shop.day ~= day then
+    shop.day = day; shop.rerolls = 0; force = true
+  end
+  if not force and #shop.stock > 0 then return end
+  local seed = tonumber(day) * 7 + shop.rerolls * 7919 + (self.db.taps % 997)
+  local rnd = seededRandom(seed)
+  local weights = { 30, 30, 22, 13, 5 }
+  local stock, used = {}, {}
+  local attempts = 0
+  while #stock < 6 and attempts < 400 do
+    attempts = attempts + 1
+    local r, roll, acc = 1, rnd() * 100, 0
+    for i = 1, 5 do acc = acc + weights[i]; if roll <= acc then r = i; break end end
+    local wantClass = #stock < 3
+    local cands = {}
+    for _, it in ipairs(TCF.ITEM_LIST) do
+      if it.rarity == r and it.source ~= "achievement" and not used[it.id] and not self.db.owned[it.id]
+        and ((wantClass and it.class == self.db.class) or (not wantClass and it.class ~= self.db.class)) then
+        cands[#cands + 1] = it
+      end
+    end
+    if #cands > 0 then
+      local it = cands[rnd(#cands)]
+      used[it.id] = true
+      stock[#stock + 1] = it.id
+    end
+  end
+  shop.stock = stock
+  shop.bought = {}
+end
+
+function TCF:RerollShop()
+  local cost = self:RerollCost()
+  if not self:SpendCoins(cost) then return false end
+  self.db.shop.rerolls = self.db.shop.rerolls + 1
+  self:BuildShop(true)
+  self:RefreshAll()
+  return true
+end
+
+function TCF:BuyItem(id)
+  local it = TCF.ITEMS[id]
+  if not it or self.db.owned[id] then return false end
+  if not self:SpendCoins(it.price) then return false end
+  self.db.owned[id] = 1
+  self.db.shop.bought[id] = true
+  self:Print("Purchased " .. TCF.ItemLink(it) .. ".")
+  if self.cat then self.cat:ShowLoot(it, true) end
+  self:PlaySound("buy")
+  self:MarkDirty()
+  self:RefreshAll()
+  return true
+end
+
+---------------------------------------------------------------- daily login
+function TCF:CheckDaily()
+  local d = self.db.daily
+  local t = today()
+  if d.last == t then return end
+  local yesterday = date("%Y%m%d", time() - 86400)
+  d.streak = (d.last == yesterday) and (d.streak + 1) or 1
+  d.best = max(d.best, d.streak)
+  d.last = t
+  local bonus = 25 + 5 * min(d.streak, 10)
+  self:AddCoins(bonus)
+  self:Print(string.format("Daily treat: +%d TapCoins (streak: %d day%s).", bonus, d.streak, d.streak == 1 and "" or "s"))
+end
+
+---------------------------------------------------------------- stats & achievements
+function TCF:CountOwned()
+  local n, total, r = 0, 0, { 0, 0, 0, 0, 0 }
+  for _, it in ipairs(TCF.ITEM_LIST) do
+    total = total + 1
+    if self.db.owned[it.id] then n = n + 1; r[it.rarity] = r[it.rarity] + 1 end
+  end
+  return n, total, r
+end
+
+function TCF:GetStat(stat)
+  local db = self.db
+  if stat == "taps" then return db.taps
+  elseif stat == "level" then return db.level
+  elseif stat == "coinsEarned" then return db.coinsEarned
+  elseif stat == "coinsSpent" then return db.coinsSpent
+  elseif stat == "streak" then return db.daily.best
+  elseif stat == "owned" or stat == "ownedPct" or stat == "rares" or stat == "epics" or stat == "legends" then
+    local n, total, r = self:CountOwned()
+    if stat == "owned" then return n end
+    if stat == "ownedPct" then return floor(n / total * 100) end
+    if stat == "rares" then return r[3] + r[4] + r[5] end
+    if stat == "epics" then return r[4] end
+    return r[5]
+  elseif stat == "classesPlayed" then
+    local n = 0
+    for _ in pairs(db.stats.classesPlayed) do n = n + 1 end
+    return n
+  elseif stat == "outfits" then
+    local n = 0
+    for _, lo in pairs(db.loadouts) do if lo.head and lo.chest and lo.main then n = n + 1 end end
+    return n
+  end
+  return db.stats[stat] or 0
+end
+
+function TCF:CheckAchievements()
+  local db = self.db
+  for _, a in ipairs(TCF.ACHIEVEMENTS) do
+    if not db.achievements[a.id] and self:GetStat(a.stat) >= a.goal then
+      db.achievements[a.id] = time()
+      self:AddCoins(a.coins)
+      local extra = ""
+      if a.item and TCF.ITEMS[a.item] and not db.owned[a.item] then
+        db.owned[a.item] = 1
+        extra = " and " .. TCF.ItemLink(TCF.ITEMS[a.item])
+      end
+      self:Print(string.format("Achievement earned: |cffffd100%s|r! Reward: %d TapCoins%s.", a.name, a.coins, extra))
+      if self.cat then self.cat:Celebrate(a.name, 1, 0.82, 0.1, "Achievement!") end
+      self:PlaySound("ach")
+      self:RefreshAll()
+    end
+  end
+end
+
+---------------------------------------------------------------- refresh plumbing
+function TCF:MarkDirty() self.dirty = true end
+
+function TCF:RefreshAll()
+  if self.cat then self.cat:ApplyAppearance(self:GetAppearance()) end
+  self:RefreshHUD()
+  self:UpdateMinimapButton()
+  if self.window and self.window:IsShown() then self.window:Refresh() end
+end
+
+function TCF:RefreshHUD()
+  if self.hud and self.hud.Refresh then self.hud:Refresh() end
+end
+
+-- 4x per second housekeeping
+local ticker = CreateFrame("Frame")
+local acc = 0
+ticker:SetScript("OnUpdate", function(_, elapsed)
+  acc = acc + elapsed
+  if acc < 0.25 then return end
+  acc = 0
+  local self = TCF
+  if not self.db then return end
+  if self.inFrenzy and GetTime() > (self.frenzyUntil or 0) then self.inFrenzy = false end
+  if self.dirty then
+    self.dirty = false
+    self:CheckAchievements()
+    self:RefreshHUD()
+    if self.window and self.window:IsShown() then self.window:RefreshLight() end
+  end
+end)
+
+---------------------------------------------------------------- events
+local ev = CreateFrame("Frame")
+ev:RegisterEvent("ADDON_LOADED")
+ev:RegisterEvent("PLAYER_LOGIN")
+ev:RegisterEvent("PLAYER_REGEN_ENABLED")
+pcall(ev.RegisterEvent, ev, "GLOBAL_MOUSE_DOWN")
+-- Cast fallback (only used when no key press was seen): prefer SENT, else SUCCEEDED.
+local CAST_EVENT
+for _, e in ipairs({ "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_SUCCEEDED" }) do
+  local ok = pcall(ev.RegisterUnitEvent or ev.RegisterEvent, ev, e, "player")
+  if ok then CAST_EVENT = e; break end
+end
+
+ev:SetScript("OnEvent", function(_, event, a1)
+  if event == "ADDON_LOADED" and a1 == ADDON then
+    TCF:InitDB()
+  elseif event == "PLAYER_LOGIN" then
+    TCF:CreateHUD()
+    TCF:CreateMinimapButton()
+    TCF:RegisterSettingsPanel()
+    TCF:SetupKeyboard()
+    TCF:CheckDaily()
+    TCF:BuildShop()
+    TCF:RefreshAll()
+    TCF:MarkDirty()
+  elseif event == "PLAYER_REGEN_ENABLED" then
+    TCF:SetupKeyboard()
+  elseif event == "GLOBAL_MOUSE_DOWN" then
+    if TCF.db and TCF.db.ui.mouse then TCF:Tap(a1 == "LeftButton" and "L" or "R") end
+  elseif event == CAST_EVENT then
+    -- Fallback for when the keyboard listener isn't available: count casts
+    -- that weren't already counted as a key press.
+    -- Registered for the player only, so the (possibly secret) unit arg is never inspected.
+    if GetTime() - lastInput > 0.35 then TCF:Tap(random() < 0.5 and "L" or "R") end
+  end
+end)
+
+---------------------------------------------------------------- slash commands
+SLASH_TAPCATFOREVER1 = "/tapcat"
+SLASH_TAPCATFOREVER2 = "/tcf"
+SlashCmdList.TAPCATFOREVER = function(msg)
+  local cmd, arg = (msg or ""):lower():match("^(%S*)%s*(.-)$")
+  local ui = TCF.db.ui
+  if cmd == "" or cmd == "open" or cmd == "config" then
+    TCF:ToggleWindow()
+  elseif cmd == "show" then ui.shown = true; TCF.hud:ApplySettings()
+  elseif cmd == "hide" then ui.shown = false; TCF.hud:ApplySettings()
+  elseif cmd == "toggle" then ui.shown = not ui.shown; TCF.hud:ApplySettings()
+  elseif cmd == "lock" then ui.locked = true; TCF.hud:ApplySettings(); TCF:Print("Cat locked.")
+  elseif cmd == "unlock" then ui.locked = false; TCF.hud:ApplySettings(); TCF:Print("Cat unlocked - drag to move.")
+  elseif cmd == "reset" then TCF.hud:ResetPosition(); TCF:Print("Position reset.")
+  elseif cmd == "scale" and tonumber(arg) then
+    ui.scale = max(0.3, min(3, tonumber(arg))); TCF.hud:ApplySettings()
+  elseif cmd == "stats" then
+    local n, total = TCF:CountOwned()
+    TCF:Print(string.format("Level %d (%s), %s lifetime taps, %s TapCoins, %d/%d cosmetics.",
+      TCF.db.level, TCF:GetTitle(), TCF.Commas(TCF.db.taps), TCF.Commas(TCF.db.coins), n, total))
+  else
+    TCF:Print("/tapcat - open window | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats")
+  end
+end
+
+-- Retail addon compartment
+function TapCatForever_OnAddonCompartmentClick() TCF:ToggleWindow() end
