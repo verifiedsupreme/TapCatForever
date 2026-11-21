@@ -81,24 +81,20 @@ function TCF:ClaimExpedition(index)
   st.done = (st.done or 0) + 1
   self.db.stats.expeditions = (self.db.stats.expeditions or 0) + 1
   if random() > ex.chance then
-    local coins = floor(e.coins * 0.25)
+    local coins = floor(e.coins * 0.1)
     self:AddCoins(coins)
     self:Print(string.format("|cffff6060%s failed.|r Your cats limped home with %d TapCoins. Stronger gear raises the odds.", e.name, coins))
     self:MarkDirty(); self:RefreshAll()
     return false
   end
   self.db.stats.expeditionWins = (self.db.stats.expeditionWins or 0) + 1
-  local coins = floor(e.coins * (0.8 + random() * 0.4))
+  local coins = floor(e.coins * 0.5 * (0.8 + random() * 0.4))
   self:AddCoins(coins)
   self:Print(string.format("|cff20ff20%s succeeded!|r +%d TapCoins.", e.name, coins))
   if random() < e.chest[2] then self:AwardChest(e.chest[1], e.name) end
+  -- extra chests instead of loose gear
   for i = 1, e.rolls do
-    if random() < 0.6 then
-      local member = ex.members[random(3)]
-      local t = TCF.TIERS[e.tier]
-      local it = self:RollBossLoot(e.tier, random(#t.bosses), member)
-      if it then self:GrantGear(it, e.name, i == 1) end
-    end
+    if random() < 0.5 then self:AwardChest(e.chest[1] == "heroic" and "strong" or "pouch", e.name) end
   end
   self:MarkDirty(); self:RefreshAll()
   return true

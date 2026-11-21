@@ -15,9 +15,10 @@ TCF.ADV = {
   K = { hp = 5.5, hpExp = 1.12, dps = 0.9, dpsExp = 1.0, raidHp = 1.085, raidDps = 1.065 },
   BOSS = { hp = 5, dps = 2.4 },
   RAIDBOSS = { hp = 6, dps = 2.0 },
-  TRASH_GEAR = 0.025,   -- chance per trash enemy to drop gear
-  BOSS_GEAR = 0.45,     -- dungeon boss drop chance (first kill always drops)
-  RAID_GEAR = 0.7,
+  -- chest odds are low on purpose: players idle here for months (~3 chests/hour)
+  TRASH_CHEST = 0.003,  -- chance per trash enemy of a Cat Treat Pouch
+  BOSS_CHEST = 0.06,    -- dungeon boss: chance of a Cat Treat Pouch
+  RAID_CHEST = 0.10,    -- raid boss: chance of an Adventurer's Strongbox
 }
 local K, ADV = TCF.ADV.K, TCF.ADV
 
@@ -228,36 +229,33 @@ function TCF:AdvUseAbility(run)
 end
 
 ---------------------------------------------------------------- rewards
+-- Rewards are mostly chests (opened from the Treasure Bag); no direct gear and
+-- only a one-time TapCoin bonus per zone, so idling doesn't flood you with loot.
 function TCF:AdvMobKilled(m)
   local adv = self:CD().adv
   adv.kills = adv.kills + 1
   local t = self:AdvTier(adv.tier)
-  local D = m.level
   if m.boss then
     adv.bossKills = adv.bossKills + 1
     local key = stageCode(adv.tier, adv.stage)
     local first = not adv.cleared[key]
     adv.cleared[key] = true
-    local coins = floor((t.raid and 20 or 4) + D * (t.raid and 1 or 0.25))
-    self:AddCoins(coins)
-    self:AdvLog(string.format("|cffffd100Defeated %s!|r +%d TapCoins", m.name, coins))
-    local chance = t.raid and ADV.RAID_GEAR or ADV.BOSS_GEAR
-    if first or random() < chance then
-      local it = self:RollBossLoot(adv.tier, m.boss)
-      if it then self:GrantGear(it, m.name .. " dropped"); self:AdvLog("Loot: " .. TCF.GearLink(it)) end
-    end
+    self:AdvLog(string.format("|cffffd100Defeated %s!|r", m.name))
     local sd = TCF.SKIN_DROPS[m.name]
     if sd and random() < sd.chance then self:GrantSkin(sd.id, m.name .. " dropped") end
     if m.final and first then
+      local coins = 10 + adv.tier * 2
+      self:AddCoins(coins)
       self:AwardChest(t.raid and "heroic" or "strong", t.name .. " cleared")
+      self:AdvLog(string.format("|cff20ff20%s cleared for the first time!|r +%d TapCoins and a chest", t.name, coins))
+    elseif random() < (t.raid and ADV.RAID_CHEST or ADV.BOSS_CHEST) then
+      local chest = t.raid and "strong" or "pouch"
+      self:AwardChest(chest, m.name)
+      self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY[chest].name .. " from " .. m.name)
     end
-  else
-    if random() < 0.08 then self:AddCoins(1 + floor(D / 20)) end
-    if random() < ADV.TRASH_GEAR then
-      local it
-      if t.raid then it = self:RollBossLoot(adv.tier, random(#t.bosses)) else it = self:RollWorldLoot(D, nil, { 88, 11, 1 }, adv.tier) end
-      if it then self:GrantGear(it, m.name .. " dropped"); self:AdvLog("Loot: " .. TCF.GearLink(it)) end
-    end
+  elseif random() < ADV.TRASH_CHEST then
+    self:AwardChest("pouch", m.name)
+    self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY.pouch.name)
   end
   self:MarkDirty()
 end

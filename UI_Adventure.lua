@@ -113,7 +113,7 @@ TCF.UI.Builders.adventure = function(page, win)
   local logText = Text(page, "GameFontHighlightSmall", nil, "LEFT"); logText:SetPoint("TOPLEFT", 18, -356)
   logText:SetWidth(524); logText:SetSpacing(3); logText:SetJustifyV("TOP")
   local help = Text(page, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 10); help:SetWidth(524)
-  help:SetText("Your cat fights with this class's gear, level and learned abilities. Every key you press lands a bonus paw strike. Bosses drop their real loot.")
+  help:SetText("Your cat fights with this class's gear, level and learned abilities. Every key you press lands a bonus paw strike. Bosses and zone clears drop chests that can hold the zone's real loot.")
 
   local function layoutSlots(pack)
     local n = pack and #pack or 0

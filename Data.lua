@@ -442,7 +442,7 @@ local CRAFT = {
   { "craft_pinchy_gift",      "effect", "fx_coins",        "Mr. Pinchy's Gift",      5, c(1.00, 0.40, 0.30), nil, "INV_Misc_Fish_35" },
 }
 
--- Racial heritage accessories: given to the cat when you log in on a character of that race
+-- Racial heritage accessories: bought in the Shop for the race of the character you're playing
 local RACE_ITEMS = {
   { "race_human",    "acc", "acc_race_human",    "Stormwind Crest",           3, c(0.25, 0.40, 0.85), c(1.00, 0.82, 0.30), "Achievement_Character_Human_Male" },
   { "race_dwarf",    "acc", "acc_race_dwarf",    "Ironforge Braids",          3, c(0.80, 0.40, 0.15), c(1.00, 0.80, 0.30), "Achievement_Character_Dwarf_Male" },
@@ -660,7 +660,7 @@ local STAT_TEXT = {
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",
   tradeGold = "Earn %s Trade Gold in Professions.", renown = "Earn %s Renown by selling your business.",
   skins = "Own %s cat skins.", dropSkins = "Get %s rare boss-drop skin (Swift Zulian Tiger or Skeletal Cat).",
-  races = "Collect %s racial heritage pieces (log in on characters of different races).",
+  races = "Collect %s racial heritage pieces (buy them in the Shop on characters of different races).",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s cosmetic(s) with professions.",
   dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s real WoW raid(s).",

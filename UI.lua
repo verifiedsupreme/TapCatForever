@@ -73,7 +73,7 @@ function TCF:ItemTooltip(tt, it)
       end
     end
   elseif it.source == "race" then
-    tt:AddLine("Racial heritage: log in on a character of this race to get it", 1, 0.82, 0, true)
+    tt:AddLine("Racial heritage: buy it in the Shop while playing a character of this race", 1, 0.82, 0, true)
   else
     tt:AddLine("Not collected - found in chests, random drops and the daily shop", 0.6, 0.6, 0.6, true)
   end
@@ -761,6 +761,18 @@ function TCF:CreateWindow()
   end
   local dungeonText = Text(sh, "GameFontHighlightSmall", nil, "LEFT"); dungeonText:SetPoint("TOPLEFT", 16, -326); dungeonText:SetWidth(520)
   dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Daily quests give a Cat Treat Pouch, the weekly quest and every 5 class levels an Adventurer's Strongbox, and zone clears and expeditions can give any chest. Chests hold real gear (65%) or cosmetics (35%). |cffffd100Cat skins|r are sold in the Appearance tab (Skin slot).")
+  -- racial heritage offer for the current character's race
+  local her = Panel(sh, 528, 58, 0.9); her:SetPoint("TOPLEFT", 14, -384)
+  her.cell = ItemCell(her, 46); her.cell:SetPoint("LEFT", 6, 0)
+  her.cell:SetScript("OnEnter", function(s)
+    if not s.item then return end
+    GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, s.item); GameTooltip:Show()
+    win.preview:ApplyAppearance(TCF:GetAppearance(nil, s.item))
+  end)
+  her.cell:SetScript("OnLeave", function() GameTooltip:Hide(); win.preview:ApplyAppearance(TCF:GetAppearance()) end)
+  her.title = Text(her, "GameFontNormal", nil, "LEFT"); her.title:SetPoint("TOPLEFT", her.cell, "TOPRIGHT", 8, -4)
+  her.desc = Text(her, "GameFontHighlightSmall", nil, "LEFT"); her.desc:SetPoint("BOTTOMLEFT", her.cell, "BOTTOMRIGHT", 8, 4); her.desc:SetWidth(330)
+  her.buy = Button(her, "Buy", 100, 22, function() TCF:BuyRaceAccessory() end); her.buy:SetPoint("RIGHT", -8, 0)
   local lastLoot = Text(sh, "GameFontHighlight", nil, "LEFT"); lastLoot:SetPoint("BOTTOMLEFT", 16, 14); lastLoot:SetWidth(480)
 
   function win:RefreshShop()
@@ -792,6 +804,17 @@ function TCF:CreateWindow()
       local k = TCF.db.keys[c.chest.key] or 0
       c.key:SetText("Bag (" .. k .. ")"); c.key:SetEnabled(k > 0)
     end
+    local rit, raceName = TCF:RaceItemForPlayer()
+    if rit then
+      her:Show()
+      her.cell:SetItem(rit, true, false)
+      her.title:SetText("Racial Heritage: |c" .. TCF.RARITY[rit.rarity].hex .. rit.name .. "|r")
+      local owned = TCF.db.owned[rit.id]
+      her.desc:SetText(owned and "Owned. Hide or show it with \"Show racial accessory\" in Settings."
+        or ("Show your " .. (raceName or "") .. " pride on this character's cats."))
+      her.buy:SetText(owned and "Owned" or coinStr(TCF.RACE_PRICE, 12))
+      her.buy:SetEnabled(not owned and TCF.db.coins >= TCF.RACE_PRICE)
+    else her:Hide() end
     local lc = TCF.lastChest
     if lc and lc.gear then
       lastLoot:SetText("Last chest: " .. TCF.GearLink(lc.gear) .. (lc.isNew and " |cff20ff20NEW!|r" or ""))
@@ -1080,7 +1103,7 @@ local revealQueue = {}
 
 function TCF:CreateLootReveal()
   local f = CreateFrame("Frame", "TapCatForeverLootReveal", UIParent, BT)
-  f:SetSize(320, 300); f:SetPoint("CENTER", 0, 60)
+  f:SetSize(380, 360); f:SetPoint("CENTER", 0, 60)
   f:SetFrameStrata("FULLSCREEN_DIALOG"); f:SetToplevel(true)
   f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -1110,7 +1133,22 @@ function TCF:CreateLootReveal()
   f.icon:SetPoint("RIGHT", f.name, "LEFT", 0, 0)
   f.kind = Text(f, "GameFontHighlight"); f.kind:SetPoint("TOP", f.name, "BOTTOM", -12, -4)
   f.status = Text(f, "GameFontNormal"); f.status:SetPoint("TOP", f.kind, "BOTTOM", 0, -6)
-  f.ok = Button(f, "OK", 90, 24, function() f:Next() end); f.ok:SetPoint("BOTTOMRIGHT", -18, 16)
+  f.ok = Button(f, "OK", 80, 24, function() f:Next() end); f.ok:SetPoint("BOTTOMRIGHT", -18, 16)
+  -- drops waiting behind this one
+  f.queueLabel = Text(f, "GameFontDisableSmall", nil, "LEFT"); f.queueLabel:SetPoint("BOTTOMLEFT", 22, 76)
+  f.queueIcons = {}
+  for i = 1, 8 do
+    local q = CreateFrame("Frame", nil, f, BT); q:SetSize(30, 30); q:SetPoint("BOTTOMLEFT", 20 + (i - 1) * 34, 44)
+    if q.SetBackdrop then q:SetBackdrop(BACKDROP_PANEL) end
+    q.tex = q:CreateTexture(nil, "ARTWORK"); q.tex:SetPoint("TOPLEFT", 4, -4); q.tex:SetPoint("BOTTOMRIGHT", -4, 4)
+    q.tex:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    q:Hide()
+    f.queueIcons[i] = q
+  end
+  f.more = Text(f, "GameFontHighlightSmall", nil, "LEFT"); f.more:SetPoint("LEFT", f.queueIcons[8], "RIGHT", 6, 0)
+  f.okAll = Button(f, "OK to all", 90, 24, function() f:Next(true) end)
+  f.okAll:SetPoint("RIGHT", f.ok, "LEFT", -6, 0)
+  Tip(f.okAll, function(tt) tt:AddLine("OK to all", 1, 0.82, 0); tt:AddLine("Close this and everything waiting behind it. All of it is already in your inventory.", 1, 1, 1, true) end)
   f.equip = Button(f, "Equip", 90, 24, function()
     if f.item then
       if f.isGear then TCF:EquipGear(f.item.id) else TCF:Equip(f.item) end
@@ -1118,13 +1156,29 @@ function TCF:CreateLootReveal()
     end
     f:Next()
   end)
-  f.equip:SetPoint("RIGHT", f.ok, "LEFT", -6, 0)
+  f.equip:SetPoint("RIGHT", f.okAll, "LEFT", -6, 0)
   f.again = Button(f, "Open another", 110, 24, function()
     local key = f.chestKey
     f:Next(true)
     if key then TCF:OpenChest(key, true) end
   end)
   f.again:SetPoint("BOTTOMLEFT", 18, 16)
+  function f:UpdateQueue()
+    local waiting = #revealQueue - 1
+    self.okAll:SetShown(waiting > 0)
+    self.queueLabel:SetText(waiting > 0 and ("Also found (" .. waiting .. " more):") or "")
+    for i, q in ipairs(self.queueIcons) do
+      local e = revealQueue[i + 1]
+      if e then
+        local it, isGear = e[1], e[6]
+        q.tex:SetTexture(TCF.Icon(it.icon))
+        local col = TCF.RARITY[isGear and it.q or it.rarity].color
+        if q.SetBackdropBorderColor then q:SetBackdropBorderColor(col[1], col[2], col[3], 1) end
+        q:Show()
+      else q:Hide() end
+    end
+    self.more:SetText(waiting > 8 and ("+" .. (waiting - 8)) or "")
+  end
 
   local t = 0
   f:SetScript("OnUpdate", function(_, e)
@@ -1138,7 +1192,7 @@ function TCF:CreateLootReveal()
   function f:Show1(entry)
     local it, isNew, salvage, title, chestKey, isGear = unpack(entry)
     self.item, self.chestKey, self.isGear = it, chestKey, isGear
-    if isGear then return self:ShowGear(it, isNew, title, chestKey) end
+    if isGear then self:ShowGear(it, isNew, title, chestKey); self:UpdateQueue(); return end
     self.pic:Show(); self.gearIcon:Hide()
     local col = TCF.RARITY[it.rarity].color
     self.title:SetText(title or "Loot!")
@@ -1158,6 +1212,7 @@ function TCF:CreateLootReveal()
     self.again:SetText("Open another (" .. left .. ")")
     self.age = 0
     self:Show()
+    self:UpdateQueue()
     if it.rarity >= 4 then TCF:PlaySound("rare") end
   end
 
@@ -1196,11 +1251,9 @@ end
 
 function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   local f = self.lootReveal or self:CreateLootReveal()
+  if not f:IsShown() then wipe(revealQueue) end
   table.insert(revealQueue, { it, isNew, salvage, title, chestKey, isGear })
-  if #revealQueue == 1 or not f:IsShown() then
-    if not f:IsShown() then while #revealQueue > 1 do table.remove(revealQueue, 1) end end
-    f:Show1(revealQueue[1])
-  end
+  if #revealQueue == 1 then f:Show1(revealQueue[1]) else f:UpdateQueue() end
 end
 
 ---------------------------------------------------------------- Treasure Bag (unopened chests)

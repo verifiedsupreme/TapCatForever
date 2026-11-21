@@ -535,7 +535,18 @@ function TCF:OpenChest(key, useKey)
       gear = self:RollBossLoot(ti, random(#TCF.TIERS[ti].bosses))
     else
       local q = max(2, min(4, rarity))
-      gear = self:RollWorldLoot(level, nil, { q == 2 and 1 or 0, q == 3 and 1 or 0, q == 4 and 1 or 0 })
+      -- half the time: real boss loot from a zone this class has cleared
+      local adv = self:CD().adv
+      local bestTier = floor(adv.best / 100)
+      if bestTier >= 1 and random() < 0.5 then
+        for _ = 1, 6 do
+          local ti = random(max(1, bestTier - 3), bestTier)
+          local t = TCF.TIERS[ti]
+          local it = t and self:RollBossLoot(ti, random(#t.bosses))
+          if it and it.q == q then gear = it; break end
+        end
+      end
+      gear = gear or self:RollWorldLoot(level, nil, { q == 2 and 1 or 0, q == 3 and 1 or 0, q == 4 and 1 or 0 })
     end
     if gear then
       local isNew = self:GrantGear(gear, ch.name, true, key)
@@ -626,8 +637,10 @@ function TCF:BuyItem(id)
 end
 
 ---------------------------------------------------------------- daily login
--- Gives the cat the racial accessory matching the character you logged in on.
-function TCF:GrantRaceAccessory()
+-- Racial heritage: the accessory for this character's race, bought in the Shop.
+TCF.RACE_PRICE = 600
+
+function TCF:RaceItemForPlayer()
   if not UnitRace then return end
   local raceName, raceFile = UnitRace("player")
   if self.IsSecret(raceName) or self.IsSecret(raceFile) then return end
@@ -636,19 +649,24 @@ function TCF:GrantRaceAccessory()
     local n = ((raceName or "") .. " " .. (raceFile or "")):lower()
     if n:find("sky") or n:find("high order") or n:find("windshaper") then id = "race_skyborne" end
   end
-  local it = id and TCF.ITEMS[id]
-  if not it or self.db.owned[id] then return end
-  self.db.owned[id] = 1
-  -- wear it on every class cat that has no accessory yet
-  if self.db.ui.racial then
-    for _, cl in ipairs(TCF.CLASSES) do
-      local lo = self:GetLoadout(cl.key)
-      if not lo.acc then lo.acc = id end
-    end
+  return id and TCF.ITEMS[id], raceName
+end
+
+function TCF:BuyRaceAccessory()
+  local it, raceName = self:RaceItemForPlayer()
+  if not it or self.db.owned[it.id] then return false end
+  if not self:SpendCoins(TCF.RACE_PRICE) then return false end
+  self.db.owned[it.id] = 1
+  self.db.ui.racial = true
+  for _, cl in ipairs(TCF.CLASSES) do
+    local lo = self:GetLoadout(cl.key)
+    if not lo.acc then lo.acc = it.id end
   end
-  self:Print(string.format("Your cat feels right at home: it got %s for your %s!", TCF.ItemLink(it), raceName or "character"))
+  self:Print(string.format("Your cat shows its %s pride: %s!", raceName or "racial", TCF.ItemLink(it)))
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end
-  self:MarkDirty()
+  self:PlaySound("buy")
+  self:MarkDirty(); self:RefreshAll()
+  return true
 end
 
 function TCF:CheckDaily()
@@ -809,7 +827,6 @@ ev:SetScript("OnEvent", function(_, event, a1)
     TCF:RegisterSettingsPanel()
     TCF:SetupKeyboard()
     TCF:CheckDaily()
-    TCF:GrantRaceAccessory()
     TCF:EnsureQuests()
     TCF:ProfessionsTick(true)
     TCF:BuildShop()

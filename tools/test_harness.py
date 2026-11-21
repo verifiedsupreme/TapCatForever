@@ -46,6 +46,7 @@ SOUNDKIT = { LOOTWINDOWCOINSOUND = 1, IG_QUEST_LIST_COMPLETE = 2 }
 BackdropTemplateMixin = {}
 UISpecialFrames = {}
 tinsert = table.insert
+function wipe(t) for k in pairs(t) do t[k] = nil end return t end
 unpack = unpack or table.unpack
 CLASS_ICON_TCOORDS = setmetatable({}, { __index = function() return { 0, 0.25, 0, 0.25 } end })
 SlashCmdList = {}
@@ -185,10 +186,12 @@ TEST = r'''
     local n, total = TCF:CountOwned()
     local ach = 0; for _ in pairs(TCF.db.achievements) do ach = ach + 1 end
     print(string.format("owned %d/%d, achievements %d/%d, level %d, chests %d, pets %d", n, total, ach, #TCF.ACHIEVEMENTS, TCF:CD().level, TCF.db.stats.chests, TCF.db.stats.pets))
-    -- racial heritage: an Orc character gives the cat tusks once
-    assert(TCF.db.owned.race_orc, "orc tusks granted at login")
+    -- racial heritage: not given automatically; bought in the Shop
+    assert(not TCF.db.owned.race_orc, "racial not given automatically")
+    TCF:AddCoins(1000)
+    assert(TCF:BuyRaceAccessory(), "buy orc tusks")
+    assert(TCF.db.owned.race_orc and not TCF:BuyRaceAccessory(), "bought once")
     -- (auto-equip is checked on the fresh alt character below)
-    TCF:GrantRaceAccessory()
     -- racial toggle hides it; skins buy/equip/drop
     TCF:GetLoadout("WARRIOR").acc = "race_orc"
     assert(TCF:GetAppearance("WARRIOR").acc.id == "race_orc", "racial shown")
@@ -241,6 +244,13 @@ TEST = r'''
     TCF:ToggleBag(); TapCatForeverBag:Refresh()
     TCF:OpenChest("pouch", true)
     assert(TapCatForeverLootReveal:IsShown(), "loot reveal should show")
+    -- loot queue: several drops at once, then OK to all
+    for k = 1, 5 do TCF:OpenChest("strong") end
+    TapCatForeverLootReveal:UpdateQueue()
+    assert(TapCatForeverLootReveal.okAll:IsShown(), "OK to all shows when more drops are waiting")
+    TapCatForeverLootReveal.okAll.scripts.OnClick(TapCatForeverLootReveal.okAll)
+    assert(not TapCatForeverLootReveal:IsShown(), "OK to all closes everything")
+    TCF:OpenChest("pouch", true)
     TapCatForeverLootReveal.again.scripts.OnClick(TapCatForeverLootReveal.again)
     TapCatForeverLootReveal.equip.scripts.OnClick(TapCatForeverLootReveal.equip)
     for i = 1, 5 do TCF:OpenChest("strong") end
@@ -348,7 +358,8 @@ TEST = r'''
     _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
     assert(TCF.db.coins == coinsBefore, "TapCoins are shared: " .. tostring(coinsBefore) .. " -> " .. tostring(TCF.db.coins) .. " " .. tostring(_chat[#_chat]))
     assert(TCF:CD("WARRIOR").level == 1, "alt cats start at level 1")
-    assert(TCF.db.owned.race_tauren and not TCF.db.owned.race_orc, "alt has its own cosmetics")
+    assert(not TCF.db.owned.race_tauren and not TCF.db.owned.race_orc, "alt has its own cosmetics")
+    TCF:AddCoins(1000); assert(TCF:BuyRaceAccessory())
     assert(TCF:GetLoadout("MAGE").acc == "race_tauren", "racial piece worn by the alt's cats")
     -- only the selected class's cat adventures: others stay paused
     TCF:SetClass("MAGE"); TCF:AdvStart()
