@@ -182,13 +182,38 @@ function TCF:GearEquipped(class)
   return cd.gear
 end
 
-function TCF:GearOwned(id) return (self.db.gear[id] or 0) > 0 end
+-- Each cat class has its own gear bag. Older saves kept one bag for all classes:
+-- that is split once (items a class wears stay with it, the rest go to the current class).
+function TCF:Bag(class)
+  local db = self.db
+  if db.gear and next(db.gear) then
+    local pool = db.gear
+    for key, cd in pairs(db.classData) do
+      cd.bag = cd.bag or {}
+      for _, id in pairs(cd.gear or {}) do
+        if (pool[id] or 0) > 0 then
+          cd.bag[id] = (cd.bag[id] or 0) + 1; pool[id] = pool[id] - 1
+          if pool[id] <= 0 then pool[id] = nil end
+        end
+      end
+    end
+    local cur = db.classData[db.class]
+    cur.bag = cur.bag or {}
+    for id, n in pairs(pool) do cur.bag[id] = (cur.bag[id] or 0) + n end
+    db.gear = {}
+  end
+  local cd = self:CD(class)
+  cd.bag = cd.bag or {}
+  return cd.bag
+end
+
+function TCF:GearOwned(id, class) return (self:Bag(class)[id] or 0) > 0 end
 
 function TCF:CanEquipGear(it, class, slotKey)
   class = class or self.db.class
   if not self:GearUsable(it, class) then return false, "Your " .. TCF.CLASS_BY_KEY[class].name .. " can't use this." end
   if self:CD(class).level < it.req then return false, "Requires class level " .. it.req .. "." end
-  if not self:GearOwned(it.id) then return false, "You don't have this item." end
+  if not self:GearOwned(it.id, class) then return false, "You don't have this item." end
   if slotKey then
     local ok = false
     for _, s in ipairs(self:GearTargetSlots(it, class)) do if s == slotKey then ok = true end end
@@ -215,7 +240,7 @@ function TCF:EquipGear(id, slotKey, class)
   if not slotKey or (#targets > 1 and eq[slotKey] and not eq[targets[2]]) then slotKey = targets[2] or targets[1] end
   local ok, why = self:CanEquipGear(it, class, slotKey)
   if not ok then self:Print(why); return false end
-  if equippedCount(eq, id) >= (self.db.gear[id] or 0) and eq[slotKey] ~= id then
+  if equippedCount(eq, id) >= (self:Bag(class)[id] or 0) and eq[slotKey] ~= id then
     self:Print("You need another copy of " .. TCF.GearLink(it) .. " to equip it twice."); return false
   end
   eq[slotKey] = id
@@ -243,15 +268,15 @@ end
 
 function TCF:SellGear(id, all)
   local it = TCF.GEAR[id]
-  local have = self.db.gear[id] or 0
-  -- keep copies that are equipped by any class
-  local inUse = 0
-  for _, cd in pairs(self.db.classData) do inUse = max(inUse, equippedCount(cd.gear or {}, id)) end
+  local bag = self:Bag()
+  local have = bag[id] or 0
+  -- keep copies this class is wearing
+  local inUse = equippedCount(self:GearEquipped(), id)
   local spare = have - inUse
   if spare <= 0 then return 0 end
   local n = all and spare or 1
-  self.db.gear[id] = have - n
-  if self.db.gear[id] <= 0 then self.db.gear[id] = nil end
+  bag[id] = have - n
+  if bag[id] <= 0 then bag[id] = nil end
   local coins = self:GearSellValue(it) * n
   self:AddCoins(coins)
   self:Print(string.format("Sold %s%s for %d TapCoins.", TCF.GearLink(it), n > 1 and (" x" .. n) or "", coins))
@@ -261,8 +286,9 @@ end
 
 -- Gives a gear item. Returns isNewItem.
 function TCF:GrantGear(it, reason, reveal, chestKey)
-  local have = self.db.gear[it.id] or 0
-  self.db.gear[it.id] = have + 1
+  local bag = self:Bag()
+  local have = bag[it.id] or 0
+  bag[it.id] = have + 1
   self.db.stats.gearFound = (self.db.stats.gearFound or 0) + 1
   self:Print((reason and (reason .. ": ") or "") .. TCF.GearLink(it))
   if self.ShowLootReveal and (reveal or (self.window and self.window:IsShown())) then
@@ -507,7 +533,8 @@ function TCF:StarterGear(class)
     end
   end
   if best then
-    self.db.gear[best.id] = (self.db.gear[best.id] or 0) + 1
+    local bag = self:Bag(class)
+    bag[best.id] = (bag[best.id] or 0) + 1
     local eq = self:GearEquipped(class)
     eq[best.slot == "RANGED" and "RANGED" or "MAINHAND"] = best.id
   end

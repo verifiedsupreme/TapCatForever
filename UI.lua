@@ -258,7 +258,7 @@ function TCF:GearTooltip(tt, it, class)
   end
   if not self:GearUsable(it, class) then tt:AddLine("Your " .. TCF.CLASS_BY_KEY[class].name .. " can't use this.", 1, 0.2, 0.2)
   elseif not self:GearSuits(it, class) then tt:AddLine("Not ideal for a " .. TCF.CLASS_BY_KEY[class].name .. " (wrong stats or weapon type).", 1, 0.6, 0.2, true) end
-  local have = self.db.gear[it.id]
+  local have = TCF:Bag()[it.id]
   if have then tt:AddLine("In your collection" .. (have > 1 and (" (x" .. have .. ")") or ""), 0.3, 1, 0.3) end
 end
 
@@ -1019,7 +1019,7 @@ function TCF:CreateWindow()
     local n, total = TCF:CountOwned()
     local cs = TCF:CombatStats()
     local nGear = 0
-    for _ in pairs(db.gear) do nGear = nGear + 1 end
+    for _ in pairs(TCF:Bag()) do nGear = nGear + 1 end
     statLines:SetText(string.format(
       "|cffffd100Power %d|r   DPS |cffffffff%d|r   Health |cffffffff%d|r\nArmor |cffffffff%d|r   Crit |cffffffff%.1f%%|r   Item level |cffffffff%d|r\nGear owned: |cffffffff%d|r   Cosmetics: |cffffffff%d / %d|r\nLifetime taps: |cffffffff%s|r\nTapCoins earned: |cffffffff%s|r\nDaily streak: |cffffffff%d|r (best %d)",
       cs.power, cs.dps, cs.hp, cs.armor, cs.crit, cs.ilvl, nGear, n, total,
@@ -1274,7 +1274,7 @@ function TCF:CreateLootReveal()
     self.name:SetText(it.name); self.name:SetTextColor(col[1], col[2], col[3])
     self.kind:SetText(string.format("%s %s %s  |cffffd100Item Level %d|r", TCF.RARITY[it.q].name, TCF.ITEM_TYPE_NAMES[it.sub] or "", TCF.ITEM_SLOT_NAMES[it.slot] or "", it.ilvl))
     local d = TCF.GearUpgrade and TCF:GearUpgrade(it)
-    local status = isNew and "|cff20ff20NEW gear!|r" or ("|cffaaaaaaAnother copy (you have " .. (TCF.db.gear[it.id] or 1) .. ")|r")
+    local status = isNew and "|cff20ff20NEW gear!|r" or ("|cffaaaaaaAnother copy (you have " .. (TCF:Bag()[it.id] or 1) .. ")|r")
     if d and d > 0 then status = status .. "  |cff20ff20Upgrade: +" .. d .. " power|r" end
     if not TCF:GearUsable(it, TCF.db.class) then status = status .. "\n|cffff8040Your current class can't use it.|r" end
     self.status:SetText(status)

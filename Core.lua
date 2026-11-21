@@ -748,7 +748,10 @@ function TCF:GetStat(stat)
     return n
   elseif stat == "epicGear" or stat == "legendGear" then
     local q, n = stat == "epicGear" and 4 or 5, 0
-    for id in pairs(db.gear) do local it = TCF.GEAR[id]; if it and it.q == q then n = n + 1 end end
+    local seen = {}
+    for key in pairs(db.classData) do
+      for id in pairs(self:Bag(key)) do local it = TCF.GEAR[id]; if it and it.q == q and not seen[id] then seen[id] = true; n = n + 1 end end
+    end
     return n
   elseif stat == "advTier" or stat == "bossKills" then
     local best, kills = 0, 0

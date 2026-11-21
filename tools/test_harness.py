@@ -278,22 +278,22 @@ TEST = r'''
       local it = TCF:RollWorldLoot(math.random(1, 60), "WARRIOR")
       if it then TCF:GrantGear(it, "test") end
     end
-    for id in pairs(TCF.db.gear) do
+    for id in pairs(TCF:Bag()) do
       local it = TCF.GEAR[id]
       if TCF:CanEquipGear(it, "WARRIOR") and (TCF:GearUpgrade(it) or 0) > 0 then if TCF:EquipGear(id) then equipped = equipped + 1 end end
       TCF:GearTooltip(GameTooltip, it)
     end
     local cs = TCF:CombatStats("WARRIOR")
-    print(string.format("gear: owned %d kinds, equipped upgrades %d, power %d dps %.1f hp %d ilvl %d", (function() local n=0 for _ in pairs(TCF.db.gear) do n=n+1 end return n end)(), equipped, cs.power, cs.dps, cs.hp, cs.ilvl))
+    print(string.format("gear: owned %d kinds, equipped upgrades %d, power %d dps %.1f hp %d ilvl %d", (function() local n=0 for _ in pairs(TCF:Bag()) do n=n+1 end return n end)(), equipped, cs.power, cs.dps, cs.hp, cs.ilvl))
     local look = TCF:GetAppearance("WARRIOR")
     print("  gear look:", look.head and look.head.art, look.chest and look.chest.art, look.main and look.main.art, look.off and look.off.art)
     win:SelectTab(1); win.gearSlot = "HEAD"; win:Refresh(); win.gearSlot = nil; win:Refresh()
-    local anyGear; for id in pairs(TCF.db.gear) do anyGear = TCF.GEAR[id]; break end
+    local anyGear; for id in pairs(TCF:Bag()) do anyGear = TCF.GEAR[id]; break end
     TCF.UI.ShowTryOn(win, anyGear); TCF.UI.HideTryOn(win)
     -- 3D and pixel styles both render
     TCF.db.ui.cat3d = false; TCF:RefreshAll(); TCF.db.ui.cat3d = true; TCF:RefreshAll()
     TCF.cat:Tap("L"); for i = 1, 4 do _update(0.25) end
-    for id in pairs(TCF.db.gear) do TCF:SellGear(id, true) end
+    for id in pairs(TCF:Bag()) do TCF:SellGear(id, true) end
     -- abilities: learn everything affordable
     TCF:AddCoins(50000)
     for _, cl in ipairs(TCF.CLASSES) do
@@ -421,7 +421,7 @@ TEST = r'''
     TCF:SetClass("MAGE"); for i = 1, 200 do _update(0.25) end
     assert(TCF:CD("MAGE").adv.kills > mageKills, "the mage resumes when selected again")
     assert(not TCF.db.trade or TCF.db.trade.renown == 0, "alt has its own professions")
-    local altGear = 0; for _ in pairs(TCF.db.gear) do altGear = altGear + 1 end
+    local altGear = 0; for _ in pairs(TCF:Bag()) do altGear = altGear + 1 end
     assert(altGear <= 9, "alt starts with just starter weapons")
     TCF:AddCoins(1)
     local coinsAlt = TCF.db.coins

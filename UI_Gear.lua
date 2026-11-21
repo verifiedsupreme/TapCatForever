@@ -89,7 +89,7 @@ TCF.UI.Builders.gear = function(page, win)
   nextB:SetPoint("LEFT", pageText, "RIGHT", 10, 0)
   local sellAll = Button(page, "Sell spare copies", 130, 22, function()
     local total = 0
-    for id in pairs(TCF.db.gear) do total = total + (TCF:SellGear(id, true) or 0) end
+    for id in pairs(TCF:Bag()) do total = total + (TCF:SellGear(id, true) or 0) end
   end)
   sellAll:SetPoint("BOTTOMLEFT", 12, 10)
   Tip(sellAll, function(tt)
@@ -111,7 +111,7 @@ TCF.UI.Builders.gear = function(page, win)
     title:SetText(slot and (TCF.GEAR_SLOT_BY_KEY[slot].name .. " gear") or "All gear")
     local list = {}
     local eq = TCF:GearEquipped(class)
-    for id, n in pairs(TCF.db.gear) do
+    for id, n in pairs(TCF:Bag()) do
       local it = TCF.GEAR[id]
       if it and n > 0 and (not slot or matchesSlot(it, slot, class)) and (not win.gearUsable or TCF:GearUsable(it, class)) then
         list[#list + 1] = it
@@ -132,7 +132,7 @@ TCF.UI.Builders.gear = function(page, win)
       if it then
         r:Show()
         r.btn:SetGear(it)
-        local n = TCF.db.gear[it.id]
+        local n = TCF:Bag()[it.id]
         r.btn.count:SetText(n > 1 and n or "")
         local col = TCF.RARITY[it.q]
         r.name:SetText("|c" .. col.hex .. it.name .. "|r" .. (equippedIds[it.id] and "  |cff20ff20(equipped)|r" or "")
@@ -146,7 +146,7 @@ TCF.UI.Builders.gear = function(page, win)
         local can = TCF:CanEquipGear(it, class)
         r.equip:SetEnabled(can and not equippedIds[it.id])
         r.equip:SetText(it.req > TCF:CD(class).level and ("Lv " .. it.req) or "Equip")
-        local spare = (TCF.db.gear[it.id] or 0) - (equippedIds[it.id] and 1 or 0)
+        local spare = (TCF:Bag()[it.id] or 0) - (equippedIds[it.id] and 1 or 0)
         r.sell:SetText("Sell " .. U.coinStr(TCF:GearSellValue(it), 12))
         r.sell:SetEnabled(spare > 0)
       else

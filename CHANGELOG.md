@@ -9,6 +9,7 @@
 - Treasure Bag: "All" button per chest type and "Open everything".
 - The level and XP text now sit above the cat (Settings: "Text above the cat"). Chat messages and sounds now start off.
 - Mining veins only run when you start them or a foreman works them (key presses no longer restart them).
+- Each cat class has its own gear bag: gear found on one class no longer shows up for the others (an old shared bag is split once: worn items stay with their class, the rest go to the class you are playing).
 - Settings: "Reset this character" and "Reset ALL progress".
 - **Real WoW gear**: 8,661 real Classic items with their real stats (Strength, Stamina, Armor, weapon DPS, crit, spell power...), drop sources and drop chances. 17 gear slots per class (Head to Ranged), Classic armor and weapon rules per class, and the cat wears its real gear (cosmetics still override the look).
 - **Adventure rebuilt around Azeroth**: 28 real zones, dungeons and raids in level order (Elwynn Forest, Deadmines, Scarlet Monastery... Molten Core, Blackwing Lair, Naxxramas) with their real bosses and real loot tables. Packs of 1-3 enemies shown as 3D creature models, over each dungeon's own artwork. Zones unlock by class level; raids need raid gear.
