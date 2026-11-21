@@ -31,7 +31,7 @@ TCF.UI.Builders.adventure = function(page, win)
   end)
   nextTier:SetPoint("TOPRIGHT", -12, -12); prevTier:SetPoint("RIGHT", nextTier, "LEFT", -4, 0)
   local tierLabel = Text(page, "GameFontDisableSmall", "Zone", "RIGHT"); tierLabel:SetPoint("RIGHT", prevTier, "LEFT", -6, 0)
-  Tip(nextTier, function(tt) tt:AddLine("Next zone", 1, 0.82, 0); tt:AddLine("Unlocks when you've beaten every stage of this zone (including its final boss) and your cat is at least the next zone's level. With Auto-advance on, your cat moves on by itself.", 1, 1, 1, true) end)
+  Tip(nextTier, function(tt) tt:AddLine("Next zone", 1, 0.82, 0); tt:AddLine("Unlocks when you've beaten every stage of this zone, including its final boss. You can go even if your cat is under-levelled. With Auto-advance on, your cat moves on by itself once it reaches the zone's level.", 1, 1, 1, true) end)
 
   -- scene
   local scene = Panel(page, 532, 250, 1); scene:SetPoint("TOP", 0, -50)
@@ -321,7 +321,7 @@ TCF.UI.Builders.adventure = function(page, win)
     local nt = TCF.TIERS[adv.tier + 1]
     if not nt then
       tierLabel:SetText("|cffaaaaaaLast zone|r")
-    elseif TCF:AdvCanGoTo(adv.tier + 1, 1) then
+    elseif TCF:AdvCanGoTo(adv.tier + 1, 1) and TCF:CD().level >= nt.min then
       tierLabel:SetText("|cff20ff20Next: " .. nt.name .. " ready! >|r")
     else
       local cleared = adv.best >= TCF.AdvStageCode(adv.tier, TCF:AdvStages(adv.tier))
@@ -329,7 +329,7 @@ TCF.UI.Builders.adventure = function(page, win)
       if not cleared then
         tierLabel:SetText("|cffaaaaaaNext: " .. nt.name .. " (clear this zone's final boss first)|r")
       else
-        tierLabel:SetText(string.format("|cffffd100Next: %s needs level %d (you're %d)|r", nt.name, nt.min, lvl))
+        tierLabel:SetText(string.format("|cffffd100Next: %s (made for level %d, you're %d) >|r", nt.name, nt.min, lvl))
       end
     end
     prevTier:SetEnabled(adv.tier > 1)

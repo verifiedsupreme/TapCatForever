@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Adventure: you can move on to the next zone as soon as you beat the current one, whatever your level (Auto-advance still waits for the right level).
+- Every boss drops a guaranteed piece of its real loot the first time you beat it.
 - Adventure shows what the next zone needs next to the zone arrows (clear the final boss, or the level required).
 - Shorter welcome: two pages, the logo with your tapping cat, then a picture grid of what to do.
 - Pickaxe swings now grow with the deposit: each swing is worth half a second of everything that vein produces (all your mines there, with milestones and upgrades), never less than a quarter of one mine's cycle. Pickaxe levels add 15% each.

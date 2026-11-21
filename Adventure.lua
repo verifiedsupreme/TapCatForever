@@ -243,6 +243,13 @@ function TCF:AdvMobKilled(m)
     self:AdvLog(string.format("|cffffd100Defeated %s!|r", m.name))
     local sd = TCF.SKIN_DROPS[m.name]
     if sd and random() < sd.chance then self:GrantSkin(sd.id, m.name .. " dropped") end
+    -- the first time you beat each boss it always drops a piece of its real loot
+    if first and self.RollBossLoot then
+      local loot = self:RollBossLoot(adv.tier, m.boss, self.db.class)
+      -- open-world zones have no loot tables: give gear for the zone's level, with better odds
+      if not loot and self.RollWorldLoot then loot = self:RollWorldLoot(max(t.min, m.level or t.min), self.db.class, { 55, 38, 7 }, adv.tier) end
+      if loot then self:GrantGear(loot, m.name .. " (first kill)", true) end
+    end
     if m.final and first then
       local coins = 10 + adv.tier * 2
       self:AddCoins(coins)
@@ -378,7 +385,7 @@ function TCF:AdvCanGoTo(tier, stage)
   local cd = self:CD()
   local t = TCF.TIERS[tier]
   if not t or stage < 1 or stage > self:AdvStages(tier) then return false end
-  if cd.level < t.min then return false end
+  -- no level gate: once you've beaten a zone you may push on (Auto-advance still waits for the level)
   local code = stageCode(tier, stage)
   if code <= cd.adv.best + 1 or code == 101 then return true end
   -- first stage of the next tier once the previous tier is fully cleared
