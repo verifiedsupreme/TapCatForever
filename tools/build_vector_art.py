@@ -129,5 +129,6 @@ with open(os.path.join(ROOT, "VectorData.lua"), "w") as f:
 # tap-effect sprites live in the same folder
 subprocess.check_call([sys.executable, os.path.join(HERE, "make_tapfx.py"), os.path.join(WORK, "tapfx")])
 subprocess.check_call([sys.executable, os.path.join(HERE, "make_spellfx.py"), os.path.join(WORK, "spellfx")])
+subprocess.check_call([sys.executable, os.path.join(HERE, "make_backgrounds.py"), os.path.join(WORK, "bg")])
 total = sum(os.path.getsize(os.path.join(OUT, f)) for f in os.listdir(OUT))
 print("textures:", len(entries), "size: %.1f MB" % (total / 1e6))

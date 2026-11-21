@@ -105,6 +105,7 @@ TCF.UI.Builders.professions = function(page, win)
     r.pick = IconButton(r, 40); r.pick:SetPoint("RIGHT", -124, 0); r.pick.tex:SetTexture(TCF.Icon("INV_Pick_02"))
     -- a little "+gold +ore" popup rises from the pickaxe on every click
     r.pop = Text(r, "GameFontNormal"); r.pop:SetPoint("BOTTOM", r.pick, "TOP", 0, 0); r.pop:Hide()
+    r.pickLabel = Text(r, "GameFontDisableSmall", "By hand"); r.pickLabel:SetPoint("TOP", r.pick, "BOTTOM", 0, -1)
     r.pick:SetScript("OnUpdate", function(b, e)
       if not r.popT then return end
       r.popT = r.popT - e
@@ -142,6 +143,8 @@ TCF.UI.Builders.professions = function(page, win)
   -- one pickaxe for every vein, upgraded forever
   local pickBtn = Button(mineView, "", 300, 24, function() TCF:UpgradePick(); win:Refresh() end)
   pickBtn:SetPoint("TOP", 0, -6 * 66 - 4)
+  local mineHint = Text(mineView, "GameFontDisableSmall", "Click a vein (or its bar) to mine one cycle. Hire a Foreman to keep it running on its own, even offline. The pickaxe digs a little extra by hand.", "LEFT")
+  mineHint:SetPoint("TOP", pickBtn, "BOTTOM", 0, -6); mineHint:SetWidth(520)
   Tip(pickBtn, function(tt)
     tt:AddLine("Upgrade your pickaxe", 1, 0.82, 0)
     tt:AddLine(string.format("%s -> Lv %d: +15%% gold per hand-mined click on every vein.", TCF:PickName(), TCF:PickLevel() + 1), 1, 1, 1, true)
@@ -166,7 +169,15 @@ TCF.UI.Builders.professions = function(page, win)
       r.bar:SetMinMaxValues(0, 1)
       if st.n > 0 then
         r.bar:SetValue(st.mgr and (ct < 0.3 and 1 or st.p) or (st.run and st.p or 0))
-        r.bar.text:SetText(TCF.GoldStr(TCF:OpRevenue("mining", i), 10) .. " / " .. (ct >= 1 and string.format("%.1fs", ct) or string.format("%.2fs", ct)))
+        local idle = not st.mgr and not st.run
+        if idle then
+          -- an idle vein waits for you: say so, and make the vein pulse
+          r.bar.text:SetText("|cffffd100Click to mine a cycle:|r " .. TCF.GoldStr(TCF:OpRevenue("mining", i), 10))
+          r.btn.sel:SetShown(true); r.btn.sel:SetAlpha(0.45 + 0.4 * math.sin(GetTime() * 5))
+        else
+          r.bar.text:SetText(TCF.GoldStr(TCF:OpRevenue("mining", i), 10) .. " / " .. (ct >= 1 and string.format("%.1fs", ct) or string.format("%.2fs", ct)))
+          r.btn.sel:SetShown(false)
+        end
       else
         r.bar:SetValue(0); r.bar.text:SetText(i == 1 and "|cffffd100Mine by hand with your pickaxe ->|r" or "|cff888888Buy one to start|r")
       end

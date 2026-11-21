@@ -983,6 +983,7 @@ function TCF:CreateWindow()
   Check("Sounds", "sound", 0, 5)
   Check("Show racial accessory", "racial", 0, 6, "Show your race's accessory (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
   Check("Chat messages", "chat", 1, 5)
+  Check("Chest opening animation", "chestAnim", 1, 7, "Opening a chest spins a reel of possible loot before it lands on your reward.")
   Check("Text above the cat", "textAbove", 0, 7, "Put the level, XP bar and counters above the cat instead of below. (\"Cat only\" hides them.)")
 
   local function Slider(label, minV, maxV, step, y, get, set, fmt)
@@ -1417,7 +1418,9 @@ end
 function TCF:OpenAllChests(key)
   for _, ch in ipairs(TCF.CHESTS) do
     if not key or ch.key == key then
+      self.openingAll = true
       for _ = 1, math.min(TCF.db.keys[ch.key] or 0, 200) do self:OpenChest(ch.key, true) end
+      self.openingAll = nil
     end
   end
   if self.bag and self.bag:IsShown() then self.bag:Refresh() end

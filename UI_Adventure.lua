@@ -40,7 +40,7 @@ TCF.UI.Builders.adventure = function(page, win)
   fallbackSky:SetColorTexture(0.16, 0.14, 0.22, 1)
   local art = scene:CreateTexture(nil, "BACKGROUND", nil, 1); art:SetPoint("TOPLEFT", 4, -4); art:SetPoint("BOTTOMRIGHT", -4, 4)
   local shade = scene:CreateTexture(nil, "BACKGROUND", nil, 2); shade:SetPoint("BOTTOMLEFT", 4, 4); shade:SetPoint("BOTTOMRIGHT", -4, 4)
-  shade:SetHeight(70); shade:SetColorTexture(0, 0, 0, 0.45)
+  shade:SetHeight(70); shade:SetColorTexture(0, 0, 0, 0.15)
 
   local catHolder = CreateFrame("Frame", nil, scene)
   catHolder:SetSize(130, 130); catHolder:SetPoint("BOTTOMLEFT", 30, 10)
@@ -296,7 +296,10 @@ TCF.UI.Builders.adventure = function(page, win)
     zoneText:SetText(t.name .. (t.raid and "  |cffff8000(Raid)|r" or ""))
     zoneSub:SetText(string.format("Levels %d-%d   Stage %d / %d   %s", t.min, t.max, adv.stage, TCF:AdvStages(adv.tier),
       adv.stage % 2 == 0 and ("|cffff8000Boss: " .. t.bosses[adv.stage / 2][1] .. "|r") or "|cffaaaaaaTrash pack|r"))
-    if type(t.art) == "string" then
+    if t.key then
+      -- hand-drawn cartoon scene for every zone
+      art:SetTexture(TCF.ART_PATH .. "v\\bg_" .. t.key); art:SetTexCoord(0, 1, 0, 1); art:Show()
+    elseif type(t.art) == "string" then
       art:SetTexture("Interface\\AddOns\\TapCatForever\\Art\\" .. t.art, nil, nil, "NEAREST")
       art:SetTexCoord(0, 1, 0, 1); art:Show()
     elseif t.art and t.art > 0 then

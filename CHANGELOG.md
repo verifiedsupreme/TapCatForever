@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
+- **Hand-drawn Adventure backgrounds** for all 28 zones, dungeons and raids.
+- **Chest opening reel**: possible loot spins by and lands on your reward (can be turned off in Settings).
+- Mining: idle veins say "Click to mine a cycle" and pulse; the pickaxe is labelled "By hand".
 - **Spell effects in Adventure**: your cat's abilities now show as they're cast: fireballs, frostbolts, shadow bolts, lightning, arrows, slashes, falling Blizzard and Rain of Fire, heals, shield bubbles and stun stars.
 - **Ability bar** under the fight with every learned ability and its cooldown counting down.
 - Chests now only give cosmetics your current class can wear (its own sets or universal items).
