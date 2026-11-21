@@ -150,26 +150,25 @@ PAD = mat("pad", (0.95, 0.95, 0.95), 0.7)
 
 # ------------------------------------------------------------------ cat (soft chibi shape from metaballs)
 HEAD_Z = 0.85
-blob("fur", FUR, "Body", [
-    ((0, 0.1, -0.4), 1.0, (0.9, 0.66, 0.72)),          # body
-    ((0, -0.05, HEAD_Z), 1.0, (0.86, 0.68, 0.66)),      # head
-    ((0.62, -0.2, HEAD_Z - 0.22), 0.45, None),          # cheek fluff
-    ((-0.62, -0.2, HEAD_Z - 0.22), 0.45, None),
-    ((0, -0.42, 0.18), 0.5, (1.0, 0.6, 0.7)),           # chest fluff
-])
+# one round head and a pear-shaped sitting body, joined by a soft neck (no separate cheek blobs)
+head = sphere("fur", FUR, (0, -0.05, HEAD_Z - 0.05), (0.92, 0.78, 0.78))
+body = sphere("fur", FUR, (0, 0.1, -0.42), (0.66, 0.56, 0.6))
+sphere("fur", FUR, (0, 0.05, 0.05), (0.5, 0.45, 0.35))                       # neck/chest join
+for sx in (-1, 1):                                                           # tiny cheek tufts
+    cone("fur", FUR, (sx * 0.86, -0.15, HEAD_Z - 0.3), 0.12, 0.0, 0.22, (0, math.radians(sx * 115), 0))
 tube("fur", FUR, [(0.6, 0.4, -0.85), (0.95, 0.2, -0.85), (1.05, -0.15, -0.65), (0.95, -0.3, -0.45)], 0.075,
      taper=[1.0, 1.0, 0.95, 0.8])                        # tail curling round the side
 for sx in (-1, 1):
-    cone("fur", FUR, (sx * 0.55, 0.0, HEAD_Z + 0.6), 0.27, 0.04, 0.56, (math.radians(-6), math.radians(sx * 24), 0))
-    cone("face", PINK, (sx * 0.54, -0.14, HEAD_Z + 0.56), 0.16, 0.02, 0.38, (math.radians(-6), math.radians(sx * 24), 0))
-    sphere("face", EYE, (sx * 0.32, -0.66, HEAD_Z + 0.02), (0.11, 0.05, 0.15))           # big glossy eyes
-    sphere("face", WHITE, (sx * 0.32 - 0.035, -0.71, HEAD_Z + 0.08), (0.035, 0.02, 0.045))
-    sphere("face", WHITE, (sx * 0.32 + 0.03, -0.71, HEAD_Z - 0.05), (0.018, 0.01, 0.022))
-    sphere("face", BLUSH, (sx * 0.55, -0.56, HEAD_Z - 0.17), (0.12, 0.03, 0.06))        # blush
-sphere("face", PINK, (0, -0.74, HEAD_Z - 0.13), (0.06, 0.03, 0.04))                     # nose
-bpy.ops.object.text_add(location=(0, -0.76, HEAD_Z - 0.27), rotation=(math.radians(90), 0, 0))
+    cone("fur", FUR, (sx * 0.52, 0.0, HEAD_Z + 0.55), 0.3, 0.05, 0.46, (math.radians(-6), math.radians(sx * 24), 0))
+    cone("face", PINK, (sx * 0.51, -0.16, HEAD_Z + 0.52), 0.18, 0.03, 0.3, (math.radians(-6), math.radians(sx * 24), 0))
+    sphere("face", EYE, (sx * 0.34, -0.755, HEAD_Z - 0.08), (0.13, 0.05, 0.17))           # big glossy eyes
+    sphere("face", WHITE, (sx * 0.34 - 0.04, -0.81, HEAD_Z - 0.01), (0.045, 0.02, 0.055))
+    sphere("face", WHITE, (sx * 0.34 + 0.04, -0.81, HEAD_Z - 0.15), (0.02, 0.01, 0.025))
+    sphere("face", BLUSH, (sx * 0.56, -0.63, HEAD_Z - 0.27), (0.11, 0.03, 0.055))        # blush
+sphere("face", PINK, (0, -0.835, HEAD_Z - 0.22), (0.055, 0.03, 0.035))                     # nose
+bpy.ops.object.text_add(location=(0, -0.805, HEAD_Z - 0.33), rotation=(math.radians(90), 0, 0))
 mouth = bpy.context.active_object; mouth.data.body = "w"; mouth.data.align_x = "CENTER"; mouth.data.align_y = "CENTER"
-mouth.data.size = 0.22; mouth.data.extrude = 0.01
+mouth.data.size = 0.18; mouth.data.extrude = 0.01
 bpy.ops.object.convert(target="MESH"); place(bpy.context.active_object, "face", EYE)
 
 # paws: down = resting on the ground in front with toes, up = a soft raised arm
@@ -192,16 +191,16 @@ for side, sx in (("R", 1), ("L", -1)):
 
 # ------------------------------------------------------------------ gear (grey, tinted in game)
 # great helm: dome (a) with brim, nose guard and horns (b)
-helm = sphere("helm_a", METAL_A, (0, -0.05, HEAD_Z + 0.1), (0.95, 0.8, 0.72))
+helm = sphere("helm_a", METAL_A, (0, -0.05, HEAD_Z + 0.22), (0.95, 0.8, 0.72))
 bpy.context.view_layer.objects.active = helm
 bpy.ops.object.modifier_add(type="BOOLEAN")
-cutter = cube("cut", METAL_A, (0, 0, HEAD_Z - 0.55), (3, 3, 1.0)); cutter.hide_render = True
+cutter = cube("cut", METAL_A, (0, 0, HEAD_Z - 0.43), (3, 3, 1.0)); cutter.hide_render = True
 helm.modifiers[-1].object = cutter; helm.modifiers[-1].operation = "DIFFERENCE"
-torus("helm_b", METAL_B, (0, -0.05, HEAD_Z + 0.0), 0.93, 0.055, (0, 0, 0), (1, 0.82, 1))
-cube("helm_b", METAL_B, (0, -0.8, HEAD_Z + 0.25), (0.07, 0.05, 0.5))
+torus("helm_b", METAL_B, (0, -0.05, HEAD_Z + 0.12), 0.93, 0.055, (0, 0, 0), (1, 0.82, 1))
+cube("helm_b", METAL_B, (0, -0.8, HEAD_Z + 0.37), (0.07, 0.05, 0.5))
 for sx in (-1, 1):
-    tube("helm_b", METAL_B, [(sx * 0.8, -0.05, HEAD_Z + 0.25), (sx * 1.15, -0.05, HEAD_Z + 0.45),
-                             (sx * 1.25, -0.05, HEAD_Z + 0.8), (sx * 1.12, -0.05, HEAD_Z + 1.05)], 0.11,
+    tube("helm_b", METAL_B, [(sx * 0.8, -0.05, HEAD_Z + 0.37), (sx * 1.15, -0.05, HEAD_Z + 0.57),
+                             (sx * 1.25, -0.05, HEAD_Z + 0.92), (sx * 1.12, -0.05, HEAD_Z + 1.17)], 0.11,
          taper=[1.0, 0.8, 0.45, 0.05])
 
 # plate chest: a breastplate on the front of the body (a), pauldrons and belt (b)
