@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.3
 - The loot box only pops up while the TapCatForever window or Treasure Bag is open; otherwise drops show as a small note above the cat.
 - "Sell spare copies" is now "Sell unequipped": it says it sells every piece of gear the cat isn't wearing, and asks you to confirm with the item count and TapCoins.
 - Loot box: Open another, Equip, OK to all and OK no longer overlap.
