@@ -903,8 +903,23 @@ end)
 
 ---------------------------------------------------------------- test mode
 -- Shortcuts for trying every part of the game quickly. Turned on with /tcf testmode.
+-- Locked to the developer's character, or a password on any other character.
+-- Only hashes are stored here.
+local TEST_KEY, DEV_NAMES = 282723659, { [282723659] = true, [1306739114] = true }
+local function keyHash(s)
+  local x = 5381
+  for i = 1, #s do x = (x * 33 + s:byte(i)) % 4294967296 end
+  return x
+end
+local function isDevCharacter()
+  local name = UnitName and UnitName("player")
+  if not name or TCF.IsSecret(name) then return false end
+  return DEV_NAMES[keyHash(name:lower())] or false
+end
+
 function TCF:TestCheat(kind)
   local db = self.db
+  if not db.ui.testMode then return end
   if kind == "coins" then self:AddCoins(5000)
   elseif kind == "gold" then local s = self:ProfState(); s.gold = s.gold + 1e7; s.lifetime = s.lifetime + 1e7
   elseif kind == "renown" then
@@ -942,6 +957,10 @@ SlashCmdList.TAPCATFOREVER = function(msg)
     ui.scale = max(0.3, min(3, tonumber(arg))); TCF.hud:ApplySettings()
   elseif cmd == "bag" then TCF:ToggleBag()
   elseif cmd == "testmode" then
+    if not ui.testMode and not isDevCharacter() and keyHash(arg or "") ~= TEST_KEY then
+      TCF:Print("/tapcat - open window | bag | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats")
+      return
+    end
     ui.testMode = not ui.testMode
     TCF:Print(ui.testMode and "Test mode ON: shortcuts are in Settings." or "Test mode off.")
     if TCF.window and TCF.window:IsShown() then TCF.window:Refresh() end
