@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""Writes the CurseForge page text in three forms from one source, so they never drift apart:
+CURSEFORGE.md (Markdown, with the summary), CURSEFORGE.html (for the HTML editor) and
+CURSEFORGE.txt (plain text to paste into the WYSIWYG editor).
+
+usage: python3 tools/make_curseforge.py
+"""
+import html, os
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+LOGO = "https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/logo.png"
+ISSUES = "https://github.com/verifiedsupreme/TapCatForever/issues"
+
+SUMMARY = ("A cartoon cat taps along with every key you press. Level a cat for each class, dress it in real "
+           "WoW gear, fight through dungeons and raids, craft gear, collect 64 cat skins and play with friends. "
+           "Made for WoW: Forever.")
+
+TITLE = "TapCatForever"
+INTRO_BOLD = "A little cartoon cat lives on your screen and taps its paws every time you press a key."
+INTRO = (" Every keystroke you already make in World of Warcraft earns your cat XP and TapCoins, and behind it "
+         "is a whole collection game: real WoW gear, class abilities, an idle Adventure through Azeroth's dungeons "
+         "and raids, class professions that craft real gear, loot chests and hundreds of things to collect.")
+INTRO2 = "It never touches your gameplay. It just watches your key presses and makes them a little more fun."
+
+FEATURES = [
+    ("What's new in 1.5", [
+        "Professions by class: Mining and Blacksmithing, Skinning and Leatherworking, or Tailoring, each crafting real Classic gear with stats.",
+        "Play with friends: party members who also have TapCatForever show up as little cats beside yours, and your taps count up to 50% more.",
+        "A fishing dock where your cat fishes, with its fishing buddy beside it.",
+        "33 new cat skins, the Compendium of every item and how to get it, and quieter loot.",
+    ]),
+    ("A cat that taps with you", [
+        "Left paw on A, left arrow and left-click; right paw on D, right arrow and right-click; every other key alternates.",
+        "Happy, focused and sparkly faces, and Tap Effects (hearts, stars, fire sparks, rainbow stars and more) that burst from its paw on every tap.",
+        "Drag it anywhere, resize it, fade it, or hide everything but the cat.",
+    ]),
+    ("A cat for every class", [
+        "Each class has its own cat that levels from 1, with its own gear, abilities, profession and progress.",
+        "Your cat wears real WoW items: every helm, chest, belt, necklace, ring, weapon, shield and off-hand has its own hand-drawn cartoon version, about 4,500 items in all.",
+        "Every class starts with its own weapon (a bow for hunters, a dagger for rogues, a staff for mages) and learns class abilities with TapCoins, from Heroic Strike to Pyroblast.",
+        "Hover any piece of gear to see how it compares with what your cat is wearing.",
+    ]),
+    ("Adventure", [
+        "An idle fight through 28 real zones, dungeons and raids, from Elwynn Forest and the Deadmines to Molten Core and Naxxramas, each with its own hand-drawn scene.",
+        "Real bosses and real creature models. Your cat casts its abilities with visible spell effects, and an ability bar shows every cooldown.",
+        "Bosses drop gear, chests and rare cat skins.",
+    ]),
+    ("Expeditions", [
+        "Send a party of three cats away for 15 minutes to 24 hours. They come back with TapCoins, chests and XP.",
+    ]),
+    ("Professions", [
+        "Your cat's class picks its main profession: Mining with Blacksmithing (Warrior, Paladin), Skinning with Leatherworking (Rogue, Druid, Hunter, Shaman) or Tailoring (Mage, Priest, Warlock).",
+        "Each is an idle gathering business: veins, hunting grounds with real beasts, or cloth spots at humanoid camps, with hired helpers and an endless tool upgrade.",
+        "Craft real Classic gear with stats, 45 recipes per craft from skill 1 to 300. Cosmetic-only recipes are clearly marked.",
+        "Herbalism, First Aid, Fishing and Cooking unlock later: a garden that grows in real time, bandages that heal your cat in fights, a fishing dock with a fishing buddy, and recipes you discover by experimenting.",
+        "Sell your business for Renown to grow faster and unlock new professions.",
+    ]),
+    ("Play with friends", [
+        "Group up with friends who also have TapCatForever and their cats sit in a little row beside yours. Hover one to see whose cat it is.",
+        "Your taps count 20% more with one of them and 10% more for each one after that, up to +50% with a full party: more tap progress, cat XP and TapCoins from tapping. It works in parties, raids and dungeon groups.",
+        "The addons find each other on their own, so there is nothing to set up. Invite a friend and play together.",
+    ]),
+    ("Chests, shop and collecting", [
+        "Cat Treat Pouches, Adventurer's Strongboxes and Heroic Caches, opened with a spinning reel that lands on your reward. Gear you find anywhere else goes straight into your bags with a small notice.",
+        "Finishing real dungeons and raids in WoW earns chests too.",
+        "Daily shop wares, daily and weekly quests, and 77 achievements.",
+        "64 cat skins: tabbies and tuxedos, Bengals and Maine Coons, a Galaxy Cat, Frostsabers, the Spectral Tiger, boss-drop cats, chest-only cats, quest and expedition cats, crafted cats, and achievement cats like Mr. Bigglesworth.",
+        "Hats, capes, wings, fur patterns, effects and racial heritage items for your character's race.",
+        "The Compendium lists every skin, cosmetic, effect and piece of gear, what you own, and how to get the rest.",
+    ]),
+    ("Account and character", [
+        "Gear, cosmetics, professions and cat levels belong to each character; TapCoins, quests and achievements are shared across your account.",
+    ]),
+]
+
+GETTING_STARTED = ("Install, log in, and the welcome tour shows you around. Right-click the cat to open the main window. "
+                   "Start in the Adventure tab, and check the Treasure Bag whenever you earn a chest. After a big update, "
+                   "a short What's new note appears at the top of the window.")
+
+COMMANDS = [
+    ("/tcf or /tapcat", "open the main window"),
+    ("/tcf compendium", "every item and how to get it"),
+    ("/tcf news", "patch notes"),
+    ("/tcf feedback", "report a bug or suggest an idea"),
+    ("/tcf welcome", "show the welcome tour again"),
+    ("/tcf bag", "open the Treasure Bag"),
+    ("/tcf show, /tcf hide, /tcf toggle", "show or hide the cat"),
+    ("/tcf lock, /tcf unlock", "lock the cat in place"),
+    ("/tcf reset", "move the cat back to the middle of the screen"),
+    ("/tcf scale 0.3-3", "resize the cat"),
+    ("/tcf stats", "your totals"),
+]
+
+FAQ = [
+    ("Does it change how I play?", "No. It only listens to your key presses and mouse clicks and never presses anything for you."),
+    ("What counts as a tap?", "Every key press (movement, abilities, everything except typing in chat), every mouse click, and your spell casts."),
+    ("Can I turn off the sounds, chat messages or chest animation?", "Yes, all of them are in Settings (right-click the cat, then the Settings tab). Sounds and chat messages start off."),
+    ("Where are the patch notes?", "In Settings > Patch notes, or type /tcf news."),
+    ("Can I start over?", "Settings has \"Reset this character\" and \"Reset ALL progress\"."),
+]
+
+FEEDBACK = ("Found a bug or have an idea? Type /tcf feedback in game, leave a comment here, or open an issue on GitHub "
+            "({}). If you can, include the error text (type /console scriptErrors 1 to see errors).")
+
+
+def txt():
+    o = [TITLE.upper(), "", INTRO_BOLD + INTRO, "", INTRO2, "", "Features", ""]
+    for head, items in FEATURES:
+        o.append(head)
+        o += ["• " + i for i in items]
+        o.append("")
+    o += ["Getting started", "", GETTING_STARTED, "", "Slash commands", ""]
+    o += ["• {}: {}".format(c, d) for c, d in COMMANDS]
+    o += ["", "FAQ", ""]
+    for q, a in FAQ:
+        o += [q, a, ""]
+    o += ["Feedback and bugs", "", FEEDBACK.format(ISSUES)]
+    return "\n".join(o) + "\n"
+
+
+def md():
+    o = ["# CurseForge page text", "", "## Summary (under 256 characters)", "", SUMMARY, "", "## Description", "",
+         "![TapCatForever]({})".format(LOGO), "", TITLE, "=" * len(TITLE), "",
+         "**" + INTRO_BOLD + "**" + INTRO, "", INTRO2, "", "Features", "--------", ""]
+    for head, items in FEATURES:
+        o.append("**{}**".format(head))
+        o += ["- " + i for i in items]
+        o.append("")
+    o += ["Getting started", "---------------", "", GETTING_STARTED, "", "Slash commands", "--------------", ""]
+    o += ["- `{}`: {}".format(c, d) for c, d in COMMANDS]
+    o += ["", "FAQ", "---", ""]
+    for q, a in FAQ:
+        o += ["**{}**".format(q), a, ""]
+    o += ["Feedback and bugs", "-----------------", "", FEEDBACK.format("[{0}]({0})".format(ISSUES))]
+    return "\n".join(o) + "\n"
+
+
+def h(s):
+    return html.escape(s, quote=False)
+
+
+def htm():
+    o = ['<p><img src="{}" alt="TapCatForever" width="400" /></p>'.format(LOGO), "<h1>{}</h1>".format(TITLE),
+         "<p><strong>{}</strong>{}</p>".format(h(INTRO_BOLD), h(INTRO)), "<p>{}</p>".format(h(INTRO2)), "<h2>Features</h2>"]
+    for head, items in FEATURES:
+        o.append("<p><strong>{}</strong></p>".format(h(head)))
+        o.append("<ul>")
+        o += ["<li>{}</li>".format(h(i)) for i in items]
+        o.append("</ul>")
+    o += ["<h2>Getting started</h2>", "<p>{}</p>".format(h(GETTING_STARTED)), "<h2>Slash commands</h2>", "<ul>"]
+    o += ["<li><code>{}</code>: {}</li>".format(h(c), h(d)) for c, d in COMMANDS]
+    o += ["</ul>", "<h2>FAQ</h2>"]
+    for q, a in FAQ:
+        o += ["<p><strong>{}</strong><br />{}</p>".format(h(q), h(a))]
+    o += ["<h2>Feedback and bugs</h2>",
+          "<p>{}</p>".format(h(FEEDBACK).format('<a href="{0}">{0}</a>'.format(ISSUES)))]
+    return "\n".join(o) + "\n"
+
+
+if __name__ == "__main__":
+    assert len(SUMMARY) < 256, len(SUMMARY)
+    for name, fn in (("CURSEFORGE.txt", txt), ("CURSEFORGE.md", md), ("CURSEFORGE.html", htm)):
+        open(os.path.join(ROOT, name), "w", encoding="utf-8").write(fn())
+    print("summary:", len(SUMMARY), "characters")
