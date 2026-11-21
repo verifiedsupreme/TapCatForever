@@ -441,9 +441,22 @@ TCF.UI.Builders.professions = function(page, win)
   end
   local spiceBtns = {}
   for i, sp in ipairs(TCF.SPICES) do
-    local b = Button(cookView, "Buy 10 " .. sp[2], 190, 20, function() TCF:BuySpice(sp[1], 10); win:Refresh() end)
+    local b = Button(cookView, "", 190, 20, function() TCF:BuySpice(sp[1], 10); win:Refresh() end)
     b:SetPoint("TOPLEFT", 340, -4 - (i - 1) * 24)
     b.sp = sp
+    Tip(b, function(tt)
+      local s = TCF:ProfState()
+      tt:AddLine(sp[2], 1, 0.82, 0)
+      tt:AddLine(string.format("Buy 10 for %s. You have %d.", TCF.GoldStr(sp[4] * 10), s.mats[sp[1]] or 0), 1, 1, 1)
+      tt:AddLine("A cooking ingredient: put it in the pot with meat, fish or herbs to discover spiced dishes. "
+        .. (i == 1 and "Mild Spices go into simpler dishes." or "Hot Spices go into fiery, high-level dishes."), 0.8, 0.8, 0.8, true)
+      local c = TCF:CookState()
+      local uses = {}
+      for _, r in ipairs(TCF.COOK_RECIPES) do
+        for _, ing in ipairs(r[4]) do if ing == sp[1] and c.known[r[1]] then uses[#uses + 1] = r[2]; break end end
+      end
+      tt:AddLine(#uses > 0 and ("Used in: " .. table.concat(uses, ", ")) or "Experiment in the pot to find out what uses it!", 0.5, 1, 0.5, true)
+    end)
     spiceBtns[i] = b
   end
   local potSlots = {}
@@ -488,7 +501,11 @@ TCF.UI.Builders.professions = function(page, win)
       local have = (s.mats[b.key] or 0) - (inPot[b.key] or 0)
       b.count:SetText(have > 0 and TCF.FormatBig(have) or ""); b.tex:SetDesaturated(have <= 0)
     end
-    for _, b in ipairs(spiceBtns) do b:SetEnabled(s.gold >= b.sp[4] * 10) end
+    for _, b in ipairs(spiceBtns) do
+      local cost = b.sp[4] * 10
+      b:SetText(string.format("Buy 10 %s  %s%s|r", b.sp[2], s.gold >= cost and "|cffffd100" or "|cffff5050", TCF.FormatBig(cost)))
+      b:SetEnabled(s.gold >= cost)
+    end
     for i, b in ipairs(potSlots) do
       local k = c.pot[i]
       b.tex:SetTexture(TCF.Icon(k and TCF.MAT_BY_KEY[k].icon or "INV_Misc_Food_15")); b.tex:SetDesaturated(not k); b.tex:SetAlpha(k and 1 or 0.3)
@@ -608,16 +625,17 @@ TCF.UI.Builders.professions = function(page, win)
     vbtns[2]:SetShown(prof == "mining")
     if win.profView == "upg" and prof ~= "mining" then win.profView = "main" end
     for _, b in ipairs(vbtns) do if b.key == win.profView then b:LockHighlight() else b:UnlockHighlight() end end
-    for _, v in ipairs(allViews) do v:Hide() end
+    -- show only the current view; never hide a visible view mid-refresh, or clicks get lost
+    local function only(view) for _, v in ipairs(allViews) do v:SetShown(v == view) end end
     if not TCF:ProfUnlocked(prof) and win.profView ~= "renown" then
-      locked:Show()
+      only(locked)
       lockText:SetText(string.format("%s unlocks at |cffffd100%d Renown|r (you have %d).\n\nEarn Renown by selling your business in the Renown view.", p.name, p.renown, s.renownEver))
       return
     end
-    if win.profView == "main" then MAIN[prof][1]:Show(); MAIN[prof][2]()
-    elseif win.profView == "upg" then upgView:Show(); refreshUpgrades()
-    elseif win.profView == "craft" then craftView:Show(); refreshCraft(prof)
-    else renView:Show(); refreshRenown() end
+    if win.profView == "main" then only(MAIN[prof][1]); MAIN[prof][2]()
+    elseif win.profView == "upg" then only(upgView); refreshUpgrades()
+    elseif win.profView == "craft" then only(craftView); refreshCraft(prof)
+    else only(renView); refreshRenown() end
   end
   return refresh
 end
