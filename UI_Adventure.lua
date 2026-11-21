@@ -94,9 +94,9 @@ TCF.UI.Builders.adventure = function(page, win)
   local startBtn = Button(startPanel, "Start Adventure", 170, 30, function() TCF:AdvStart(); win:Refresh() end)
   startBtn:SetPoint("TOP", startText, "BOTTOM", 0, -12)
 
-  local stats = Text(page, "GameFontHighlight", nil, "LEFT"); stats:SetPoint("TOPLEFT", 18, -308); stats:SetWidth(520)
+  local stats = Text(page, "GameFontHighlight", nil, "LEFT"); stats:SetPoint("TOPLEFT", 18, -342); stats:SetWidth(520)
   local autoCB = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
-  autoCB:SetSize(24, 24); autoCB:SetPoint("TOPLEFT", 14, -326)
+  autoCB:SetSize(24, 24); autoCB:SetPoint("TOPLEFT", 14, -360)
   local autoText = Text(page, "GameFontHighlightSmall", "Auto-advance"); autoText:SetPoint("LEFT", autoCB, "RIGHT", 0, 1)
   autoCB:SetScript("OnClick", function(s) TCF:CD().adv.auto = s:GetChecked() and true or false end)
   Tip(autoCB, function(tt)
@@ -104,16 +104,144 @@ TCF.UI.Builders.adventure = function(page, win)
     tt:AddLine("On: move on after each win and into the next zone when your level allows. Off: keep farming this stage.", 1, 1, 1, true)
   end)
   local retreat = Button(page, "Retreat", 76, 22, function() TCF:AdvRetreat(); win:Refresh() end)
-  retreat:SetPoint("TOPLEFT", 130, -327)
+  retreat:SetPoint("TOPLEFT", 130, -361)
   Tip(retreat, function(tt) tt:AddLine("Retreat", 1, 0.82, 0); tt:AddLine("Stop fighting. Your cat rests until you press Start again.", 1, 1, 1, true) end)
   local nextStage = Button(page, "Stage >", 76, 22, function() TCF:AdvStep(1); win:Refresh() end)
-  nextStage:SetPoint("TOPRIGHT", -14, -327)
+  nextStage:SetPoint("TOPRIGHT", -14, -361)
   local prevStage = Button(page, "< Stage", 76, 22, function() TCF:AdvStep(-1); win:Refresh() end)
   prevStage:SetPoint("RIGHT", nextStage, "LEFT", -6, 0)
-  local logText = Text(page, "GameFontHighlightSmall", nil, "LEFT"); logText:SetPoint("TOPLEFT", 18, -356)
+  local logText = Text(page, "GameFontHighlightSmall", nil, "LEFT"); logText:SetPoint("TOPLEFT", 18, -390)
   logText:SetWidth(524); logText:SetSpacing(3); logText:SetJustifyV("TOP")
   local help = Text(page, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 10); help:SetWidth(524)
   help:SetText("Your cat fights with this class's gear, level and learned abilities. Every key you press lands a bonus paw strike. Bosses and zone clears drop chests that can hold the zone's real loot.")
+
+  ------------------------------------------------ ability bar (under the fight) and spell effects
+  local SPELL = TCF.SPELL_FX
+  local abar, abtns = CreateFrame("Frame", nil, page), {}
+  abar:SetSize(532, 32); abar:SetPoint("TOP", scene, "BOTTOM", 0, -2)
+  local function abilityButton(i)
+    local b = CreateFrame("Frame", nil, abar); b:SetSize(30, 30)
+    b.icon = b:CreateTexture(nil, "ARTWORK"); b.icon:SetAllPoints(); b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    -- cooldown: a dark cover that shrinks as the ability comes back, plus seconds left
+    b.cover = b:CreateTexture(nil, "OVERLAY", nil, 1); b.cover:SetPoint("BOTTOMLEFT"); b.cover:SetPoint("BOTTOMRIGHT"); b.cover:SetColorTexture(0, 0, 0, 0.7)
+    b.cd = Text(b, "NumberFontNormal"); b.cd:SetPoint("CENTER", 0, 0)
+    b.flash = b:CreateTexture(nil, "OVERLAY", nil, 2); b.flash:SetAllPoints(); b.flash:SetTexture("Interface\Buttons\ButtonHilight-Square"); b.flash:SetBlendMode("ADD"); b.flash:SetAlpha(0)
+    b:EnableMouse(true)
+    b:SetScript("OnEnter", function(s)
+      if not s.a then return end
+      GameTooltip:SetOwner(s, "ANCHOR_TOP"); GameTooltip:AddLine(s.a.name, 1, 0.82, 0)
+      GameTooltip:AddLine(s.a.desc, 1, 1, 1, true)
+      if s.a.cd > 0 then GameTooltip:AddLine(string.format("Cooldown: %ds", s.a.cd), 0.7, 0.7, 0.7) end
+      GameTooltip:AddLine("Your cat casts it on its own during fights.", 0.6, 0.8, 1, true)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    abtns[i] = b
+    return b
+  end
+  local function layoutAbilities()
+    local class = TCF.db.class
+    local list = {}
+    for _, a in ipairs(TCF.ABILITIES[class] or {}) do
+      if TCF:AbilityKnown(class, a.key) and a.kind ~= "passive" and a.kind ~= "ward" then list[#list + 1] = a end
+    end
+    for i, b in ipairs(abtns) do b:Hide(); b.a = nil end
+    local w = #list * 34 - 4
+    for i, a in ipairs(list) do
+      local b = abtns[i] or abilityButton(i)
+      b.a = a; b.icon:SetTexture(TCF.Icon(a.icon))
+      b:ClearAllPoints(); b:SetPoint("LEFT", abar, "CENTER", -w / 2 + (i - 1) * 34, 0)
+      b:Show()
+    end
+    abar.class, abar.count = class, #list
+  end
+  local function updateAbilities()
+    local run = TCF.advRun
+    for _, b in ipairs(abtns) do
+      if b:IsShown() and b.a then
+        local left = run and run.cds and run.cds[b.a.key] and (run.cds[b.a.key] - run.t) or 0
+        if left > 0 and b.a.cd > 0 then
+          b.cover:SetHeight(max(1, 30 * min(1, left / b.a.cd))); b.cover:Show()
+          b.cd:SetText(left >= 10 and floor(left) or string.format("%.1f", left))
+          b.icon:SetDesaturated(true)
+        else
+          b.cover:Hide(); b.cd:SetText(""); b.icon:SetDesaturated(false)
+        end
+        if (b.flashA or 0) > 0 then b.flashA = max(0, b.flashA - 0.06); b.flash:SetAlpha(b.flashA) end
+      end
+    end
+  end
+
+  -- spell effects play above the models
+  local fxLayer = CreateFrame("Frame", nil, scene); fxLayer:SetAllPoints(scene)
+  if fxLayer.SetFrameLevel then fxLayer:SetFrameLevel((scene:GetFrameLevel() or 1) + 20) end
+  local fxPool = {}
+  local function fxSprite()
+    for _, f in ipairs(fxPool) do if not f.on then return f end end
+    if #fxPool >= 40 then return nil end
+    local f = { tex = fxLayer:CreateTexture(nil, "OVERLAY") }
+    fxPool[#fxPool + 1] = f
+    return f
+  end
+  -- mode: proj (fly a to b), burst (pop at a), rise (float up at a), fall (drop onto a)
+  local function playFx(sprite, mode, ax, ay, bx, by, size, dur, tint)
+    local f = fxSprite(); if not f then return end
+    f.on, f.age, f.mode, f.dur = true, 0, mode, dur or 0.45
+    f.ax, f.ay, f.bx, f.by, f.size = ax, ay, bx or ax, by or ay, size or 40
+    f.tex:SetTexture(TCF.ART_PATH .. "v\\s_" .. sprite)
+    if tint then f.tex:SetVertexColor(tint[1], tint[2], tint[3]) else f.tex:SetVertexColor(1, 1, 1) end
+    f.tex:SetRotation(0)
+    if mode == "proj" and bx then f.tex:SetRotation(math.atan2(-(by - ay), bx - ax)) end
+    f.impact = (mode == "proj" or mode == "fall") and sprite
+    f.tint = tint
+    f.tex:Show()
+  end
+  local function updateFx(e)
+    for _, f in ipairs(fxPool) do
+      if f.on then
+        f.age = f.age + e
+        local t = f.age / f.dur
+        if t >= 1 then
+          f.on = false; f.tex:Hide()
+          if f.impact then playFx("impact", "burst", f.bx, f.by, nil, nil, 46, 0.3, SPELL.TINT[f.impact]) end
+        else
+          local x, y, sz, a = f.ax, f.ay, f.size, 1
+          if f.mode == "proj" then x = f.ax + (f.bx - f.ax) * t; y = f.ay + (f.by - f.ay) * t + math.sin(t * math.pi) * 18
+          elseif f.mode == "fall" then x = f.bx - 30 * (1 - t); y = f.by + 130 * (1 - t)
+          elseif f.mode == "burst" then sz = f.size * (0.5 + t); a = 1 - t
+          elseif f.mode == "rise" then y = f.ay + 40 * t; sz = f.size * (0.8 + 0.4 * t); a = t < 0.6 and 1 or (1 - t) / 0.4
+          elseif f.mode == "bubble" then sz = f.size * (0.9 + 0.1 * math.sin(t * 12)); a = t < 0.7 and 0.9 or (1 - t) / 0.3 * 0.9 end
+          f.tex:ClearAllPoints(); f.tex:SetSize(sz, sz); f.tex:SetPoint("CENTER", scene, "BOTTOMLEFT", x, y); f.tex:SetAlpha(a)
+        end
+      end
+    end
+  end
+  local CAT_X, CAT_Y = 120, 90
+  local function castFx(info, slotPos)
+    local fx = SPELL.For(info.class, info.key, info.kind)
+    if not fx then return end
+    local sprite, mode = fx[1], fx[2]
+    local targets = {}
+    if mode == "each" or mode == "multi" or mode == "rain" then
+      for i = 1, 3 do local x, y = slotPos(i); if x then targets[#targets + 1] = { x, y } end end
+    else
+      local x, y = slotPos(info.target); if x then targets[1] = { x, y } end
+    end
+    if mode == "proj" or mode == "multi" then
+      for k, p in ipairs(targets) do playFx(sprite, "proj", CAT_X, CAT_Y, p[1], p[2], 40, 0.35 + k * 0.05) end
+    elseif mode == "drain" then
+      if targets[1] then playFx(sprite, "proj", targets[1][1], targets[1][2], CAT_X, CAT_Y, 36, 0.45) end
+    elseif mode == "hit" or mode == "each" then
+      for _, p in ipairs(targets) do playFx(sprite, "burst", p[1], p[2], nil, nil, 60, 0.4) end
+    elseif mode == "rain" then
+      for _, p in ipairs(targets) do
+        for k = 1, 2 do playFx(sprite, "fall", p[1], p[2], p[1] + (k - 1.5) * 24, p[2], 34, 0.4 + k * 0.08) end
+      end
+    elseif mode == "stun" then
+      for _, p in ipairs(targets) do playFx("stun", "rise", p[1], p[2] + 46, nil, nil, 46, 1.2) end
+    elseif mode == "self" then playFx(sprite, "rise", CAT_X - 20, CAT_Y, nil, nil, 50, 0.9)
+    elseif mode == "bubble" then playFx(sprite, "bubble", CAT_X - 25, CAT_Y - 10, nil, nil, 120, 1.4, fx[3]) end
+  end
 
   local function layoutSlots(pack)
     local n = pack and #pack or 0
@@ -161,6 +289,7 @@ TCF.UI.Builders.adventure = function(page, win)
   end
 
   local function refresh()
+    layoutAbilities()
     local cd = TCF:CD()
     local adv = cd.adv
     local t = TCF:AdvTier(adv.tier)
@@ -227,6 +356,14 @@ TCF.UI.Builders.adventure = function(page, win)
         FloatText("+" .. short(amt), 95, 160, 0.3, 1, 0.3)
       elseif kind == "ability" then
         abilityText:SetText("|T" .. TCF.Icon(ev[3]) .. ":16:16|t " .. amt); abilityT = 1.2
+        local info = ev[4]
+        if info then
+          castFx(info, function(i)
+            local f = i and slots[i]
+            if f and f:IsShown() and run.pack and run.pack[i] and run.pack[i].alive then return 532 + f.baseX - 55, 80 end
+          end)
+          for _, b in ipairs(abtns) do if b.a and b.a.key == info.key then b.flashA = 1; b.flash:SetAlpha(1) end end
+        end
       elseif kind == "mobdie" then
         local d = slots[amt]
         if d then pcall(d.model.SetAnimation, d.model, ANIM_DEATH); d.fade = 1.0; d.anim = 0 end
@@ -260,6 +397,8 @@ TCF.UI.Builders.adventure = function(page, win)
       end
     end
     if abilityT > 0 then abilityT = abilityT - e; abilityText:SetAlpha(min(1, abilityT * 2)) end
+    if abar.class ~= TCF.db.class or abar.count == nil then layoutAbilities() end
+    updateAbilities(); updateFx(e)
     for _, fs in ipairs(floats) do
       if fs.active then
         fs.age = fs.age + e

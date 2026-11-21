@@ -207,7 +207,7 @@ function TCF:AdvUseAbility(run)
   run.cds[choice.key] = run.t + choice.cd
   local dps = run.stats.dps * dmgMult(self, run)
   local k = choice.kind
-  self:AdvEvent("ability", choice.name, choice.icon)
+  self:AdvEvent("ability", choice.name, choice.icon, { key = choice.key, kind = k, target = run.target, class = class })
   if k == "nuke" or k == "execute" or k == "drain" then
     local crit = random() * 100 < run.stats.crit
     if k == "drain" then run.catHP = min(run.catMax, run.catHP + run.catMax * (choice.value >= 2 and 0.1 or 0.15)) end

@@ -442,23 +442,24 @@ function TCF:RollRarity(weights)
   return 1
 end
 
--- Pick an item of a rarity: favours the current class and unowned items.
+-- Pick an item of a rarity that the current class can wear: its own class sets (65%)
+-- or universal cosmetics; favours unowned items.
 function TCF:RollItem(rarity, preferUnowned)
   local class = self.db.class
   local wantClass = random() < 0.65
   local pools = { {}, {} } -- [1] unowned, [2] all
   for _, it in ipairs(TCF.ITEM_LIST) do
     if it.rarity == rarity and it.source == "loot" then
-      local fits = wantClass and (it.class == class) or (not wantClass and it.class ~= class)
+      local fits = (wantClass and it.class == class) or (not wantClass and it.class == nil)
       if fits then
         pools[2][#pools[2] + 1] = it
         if not self.db.owned[it.id] then pools[1][#pools[1] + 1] = it end
       end
     end
   end
-  if #pools[2] == 0 then -- fallback to anything of that rarity
+  if #pools[2] == 0 then -- fallback: anything of that rarity this class can wear
     for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.rarity == rarity and it.source == "loot" then pools[2][#pools[2] + 1] = it end
+      if it.rarity == rarity and it.source == "loot" and (it.class == nil or it.class == class) then pools[2][#pools[2] + 1] = it end
     end
   end
   local pool = (preferUnowned and #pools[1] > 0 and random() < 0.85) and pools[1] or pools[2]

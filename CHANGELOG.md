@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- **Spell effects in Adventure**: your cat's abilities now show as they're cast: fireballs, frostbolts, shadow bolts, lightning, arrows, slashes, falling Blizzard and Rain of Fire, heals, shield bubbles and stun stars.
+- **Ability bar** under the fight with every learned ability and its cooldown counting down.
+- Chests now only give cosmetics your current class can wear (its own sets or universal items).
 - Welcome tour on first login (also in Settings and /tcf welcome), with a cartoon version of the TapCatForever logo.
 - Hand mining pays much less: a quarter of one mine's cycle per swing, with a 25% chance of ore.
 

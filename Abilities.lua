@@ -134,3 +134,43 @@ function TCF:LearnAbility(class, key)
   self:MarkDirty(); self:RefreshAll()
   return true
 end
+
+-- How each ability looks in Adventure fights: { sprite, mode [, tint] }
+-- modes: proj (fly to the target), multi (fly to every enemy), drain (fly back to the cat),
+--        hit (pop on the target), each (pop on every enemy), rain (fall on every enemy),
+--        stun (stars over enemies), self (rise on the cat), bubble (surround the cat)
+local SPELL = {
+  WARRIOR = { hs = { "slash", "hit" }, bs = { "buff", "self" }, rend = { "slash", "hit" }, tc = { "lightning", "each" },
+              exe = { "slash", "hit" }, sw = { "shield", "bubble", { 1, 0.85, 0.4 } }, ww = { "slash", "each" }, ms = { "slash", "hit" }, reck = { "buff", "self" } },
+  PALADIN = { hl = { "heal", "self" }, judge = { "holy", "proj" }, hoj = { "holy", "stun" }, cons = { "holy", "each" },
+              ds = { "shield", "bubble", { 1, 0.9, 0.5 } }, hs = { "holy", "proj" } },
+  HUNTER = { as = { "arcane", "proj" }, ss = { "poison", "proj" }, cs = { "frost", "stun" }, ms = { "arrow", "multi" },
+             aim = { "arrow", "proj" }, rf = { "buff", "self" }, fd = { "heal", "self" } },
+  ROGUE = { ss = { "slash", "hit" }, evis = { "slash", "hit" }, gouge = { "slash", "stun" }, evas = { "shield", "bubble", { 0.8, 0.8, 0.8 } },
+            snd = { "buff", "self" }, rupt = { "slash", "hit" }, ks = { "slash", "stun" }, bf = { "slash", "each" }, ar = { "buff", "self" } },
+  PRIEST = { smite = { "holy", "proj" }, swp = { "shadow", "proj" }, pws = { "shield", "bubble" }, renew = { "heal", "self" },
+             mb = { "shadow", "proj" }, scream = { "shadow", "stun" }, nova = { "holy", "each" } },
+  SHAMAN = { lb = { "lightning", "proj" }, es = { "rock", "proj" }, hw = { "heal", "self" }, fs = { "fire", "proj" },
+             wf = { "buff", "self" }, cl = { "lightning", "multi" }, storm = { "lightning", "hit" } },
+  MAGE = { fb = { "fire", "proj" }, blast = { "fire", "hit" }, nova = { "frost", "stun" }, ae = { "arcane", "each" },
+           bliz = { "frost", "rain" }, pyro = { "fire", "proj" }, block = { "shield", "bubble", { 0.7, 0.9, 1 } },
+           barrier = { "shield", "bubble", { 0.6, 0.85, 1 } }, ap = { "arcane", "self" } },
+  WARLOCK = { sb = { "shadow", "proj" }, immo = { "fire", "hit" }, corr = { "shadow", "proj" }, fear = { "shadow", "stun" },
+              dl = { "shadow", "drain" }, rof = { "fire", "rain" }, burn = { "shadow", "proj" }, coil = { "shadow", "proj" } },
+  DRUID = { wrath = { "nature", "proj" }, ht = { "heal", "self" }, mf = { "moon", "rain" }, roots = { "nature", "stun" },
+            rejuv = { "heal", "self" }, fb = { "slash", "hit" }, hurr = { "nature", "rain" }, bark = { "shield", "bubble", { 0.6, 0.45, 0.3 } } },
+}
+-- fallback by kind for anything not listed above
+local BY_KIND = { nuke = { "impact", "hit" }, execute = { "slash", "hit" }, drain = { "shadow", "drain" }, dot = { "poison", "proj" },
+                  aoe = { "impact", "each" }, heal = { "heal", "self" }, shield = { "shield", "bubble" }, buff = { "buff", "self" },
+                  defense = { "shield", "bubble" }, stun = { "stun", "stun" } }
+TCF.SPELL_FX = {
+  For = function(class, key, kind)
+    local c = SPELL[class]
+    return (c and c[key]) or BY_KIND[kind]
+  end,
+  -- colour of the impact burst after a projectile lands
+  TINT = { fire = { 1, 0.6, 0.2 }, frost = { 0.6, 0.9, 1 }, shadow = { 0.75, 0.45, 1 }, arcane = { 1, 0.6, 0.95 }, holy = { 1, 0.95, 0.5 },
+           nature = { 0.5, 1, 0.4 }, lightning = { 0.7, 0.9, 1 }, arrow = { 1, 1, 1 }, poison = { 0.55, 1, 0.3 }, moon = { 0.8, 0.85, 1 },
+           rock = { 0.85, 0.7, 0.5 }, impact = { 1, 1, 1 }, slash = { 1, 1, 1 } },
+}
