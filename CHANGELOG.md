@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Adventure shows what the next zone needs next to the zone arrows (clear the final boss, or the level required).
 - Shorter welcome: two pages, the logo with your tapping cat, then a picture grid of what to do.
 - Pickaxe swings now grow with the deposit: each swing is worth half a second of everything that vein produces (all your mines there, with milestones and upgrades), never less than a quarter of one mine's cycle. Pickaxe levels add 15% each.
 
