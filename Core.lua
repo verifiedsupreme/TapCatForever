@@ -97,7 +97,7 @@ local DEFAULTS = {
     scale = 1.0, alpha = 1.0, textScale = 1.0, shown = true,
     locked = false, clickThrough = false,
     showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
-    mouse = true, popups = true, sound = false, chat = false, racial = true, cartoon = true, showDesk = true, textAbove = false, cat3d = true, show3dWeapons = true,
+    mouse = true, popups = true, sound = false, chat = false, racial = true, cartoon = true, textAbove = true, cat3d = true, show3dWeapons = true,
     minimap = { angle = 215, hide = false },
   },
 }
@@ -165,6 +165,8 @@ function TCF:InitDB()
   local char = bindCharacter(TapCatForeverDB)
   local db = copyDefaults(DEFAULTS, TapCatForeverDB)
   self.db = db
+  -- 1.3: the level text moved above the cat (once, for saves made before that)
+  if not db.ui.textAboveSet then db.ui.textAbove = true; db.ui.textAboveSet = true end
   -- default class = the character's own class the very first time
   if not db.class then
     local _, cls = UnitClass("player")

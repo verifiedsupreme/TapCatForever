@@ -12,7 +12,6 @@ V["cat:belly"]={"c_belly",180,256,152,172,0.5938,0.6719,"cat"}
 V["cat:body_line"]={"c_body_line",108,218,296,216,0.5781,0.8438,"cat"}
 V["cat:body_marks_t"]={"c_body_marks_t",115,300,282,80,0.5508,0.6250,"cat"}
 V["cat:body_t"]={"c_body_t",114,224,284,204,0.5547,0.7969,"cat"}
-V["cat:desk"]={"c_desk",0,406,512,106,1.0000,0.8281,"cat"}
 V["cat:face_blink"]={"c_face_blink",74,27,364,234,0.7109,0.9141,"cat"}
 V["cat:face_focus"]={"c_face_focus",74,27,364,234,0.7109,0.9141,"cat"}
 V["cat:face_happy"]={"c_face_happy",74,27,364,234,0.7109,0.9141,"cat"}

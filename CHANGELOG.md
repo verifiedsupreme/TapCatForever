@@ -2,13 +2,14 @@
 
 ## 1.3.0
 
-- **New cartoon cat** (default): a hand-drawn sticker-style cat with expressions (happy, blink, sparkle, focus), sitting at its tapping desk.
+- **New cartoon cat**: a hand-drawn sticker-style cat with expressions (happy, blink, sparkle, focus). It replaces the pixel cat.
 - **Every visible item has its own drawing**: all ~4,500 helms, chests, belts, necklaces, rings, weapons, shields and off-hand items, each drawn from its in-game icon (785 unique looks).
 - Dual-wielded weapons appear in both paws; shields, books and orbs in the left paw.
 - Hovering an item now shows your cat wearing it (instead of your WoW character).
 - Treasure Bag: "All" button per chest type and "Open everything".
-- Settings: "Show desk" and "Text above the cat" options. Chat messages and sounds now start off.
-- Settings: "Cartoon cat" toggle (turn off for the classic pixel cat), "Reset this character" and "Reset ALL progress".
+- The level and XP text now sit above the cat (Settings: "Text above the cat"). Chat messages and sounds now start off.
+- Mining veins only run when you start them or a foreman works them (key presses no longer restart them).
+- Settings: "Reset this character" and "Reset ALL progress".
 - **Real WoW gear**: 8,661 real Classic items with their real stats (Strength, Stamina, Armor, weapon DPS, crit, spell power...), drop sources and drop chances. 17 gear slots per class (Head to Ranged), Classic armor and weapon rules per class, and the cat wears its real gear (cosmetics still override the look).
 - **Adventure rebuilt around Azeroth**: 28 real zones, dungeons and raids in level order (Elwynn Forest, Deadmines, Scarlet Monastery... Molten Core, Blackwing Lair, Naxxramas) with their real bosses and real loot tables. Packs of 1-3 enemies shown as 3D creature models, over each dungeon's own artwork. Zones unlock by class level; raids need raid gear.
 - **Class abilities**: 9-10 real abilities per class (Heroic Strike, Fireball, Frost Nova, Shadow Word: Pain, Holy Light...) bought with TapCoins and used automatically in fights.

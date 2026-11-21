@@ -249,13 +249,10 @@ function TCF:RunOp(prof, i)
 end
 
 ---------------------------------------------------------------- key presses and ticking
--- Every key press in WoW: restarts idle veins, waters the garden, ...
+-- Every key press in WoW waters the garden. Mining veins only run when you start
+-- them yourself (click the vein) or once a foreman works them.
 function TCF:ProfTap()
   if not (self.db and self.db.trade) then return end
-  local s = S(self)
-  for _, st in ipairs(s.ops.mining) do
-    if st.n > 0 and not st.run then st.run = true end
-  end
   if self.GardenTap and self:ProfUnlocked("herbalism") then self:GardenTap() end
 end
 
