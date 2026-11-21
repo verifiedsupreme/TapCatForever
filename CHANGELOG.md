@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.1
 - Chests now give real gear 90% of the time (cosmetics 10%).
 - Cosmetics are clearly marked: a COSMETIC tag and "appearance only, no stats" in the loot box and tooltips, and a purple badge on the chest reel. Gear shows a GEAR tag.
 
