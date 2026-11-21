@@ -199,7 +199,7 @@ function Cat:ApplyAppearance(look)
   local tex = self.tex
   -- 3D style: a real WoW cat model; pixel style: the layered pixel-art cat
   local disp
-  if TCF.db and TCF.db.ui.cat3d and not self.force2d and not self.opts.pixelOnly then
+  if TCF.db and not self.force2d and not self.opts.pixelOnly then
     local skin = look.skin
     disp = (skin and skin.display3d) or (look.fur and FUR_3D[look.fur.id]) or 5554
   end

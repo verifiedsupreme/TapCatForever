@@ -78,7 +78,7 @@ function TCF:ItemTooltip(tt, it)
       end
     end
   elseif it.source == "race" then
-    tt:AddLine("Racial heritage: buy it in the Shop while playing a character of this race", 1, 0.82, 0, true)
+    tt:AddLine("Racial aura: buy it in the Shop while playing a character of this race", 1, 0.82, 0, true)
   else
     tt:AddLine("Not collected - found in chests, random drops and the daily shop", 0.6, 0.6, 0.6, true)
   end
@@ -103,7 +103,23 @@ local function ItemPicture(parent, size)
   f.b = f:CreateTexture(nil, "ARTWORK", nil, 2); f.b:SetAllPoints()
   function f:SetItem(it, desat)
     self.base:Hide(); self.b:Hide()
+    if self.model then self.model:Hide() end
     local art = it.art
+    if it.slot == "skin" and it.display3d then
+      -- cats show as their real 3D model
+      if not self.model then
+        self.model = CreateFrame("PlayerModel", nil, self); self.model:SetAllPoints()
+      end
+      self.a:Hide()
+      local ok = pcall(self.model.SetDisplayInfo, self.model, it.display3d)
+      if ok then
+        pcall(self.model.SetFacing, self.model, 0.5)
+        pcall(self.model.SetPortraitZoom, self.model, 0.3)
+        self.model:SetAlpha(desat and 0.45 or 1)
+        self.model:Show()
+        return
+      end
+    end
     if it.slot == "skin" then
       self.base:SetTexture(ART .. "cat_fur", nil, nil, "NEAREST"); CropToBounds(self.base, "cat_fur")
       self.base:SetVertexColor(it.c1[1], it.c1[2], it.c1[3]); self.base:SetDesaturated(desat); self.base:Show()
@@ -527,9 +543,11 @@ function TCF:CreateWindow()
 
   ------------------------------------------------ Appearance (cosmetics you've collected)
   local wd = pages[TAB_WARDROBE]
-  win.slot = "head"
+  win.slot = "skin"
   local slotBtns = {}
-  for i, s in ipairs(TCF.SLOTS) do
+  local shownSlots = {}
+  for _, s in ipairs(TCF.SLOTS) do if s.shown then shownSlots[#shownSlots + 1] = s end end
+  for i, s in ipairs(shownSlots) do
     local b = CreateFrame("Button", nil, wd)
     b:SetSize(34, 34); b:SetPoint("TOPLEFT", 12 + (i - 1) * 38, -12)
     local t = b:CreateTexture(nil, "ARTWORK"); t:SetAllPoints(); t:SetTexture(TCF.Icon(s.icon))
@@ -815,9 +833,9 @@ function TCF:CreateWindow()
     if rit then
       her:Show()
       her.cell:SetItem(rit, true, false)
-      her.title:SetText("Racial Heritage: |c" .. TCF.RARITY[rit.rarity].hex .. rit.name .. "|r")
+      her.title:SetText("Racial Aura: |c" .. TCF.RARITY[rit.rarity].hex .. rit.name .. "|r")
       local owned = TCF.db.owned[rit.id]
-      her.desc:SetText(owned and "Owned. Hide or show it with \"Show racial accessory\" in Settings."
+      her.desc:SetText(owned and "Owned. Hide or show it with \"Show racial aura\" in Settings."
         or ("Show your " .. (raceName or "") .. " pride on this character's cats."))
       her.buy:SetText(owned and "Owned" or coinStr(TCF.RACE_PRICE, 12))
       her.buy:SetEnabled(not owned and TCF.db.coins >= TCF.RACE_PRICE)
@@ -925,8 +943,8 @@ function TCF:CreateWindow()
   Check("Popups on cat", "popups", 1, 4, "Floating text for level ups, loot and achievements.")
   Check("Sounds", "sound", 0, 5)
   Check("Weapons in the 3D cat's paws", "show3dWeapons", 1, 7, "Show your real weapon and shield models in the 3D cat's paws. Armor can't be shown on 3D cats (WoW only fits armor to player characters).", function() TCF:RefreshAll() end)
-  Check("3D cat (real WoW cat models)", "cat3d", 1, 6, "Show your cat as an animated 3D WoW cat. Turn off for the pixel cat, which also shows your gear and cosmetics.", function() TCF:RefreshAll() end)
-  Check("Show racial accessory", "racial", 0, 6, "Show the accessory from your character's race (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
+  -- (cats are always 3D; the pixel cat is only a fallback if a model can't load)
+  Check("Show racial aura", "racial", 0, 6, "Show your race's aura around the cat. You keep it either way.", function() TCF:RefreshAll() end)
   Check("Chat messages", "chat", 1, 5)
 
   local function Slider(label, minV, maxV, step, y, get, set, fmt)

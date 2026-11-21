@@ -226,7 +226,7 @@ function TCF:GetAppearance(class, previewItem)
   out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil
   out.skin = self.db.look.skin and TCF.ITEMS[self.db.look.skin] or nil
   -- racial accessory can be hidden in Settings
-  if not self.db.ui.racial and out.acc and out.acc.source == "race" then out.acc = nil end
+  if not self.db.ui.racial and out.effect and out.effect.source == "race" then out.effect = nil end
   if previewItem then out[previewItem.slot] = previewItem end
   return out
 end
@@ -665,7 +665,7 @@ function TCF:BuyRaceAccessory()
   self.db.ui.racial = true
   for _, cl in ipairs(TCF.CLASSES) do
     local lo = self:GetLoadout(cl.key)
-    if not lo.acc then lo.acc = it.id end
+    if not lo.effect then lo.effect = it.id end
   end
   self:Print(string.format("Your cat shows its %s pride: %s!", raceName or "racial", TCF.ItemLink(it)))
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end
@@ -691,8 +691,10 @@ end
 function TCF:CountOwned()
   local n, total, r = 0, 0, { 0, 0, 0, 0, 0 }
   for _, it in ipairs(TCF.ITEM_LIST) do
-    total = total + 1
-    if self.db.owned[it.id] then n = n + 1; r[it.rarity] = r[it.rarity] + 1 end
+    if it.source ~= "retired" then
+      total = total + 1
+      if self.db.owned[it.id] then n = n + 1; r[it.rarity] = r[it.rarity] + 1 end
+    end
   end
   return n, total, r
 end

@@ -23,11 +23,11 @@ TCF.SLOTS = {
   { key = "back",    name = "Back",      icon = "INV_Misc_Cape_02" },
   { key = "main",    name = "Main Hand", icon = "INV_Sword_04" },
   { key = "off",     name = "Off Hand",  icon = "INV_Shield_06" },
-  { key = "effect",  name = "Effect",    icon = "Spell_Holy_MagicalSentry" },
+  { key = "effect",  name = "Effect",    icon = "Spell_Holy_MagicalSentry", shown = true },
   { key = "acc",     name = "Accessory", icon = "INV_Misc_Gift_01" },
   { key = "fur",     name = "Fur",       icon = "Ability_Druid_CatForm", look = true },
   { key = "pattern", name = "Pattern",   icon = "Ability_Druid_Rake",    look = true },
-  { key = "skin",    name = "Skin",      icon = "Ability_Mount_WhiteTiger", look = true },
+  { key = "skin",    name = "Cat",       icon = "Ability_Mount_WhiteTiger", look = true, shown = true },
 }
 TCF.SLOT_BY_KEY = {}
 for _, s in ipairs(TCF.SLOTS) do TCF.SLOT_BY_KEY[s.key] = s end
@@ -406,53 +406,60 @@ local U = {
 
 -- Achievement-only rewards (never in shops or chests)
 local ACH_ITEMS = {
-  { "ach_crown",   "head",   "head_crown",       "Crown of the Tapmaster",      5, c(1.00, 0.70, 0.20), c(0.35, 1.00, 0.85), "INV_Crown_01" },
-  { "ach_glow",    "effect", "fx_aura",          "Veteran's Glow",              4, c(1.00, 0.90, 0.60), nil, "Spell_Holy_SurgeOfLight" },
-  { "ach_tophat",  "head",   "head_tophat",      "Collector's Top Hat",         4, c(0.20, 0.55, 0.45), c(1.00, 0.82, 0.30), "INV_Helmet_06" },
-  { "ach_prism",   "effect", "fx_sparkles",      "Prismatic Sparkles",          5, c(1, 1, 1), nil, "INV_Misc_Gem_Pearl_04", { rainbow = true } },
-  { "ach_medal",   "acc",    "acc_medal",        "Medal of Devotion",           3, c(0.70, 0.40, 1.00), c(1.00, 0.85, 0.30), "INV_Jewelry_Talisman_07" },
-  { "ach_wings",   "back",   "back_angelwings",  "Wings of the Eternal Tapper", 5, c(1.00, 0.85, 0.45), c(1.00, 1.00, 1.00), "Spell_Holy_PowerWordShield" },
-  { "ach_fur",     "fur",    "cat_fur",          "Starlight",                   4, c(0.55, 0.60, 1.00), nil, "Spell_Nature_StarFall" },
-  { "ach_bongo",   "effect", "fx_notes",         "Drum Solo",                   4, c(0.55, 1.00, 0.70), nil, "INV_Misc_Drum_01", },
-  { "ach_party",   "head",   "head_partyhat",    "Birthday Party Hat",          3, c(0.70, 0.40, 1.00), c(1.00, 0.95, 0.40), "INV_Misc_Gift_04" },
-  { "ach_shades",  "acc",    "acc_shades",       "Speedrunner Shades",          4, c(1.00, 0.30, 0.25), c(1.00, 1.00, 0.60), "INV_Helmet_47" },
+  { "ach_crown",   "effect", "fx_rays",     "Tapmaster's Radiance",   5, c(1.00, 0.80, 0.30), nil, "INV_Crown_01" },
+  { "ach_glow",    "effect", "fx_aura",     "Veteran's Glow",         4, c(1.00, 0.90, 0.60), nil, "Spell_Holy_SurgeOfLight" },
+  { "ach_tophat",  "effect", "fx_coins",    "Collector's Fortune",    4, c(0.40, 1.00, 0.70), nil, "INV_Misc_Coin_02" },
+  { "ach_prism",   "effect", "fx_sparkles", "Prismatic Sparkles",     5, c(1, 1, 1), nil, "INV_Misc_Gem_Pearl_04", { rainbow = true } },
+  { "ach_medal",   "effect", "fx_hearts",   "Devoted Heart",          3, c(1.00, 0.82, 0.30), nil, "INV_Jewelry_Talisman_07" },
+  { "ach_wings",   "skin",   "cat_fur",     "Ancient Frostsaber",     5, c(0.85, 0.95, 1.00), nil, "Ability_Mount_WhiteTiger", { display3d = 9695 } },
+  { "ach_fur",     "skin",   "cat_fur",     "Moonlit Nightsaber",     4, c(0.55, 0.60, 1.00), nil, "Ability_Mount_BlackPanther", { display3d = 129644 } },
+  { "ach_bongo",   "effect", "fx_notes",    "Drum Solo",              4, c(0.55, 1.00, 0.70), nil, "INV_Misc_Drum_01" },
+  { "ach_party",   "effect", "fx_sparkles", "Party Confetti",         3, c(1, 1, 1), nil, "INV_Misc_Gift_04", { rainbow = true } },
+  { "ach_shades",  "effect", "fx_lightning","Speedrunner Sparks",     4, c(1.00, 0.30, 0.25), nil, "Ability_Rogue_Sprint" },
 }
 
 -- Profession-only cosmetics (crafted, never sold or dropped)
 local CRAFT = {
-  { "craft_copper_circlet",   "head",   "head_circlet",    "Copper Circlet",         2, c(0.85, 0.55, 0.35), c(0.30, 0.80, 0.50), "INV_Crown_02" },
-  { "craft_iron_greathelm",   "head",   "head_greathelm",  "Ironforge Greathelm",    3, c(0.60, 0.62, 0.68), c(0.85, 0.65, 0.30), "INV_Helmet_03" },
-  { "craft_mithril_medal",    "acc",    "acc_medal",       "Mithril Medal",          3, c(0.70, 0.85, 0.95), c(0.30, 0.50, 0.90), "INV_Jewelry_Talisman_07" },
-  { "craft_thorium_axe",      "main",   "wpn_axe",         "Thorium Battleaxe",      4, c(0.65, 0.55, 0.78), c(0.30, 0.25, 0.30), "INV_Axe_09" },
-  { "craft_arcanite_reaper",  "main",   "wpn_axe",         "Arcanite Reaper",        5, c(0.40, 0.85, 1.00), c(0.25, 0.25, 0.35), "INV_Axe_09" },
-  { "craft_peacebloom_crown", "head",   "head_flowers",    "Peacebloom Crown",       2, c(0.45, 0.75, 0.35), c(1.00, 1.00, 0.85), "INV_Misc_Flower_02" },
-  { "craft_mageroyal_bloom",  "acc",    "acc_flower",      "Pressed Mageroyal",      3, c(0.80, 0.50, 1.00), c(1.00, 1.00, 0.60), "INV_Jewelry_Talisman_03" },
-  { "craft_kingsblood_aura",  "effect", "fx_leaves",       "Kingsblood Swirl",       3, c(0.90, 0.25, 0.30), nil, "INV_Misc_Herb_03" },
-  { "craft_dreamfoil_wreath", "head",   "head_flowers",    "Dreamfoil Wreath",       4, c(0.35, 0.70, 0.60), c(0.75, 0.60, 1.00), "INV_Misc_Herb_DreamFoil" },
-  { "craft_lotus_bloom",      "effect", "fx_aura",         "Black Lotus Bloom",      5, c(0.55, 0.25, 0.85), nil, "INV_Misc_Herb_BlackLotus" },
-  { "craft_wolfpelt_cloak",   "back",   "back_cape",       "Wolfpelt Cloak",         2, c(0.55, 0.45, 0.38), c(0.85, 0.80, 0.70), "INV_Misc_Cape_10" },
-  { "craft_raptor_hood",      "head",   "head_hood",       "Raptor Hide Hood",       3, c(0.45, 0.55, 0.30), c(0.85, 0.70, 0.40), "INV_Helmet_29" },
-  { "craft_thick_mantle",     "chest",  "chest_furmantle", "Thick Wolfhide Mantle",  3, c(0.50, 0.42, 0.35), c(0.90, 0.85, 0.75), "INV_Misc_Pelt_Wolf_01" },
-  { "craft_devilsaur_mantle", "chest",  "chest_furmantle", "Devilsaur Mantle",       4, c(0.35, 0.55, 0.30), c(0.95, 0.60, 0.25), "INV_Misc_Pelt_Bear_03" },
-  { "craft_onyxia_cloak",     "back",   "back_cape",       "Onyxia Scale Cloak",     5, c(0.25, 0.20, 0.25), c(0.85, 0.20, 0.20), "INV_Misc_Cape_18" },
-  { "craft_fishing_hat",      "head",   "head_featcap",    "Lucky Fishing Hat",      2, c(0.55, 0.60, 0.40), c(0.95, 0.95, 0.85), "INV_Helmet_04" },
-  { "craft_iron_pole",        "main",   "wpn_fishpole",    "Big Iron Fishing Pole",  3, c(0.60, 0.62, 0.68), c(1, 1, 1), "INV_Fishingpole_01" },
-  { "craft_murloc_bubbles",   "effect", "fx_bubbles",      "Murloc's Bubbles",       3, c(0.40, 0.85, 0.70), nil, "INV_Misc_Head_Murloc_01" },
-  { "craft_eel_shield",       "off",    "off_roundshield", "Stonescale Shield",      4, c(0.45, 0.55, 0.60), c(0.85, 0.75, 0.40), "INV_Shield_06" },
-  { "craft_pinchy_gift",      "effect", "fx_coins",        "Mr. Pinchy's Gift",      5, c(1.00, 0.40, 0.30), nil, "INV_Misc_Fish_35" },
+  -- Mining
+  { "craft_copper_circlet",   "effect", "fx_sparkles", "Copper Sparks",          2, c(1.00, 0.60, 0.30), nil, "INV_Ore_Copper_01" },
+  { "craft_iron_greathelm",   "effect", "fx_flames",   "Forge Embers",           3, c(1.00, 0.50, 0.15), nil, "INV_Ore_Iron_01" },
+  { "craft_mithril_medal",    "effect", "fx_aura",     "Mithril Gleam",          3, c(0.70, 0.90, 1.00), nil, "INV_Ore_Mithril_02" },
+  { "craft_thorium_axe",      "effect", "fx_runes",    "Thorium Runes",          4, c(0.75, 0.45, 1.00), nil, "INV_Ore_Thorium_02" },
+  { "craft_arcanite_reaper",  "skin",   "cat_fur",     "Sapphire Panther",       5, c(0.25, 0.45, 1.00), nil, "INV_Misc_Gem_Sapphire_02", { display3d = 42500 } },
+  -- Herbalism
+  { "craft_peacebloom_crown", "effect", "fx_leaves",   "Peacebloom Petals",      2, c(1.00, 1.00, 0.80), nil, "INV_Misc_Flower_02" },
+  { "craft_mageroyal_bloom",  "effect", "fx_sparkles", "Mageroyal Pollen",       3, c(0.85, 0.55, 1.00), nil, "INV_Jewelry_Talisman_03" },
+  { "craft_kingsblood_aura",  "effect", "fx_leaves",   "Kingsblood Swirl",       3, c(0.90, 0.25, 0.30), nil, "INV_Misc_Herb_03" },
+  { "craft_dreamfoil_wreath", "effect", "fx_aura",     "Dreamfoil Haze",         4, c(0.40, 0.95, 0.70), nil, "INV_Misc_Herb_DreamFoil" },
+  { "craft_lotus_bloom",      "skin",   "cat_fur",     "Jade Panther",           5, c(0.30, 0.90, 0.50), nil, "INV_Misc_Herb_BlackLotus", { display3d = 42502 } },
+  -- First Aid
+  { "craft_wolfpelt_cloak",   "effect", "fx_hearts",   "Linen Lovehearts",       2, c(1.00, 0.85, 0.85), nil, "INV_Fabric_Linen_01" },
+  { "craft_raptor_hood",      "effect", "fx_sparkles", "Woolen Warmth",          3, c(1.00, 0.80, 0.60), nil, "INV_Fabric_Wool_01" },
+  { "craft_thick_mantle",     "effect", "fx_aura",     "Silken Calm",            3, c(0.95, 0.85, 1.00), nil, "INV_Fabric_Silk_01" },
+  { "craft_devilsaur_mantle", "effect", "fx_rays",     "Mageweave Mending",      4, c(0.60, 1.00, 0.70), nil, "INV_Fabric_Mageweave_01" },
+  { "craft_onyxia_cloak",     "skin",   "cat_fur",     "Swift Frostsaber",       5, c(0.85, 0.95, 1.00), nil, "INV_Fabric_PurpleFire_01", { display3d = 14331 } },
+  -- Fishing
+  { "craft_fishing_hat",      "effect", "fx_bubbles",  "Pond Bubbles",           2, c(0.65, 0.90, 1.00), nil, "INV_Misc_Fish_02" },
+  { "craft_iron_pole",        "effect", "fx_snow",     "Sea Spray",              3, c(0.70, 0.95, 1.00), nil, "INV_Fishingpole_01" },
+  { "craft_murloc_bubbles",   "effect", "fx_bubbles",  "Murloc's Bubbles",       3, c(0.40, 0.85, 0.70), nil, "INV_Misc_Head_Murloc_01" },
+  { "craft_eel_shield",       "effect", "fx_lightning","Eel Shock",              4, c(0.50, 0.85, 1.00), nil, "INV_Misc_Fish_36" },
+  { "craft_pinchy_gift",      "skin",   "cat_fur",     "Swift Mistsaber",        5, c(0.70, 0.75, 0.85), nil, "INV_Misc_Fish_35", { display3d = 14332 } },
+  -- Cooking
+  { "craft_chef_spice",       "effect", "fx_flames",   "Spice Simmer",           3, c(1.00, 0.70, 0.30), nil, "INV_Misc_Food_15" },
+  { "craft_chef_feast",       "skin",   "cat_fur",     "Swift Stormsaber",       5, c(0.55, 0.65, 0.80), nil, "INV_Misc_Food_64", { display3d = 14632 } },
 }
 
 -- Racial heritage accessories: bought in the Shop for the race of the character you're playing
 local RACE_ITEMS = {
-  { "race_human",    "acc", "acc_race_human",    "Stormwind Crest",           3, c(0.25, 0.40, 0.85), c(1.00, 0.82, 0.30), "Achievement_Character_Human_Male" },
-  { "race_dwarf",    "acc", "acc_race_dwarf",    "Ironforge Braids",          3, c(0.80, 0.40, 0.15), c(1.00, 0.80, 0.30), "Achievement_Character_Dwarf_Male" },
-  { "race_nightelf", "acc", "acc_race_nightelf", "Kaldorei Ears",             3, c(0.72, 0.58, 0.92), c(0.35, 0.85, 0.75), "Achievement_Character_Nightelf_Female" },
-  { "race_gnome",    "acc", "acc_race_gnome",    "Gnomish Goggles",           3, c(0.75, 0.55, 0.30), c(0.60, 0.90, 1.00), "Achievement_Character_Gnome_Male" },
-  { "race_orc",      "acc", "acc_race_orc",      "Orcish Tusks",              3, c(0.95, 0.92, 0.82), c(0.65, 0.15, 0.15), "Achievement_Character_Orc_Male" },
-  { "race_undead",   "acc", "acc_race_undead",   "Forsaken Stitches",         3, c(0.25, 0.22, 0.28), c(0.90, 0.88, 0.80), "Achievement_Character_Undead_Male" },
-  { "race_tauren",   "acc", "acc_race_tauren",   "Tauren Horns & Nose Ring",  3, c(0.95, 0.90, 0.78), c(1.00, 0.80, 0.30), "Achievement_Character_Tauren_Male" },
-  { "race_troll",    "acc", "acc_race_troll",    "Darkspear Tusks & Mohawk",  3, c(0.95, 0.92, 0.82), c(0.90, 0.30, 0.25), "Achievement_Character_Troll_Male" },
-  { "race_skyborne", "acc", "acc_race_skyborne", "Skyborne Feathers",         3, c(0.55, 0.80, 1.00), c(1, 1, 1), "INV_Feather_02" },
+  { "race_human",    "effect", "fx_rays",     "Light of Stormwind",     3, c(1.00, 0.85, 0.40), nil, "Achievement_Character_Human_Male" },
+  { "race_dwarf",    "effect", "fx_flames",   "Ironforge Embers",       3, c(1.00, 0.45, 0.15), nil, "Achievement_Character_Dwarf_Male" },
+  { "race_nightelf", "effect", "fx_sparkles", "Elune's Moonlight",      3, c(0.75, 0.65, 1.00), nil, "Achievement_Character_Nightelf_Female" },
+  { "race_gnome",    "effect", "fx_runes",    "Gnomish Gearwork",       3, c(0.45, 0.85, 1.00), nil, "Achievement_Character_Gnome_Male" },
+  { "race_orc",      "effect", "fx_flames",   "Blood of the Horde",     3, c(0.90, 0.15, 0.10), nil, "Achievement_Character_Orc_Male" },
+  { "race_undead",   "effect", "fx_wisps",    "Forsaken Plague",        3, c(0.50, 1.00, 0.30), nil, "Achievement_Character_Undead_Male" },
+  { "race_tauren",   "effect", "fx_leaves",   "Earthmother's Blessing", 3, c(0.75, 0.60, 0.30), nil, "Achievement_Character_Tauren_Male" },
+  { "race_troll",    "effect", "fx_runes",    "Loa's Voodoo",           3, c(0.40, 0.95, 0.60), nil, "Achievement_Character_Troll_Male" },
+  { "race_skyborne", "effect", "fx_snow",     "Skyborne Winds",         3, c(0.70, 0.90, 1.00), nil, "INV_Feather_02" },
 }
 -- UnitRace() file names (and name fragments for newer races) -> item
 TCF.RACE_ITEM = {
@@ -499,6 +506,62 @@ local SKINS = {
 }
 TCF.SKIN_DROPS = {}  -- boss name -> { id, chance }
 
+-- Collectible effects: every effect style in a range of colours (chests, daily wares)
+local EFFECT_STYLES = {
+  { "fx_aura", "Aura" }, { "fx_rays", "Radiance" }, { "fx_runes", "Circle" }, { "fx_wisps", "Wisps" },
+  { "fx_flames", "Flames" }, { "fx_sparkles", "Sparkles" }, { "fx_leaves", "Leaves" }, { "fx_lightning", "Storm" },
+  { "fx_snow", "Flurry" }, { "fx_hearts", "Hearts" }, { "fx_notes", "Melody" }, { "fx_bubbles", "Bubbles" }, { "fx_coins", "Shower" },
+}
+local EFFECT_COLOURS = {
+  { "soft", "Soft", 1, c(1.00, 1.00, 0.88) }, { "verdant", "Verdant", 2, c(0.40, 1.00, 0.50) },
+  { "azure", "Azure", 2, c(0.40, 0.70, 1.00) }, { "crimson", "Crimson", 3, c(1.00, 0.30, 0.30) },
+  { "violet", "Violet", 3, c(0.72, 0.42, 1.00) }, { "golden", "Golden", 4, c(1.00, 0.80, 0.30) },
+  { "shadow", "Shadow", 4, c(0.42, 0.22, 0.70) }, { "prismatic", "Prismatic", 5, c(1, 1, 1), true },
+}
+local EFFECTS = {}
+for _, st in ipairs(EFFECT_STYLES) do
+  for _, col in ipairs(EFFECT_COLOURS) do
+    EFFECTS[#EFFECTS + 1] = { st[1] .. "_" .. col[1], "effect", st[1], col[2] .. " " .. st[2], col[3], col[4], nil,
+      "Spell_Holy_MagicalSentry", col[5] and { rainbow = true } or nil }
+  end
+end
+
+-- Chest-only 3D cats (also sold now and then in the daily wares)
+-- { id, name, rarity, display3d, pixel fur colour }
+local LOOT_CATS = {
+  { "cat_curious",       "Curious Cat",                 1, 129444, c(0.90, 0.75, 0.60) },
+  { "cat_slime",         "Slime Cat",                   2, 98461,  c(0.50, 0.90, 0.40) },
+  { "cat_broker",        "Broker Cat",                  2, 98509,  c(0.40, 0.35, 0.60) },
+  { "cat_tiger",         "Tiger",                       2, 6443,   c(1.00, 0.60, 0.20) },
+  { "cat_darnassian",    "Darnassian Nightsaber",       2, 29256,  c(0.40, 0.35, 0.55) },
+  { "cat_dawnsaber",     "Striped Dawnsaber",           2, 29755,  c(1.00, 0.85, 0.65) },
+  { "cat_umber",         "Umber Nightsaber",            2, 89246,  c(0.55, 0.40, 0.30) },
+  { "cat_sandy",         "Sandy Nightsaber",            2, 89249,  c(0.90, 0.80, 0.55) },
+  { "cat_kaldorei",      "Kaldorei Nightsaber",         3, 89247,  c(0.35, 0.30, 0.50) },
+  { "cat_blackwartiger", "Black War Tiger",             3, 14330,  c(0.20, 0.18, 0.22) },
+  { "cat_moonsaber",     "Swift Moonsaber",             3, 14333,  c(0.70, 0.75, 0.95) },
+  { "cat_priestess",     "Priestess' Moonsaber",        3, 90159,  c(0.85, 0.85, 1.00) },
+  { "cat_shadopan_blue", "Blue Shado-Pan Riding Tiger", 3, 43900,  c(0.40, 0.60, 1.00) },
+  { "cat_shadopan_green","Green Shado-Pan Riding Tiger",3, 44759,  c(0.40, 0.85, 0.40) },
+  { "cat_shadopan_red",  "Red Shado-Pan Riding Tiger",  3, 44757,  c(0.90, 0.30, 0.25) },
+  { "cat_runesaber",     "Mystic Runesaber",            4, 62148,  c(0.50, 0.80, 1.00) },
+  { "cat_nightborne",    "Nightborne Manasaber",        4, 74032,  c(0.60, 0.40, 0.90) },
+  { "cat_arcberry",      "Arcberry Manasaber",          4, 137891, c(0.80, 0.40, 0.90) },
+  { "cat_winterdream",   "Winter Night Dreamsaber",     4, 114374, c(0.70, 0.85, 1.00) },
+  { "cat_sundream",      "Evening Sun Dreamsaber",      4, 114375, c(1.00, 0.65, 0.35) },
+  { "cat_morningdream",  "Morning Flourish Dreamsaber", 4, 114376, c(0.65, 0.95, 0.60) },
+  { "cat_korkron",       "Kor'kron Warsaber",           4, 119656, c(0.60, 0.20, 0.15) },
+  { "cat_blackrock",     "Blackrock Warsaber",          4, 119657, c(0.30, 0.28, 0.30) },
+  { "cat_kaldoreiwar",   "Vicious Kaldorei Warsaber",   4, 51037,  c(0.40, 0.35, 0.65) },
+  { "cat_steelpanther",  "Steel Prototype Panther",     4, 137311, c(0.65, 0.68, 0.72) },
+  { "cat_ruby",          "Ruby Panther",                5, 42499,  c(0.90, 0.20, 0.25) },
+  { "cat_sunstone",      "Sunstone Panther",            5, 42501,  c(1.00, 0.75, 0.30) },
+  { "cat_voidcrystal",   "Void-Crystal Panther",        5, 127586, c(0.45, 0.25, 0.75) },
+  { "cat_shawarped",     "Sha-Warped Riding Tiger",     5, 125468, c(0.35, 0.30, 0.40) },
+  { "cat_viciouswhite",  "Vicious White Warsaber",      5, 88753,  c(0.95, 0.95, 1.00) },
+  { "cat_viciousblack",  "Vicious Black Warsaber",      5, 88755,  c(0.18, 0.16, 0.20) },
+}
+
 ---------------------------------------------------------------- build item table
 TCF.ITEMS = {}      -- id -> item
 TCF.ITEM_LIST = {}  -- array
@@ -508,6 +571,8 @@ local function add(it)
   TCF.ITEMS[it.id] = it
   TCF.ITEM_LIST[#TCF.ITEM_LIST + 1] = it
   it.price = TCF.RARITY[it.rarity].price
+  -- cats are 3D now: only cat skins and effects are shown, so other pixel cosmetics are retired
+  if it.slot ~= "skin" and it.slot ~= "effect" and (it.source == "loot" or it.source == nil) then it.source = "retired" end
   if it.slot == "effect" then
     local fx = TCF.FX[it.art]
     it.fxLayer, it.fxAnim = fx.layer, fx.anim
@@ -544,6 +609,11 @@ local function addUniversal(list, source)
   end
 end
 addUniversal(U, "loot")
+addUniversal(EFFECTS, "loot")
+for _, k in ipairs(LOOT_CATS) do
+  add({ id = k[1], slot = "skin", art = "cat_fur", name = k[2], rarity = k[3], c1 = k[5], display3d = k[4],
+    icon = "Ability_Mount_WhiteTiger", source = "loot" })
+end
 addUniversal(ACH_ITEMS, "achievement")
 addUniversal(CRAFT, "craft")
 addUniversal(RACE_ITEMS, "race")
@@ -611,7 +681,7 @@ TCF.ACHIEVEMENTS = {
   { id = "own50",     name = "Fashionista",         stat = "owned",    goal = 50,        coins = 250,   icon = "INV_Chest_Cloth_17" },
   { id = "own100",    name = "Clothes Horse",       stat = "owned",    goal = 100,       coins = 600,   icon = "INV_Chest_Plate16" },
   { id = "own250",    name = "The Collector",       stat = "owned",    goal = 250,       coins = 1500,  icon = "INV_Misc_Bag_10", item = "ach_tophat" },
-  { id = "own400",    name = "Hoarder",             stat = "owned",    goal = 400,       coins = 4000,  icon = "INV_Misc_Bag_10" },
+  { id = "own400",    name = "Hoarder",             stat = "owned",    goal = 200,       coins = 4000,  icon = "INV_Misc_Bag_10" },
   { id = "ownall",    name = "Completionist",       stat = "ownedPct", goal = 100,       coins = 25000, icon = "INV_Misc_Bag_EnchantedRunecloth" },
 
   { id = "rare1",     name = "Ooh, Shiny",          stat = "rares",    goal = 1,         coins = 50,    icon = "INV_Misc_Gem_Sapphire_01" },

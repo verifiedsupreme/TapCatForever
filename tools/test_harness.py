@@ -193,10 +193,10 @@ TEST = r'''
     assert(TCF.db.owned.race_orc and not TCF:BuyRaceAccessory(), "bought once")
     -- (auto-equip is checked on the fresh alt character below)
     -- racial toggle hides it; skins buy/equip/drop
-    TCF:GetLoadout("WARRIOR").acc = "race_orc"
-    assert(TCF:GetAppearance("WARRIOR").acc.id == "race_orc", "racial shown")
+    TCF:GetLoadout("WARRIOR").effect = "race_orc"
+    assert(TCF:GetAppearance("WARRIOR").effect.id == "race_orc", "racial aura shown")
     TCF.db.ui.racial = false
-    assert(TCF:GetAppearance("WARRIOR").acc == nil, "racial hidden")
+    assert(TCF:GetAppearance("WARRIOR").effect == nil, "racial aura hidden")
     TCF.db.ui.racial = true
     TCF:AddCoins(20000)
     assert(TCF:BuySkin("skin_frostsaber")); assert(TCF.db.look.skin == "skin_frostsaber")
@@ -365,7 +365,7 @@ TEST = r'''
     assert(TCF:CD("WARRIOR").level == 1, "alt cats start at level 1")
     assert(not TCF.db.owned.race_tauren and not TCF.db.owned.race_orc, "alt has its own cosmetics")
     TCF:AddCoins(1000); assert(TCF:BuyRaceAccessory())
-    assert(TCF:GetLoadout("MAGE").acc == "race_tauren", "racial piece worn by the alt's cats")
+    assert(TCF:GetLoadout("MAGE").effect == "race_tauren", "racial aura worn by the alt's cats")
     -- only the selected class's cat adventures: others stay paused
     TCF:SetClass("MAGE"); TCF:AdvStart()
     for i = 1, 400 do _update(0.25) end
