@@ -1,0 +1,43 @@
+0: straight m=maroon t=dark g=dark
+1: kris m=purple t=dark g=black glow=shadow
+2: straight m=magenta t=dark g=black glow=shadow
+3: kris m=dark t=navy g=black
+4: fang m=bone t=crimson g=dark
+5: fang m=bone t=red g=red glow=fire
+6: curved m=orange t=gold g=dark glow=fire
+7: kris m=sky t=steel g=dark
+8: kris m=crimson t=pink g=dark glow=blood
+9: kris m=tan t=gold g=brown
+10: kris m=silver t=steel g=dark glow=frost
+11: curved m=silver t=violet g=dark glow=shadow
+12: straight guard=cross m=gold t=gold g=crimson
+13: curved m=steel t=gold g=brown
+14: curved m=silver t=violet g=dark
+15: straight m=teal t=crimson g=dark glow=fire
+16: curved m=tan t=bronze g=brown
+17: straight m=silver t=sky g=navy
+18: curved m=silver t=navy g=dark e=sapphire glow=frost
+19: curved m=silver t=gold g=dark e=gold
+20: straight m=iron t=red g=red
+21: fang m=tan t=brown g=brown
+22: curved m=steel t=brown g=brown
+23: curved m=steel t=dark g=dark
+24: kris m=steel t=red g=dark
+25: straight m=steel t=dark g=dark
+26: kris m=steel t=green g=dark
+27: fang m=steel t=navy g=navy
+28: curved m=steel t=bronze g=brown
+29: straight m=steel t=sky g=dark
+30: kris m=steel t=tan g=tan
+31: straight m=lime t=dark g=black
+32: straight m=steel t=dark g=dark
+33: kris m=steel t=iron g=dark
+34: curved m=steel t=iron g=brown
+35: fang m=dark t=green g=green
+36: kris m=violet t=dark g=purple glow=shadow
+37: curved m=silver t=red g=dark
+38: kris m=steel t=crimson g=bronze
+39: kris m=crimson t=gold g=dark glow=blood
+40: kris m=purple t=orange g=crimson
+41: fang m=bone t=crimson g=crimson
+42: kris m=sky t=steel g=navy glow=frost

@@ -1,0 +1,50 @@
+0: double m=steel t=iron g=wood
+1: double m=silver t=orange g=dark glow=fire
+2: double m=steel t=sky g=dark glow=frost
+3: single m=steel t=iron g=dark
+4: bearded m=steel t=gold g=brown
+5: bearded m=steel t=iron g=dark
+6: double m=steel t=dark g=dark spike
+7: double m=steel t=iron g=wood spike
+8: double m=steel t=teal g=dark e=sapphire
+9: double m=steel t=red g=dark e=ruby
+10: cleaver m=iron t=iron g=wood
+11: bearded m=steel t=dark g=dark
+12: double m=steel t=bronze g=dark
+13: cleaver m=dark t=bronze g=dark
+14: single m=dark t=iron g=dark glow=fel
+15: double m=silver t=steel g=dark
+16: single m=steel t=dark g=brown
+17: bearded m=steel t=gold g=dark
+18: single m=teal t=brown g=wood
+19: double m=crimson t=gold g=dark e=topaz glow=fire
+20: double m=steel t=iron g=wood spike
+21: cleaver m=silver t=crimson g=wood
+22: double m=steel t=dark g=dark spike
+23: cleaver m=steel t=iron g=brown
+24: crescent m=silver t=brown g=wood
+25: crescent m=purple t=orange g=dark e=topaz
+26: single m=tan t=purple g=wood
+27: double m=dark t=bone g=dark spike
+28: crescent m=silver t=gold g=dark e=topaz
+29: double m=sky t=gold g=navy e=sapphire
+30: double m=navy t=violet g=dark glow=shadow
+31: pick m=dark t=iron g=dark glow=frost
+32: pick m=iron t=dark g=wood
+33: pick m=silver t=iron g=wood
+34: pick m=steel t=iron g=wood
+35: pick m=steel t=iron g=wood
+36: single m=steel t=iron g=wood
+37: crescent m=sky t=steel g=wood
+38: double m=silver t=orange g=orange
+39: double m=steel t=iron g=wood spike
+40: double m=bone t=gold g=gold spike
+41: single m=steel t=bronze g=gold spike
+42: crescent m=steel t=iron g=dark spike
+43: crescent m=silver t=purple g=dark spike
+44: single m=bone t=iron g=dark spike
+45: double m=steel t=purple g=navy spike
+46: double m=steel t=crimson g=dark spike
+47: double m=bone t=orange g=dark spike
+48: double m=gold t=bronze g=gold spike
+49: cleaver m=steel t=iron g=brown

@@ -1,0 +1,58 @@
+0: medal m=gold e=emerald glow=arcane
+1: gem t=gold e=sapphire
+2: medal m=gold e=gold
+3: gem t=gold e=sky
+4: tear t=bronze e=red
+5: gem t=silver e=magenta
+6: gem t=gold e=emerald
+7: gem t=gold e=ruby
+8: gem t=silver e=sky
+9: fang t=steel m=bone
+10: gem t=gold e=ruby
+11: gem t=gold e=topaz
+12: medal m=silver e=steel
+13: medal m=gold e=steel
+14: fang m=bone t=brown
+15: medal m=pink e=pink
+16: star m=silver t=silver
+17: leaf m=gold t=gold
+18: medal m=silver e=sky
+19: medal m=gold e=teal
+20: gem t=gold e=ruby
+21: gem t=silver e=sapphire
+22: tear t=crimson e=crimson
+23: medal m=crimson e=gold
+24: skull m=bone t=purple
+25: fang m=bone t=dark
+26: medal m=gold e=navy t=navy
+27: fang m=steel t=dark
+28: gem t=gold e=crimson
+29: gem t=gold e=purple
+30: gem t=steel e=teal glow=fel
+31: gem t=steel e=purple glow=arcane
+32: pearls e=emerald
+33: tear t=purple e=pearl
+34: pearls e=bronze
+35: medal m=gold e=purple
+36: gem t=purple e=emerald
+37: cross m=silver e=sky
+38: fang m=red t=bronze
+39: star m=purple t=bronze
+40: leaf m=green t=forest
+41: leaf m=orange t=bronze
+42: medal m=purple e=teal glow=arcane
+43: medal m=orange e=gold
+44: star m=silver t=steel
+45: star m=yellow t=gold glow=holy
+46: medal m=gold e=steel
+47: skull m=steel t=dark
+48: medal m=grey e=white
+49: medal m=bone e=crimson
+50: gem t=sky e=amethyst
+51: gem t=sky e=sapphire
+52: gem t=gold e=yellow
+53: medal m=bronze e=brown
+54: gem t=silver e=sapphire
+55: gem t=gold e=ruby
+56: tear t=crimson e=red
+57: gem t=silver e=white glow=holy

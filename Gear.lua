@@ -475,6 +475,11 @@ function TCF:GearAppearance(class)
     if m.slot == "2H" and m.sub == "mace" then art = "wpn_hammer" end
     out.main = look(art, m, "main")
   end
+  -- small pieces only the cartoon cat draws (neck, belt, ring)
+  local n, w, r = get("NECK"), get("WAIST"), get("FINGER1") or get("FINGER2")
+  if n then out.neck = look("acc_bell", n, "neck") end
+  if w then out.belt = look("acc_bell", w, "belt") end
+  if r then out.ring = look("acc_bell", r, "ring") end
   local o = get("OFFHAND")
   if o then
     local art

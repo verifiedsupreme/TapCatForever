@@ -23,6 +23,7 @@ end
 
 local Cat = {}
 Cat.__index = Cat
+TCF.CatClass = Cat
 
 -- parent: frame to attach to; size: on-screen size of the 64px canvas
 function TCF.CreateCat(parent, size, opts)
@@ -110,6 +111,7 @@ function TCF.CreateCat(parent, size, opts)
   self.t = 0
   self:SetPaw("L", false); self:SetPaw("R", false)
   self:SetFace("normal")
+  if self.VecInit then self:VecInit() end
 
   if not opts.static then
     self.floaters = {}
@@ -128,12 +130,14 @@ function Cat:SetSize(size)
   self.tex.fxFront:SetSize(size * 1.25, size * 1.25)
   self:SetPaw("L", self.pawState and self.pawState.L)
   self:SetPaw("R", self.pawState and self.pawState.R)
+  if self.vec then self:VecLayout() end
 end
 
 function Cat:SetFace(kind)
   if self.faceKind == kind then return end
   self.faceKind = kind
   setTex(self.tex.face, "face_" .. kind)
+  if self.vec then self:VecFace(kind) end
 end
 
 -- down = true when the paw is tapping
@@ -154,6 +158,7 @@ function Cat:SetPaw(side, down)
     t:ClearAllPoints()
     t:SetPoint("TOPLEFT", self.frame, "TOPLEFT", ox, oy)
   end
+  if self.vec then self:VecPaws() end
 end
 
 function Cat:Tap(side)
@@ -199,13 +204,17 @@ local FUR_3D = {
 function Cat:ApplyAppearance(look)
   self.look = look
   local tex = self.tex
+  local cartoon = self.VecActive and self:VecActive()
+  if cartoon then self:VecApply(look) elseif self.vec then self.vec:Hide() end
   -- 3D style: a real WoW cat model; pixel style: the layered pixel-art cat
   local disp
   if TCF.USE_3D and TCF.db and not self.force2d and not self.opts.pixelOnly then
     local skin = look.skin
     disp = (skin and skin.display3d) or (look.fur and FUR_3D[look.fur.id]) or 5554
   end
-  if disp then
+  if cartoon then
+    -- the cartoon cat replaces the pixel layers; effects below still apply
+  elseif disp then
     if self.disp3d ~= disp then
       self.disp3d = disp
       local ok = pcall(self.m3d.SetDisplayInfo, self.m3d, disp)
@@ -376,6 +385,7 @@ function Cat:OnUpdate(elapsed)
     local r, g, b = hsv((t * 0.06) % 1)
     r, g, b = 0.55 + 0.45 * r, 0.55 + 0.45 * g, 0.55 + 0.45 * b
     self.tex.fur:SetVertexColor(r, g, b)
+    if self.vec then self:VecTint(r, g, b) end
     for _, side in ipairs({ "L", "R" }) do
       for _, pose in ipairs({ "up", "down" }) do self.tex["paw" .. side .. pose .. "_a"]:SetVertexColor(r, g, b) end
     end

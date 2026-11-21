@@ -1,0 +1,49 @@
+0: pole g=darkwood t=bronze
+1: skull m=gold g=purple t=gold e=dark
+2: moon g=navy t=silver e=sky
+3: orb g=green t=gold e=gold glow=holy
+4: moon g=purple t=gold e=white
+5: crook g=dark t=sky e=sky glow=frost
+6: crystal g=dark t=gold e=sky glow=frost
+7: knot g=wood t=orange e=orange
+8: skull m=bone g=wood t=red e=red
+9: orb g=white t=gold e=yellow glow=holy
+10: orb g=white t=violet e=violet glow=shadow
+11: knot g=teal t=purple e=purple
+12: crystal g=dark t=gold e=red glow=fire
+13: crystal g=dark t=gold e=emerald glow=fel
+14: blade m=sky g=dark t=steel glow=frost
+15: crook g=brown t=purple e=purple glow=shadow
+16: crook g=green t=purple
+17: orb g=dark t=steel e=red glow=fire
+18: orb g=dark t=steel e=magenta glow=arcane
+19: orb g=navy t=gold e=violet glow=shadow
+20: knot g=copper t=dark
+21: knot g=dark t=violet e=violet
+22: ring g=dark t=silver e=sapphire
+23: crook g=dark t=purple e=magenta glow=arcane
+24: crook g=dark t=purple e=sky glow=storm
+25: ring g=dark t=gold e=navy
+26: ring g=wood t=bronze e=sky
+27: knot g=dark t=red e=red
+28: knot g=dark t=teal e=teal
+29: moon g=gold t=gold e=sky glow=frost
+30: orb g=gold t=gold e=navy
+31: ring g=dark t=gold e=emerald
+32: blade m=purple g=purple t=gold e=amethyst
+33: knot g=forest t=gold e=gold
+34: branch g=orange t=green e=green
+35: blade m=red g=orange t=gold glow=fire
+36: blade m=orange g=wood t=gold
+37: ring g=dark t=sky e=sky glow=frost
+38: crook g=teal t=green e=teal
+39: crook g=bronze t=orange e=orange
+40: moon g=navy t=steel e=sky
+41: crystal g=purple t=violet e=magenta
+42: orb g=wood t=gold e=topaz
+43: knot g=wood t=red e=red
+44: crystal g=dark t=gold e=emerald glow=fel
+45: crystal g=dark t=gold e=magenta glow=arcane
+46: crystal g=dark t=steel e=white glow=frost
+47: crystal g=wood t=gold e=orange glow=fire
+48: skull m=sky g=dark t=sky e=sky glow=frost

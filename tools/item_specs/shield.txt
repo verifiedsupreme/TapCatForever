@@ -1,0 +1,38 @@
+0: tower m=forest t=dark e=lime emblem=gem
+1: heater m=dark t=bone e=bone emblem=skull
+2: round m=dark t=green e=green emblem=gem glow=fel
+3: heater m=bronze t=steel e=bone emblem=skull
+4: round m=bronze t=steel e=red emblem=cross
+5: tower m=tan t=bronze emblem=none
+6: heater m=steel t=iron emblem=none
+7: kite m=bronze t=orange e=gold emblem=stripe
+8: heater m=steel t=bronze emblem=none glow=frost
+9: round m=wood t=purple e=violet emblem=boss glow=shadow
+10: spiked m=red t=gold e=gold emblem=boss
+11: round m=wood t=iron emblem=stripe e=darkwood
+12: round m=steel t=dark e=sky emblem=gem
+13: tower m=wood t=iron emblem=stripe e=iron glow=shadow
+14: kite m=leather t=brown e=ruby emblem=gem
+15: heater m=bone t=brown e=dark emblem=boss
+16: kite m=crimson t=bone e=white emblem=star
+17: kite m=bone t=gold e=steel emblem=chevron
+18: tower m=leather t=brown e=red emblem=cross
+19: spiked m=steel t=silver e=dark emblem=boss
+20: round m=tan t=bronze e=green emblem=star
+21: round m=dark t=steel e=steel emblem=cross
+22: round m=gold t=bronze e=bronze emblem=sun
+23: tower m=lime t=forest e=forest emblem=stripe
+24: kite m=bronze t=dark e=white emblem=chevron
+25: heater m=teal t=gold e=gold emblem=chevron
+26: tower m=forest t=green e=green emblem=stripe
+27: round m=navy t=steel e=sky emblem=star glow=frost
+28: kite m=dark t=green e=lime emblem=gem glow=fel
+29: kite m=sky t=gold e=sky emblem=gem glow=frost
+30: round m=purple t=silver e=sky emblem=gem
+31: round m=purple t=violet e=magenta emblem=star glow=shadow
+32: heater m=sky t=white e=white emblem=none glow=holy
+33: heater m=white t=gold e=red emblem=chevron
+34: round m=navy t=silver e=gold emblem=star
+35: round m=crimson t=gold e=gold emblem=lion
+36: heater m=dark t=iron e=bone emblem=skull
+37: round m=crimson t=silver e=white emblem=lion

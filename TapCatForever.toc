@@ -16,6 +16,8 @@ Core.lua
 Gear.lua
 GearData.lua
 Cat.lua
+VectorData.lua
+CatVector.lua
 Abilities.lua
 Adventure.lua
 Expeditions.lua

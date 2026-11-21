@@ -1,0 +1,114 @@
+# sheet head_00
+0: hood m=purple t=violet
+1: hood m=grey t=bone
+2: mask m=green
+3: chef
+4: mask m=wood
+5: circlet t=silver e=emerald
+6: crown t=silver e=sapphire g=sapphire
+7: helm m=crimson t=ruby gem e=ruby glow=blood
+8: greathelm m=gold t=gold glow=fel
+9: greathelm m=gold t=steel glow=frost
+10: goggles g=leather t=brass e=red
+11: goggles g=purple t=steel e=sky
+12: greathelm m=dark t=gold horns
+13: greathelm m=steel t=gold
+14: greathelm m=purple t=violet
+15: helm m=copper t=bronze spikes
+16: skull m=gold
+17: greathelm m=dark t=sky glow=frost
+18: greathelm m=dark t=orange horns glow=fire
+19: helm m=dark t=bronze spikes
+20: greathelm m=bronze t=dark
+21: cap m=purple t=violet
+22: hood m=red t=gold
+23: hood m=teal t=gold gem e=ruby
+24: hood m=dark t=gold point
+25: cap m=crimson t=white
+26: cap m=brown t=cream
+27: hood m=grey t=tan
+28: hood m=maroon t=gold
+29: helm m=steel t=dark
+30: helm m=silver t=steel spikes
+31: greathelm m=steel t=iron
+32: greathelm m=black t=forest
+33: greathelm m=iron t=gold
+34: greathelm m=purple t=violet spikes
+35: helm m=bronze t=brown wings
+36: helm m=gold t=bronze horns
+37: hood m=purple t=violet
+38: hood m=red t=crimson
+39: hood m=navy t=sky
+# sheet head_01
+40: hood m=black t=dark gem e=gold
+41: hood m=brown t=bronze
+42: hood m=forest t=yellow
+43: hood m=tan t=bronze
+44: hood m=red t=maroon
+45: hood m=silver t=navy
+46: hood m=brass t=gold
+47: hood m=silver t=gold
+48: hood m=forest t=gold
+49: hood m=tan t=gold
+50: hood m=green t=gold
+51: hood m=iron t=gold mask
+52: hood m=iron t=purple mask
+53: hood m=iron t=green mask
+54: monocle t=gold e=sky
+55: eyepatch m=black
+56: goggles g=black t=gold e=teal
+57: goggles g=red t=orange e=lime
+58: hat m=brown t=dark
+59: hat m=navy t=dark
+60: mitre m=red t=gold
+61: mitre m=blue t=silver
+62: greathelm m=bronze t=dark
+63: greathelm m=steel t=bronze
+64: greathelm m=navy t=steel
+65: greathelm m=forest t=gold
+66: cap m=maroon t=red gem e=red
+67: cap m=purple t=gold gem e=gold
+68: turban m=blue t=sky e=sapphire
+69: turban m=cream t=tan e=ruby
+70: turban m=red t=pink e=gold
+71: tophat m=black t=gold
+72: tricorn m=navy t=white skull
+73: santa m=orange
+74: santa m=green
+75: helm m=sky t=steel wings glow=frost
+76: helm m=navy t=sky wings glow=frost
+77: greathelm m=gold t=purple
+78: greathelm m=red t=gold horns glow=fire
+79: helm m=crimson t=dark spikes glow=blood
+# sheet head_02
+80: greathelm m=dark t=orange glow=storm
+81: circlet t=green e=red
+82: skull m=bone glow=fel
+83: mask m=tan
+84: mask m=tan
+85: mask m=sky
+86: mask m=sky
+87: pumpkin
+88: bandana m=tan
+89: bandana m=grey
+90: bandana m=tan
+91: bandana m=tan
+92: bandana m=purple
+93: bandana m=red
+94: hood m=cream t=brown
+95: hood m=grey t=iron
+96: mask m=orange
+97: mask m=orange
+98: mask m=teal
+99: mask m=tan
+100: mask m=pink
+101: mask m=yellow
+102: mask m=green
+103: mask m=brown
+104: mask m=brown
+105: mask m=tan
+106: mask m=teal
+107: mask m=sky
+108: mask m=dark
+109: mask m=sky
+110: circlet t=orange e=fire glow=fire

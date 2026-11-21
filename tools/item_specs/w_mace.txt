@@ -1,0 +1,74 @@
+0: mug m=purple e=cream
+1: club m=pink
+2: gear m=steel t=dark
+3: hammer m=steel t=gold g=wood glow=frost
+4: hammer m=tan t=bronze g=wood glow=holy
+5: hammer m=steel t=iron g=wood
+6: maul m=steel t=gold g=wood
+7: hammer m=gold t=dark g=wood e=sapphire
+8: hammer m=silver t=gold g=wood e=ruby
+9: hammer m=steel t=gold g=navy
+10: hammer m=bronze t=dark g=wood spike
+11: hammer m=iron t=red g=dark
+12: spiked m=dark t=steel g=purple
+13: hammer m=steel t=gold g=wood
+14: hammer m=steel t=iron g=wood
+15: skullhead m=bone g=dark
+16: flanged m=purple t=gold g=dark
+17: club m=wood
+18: maul m=wood t=dark g=wood
+19: hammer m=silver t=steel g=dark
+20: club m=gold t=gold
+21: flanged m=dark t=purple g=wood
+22: hammer m=steel t=iron g=wood
+23: hammer m=gold t=dark g=dark
+24: maul m=iron t=dark g=wood
+25: flanged m=steel t=green g=wood e=emerald
+26: maul m=gold t=gold g=wood
+27: star m=orange t=fire g=dark glow=fire
+28: star m=dark t=steel g=dark e=teal
+29: club m=magenta
+30: spiked m=dark t=steel g=dark
+31: ball m=gold t=sky g=dark
+32: flanged m=steel t=blue g=wood
+33: spiked m=steel t=iron g=wood
+34: star m=steel t=steel g=wood
+35: flanged m=steel t=iron g=wood
+36: maul m=steel t=dark g=wood
+37: maul m=iron t=red g=wood
+38: star m=steel t=steel g=dark
+39: club m=wood
+40: club m=bronze t=steel spikes
+41: club m=wood t=steel spikes
+42: flanged m=steel t=gold g=dark
+43: flanged m=silver t=iron g=wood
+44: spiked m=steel t=steel g=wood
+45: hammer m=steel t=iron g=wood
+46: maul m=steel t=green g=dark glow=fel
+47: hammer m=dark t=purple g=dark glow=shadow
+48: spiked m=dark t=crimson g=dark glow=blood
+49: skullhead m=dark e=magenta g=dark glow=arcane
+50: hammer m=gold t=green g=green glow=fel
+51: skullhead m=bone g=dark
+52: maul m=dark t=steel g=dark
+53: flanged m=navy t=sky g=dark glow=frost
+54: flanged m=teal t=dark g=dark glow=frost
+55: scepter m=gold e=sky g=gold glow=holy
+56: hammer m=orange t=gold g=gold
+57: hammer m=gold t=bronze g=dark e=topaz
+58: flanged m=iron t=purple g=dark
+59: flanged m=purple t=violet g=dark
+60: flanged m=dark t=violet g=dark glow=shadow
+61: bone m=bone
+62: skullhead m=bone g=bone
+63: skullhead m=pink g=bone
+64: fish m=green
+65: fish m=pink
+66: club m=darkwood t=gold spikes
+67: flanged m=steel t=dark g=wood
+68: flanged m=steel t=gold g=dark
+69: torch g=wood t=iron
+70: club m=bronze
+71: fish m=green
+72: club m=purple
+73: hammer m=steel t=sky g=dark glow=frost

@@ -1,0 +1,112 @@
+# sheet chest_00
+0: mail m=steel t=dark
+1: mail m=steel t=gold pauldrons
+2: scale m=steel t=purple pauldrons
+3: scale m=steel t=gold pauldrons
+4: scale m=iron t=gold pauldrons
+5: scale m=steel t=red pauldrons
+6: leather m=brown t=tan fur g=tan
+7: leather m=forest t=tan fur g=grey
+8: plate m=steel t=silver
+9: plate m=sky t=gold
+10: scale m=dark t=dark pauldrons
+11: scale m=bronze t=dark pauldrons
+12: plate m=dark t=bone
+13: plate m=dark t=bone
+14: leather m=bronze t=dark
+15: leather m=bronze t=blue
+16: robe m=tan t=lime
+17: robe m=red t=gold
+18: robe m=sky t=gold
+19: robe m=white t=gold
+20: leather m=bronze t=brown sash g=darkleather
+21: leather m=forest t=brown sash g=darkleather
+22: leather m=orange t=red sash g=darkleather
+23: leather m=sky t=grey sash g=darkleather
+24: robe m=maroon t=crimson
+25: robe m=green t=forest
+26: robe m=teal t=purple
+27: robe m=purple t=violet
+28: leather m=leather t=dark fur g=grey
+29: leather m=navy t=dark fur g=grey
+30: leather m=forest t=dark fur g=grey
+31: leather m=crimson t=dark fur g=white
+32: robe m=purple t=gold
+33: robe m=red t=gold
+34: robe m=blue t=gold
+35: robe m=brown t=tan
+36: robe m=tan t=gold
+37: robe m=green t=gold
+38: robe m=blue t=gold
+39: robe m=pink t=gold
+# sheet chest_01
+40: robe m=red t=gold
+41: robe m=yellow t=brown
+42: robe m=blue t=silver
+43: robe m=blue t=gold
+44: robe m=tan t=gold
+45: robe m=sky t=silver
+46: robe m=grey t=gold
+47: robe m=cream t=gold fur g=white
+48: robe m=violet t=purple fur g=white
+49: robe m=blue t=gold
+50: robe m=magenta t=gold
+51: robe m=green t=gold
+52: robe m=red t=gold
+53: tabard m=green t=gold e=purple
+54: robe m=navy t=purple
+55: plate m=dark t=iron
+56: robe m=grey t=gold
+57: robe m=grey t=white fur g=white
+58: robe m=dark t=gold
+59: robe m=purple t=gold
+60: robe m=dark t=gold
+61: robe m=black t=gold
+62: leather m=orange t=brown fur g=tan
+63: leather m=brown t=dark fur g=tan
+64: leather m=brown t=bronze sash g=darkleather
+65: mail m=forest t=red
+66: vest m=brown t=tan
+67: plate m=dark t=green emblem e=emerald
+68: leather m=dark t=grey fur g=grey
+69: leather m=orange t=bronze
+70: plate m=forest t=gold
+71: shirt m=tan t=brown
+72: leather m=leather t=bronze sash g=darkleather
+73: plate m=silver t=steel
+74: plate m=purple t=gold
+75: plate m=gold t=bronze
+76: plate m=steel t=iron
+77: plate m=silver t=purple
+78: scale m=purple t=bronze pauldrons
+79: plate m=green t=gold
+# sheet chest_02
+80: scale m=crimson t=steel pauldrons
+81: plate m=navy t=gold
+82: plate m=bronze t=gold
+83: plate m=blue t=silver
+84: plate m=steel t=dark
+85: plate m=steel t=bronze
+86: plate m=silver t=steel
+87: plate m=steel t=gold
+88: plate m=gold t=bronze emblem e=gold
+89: plate m=silver t=purple
+90: plate m=crimson t=gold
+91: leather m=gold t=bronze fur g=tan
+92: shirt m=white t=tan
+93: shirt m=gold t=brown
+94: shirt m=tan t=brown
+95: shirt m=brown t=red
+96: vest m=tan t=brown
+97: shirt m=green t=forest
+98: leather m=brown t=dark fur g=brown
+99: vest m=white t=tan
+100: shirt m=red t=crimson
+101: shirt m=blue t=sky
+102: vest m=white t=gold
+103: robe m=blue t=navy
+104: vest m=cream t=red
+105: shirt m=purple t=violet
+106: tabard m=blue t=white e=gold
+107: shirt m=black t=dark
+108: shirt m=green t=lime

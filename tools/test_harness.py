@@ -467,7 +467,7 @@ def main():
     lua.execute("_artcheck = {}")
     lua.execute(TEST)
     art = os.path.join(ROOT, "Art")
-    missing = sorted(set(f for f in lua.globals()._artcheck.values() if not os.path.exists(os.path.join(art, f + ".tga"))))
+    missing = sorted(set(f for f in lua.globals()._artcheck.values() if not os.path.exists(os.path.join(art, f.replace("\\", "/") + ".tga"))))
     print("referenced textures:", len(list(lua.globals()._artcheck.values())), "missing:", missing)
     # item art sanity
     bad = lua.execute('''

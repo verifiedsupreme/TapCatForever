@@ -942,6 +942,7 @@ function TCF:CreateWindow()
   Check("Sounds", "sound", 0, 5)
   Check("Show racial accessory", "racial", 0, 6, "Show your race's accessory (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
   Check("Chat messages", "chat", 1, 5)
+  Check("Cartoon cat (off = pixel art)", "cartoon", 1, 6, "The hand-drawn cartoon cat, with a drawing for every helm, chest, belt, necklace, ring, weapon and shield. Turn off for the classic pixel cat.", function() TCF:RefreshAll() end)
 
   local function Slider(label, minV, maxV, step, y, get, set, fmt)
     local s = CreateFrame("Slider", nil, st, BT)

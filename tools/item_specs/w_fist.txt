@@ -1,0 +1,11 @@
+0: claw m=steel t=dark glow=blood
+1: claw m=sky t=gold glow=frost
+2: knuckle m=bronze t=brown
+3: knuckle m=steel t=bone
+4: knuckle m=bone t=dark
+5: knuckle m=steel t=dark
+6: claw m=bone t=orange glow=fire
+7: claw m=bone t=brown
+8: claw m=dark t=forest e=red
+9: claw m=sky t=teal glow=frost
+10: claw m=tan t=orange glow=fire

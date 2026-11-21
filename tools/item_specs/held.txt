@@ -1,0 +1,57 @@
+0: mug m=dark t=steel e=cream
+1: mug m=wood t=iron e=white
+2: mug m=wood t=iron e=cream
+3: book m=purple t=gold e=gold
+4: pouch m=tan t=brown
+5: pouch m=grey t=dark
+6: pouch m=red t=green
+7: torch g=red t=dark e=orange
+8: bone
+9: skull m=bone e=dark
+10: skull m=bone e=dark
+11: book m=purple t=red e=red
+12: book m=purple t=crimson e=violet
+13: book m=brown t=gold e=gold
+14: book m=forest t=gold e=gold
+15: book m=navy t=silver e=sky
+16: book m=leather t=steel e=steel
+17: book m=red t=gold e=gold
+18: book m=brown t=sky e=sapphire
+19: book m=gold t=navy e=navy
+20: book m=white t=gold e=navy
+21: book m=navy t=silver e=white
+22: book m=red t=dark e=white
+23: flower e=green t=red
+24: flower e=yellow t=orange
+25: flower e=violet t=yellow
+26: crystal e=magenta t=purple
+27: crystal e=emerald t=forest
+28: orb e=white t=silver glow=holy
+29: orb e=white t=steel
+30: orb e=yellow t=gold glow=holy
+31: orb e=cyan t=teal glow=frost
+32: lantern t=bronze e=orange glow=fire
+33: orb e=teal t=gold
+34: orb e=purple t=gold glow=shadow
+35: orb e=magenta t=gold glow=arcane
+36: orb e=purple t=dark glow=shadow
+37: orb e=red t=orange glow=fire
+38: orb e=black t=green glow=fel
+39: fan m=silver t=steel
+40: orb e=sky t=silver glow=frost
+41: crystal e=sky t=bone glow=frost
+42: crystal e=cyan t=steel glow=frost
+43: skull m=orange e=fire
+44: fan m=violet t=purple glow=shadow
+45: orb e=sky t=white
+46: bottle e=sky t=gold
+47: bottle e=lime t=forest glow=fel
+48: idol m=red e=pink
+49: flower e=red t=crimson
+50: wand g=leather t=orange e=orange
+51: wand g=gold t=gold e=white glow=holy
+52: wand g=wood t=gold e=yellow star glow=holy
+53: wand g=wood t=red e=white
+54: wand g=dark t=gold e=sapphire glow=storm
+55: wand g=crimson t=gold e=red glow=blood
+56: wand g=dark t=green e=lime glow=fel

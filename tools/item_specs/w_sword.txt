@@ -1,0 +1,70 @@
+# sheet w_sword_00
+0: straight guard=ornate m=steel t=gold g=brown glow=fire
+1: curved m=copper t=bronze g=purple
+2: straight guard=ornate m=dark t=silver g=black e=sapphire glow=frost
+3: straight m=steel t=iron g=black
+4: straight guard=cross m=silver t=steel g=navy glow=frost
+5: broad guard=ornate m=steel t=gold g=brown e=sapphire
+6: broad guard=ornate m=gold t=gold g=crimson e=ruby
+7: broad guard=wings m=gold t=gold g=navy e=sapphire
+8: straight m=sky t=gold g=red
+9: curved m=orange t=gold g=sky glow=frost
+10: straight guard=wings m=silver t=sky g=navy
+11: jagged guard=spiked m=dark t=dark g=black glow=frost
+12: broad m=copper t=bronze g=brown
+13: serrated guard=spiked m=silver t=iron g=dark
+14: curved m=steel t=bronze g=brown
+15: cleaver m=steel t=iron g=brown
+16: jagged guard=spiked m=silver t=bone g=red
+17: straight guard=cross m=steel t=steel g=green
+18: flame m=fire t=green g=green glow=fire
+19: straight guard=wings m=silver t=steel g=blue
+20: curved m=silver t=gold g=gold
+21: broad guard=ornate m=gold t=gold g=brown e=ruby
+22: serrated m=steel t=dark g=dark
+23: katana guard=round m=silver t=gold g=teal
+24: broad m=silver t=gold g=red glow=blood
+25: curved m=steel t=red g=red glow=fel
+26: broad guard=spiked m=silver t=red g=dark
+27: straight guard=round m=steel t=iron g=brown
+28: curved m=silver t=steel g=dark glow=fel
+29: broad m=steel t=red g=red
+30: curved m=silver t=gold g=navy
+31: straight guard=cross m=silver t=gold g=red
+32: curved m=silver t=iron g=brown
+33: broad guard=ornate m=steel t=gold g=dark e=amethyst glow=shadow
+34: broad guard=ornate m=steel t=gold g=dark e=emerald glow=fel
+35: broad guard=ornate m=steel t=gold g=dark e=sapphire glow=frost
+36: broad m=steel t=iron g=leather
+37: straight m=steel t=gold g=black
+38: straight m=lime t=gold g=green
+39: straight guard=ornate m=violet t=silver g=dark e=amethyst
+# sheet w_sword_01
+40: cleaver m=mithril t=steel g=teal e=teal
+41: cleaver m=bronze t=gold g=brown e=dark
+42: broad guard=ornate m=steel t=tan g=brown e=steel
+43: jagged m=dark t=iron g=black
+44: flame guard=spiked m=fire t=gold g=dark glow=fire
+45: cleaver m=silver t=gold g=gold glow=holy
+46: broad guard=ornate m=red t=gold g=dark e=ruby glow=fire
+47: jagged guard=spiked m=pink t=silver g=dark glow=arcane
+48: curved guard=spiked m=green t=silver g=dark e=emerald
+49: curved m=silver t=green g=forest
+50: straight guard=ornate m=dark t=green g=black e=emerald glow=fel
+51: broad guard=spiked m=purple t=gold g=dark e=amethyst
+52: curved m=orange t=teal g=dark glow=fire
+53: straight guard=ornate m=green t=bronze g=dark e=lime glow=fel
+54: serrated guard=spiked m=dark t=purple g=black glow=shadow
+55: broad guard=ornate m=sky t=silver g=navy e=sapphire glow=frost
+56: broad guard=spiked m=crimson t=dark g=black
+57: broad guard=wings m=sky t=orange g=navy glow=frost
+58: broad m=violet t=purple g=dark glow=shadow
+59: broad guard=wings m=teal t=crimson g=dark glow=frost
+60: jagged m=forest t=bone g=dark
+61: broad guard=spiked m=dark t=purple g=black e=amethyst
+62: straight guard=cross m=sky t=pink g=dark glow=frost
+63: straight guard=ornate m=sky t=silver g=navy e=amethyst glow=frost
+64: straight guard=round m=pink t=violet g=purple glow=arcane
+65: straight m=sky t=dark g=navy rune e=sky
+66: straight guard=cross m=steel t=bronze g=brown
+67: straight guard=cross m=tan t=gold g=brown

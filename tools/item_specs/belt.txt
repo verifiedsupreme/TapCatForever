@@ -1,0 +1,36 @@
+0: gem m=gold t=gold e=ruby
+1: square m=leather t=steel
+2: square m=navy t=steel
+3: square m=tan t=steel
+4: square m=leather t=steel
+5: round m=leather t=steel
+6: gem m=orange t=gold e=topaz
+7: plate m=gold t=gold e=topaz
+8: studded m=leather t=bronze
+9: gem m=teal t=gold e=sky
+10: studded m=orange t=bronze
+11: skull m=dark t=bone
+12: skull m=dark t=bone e=red
+13: skull m=gold t=bone
+14: studded m=navy t=steel
+15: studded m=grey t=steel
+16: studded m=green t=steel
+17: chain m=iron t=steel
+18: chain m=gold t=gold
+19: chain m=teal t=teal
+20: studded m=forest t=steel
+21: studded m=navy t=sky
+22: studded m=tan t=bronze
+23: studded m=forest t=green
+24: studded m=forest t=green
+25: studded m=grey t=steel
+26: plate m=iron t=gold e=steel
+27: plate m=iron t=gold e=topaz
+28: plate m=dark t=violet e=amethyst
+29: plates m=purple t=violet e=amethyst
+30: plates m=sky t=sky e=sapphire
+31: plates m=gold t=tan e=topaz
+32: plates m=steel t=silver
+33: plates m=tan t=bronze
+34: plates m=steel t=silver
+35: plate m=steel t=silver e=sapphire

@@ -1,0 +1,68 @@
+0: t=silver e=brown
+1: t=gold e=green
+2: t=gold
+3: t=bronze e=white glow=blood
+4: t=steel e=white glow=shadow
+5: t=gold
+6: t=silver e=sky
+7: t=steel glow=fel
+8: t=steel e=pink glow=arcane
+9: t=steel e=sky glow=frost
+10: t=steel e=lime glow=fel
+11: t=green
+12: t=gold
+13: t=gold
+14: t=teal glow=shadow
+15: t=navy e=white
+16: t=bronze e=black glow=arcane
+17: t=emerald e=emerald
+18: t=silver e=white
+19: t=steel e=white glow=fire
+20: t=steel e=orange glow=fire
+21: t=silver e=sapphire
+22: t=gold e=red
+23: t=steel e=white glow=shadow
+24: t=steel e=red glow=blood
+25: t=gold e=gold
+26: t=violet e=green
+27: t=teal e=white glow=frost
+28: t=teal e=sky glow=frost
+29: t=silver e=white
+30: t=pink e=pink glow=arcane
+31: t=steel e=yellow glow=holy
+32: t=steel glow=holy
+33: t=bronze e=violet
+34: t=sky e=sky
+35: t=dark e=ruby glow=blood
+36: t=dark e=emerald glow=fel
+37: t=gold e=bone
+38: t=silver e=red
+39: t=bronze e=topaz
+40: t=green e=orange
+41: t=gold e=white
+42: t=silver e=purple
+43: t=green e=emerald glow=fel
+44: t=bronze e=topaz glow=fel
+45: t=violet e=bronze
+46: t=bronze e=navy glow=shadow
+47: t=gold e=sky
+48: t=gold e=teal glow=arcane
+49: t=gold e=emerald glow=shadow
+50: t=gold e=purple glow=fel
+51: t=gold e=teal glow=shadow
+52: t=lime e=lime glow=fel
+53: t=bone
+54: t=maroon e=maroon
+55: t=maroon e=yellow
+56: t=teal e=dark
+57: t=bronze e=green
+58: t=maroon e=crimson
+59: t=magenta e=red
+60: t=bone
+61: t=bone
+62: t=steel e=sky
+63: t=silver
+64: t=bronze e=gold
+65: t=bronze e=sapphire glow=frost
+66: t=dark e=black glow=blood
+67: t=gold e=fire glow=fire

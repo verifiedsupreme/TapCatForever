@@ -97,7 +97,7 @@ local DEFAULTS = {
     scale = 1.0, alpha = 1.0, textScale = 1.0, shown = true,
     locked = false, clickThrough = false,
     showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
-    mouse = true, popups = true, sound = true, chat = true, racial = true, cat3d = true, show3dWeapons = true,
+    mouse = true, popups = true, sound = true, chat = true, racial = true, cartoon = true, cat3d = true, show3dWeapons = true,
     minimap = { angle = 215, hide = false },
   },
 }

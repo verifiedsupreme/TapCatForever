@@ -1,0 +1,13 @@
+0: halberd m=bronze t=orange g=dark glow=fire
+1: halberd m=bone t=green g=dark glow=fel
+2: spear m=silver t=gold g=blue glow=fire
+3: trident m=steel t=sky g=dark glow=frost
+4: spear m=steel t=bronze g=dark
+5: halberd m=silver t=gold g=purple
+6: spear m=steel t=sky g=dark glow=frost
+7: spear m=steel t=purple g=dark glow=shadow
+8: glaive m=fire t=red g=dark glow=fire
+9: glaive m=crimson t=bronze g=dark
+10: halberd m=white t=gold g=dark
+11: glaive m=crimson t=steel g=dark glow=blood
+12: spear m=steel t=purple g=purple
