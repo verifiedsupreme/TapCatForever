@@ -15,6 +15,7 @@ ArtData.lua
 Core.lua
 Gear.lua
 GearData.lua
+CraftData.lua
 Cat.lua
 VectorData.lua
 CatVector.lua
@@ -31,6 +32,7 @@ Dungeons.lua
 UI.lua
 ChestReel.lua
 LootToast.lua
+Party.lua
 Welcome.lua
 UI_Gear.lua
 UI_Adventure.lua
