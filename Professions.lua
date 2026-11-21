@@ -50,15 +50,10 @@ for i, o in ipairs(TCF.MINING_OPS) do TCF.AddMat(o[2], o[3], o[4], 1, "mining") 
 TCF.MILESTONES = { 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 }
 local MILESTONE_CHEST = { [25] = "pouch", [100] = "strong", [300] = "heroic" }
 
--- your own pickaxe, upgraded per vein: gold and ore per click
-TCF.PICKAXES = {
-  { name = "Copper Pickaxe",   mult = 1,   cost = 0 },
-  { name = "Bronze Pickaxe",   mult = 3,   cost = 100 },
-  { name = "Iron Pickaxe",     mult = 10,  cost = 2500 },
-  { name = "Mithril Pickaxe",  mult = 40,  cost = 1e5 },
-  { name = "Thorium Pickaxe",  mult = 150, cost = 1e7 },
-  { name = "Arcanite Pickaxe", mult = 600, cost = 1e9 },
-}
+-- your own pickaxe: one pickaxe for every vein, upgraded level by level forever.
+-- Each level is a small boost (+15% per click, compounding) and costs more than the last.
+TCF.PICKAXE_NAMES = { "Copper", "Bronze", "Iron", "Mithril", "Thorium", "Arcanite", "Elementium", "Titanium" }
+TCF.PICK_BOOST, TCF.PICK_COST, TCF.PICK_COST_GROWTH = 1.15, 25, 1.55
 
 ---------------------------------------------------------------- state
 local function S(self)
@@ -71,7 +66,14 @@ local function S(self)
   s.renownEver = max(s.renownEver or 0, s.renown or 0)
   s.ops.mining = s.ops.mining or {}
   for i = 1, 6 do s.ops.mining[i] = s.ops.mining[i] or { n = 0, p = 0, run = false, mgr = false } end
-  s.pick = s.pick or {}
+  -- older saves had a pickaxe per vein: keep the best one as the overall level
+  if type(s.pick) == "table" then
+    local best = 1
+    for _, t in pairs(s.pick) do if type(t) == "number" and t > best then best = t end end
+    s.pickLvl = math.max(s.pickLvl or 0, (best - 1) * 10)
+    s.pick = nil
+  end
+  s.pickLvl = s.pickLvl or 0
   s.skill = s.skill or {}
   return s
 end
@@ -163,22 +165,36 @@ function TCF:OpMatsPerCycle(prof, i)
   return 1 + (n >= 100 and 1 or 0) + (n >= 300 and 1 or 0)
 end
 
-function TCF:PickTier(i) return S(self).pick[i] or 1 end
+function TCF:PickLevel() return S(self).pickLvl end
+function TCF:PickMult(lvl) return TCF.PICK_BOOST ^ (lvl or self:PickLevel()) end
+function TCF:PickCost(lvl) lvl = lvl or self:PickLevel(); return floor(TCF.PICK_COST * TCF.PICK_COST_GROWTH ^ lvl) end
+function TCF:PickOre(lvl) return 1 + floor((lvl or self:PickLevel()) / 15) end
+function TCF:PickName(lvl)
+  lvl = lvl or self:PickLevel()
+  local n = TCF.PICKAXE_NAMES[min(#TCF.PICKAXE_NAMES, floor(lvl / 10) + 1)]
+  return string.format("%s Pickaxe (Lv %d)", n, lvl)
+end
+function TCF:UpgradePick()
+  if not self:SpendGold(self:PickCost()) then return false end
+  local s = S(self)
+  s.pickLvl = s.pickLvl + 1
+  self:MarkDirty()
+  return true
+end
 
 -- Mine by hand with your pickaxe (works on the first vein from the start)
 function TCF:MineClick(i)
   local s = S(self)
   if i > 1 and s.ops.mining[i].n < 1 then return false end
-  local pick = TCF.PICKAXES[self:PickTier(i)]
-  local gold = self:EarnGold(OPS[i].rev * pick.mult * self:UpgradeMult("mining", i))
+  local gold = self:EarnGold(OPS[i].rev * self:PickMult() * self:UpgradeMult("mining", i))
   local op = TCF.MINING_OPS[i]
-  s.mats[op[2]] = (s.mats[op[2]] or 0) + (pick.mult >= 40 and 2 or 1)
+  s.mats[op[2]] = (s.mats[op[2]] or 0) + self:PickOre()
   self:ProfSkillUp("mining", (i - 1) * 50)
   self.lastMineGold = gold
   return true
 end
 
--- Upgrades: x3 profits per vein and for all veins, plus pickaxes per vein
+-- Upgrades: x3 profits per vein and for all veins (the pickaxe has its own endless upgrade)
 TCF.UPGRADES = { mining = {} }
 do
   local list = TCF.UPGRADES.mining
@@ -186,10 +202,6 @@ do
     for k = 0, 2 do
       list[#list + 1] = { id = "mining" .. i .. "_" .. k, kind = "profit", op = i, mult = 3,
         cost = OPS[i].cost * 2e5 * 500 ^ k, name = o[1] .. " profits x3", icon = o[4] }
-    end
-    for t = 2, #TCF.PICKAXES do
-      list[#list + 1] = { id = "pick" .. i .. "_" .. t, kind = "pick", op = i, tier = t,
-        cost = OPS[i].cost * TCF.PICKAXES[t].cost, name = TCF.PICKAXES[t].name .. " for " .. o[1] .. " (x" .. TCF.PICKAXES[t].mult .. " per click)", icon = "INV_Pick_02" }
     end
   end
   for k = 0, 2 do
@@ -232,10 +244,8 @@ function TCF:BuyUpgrade(id)
   local s = S(self)
   for _, u in ipairs(TCF.UPGRADES.mining) do
     if u.id == id and not s.upgrades[id] then
-      if u.kind == "pick" and (self:PickTier(u.op) ~= u.tier - 1) then return false end
       if not self:SpendGold(u.cost) then return false end
       s.upgrades[id] = true
-      if u.kind == "pick" then s.pick[u.op] = u.tier end
       self:MarkDirty()
       return true
     end
@@ -317,7 +327,7 @@ function TCF:PrestigeTrade()
   s.prestiges = s.prestiges + 1
   s.gold = 0
   s.upgrades = {}
-  s.pick = {}
+  s.pickLvl = 0
   for i = 1, 6 do s.ops.mining[i] = { n = 0, p = 0, run = false, mgr = false } end
   for _, mod in ipairs(TCF.PROF_MODULES) do if mod.reset then mod.reset(self, s) end end
   local coins = min(1000, gain * 3)

@@ -330,7 +330,7 @@ TEST = r'''
     end
     local o = ps.ops.mining
     print(string.format("mining after ~12 min: gold %s lifetime %s veins %d/%d/%d/%d/%d/%d pick tier %d skill %d",
-      TCF.FormatBig(ps.gold), TCF.FormatBig(ps.lifetime), o[1].n, o[2].n, o[3].n, o[4].n, o[5].n, o[6].n, TCF:PickTier(1), TCF:ProfSkill("mining")))
+      TCF.FormatBig(ps.gold), TCF.FormatBig(ps.lifetime), o[1].n, o[2].n, o[3].n, o[4].n, o[5].n, o[6].n, TCF:PickLevel(), TCF:ProfSkill("mining")))
     assert(not TCF:ProfUnlocked("herbalism"), "herbalism needs renown")
     -- unlock everything for testing
     ps.renown, ps.renownEver, ps.gold = 200, 200, 1e12

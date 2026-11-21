@@ -111,6 +111,73 @@ def bolt(points):
 L["tf_fx1"] = '<g %s>%s%s</g>' % (SWORD_TF, bolt([(150, 70), (138, 84), (149, 90), (136, 106)]), bolt([(186, 120), (199, 132), (188, 138), (201, 154)]))
 L["tf_fx2"] = '<g %s>%s%s</g>' % (SWORD_TF, bolt([(186, 62), (199, 76), (188, 82), (200, 98)]), bolt([(150, 128), (137, 140), (148, 146), (135, 162)]))
 
+# ---- fur patterns and skin details (greyscale, tinted by the item's colours)
+import math, random
+PT = "#e8e8e8"
+CLIPS = CLIPS.replace("</defs>", '<clipPath id="pawL"><path d="%s"/></clipPath><clipPath id="pawR"><path d="%s" transform="translate(256,0) scale(-1,1)"/></clipPath></defs>' % (PAW_DOWN, PAW_DOWN))
+def body_clip(x): return '<g clip-path="url(#body)">%s</g>' % x
+def head_clip(x): return H('<g clip-path="url(#head)">%s</g>' % x)
+def paws(x_fn):
+    return {"paw_L": '<g clip-path="url(#pawL)">%s</g>' % x_fn(), "paw_R": '<g clip-path="url(#pawR)"><g %s>%s</g></g>' % (MIRROR, x_fn())}
+def rect(x, y, w, h, r=None): return '<rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="%s"/>' % (x, y, w, h, h / 2 if r is None else r, PT)
+def circ(x, y, r): return '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>' % (x, y, r, PT)
+def ring(x, y, r, w): return '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" stroke="%s" stroke-width="%s"/>' % (x, y, r, PT, w)
+def star4(x, y, r): return '<path d="M %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f Z" fill="%s"/>' % (
+    x, y - r, x + r * .3, y - r * .3, x + r, y, x + r * .3, y + r * .3, x, y + r, x - r * .3, y + r * .3, x - r, y, x - r * .3, y - r * .3, PT)
+def scatter(seed, n, box, fn):
+    rnd = random.Random(seed); x0, y0, x1, y1 = box
+    return "".join(fn(rnd.uniform(x0, x1), rnd.uniform(y0, y1), rnd) for _ in range(n))
+PAT = {}
+# tabby: bold side stripes, forehead M, cheek stripes
+PAT["tabby"] = {"body": body_clip(both(rect(48, 140, 34, 10) + rect(48, 158, 30, 10) + rect(48, 176, 26, 10) + rect(48, 194, 22, 10))),
+                "head": head_clip('<path d="M 112 50 L 120 78 L 128 56 L 136 78 L 144 50 L 150 52 L 140 88 L 128 68 L 116 88 L 106 52 Z" fill="%s"/>' % PT
+                                  + both(rect(34, 96, 30, 9) + rect(34, 112, 24, 9)))}
+# tuxedo: white bib, chin and paws
+PAT["tuxedo"] = {"body": body_clip('<ellipse cx="128" cy="176" rx="54" ry="74" fill="%s"/>' % PT),
+                 "head": head_clip('<path d="M 128 96 Q 100 128 66 150 Q 128 182 190 150 Q 156 128 128 96 Z" fill="%s"/>' % PT)}
+PAT["tuxedo"].update(paws(lambda: '<rect x="60" y="180" width="60" height="40" fill="%s"/>' % PT))
+# star blaze: white blaze up the face and white toes
+PAT["socks"] = {"head": head_clip('<path d="M 128 132 Q 116 96 120 60 L 128 40 L 136 60 Q 140 96 128 132 Z" fill="%s"/>' % PT + star4(128, 52, 14))}
+PAT["socks"].update(paws(lambda: '<rect x="60" y="202" width="60" height="20" fill="%s"/>' % PT))
+# calico: two colours of patches
+PAT["calico"] = {"body": body_clip('<path d="M 50 120 Q 90 130 96 160 Q 80 190 50 190 Z" fill="%s"/>' % PT + '<ellipse cx="180" cy="196" rx="30" ry="22" fill="%s"/>' % PT),
+                 "head": head_clip('<path d="M 40 30 L 110 40 Q 112 90 80 104 Q 50 104 40 90 Z" fill="%s"/>' % PT),
+                 "body2": body_clip('<ellipse cx="190" cy="136" rx="26" ry="20" fill="%s"/>' % PT + '<ellipse cx="66" cy="206" rx="22" ry="14" fill="%s"/>' % PT),
+                 "head2": head_clip('<path d="M 216 30 L 150 40 Q 150 80 176 96 Q 206 98 216 84 Z" fill="%s"/>' % PT)}
+# Siamese points: dark face mask, ears and paws
+PAT["points"] = {"head": head_clip('<ellipse cx="128" cy="124" rx="56" ry="42" fill="%s" opacity=".85"/>' % PT
+                                   + both('<path d="M 50 20 L 100 56 L 70 84 Z" fill="%s"/>' % PT))}
+PAT["points"].update(paws(lambda: '<rect x="60" y="180" width="60" height="40" fill="%s"/>' % PT))
+# leopard: rosettes
+rose = lambda x, y, rnd: ring(x, y, rnd.uniform(5, 8), 4) if rnd.random() < .7 else circ(x, y, rnd.uniform(3, 5))
+PAT["leopard"] = {"body": body_clip(scatter(1, 34, (52, 120, 204, 214), rose)), "head": head_clip(scatter(2, 16, (44, 30, 212, 100), rose))}
+# tiger stripes: bold pointed stripes
+def tstripe(x, y, w, h, flip): 
+    d = "M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (x, y, x + w * .6 * flip, y - 3, x + w * flip, y + h / 2, x + w * .6 * flip, y + h - 2, x, y + h)
+    return '<path d="%s" fill="%s"/>' % (d, PT)
+PAT["stripes"] = {"body": body_clip("".join(tstripe(46, y, 44, 12, 1) + tstripe(210, y, 44, 12, -1) for y in range(122, 214, 20))),
+                  "head": head_clip('<path d="M 118 30 L 128 74 L 138 30 Z" fill="%s"/>' % PT + both(tstripe(30, 92, 38, 10, 1) + tstripe(30, 112, 32, 10, 1) + tstripe(84, 36, 20, 30, 1)))}
+# stars
+PAT["stars"] = {"body": body_clip(scatter(3, 16, (52, 120, 204, 214), lambda x, y, rnd: star4(x, y, rnd.uniform(5, 9)))),
+                "head": head_clip(scatter(4, 8, (44, 30, 212, 96), lambda x, y, rnd: star4(x, y, rnd.uniform(5, 8))))}
+# mech plates: panel lines and a forehead plate; rivets in the second colour
+PAT["plates"] = {"body": body_clip(both('<path d="M 60 130 L 110 130 L 110 214 L 60 214" fill="none" stroke="%s" stroke-width="6"/>' % PT) + rect(60, 168, 136, 6, 3)),
+                 "head": head_clip('<path d="M 56 44 L 200 44 L 192 76 L 64 76 Z" fill="%s"/>' % PT),
+                 "body2": body_clip(both(circ(68, 140, 4) + circ(68, 200, 4) + circ(100, 140, 4) + circ(100, 200, 4))),
+                 "head2": head_clip(circ(70, 60, 5) + circ(186, 60, 5) + circ(128, 60, 5))}
+# bones: ribs on the body, skull markings around the eyes
+PAT["bones"] = {"body": body_clip(rect(122, 122, 12, 92, 6) + both("".join('<path d="M 124 %d Q 96 %d 74 %d" fill="none" stroke="%s" stroke-width="7" stroke-linecap="round"/>' % (y, y - 4, y + 8, PT) for y in (136, 156, 176, 196)))),
+                "head": head_clip(both(ring(98, 112, 18, 6)) + '<path d="M 120 130 L 128 120 L 136 130 Z" fill="%s"/>' % PT)}
+for name, parts in PAT.items():
+    for part, body in parts.items():
+        L["pat_%s_%s" % (name, part)] = body
+# eye colour (iris) for the open-eyed faces, and a lion's mane behind the head
+L["iris_normal"] = H(both(circ(98, 112, 10.5) ) + both('<circle cx="98" cy="113" r="5.5" fill="%s"/><circle cx="94.5" cy="107.5" r="3.8" fill="#fff"/><circle cx="101" cy="116" r="1.7" fill="#fff"/>' % INK))
+L["iris_focus"] = H(both(circ(98, 114, 9) + '<circle cx="98" cy="115" r="4.8" fill="%s"/><circle cx="95" cy="110.5" r="3" fill="#fff"/>' % INK) + both(line("M 84 100 L 110 106", 4)))
+mane = "".join('<circle cx="%.1f" cy="%.1f" r="26" fill="%s" stroke="%s" stroke-width="5"/>' % (128 + math.cos(a) * 96, 104 + math.sin(a) * 82, PT, INK)
+               for a in [k * 2 * math.pi / 18 for k in range(18)] if not (1.05 < a < 2.1))
+L["mane"] = H(mane)
+
 for name, body in L.items():
     with open(os.path.join(OUT, name + ".svg"), "w") as f:
         f.write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">%s<g transform="translate(0 16)">%s</g></svg>' % (CLIPS, body))

@@ -103,18 +103,29 @@ TCF.UI.Builders.professions = function(page, win)
     r.info = Text(r, "GameFontDisableSmall", nil, "LEFT"); r.info:SetPoint("BOTTOMLEFT", r.btn, "BOTTOMRIGHT", 8, 0)
     -- your pickaxe: click to mine by hand
     r.pick = IconButton(r, 40); r.pick:SetPoint("RIGHT", -124, 0); r.pick.tex:SetTexture(TCF.Icon("INV_Pick_02"))
+    -- a little "+gold +ore" popup rises from the pickaxe on every click
+    r.pop = Text(r, "GameFontNormal"); r.pop:SetPoint("BOTTOM", r.pick, "TOP", 0, 0); r.pop:Hide()
+    r.pick:SetScript("OnUpdate", function(b, e)
+      if not r.popT then return end
+      r.popT = r.popT - e
+      if r.popT <= 0 then r.popT = nil; r.pop:Hide(); b.tex:SetSize(40, 40); return end
+      local t = 1 - r.popT / 0.9
+      r.pop:ClearAllPoints(); r.pop:SetPoint("BOTTOM", b, "TOP", 0, t * 22); r.pop:SetAlpha(t < 0.6 and 1 or (1 - t) / 0.4)
+      local bump = t < 0.15 and 46 or 40
+      b.tex:ClearAllPoints(); b.tex:SetPoint("CENTER"); b.tex:SetSize(bump, bump)
+    end)
     r.pick:SetScript("OnClick", function()
       if TCF:MineClick(i) then
-        r.pickFlash = 0.15
+        r.pop:SetText(string.format("|cffffd100+%s|r  |cffcccccc+%d %s|r", TCF.GoldStr(TCF.lastMineGold or 0, 10), TCF:PickOre(), TCF.MINING_OPS[i][3]))
+        r.pop:Show(); r.popT = 0.9
         TCF:PlaySound("click")
       end
     end)
     Tip(r.pick, function(tt)
-      local tier = TCF.PICKAXES[TCF:PickTier(i)]
-      tt:AddLine(tier.name, 1, 0.82, 0)
-      tt:AddLine(string.format("Click to mine %s by hand: %s and ore each click.", TCF.MINING_OPS[i][1],
-        TCF.GoldStr(TCF.PROF_OPS[i].rev * tier.mult * TCF:UpgradeMult("mining", i))), 1, 1, 1, true)
-      tt:AddLine("Better pickaxes for this vein are in Upgrades.", 0.7, 0.7, 0.7, true)
+      tt:AddLine(TCF:PickName(), 1, 0.82, 0)
+      tt:AddLine(string.format("Click to mine %s by hand: %s and %d ore each click.", TCF.MINING_OPS[i][1],
+        TCF.GoldStr(TCF.PROF_OPS[i].rev * TCF:PickMult() * TCF:UpgradeMult("mining", i)), TCF:PickOre()), 1, 1, 1, true)
+      tt:AddLine("Upgrade your pickaxe with the button below the veins.", 0.7, 0.7, 0.7, true)
     end)
     r.buy = Button(r, "Buy", 112, 22, function() TCF:BuyOp("mining", i, TCF:ProfState().buy); win:Refresh() end)
     r.buy:SetPoint("TOPRIGHT", -6, -6)
@@ -123,7 +134,22 @@ TCF.UI.Builders.professions = function(page, win)
     Tip(r.mgr, function(tt) tt:AddLine("Hire a foreman", 1, 0.82, 0); tt:AddLine("Runs this vein automatically, forever, even offline (up to 24 hours).", 1, 1, 1, true) end)
     rows[i] = r
   end
+  -- one pickaxe for every vein, upgraded forever
+  local pickBtn = Button(mineView, "", 300, 24, function() TCF:UpgradePick(); win:Refresh() end)
+  pickBtn:SetPoint("TOP", 0, -6 * 66 - 4)
+  Tip(pickBtn, function(tt)
+    tt:AddLine("Upgrade your pickaxe", 1, 0.82, 0)
+    tt:AddLine(string.format("%s -> Lv %d: +15%% gold per hand-mined click on every vein.", TCF:PickName(), TCF:PickLevel() + 1), 1, 1, 1, true)
+    tt:AddLine("Every 15 levels also mines one more ore per click.", 0.7, 0.7, 0.7, true)
+  end)
+  local function refreshPick()
+    local cost = TCF:PickCost()
+    pickBtn:SetText(string.format("%s  |  Upgrade %s", TCF:PickName(), TCF.GoldStr(cost, 10)))
+    pickBtn:SetEnabled(TCF:ProfState().gold >= cost)
+  end
+
   local function refreshMining()
+    refreshPick()
     local s = TCF:ProfState()
     for i, r in ipairs(rows) do
       local o, st = TCF.MINING_OPS[i], s.ops.mining[i]
@@ -144,7 +170,7 @@ TCF.UI.Builders.professions = function(page, win)
       r.info:SetText(nextMs and string.format("Next speed boost at %d", nextMs) or "Max speed")
       local canPick = i == 1 or st.n > 0
       r.pick:SetEnabled(canPick); r.pick.tex:SetDesaturated(not canPick)
-      r.pick.count:SetText(TCF:PickTier(i) > 1 and ("x" .. TCF.PICKAXES[TCF:PickTier(i)].mult) or "")
+      r.pick.count:SetText(TCF:PickLevel() > 0 and TCF:PickLevel() or "")
       local count = s.buy == "max" and max(1, TCF:OpMaxBuy("mining", i)) or s.buy
       local cost = TCF:OpCost("mining", i, count)
       r.buy:SetText("x" .. count .. "  " .. TCF.GoldStr(cost, 10)); r.buy:SetEnabled(s.gold >= cost)
@@ -169,7 +195,7 @@ TCF.UI.Builders.professions = function(page, win)
     local s = TCF:ProfState()
     local list = {}
     for _, u in ipairs(TCF.UPGRADES.mining) do
-      if not s.upgrades[u.id] and (u.kind ~= "pick" or TCF:PickTier(u.op) == u.tier - 1) then list[#list + 1] = u end
+      if not s.upgrades[u.id] then list[#list + 1] = u end
     end
     for i, r in ipairs(urows) do
       local u = list[i]; r.u = u
@@ -184,9 +210,14 @@ TCF.UI.Builders.professions = function(page, win)
   win.seedSel = win.seedSel or "peacebloom"
   local seedBtns = {}
   for i, sd in ipairs(TCF.SEEDS) do
-    local b = IconButton(gardenView, 32); b:SetPoint("TOPLEFT", 12 + (i - 1) * 38, -4)
+    local b = IconButton(gardenView, 32); b:SetPoint("TOPLEFT", 26 + (i - 1) * 64, -4)
     b.tex:SetTexture(TCF.Icon(sd[3]))
-    b:SetScript("OnClick", function() if TCF:ProfSkill("herbalism") >= sd[7] then win.seedSel = sd[1]; win:Refresh() end end)
+    b.price = Text(gardenView, "GameFontHighlightSmall"); b.price:SetPoint("TOP", b, "BOTTOM", 0, -2); b.price:SetWidth(64)
+    b:SetScript("OnClick", function()
+      if TCF:ProfSkill("herbalism") >= sd[7] then win.seedSel = sd[1]; win.gardenMsg = nil
+      else win.gardenMsg = { "|cffff5050" .. sd[2] .. " unlocks at Herbalism skill " .. sd[7] .. ". Harvest herbs to raise your skill.|r", GetTime() + 4 } end
+      win:Refresh()
+    end)
     Tip(b, function(tt)
       tt:AddLine(sd[2] .. " seeds", 1, 0.82, 0)
       tt:AddLine(string.format("Grows in %s. Seed: %s. Sells for %s per herb.", TCF.FormatDuration(sd[4]), TCF.GoldStr(sd[5]), TCF.GoldStr(sd[6])), 1, 1, 1, true)
@@ -195,12 +226,12 @@ TCF.UI.Builders.professions = function(page, win)
     b.seed = sd
     seedBtns[i] = b
   end
-  local seedHint = Text(gardenView, "GameFontDisableSmall", "Pick a seed, then click an empty plot. Click growing plots (or just play) to water them.", "LEFT")
-  seedHint:SetPoint("TOPLEFT", 12, -42); seedHint:SetWidth(520)
+  local seedHint = Text(gardenView, "GameFontHighlightSmall", nil, "LEFT")
+  seedHint:SetPoint("TOPLEFT", 12, -56); seedHint:SetWidth(520)
   local plots = {}
   for i = 1, TCF.GARDEN_MAX_PLOTS do
     local p = CreateFrame("Button", nil, gardenView, U.BT)
-    p:SetSize(126, 66); p:SetPoint("TOPLEFT", 12 + ((i - 1) % 4) * 131, -58 - floor((i - 1) / 4) * 70)
+    p:SetSize(126, 62); p:SetPoint("TOPLEFT", 12 + ((i - 1) % 4) * 131, -88 - floor((i - 1) / 4) * 66)
     if p.SetBackdrop then p:SetBackdrop(U.BACKDROP_PANEL); p:SetBackdropColor(0.20, 0.14, 0.08, 0.95) end
     p.icon = p:CreateTexture(nil, "ARTWORK"); p.icon:SetSize(28, 28); p.icon:SetPoint("TOPLEFT", 6, -6)
     p.name = Text(p, "GameFontNormalSmall", nil, "LEFT"); p.name:SetPoint("LEFT", p.icon, "RIGHT", 4, 0); p.name:SetWidth(84)
@@ -208,7 +239,12 @@ TCF.UI.Builders.professions = function(page, win)
     p:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     p:SetScript("OnClick", function()
       local g = TCF:GardenState()
-      if i > g.n then TCF:BuyPlot() else TCF:PlotClick(i, win.seedSel) end
+      local ok, why
+      if i > g.n then
+        ok = TCF:BuyPlot()
+        if not ok then why = "Not enough Trade Gold for this plot (" .. TCF.GoldStr(TCF:PlotCost(i)) .. ")." end
+      else ok, why = TCF:PlotClick(i, win.seedSel) end
+      win.gardenMsg = (not ok and why) and { "|cffff5050" .. why .. "|r", GetTime() + 4 } or nil
       win:Refresh()
     end)
     plots[i] = p
@@ -217,16 +253,26 @@ TCF.UI.Builders.professions = function(page, win)
   for i, u in ipairs(TCF.GARDEN_UPGRADES) do
     local b = UpgradeButton(gardenView, 258, function() return u end, function() TCF:BuyGardenUpgrade(u.key); win:Refresh() end,
       function() return TCF:GardenState().up[u.key] end)
-    b:SetPoint("TOPLEFT", 12 + ((i - 1) % 2) * 264, -272 - floor((i - 1) / 2) * 26)
+    b:SetPoint("TOPLEFT", 12 + ((i - 1) % 2) * 264, -292 - floor((i - 1) / 2) * 26)
     gUps[i] = b
   end
-  local gardenNote = Text(gardenView, "GameFontHighlightSmall", nil, "LEFT"); gardenNote:SetPoint("TOPLEFT", 12, -330); gardenNote:SetWidth(520)
+  local gardenNote = Text(gardenView, "GameFontHighlightSmall", nil, "LEFT"); gardenNote:SetPoint("TOPLEFT", 12, -348); gardenNote:SetWidth(520)
   local function refreshGarden()
     local g, s = TCF:GardenState()
     local skill = TCF:ProfSkill("herbalism")
     for _, b in ipairs(seedBtns) do
       b.sel:SetShown(win.seedSel == b.seed[1]); b.tex:SetDesaturated(skill < b.seed[7])
       b.count:SetText((s.mats[b.seed[1]] or 0) > 0 and TCF.FormatBig(s.mats[b.seed[1]]) or "")
+      b.price:SetText(skill < b.seed[7] and ("|cff888888Skill " .. b.seed[7] .. "|r")
+        or ((s.gold >= b.seed[5] and "|cffffd100" or "|cffff5050") .. TCF.FormatBig(b.seed[5]) .. "|r"))
+    end
+    -- what clicking an empty plot will do (or why the last click didn't work)
+    local sel = TCF.SEED_BY_KEY[win.seedSel]
+    if win.gardenMsg and GetTime() < win.gardenMsg[2] then
+      seedHint:SetText(win.gardenMsg[1])
+    elseif sel then
+      seedHint:SetText(string.format("Planting |cffffd100%s|r: seeds cost %s (you have %s). Grows in %s, sells for %s. Click an empty plot to plant; click growing plots to water them.",
+        sel[2], TCF.GoldStr(sel[5]), TCF.GoldStr(s.gold), TCF.FormatDuration(sel[4]), TCF.GoldStr(sel[6])))
     end
     for i, p in ipairs(plots) do
       local plot = g.plots[i]

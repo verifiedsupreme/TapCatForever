@@ -12,18 +12,21 @@ local STRIPE = 0.8       -- tabby stripes are the fur colour, darker
 -- (full colour, in _f) or a cosmetic (_a main colour, _b trim colour, _f fixed colours).
 local ORDER = {
   back_a = { "BACKGROUND", -8 }, back_b = { "BACKGROUND", -7 }, back_f = { "BACKGROUND", -6 },
-  body_t = { "BACKGROUND", -5 }, body_marks_t = { "BACKGROUND", -4 }, belly = { "BACKGROUND", -3 }, body_line = { "BACKGROUND", -2 },
+  body_t = { "BACKGROUND", -5 }, belly = { "BACKGROUND", -4 }, patB = { "BACKGROUND", -3 }, patB2 = { "BACKGROUND", -2 },
+  body_marks_t = { "BACKGROUND", -1 }, body_line = { "BACKGROUND", 0 },
   chest_a = { "BORDER", -8 }, chest_b = { "BORDER", -7 }, chest_f = { "BORDER", -6 }, belt = { "BORDER", -5 }, neck = { "BORDER", -4 },
-  head_t = { "BORDER", -3 }, head_marks_t = { "BORDER", -2 }, face = { "BORDER", -1 },
+  mane = { "BORDER", 0 }, head_t = { "BORDER", 1 }, patH = { "BORDER", 2 }, patH2 = { "BORDER", 3 },
+  head_marks_t = { "BORDER", 4 }, face = { "BORDER", 5 }, iris = { "BORDER", 6 },
   acc_a = { "ARTWORK", -8 }, acc_b = { "ARTWORK", -7 }, acc_f = { "ARTWORK", -6 },
   head_a = { "ARTWORK", -5 }, head_b = { "ARTWORK", -4 }, head_f = { "ARTWORK", -3 },
   main_a = { "ARTWORK", -2 }, main_b = { "ARTWORK", -1 }, main_f = { "ARTWORK", 0 },
   offw_a = { "ARTWORK", 1 }, offw_b = { "ARTWORK", 2 }, offw_f = { "ARTWORK", 3 },
-  paw_L_t = { "OVERLAY", -8 }, paw_L = { "OVERLAY", -7 }, paw_R_t = { "OVERLAY", -6 }, paw_R = { "OVERLAY", -5 },
-  ring = { "OVERLAY", -4 }, off_a = { "OVERLAY", -3 }, off_b = { "OVERLAY", -2 }, off_f = { "OVERLAY", -1 },
+  paw_L_t = { "OVERLAY", -8 }, patPL = { "OVERLAY", -7 }, paw_L = { "OVERLAY", -6 },
+  paw_R_t = { "OVERLAY", -5 }, patPR = { "OVERLAY", -4 }, paw_R = { "OVERLAY", -3 },
+  ring = { "OVERLAY", -2 }, off_a = { "OVERLAY", -1 }, off_b = { "OVERLAY", 0 }, off_f = { "OVERLAY", 1 },
 }
 -- which paw each piece follows
-local FOLLOW = { paw_L_t = "L", paw_L = "L", ring = "L", paw_R_t = "R", paw_R = "R" }
+local FOLLOW = { paw_L_t = "L", paw_L = "L", patPL = "L", ring = "L", paw_R_t = "R", paw_R = "R", patPR = "R" }
 for _, p in ipairs({ "_a", "_b", "_f" }) do FOLLOW["off" .. p] = "L"; FOLLOW["offw" .. p] = "L"; FOLLOW["main" .. p] = "R" end
 
 function Cat:VecActive()
@@ -86,6 +89,45 @@ end
 function Cat:VecFace(kind)
   if not self.vec then return end
   if not self:VecSet("face", "cat:face_" .. kind) then self:VecSet("face", "cat:face_normal") end
+  -- coloured eyes (some skins) on the open-eyed faces
+  local eyes = self.eyeColor
+  if eyes and self:VecSet("iris", "cat:iris_" .. kind) then self.vt.iris:SetVertexColor(eyes[1], eyes[2], eyes[3])
+  else self:VecSet("iris", nil) end
+end
+
+-- markings: a pattern item or a skin's overlay draws its own shapes; otherwise plain tabby stripes
+local function patternOf(look)
+  local skin = look.skin
+  if skin then
+    local ov = skin.overlay
+    if ov then return ov[1], ov[2], ov[3] end
+    return nil
+  end
+  local pat = look.pattern
+  if pat then return pat.art, pat.c1, pat.c2 end
+end
+
+function Cat:VecMarkings(look, fur)
+  local art, c1, c2 = patternOf(look)
+  local name = art and art:gsub("^pat_", ""):gsub("^skin_", "")
+  local key = name and ("cat:pat_" .. name .. "_")
+  local any = key and (TCF.VEC[key .. "body"] or TCF.VEC[key .. "head"])
+  c2 = c2 or c1
+  for slot, part, col in pairs({ patB = { "body", c1 }, patB2 = { "body2", c2 }, patH = { "head", c1 }, patH2 = { "head2", c2 },
+                                 patPL = { "paw_L", c1 }, patPR = { "paw_R", c1 } }) do
+    local k = any and key .. part[1]
+    if k and self:VecSet(slot, k) then self.vt[slot]:SetVertexColor(part[2][1], part[2][2], part[2][3])
+    else self:VecSet(slot, nil) end
+  end
+  -- plain stripes only when no pattern is drawn (a plain skin like Bombay has none)
+  local plain = not any and not look.skin
+  self.vt.body_marks_t:SetShown(plain); self.vt.head_marks_t:SetShown(plain)
+  -- lion's mane and eye colour come from the skin
+  local skin = look.skin
+  if skin and skin.mane and self:VecSet("mane", "cat:mane") then self.vt.mane:SetVertexColor(skin.mane[1], skin.mane[2], skin.mane[3])
+  else self:VecSet("mane", nil) end
+  self.eyeColor = skin and skin.eyes
+  self:VecFace(self.faceKind or "normal")
 end
 
 function Cat:VecTint(r, g, b, a)
@@ -142,11 +184,7 @@ function Cat:VecApply(look)
   local fur = look.skin or look.fur or TCF.ITEMS.fur_ginger
   self.rainbowFur = fur.rainbow
   self:VecTint(fur.c1[1], fur.c1[2], fur.c1[3], fur.alpha or 1)
-  -- a fur pattern recolours the tabby markings
-  local pat = look.pattern
-  if pat and pat.c1 and not look.skin then
-    for _, n in ipairs({ "body_marks_t", "head_marks_t" }) do self.vt[n]:SetVertexColor(pat.c1[1], pat.c1[2], pat.c1[3]) end
-  end
+  self:VecMarkings(look, fur)
   for _, slot in ipairs({ "neck", "belt", "ring" }) do
     local it = look[slot]
     self:VecSet(slot, it and it.gear and iconOf(it))

@@ -70,8 +70,8 @@ function TCF:Plant(i, seedKey)
   local g = G(self)
   local sd = TCF.SEED_BY_KEY[seedKey]
   if not sd or i > g.n or (g.plots[i] and g.plots[i].seed) then return false end
-  if self:ProfSkill("herbalism") < sd[7] then return false end
-  if not self:SpendGold(sd[5]) then return false end
+  if self:ProfSkill("herbalism") < sd[7] then return false, "Needs Herbalism skill " .. sd[7] .. " to plant " .. sd[2] .. "." end
+  if not self:SpendGold(sd[5]) then return false, "Not enough Trade Gold: " .. sd[2] .. " seeds cost " .. TCF.GoldStr(sd[5]) .. "." end
   g.plots[i] = { seed = seedKey, grown = 0 }
   return true
 end
