@@ -135,18 +135,10 @@ end
 TCF.ShowLootRevealDirect = TCF.ShowLootReveal
 function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   local args = { it, isNew, salvage, title, chestKey, isGear }
-  -- the loot box only pops up while you're in the addon's windows; otherwise a small note over the cat
-  -- (chest openings always come from your own click, so they always get the box)
-  local open = (self.window and self.window:IsShown()) or (self.bag and self.bag:IsShown())
-    or (self.lootReveal and self.lootReveal:IsShown()) or (self.reel and self.reel:IsShown())
-    or chestKey or self.forceReveal
-  if not open then
-    if self.cat and it then
-      if isGear then
-        self.cat:Toast("|T" .. TCF.Icon(it.icon) .. ":18:18|t " .. it.name, unpack(TCF.RARITY[it.q].color))
-      else self.cat:ShowLoot(it, isNew) end
-    end
-    return
+  -- only chest openings (your own click) get the reel and the loot box; everything else you
+  -- find goes straight into your bags with a small notice you can hover (LootToast.lua)
+  if not chestKey and not self.forceReveal and self.ShowLootToast then
+    return self:ShowLootToast(it, isNew, salvage, title, isGear)
   end
   local ch = chestKey and TCF.CHEST_BY_KEY[chestKey]
   if ch and it and self.db.ui.chestAnim ~= false and not self.openingAll then

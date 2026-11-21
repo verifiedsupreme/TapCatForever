@@ -464,8 +464,14 @@ TCF.RACE_ITEM = {
 }
 
 -- Cat skins: the cat's whole look (fur colour, markings, eyes, mane).
--- source: price (Appearance tab), drop {boss, chance}, or ach (achievement id).
--- { id, name, rarity, fur, alpha, overlay {art, c1, c2}, eyes, mane, price, icon, drop, display3d, ach }
+-- source: price (Appearance tab), drop {boss, chance}, ach (achievement id), or get (other sources):
+--   { kind = "chest", chest = "pouch"|"strong"|"heroic", chance }   rolled each time that chest is opened
+--   { kind = "quest", quest = "daily"|"weekly", chance }            rolled when a quest of that type is done
+--   { kind = "expedition", expedition = key or "any", chance }      rolled on a successful expedition
+--   { kind = "realdungeon", run = "party"|"raid", chance }          rolled when a real dungeon/raid chest is awarded
+--   { kind = "craft", prof, mats = { [mat] = n }, skill }           a profession recipe
+-- overlay art "pat_<name>" draws fur pattern <name> from tools/make_vector.py (PAT).
+-- { id, name, rarity, fur, alpha, overlay {art, c1, c2}, eyes, mane, price, icon, drop, display3d, ach, get }
 local SKINS = {
   { "skin_orange",       "Orange Tabby",            1, c(1.00, 0.66, 0.32), 1,   { "pat_tabby", c(0.75, 0.40, 0.15) },   nil,                 nil, nil,  "INV_Box_PetCarrier_01", nil, 5554 },
   { "skin_silvertabby",  "Silver Tabby",            1, c(0.78, 0.80, 0.85), 1,   { "pat_tabby", c(0.40, 0.42, 0.48) },   nil,                 nil, 300,  "INV_Box_PetCarrier_01", nil, 5555 },
@@ -498,6 +504,46 @@ local SKINS = {
   { "skin_onyxpanther",  "Jeweled Onyx Panther",    5, c(0.12, 0.10, 0.14), 1,   { "skin_stars", c(1.00, 1.00, 1.00) },   c(0.40, 1.00, 0.60), nil, nil, "INV_Misc_Gem_Pearl_04", nil, 42185, "skin_ach_aq40" },
   { "skin_bigglesworth", "Mr. Bigglesworth",        5, c(0.96, 0.94, 0.92), 1,   nil,                                     c(0.40, 0.70, 1.00), nil, nil, "Spell_Shadow_RaiseDead", nil, 46897, "skin_ach_naxx" },
   { "skin_luckycat",     "Fortune's Waving Cat",    5, c(1.00, 0.98, 0.94), 1,   { "skin_stars", c(1.00, 0.82, 0.30) },   nil,                 nil, nil, "INV_Misc_Coin_02", nil, 137922, "skin_ach_collect" },
+  -- shop cats (Appearance tab)
+  { "skin_mittens",      "Mittens",                 1, c(0.95, 0.62, 0.35), 1,   { "pat_socks", c(1.00, 0.98, 0.95) },   nil,                 nil, 300,  "INV_Box_PetCarrier_01", nil, nil, nil, nil },
+  { "skin_tuxedo",       "Tuxedo Cat",              1, c(0.16, 0.15, 0.18), 1,   { "pat_tuxedo", c(0.97, 0.96, 0.94) },  c(0.55, 0.90, 0.40), nil, 350,  "INV_Shirt_Black_01", nil, nil, nil, nil },
+  { "skin_cow",          "Cow Cat",                 1, c(0.98, 0.97, 0.95), 1,   { "pat_cow", c(0.17, 0.16, 0.18) },     nil,                 nil, 400,  "INV_Box_PetCarrier_01", nil, nil, nil, nil },
+  { "skin_russianblue",  "Russian Blue",            2, c(0.52, 0.60, 0.70), 1,   nil,                                    c(0.35, 0.90, 0.45), nil, 550,  "INV_Misc_Gem_Sapphire_02", nil, nil, nil, nil },
+  { "skin_dalmatian",    "Dalmatian Cat",           2, c(0.98, 0.98, 0.97), 1,   { "pat_dalmatian", c(0.14, 0.13, 0.15) }, c(0.40, 0.70, 1.00), nil, 600, "INV_Box_PetCarrier_01", nil, nil, nil, nil },
+  { "skin_tortie",       "Tortoiseshell",           2, c(0.24, 0.17, 0.13), 1,   { "pat_tortie", c(0.90, 0.48, 0.18), c(1.00, 0.82, 0.55) }, c(1.00, 0.75, 0.25), nil, 650, "Ability_Druid_CatForm", nil, nil, nil, nil },
+  { "skin_snowshoe",     "Snowshoe",                2, c(0.98, 0.95, 0.90), 1,   { "pat_snowshoe", c(0.42, 0.32, 0.26), c(1.00, 1.00, 1.00) }, c(0.40, 0.70, 1.00), nil, 650, "INV_Box_PetCarrier_01", nil, nil, nil, nil },
+  { "skin_bengal",       "Bengal",                  3, c(0.95, 0.68, 0.32), 1,   { "pat_bengal", c(0.30, 0.18, 0.10), c(0.80, 0.42, 0.12) }, c(0.55, 0.85, 0.35), nil, 1000, "Ability_Mount_JungleTiger", nil, nil, nil, nil },
+  { "skin_mainecoon",    "Maine Coon",              3, c(0.62, 0.45, 0.30), 1,   { "pat_tabby", c(0.32, 0.22, 0.14) },   c(1.00, 0.80, 0.30), c(0.72, 0.56, 0.40), 1100, "INV_Chest_Fur", nil, nil, nil, nil },
+  { "skin_strawberry",   "Strawberry Sweetheart",   3, c(0.96, 0.40, 0.48), 1,   { "pat_hearts", c(1.00, 0.96, 0.97), c(0.35, 0.80, 0.30) }, nil, nil, 1200, "INV_ValentinesCandy", nil, nil, nil, nil },
+  { "skin_galaxy",       "Galaxy Cat",              4, c(0.14, 0.14, 0.32), 1,   { "pat_galaxy", c(0.62, 0.36, 0.85), c(1.00, 1.00, 0.90) }, c(0.80, 0.60, 1.00), nil, 3200, "Spell_Nature_StarFall", nil, nil, nil, nil },
+  -- more Adventure boss drops
+  { "skin_ragefire",     "Ragefire Cinder Cat",     3, c(0.24, 0.21, 0.22), 1,   { "pat_lava", c(1.00, 0.50, 0.12), c(1.00, 0.85, 0.30) }, c(1.00, 0.60, 0.15), nil, nil, "Spell_Fire_Immolation", { "Taragaman the Hungerer", 0.05 }, nil, nil, nil },
+  { "skin_defias",       "Defias Bandit Cat",       3, c(0.58, 0.52, 0.48), 1,   { "pat_bandit", c(0.80, 0.14, 0.12), c(0.36, 0.24, 0.16) }, c(1.00, 0.85, 0.30), nil, nil, "INV_Misc_Bandana_03", { "Edwin VanCleef", 0.04 }, nil, nil, nil },
+  { "skin_stonewatcher", "Stone Watcher Cat",       3, c(0.66, 0.63, 0.58), 1,   { "pat_cracks", c(0.30, 0.28, 0.26), c(0.40, 0.85, 1.00) }, c(0.40, 0.85, 1.00), nil, nil, "INV_Misc_StoneTablet_04", { "Archaedas", 0.04 }, nil, nil, nil },
+  { "skin_maraudon",     "Maraudon Crystal Cat",    3, c(0.55, 0.45, 0.36), 1,   { "pat_crystals", c(0.70, 0.45, 0.95), c(0.92, 0.80, 1.00) }, c(0.75, 0.45, 1.00), nil, nil, "INV_Misc_Gem_Amethyst_02", { "Princess Theradras", 0.04 }, nil, nil, nil },
+  { "skin_scarlet",      "Scarlet Crusader Cat",    4, c(0.97, 0.95, 0.92), 1,   { "pat_crusader", c(0.78, 0.10, 0.12), c(1.00, 0.82, 0.30) }, c(0.40, 0.65, 1.00), nil, nil, "INV_Shirt_GuildTabard_01", { "High Inquisitor Whitemane", 0.03 }, nil, nil, nil },
+  { "skin_clockwork",    "Wind-Up Clockwork Cat",   4, c(0.55, 0.58, 0.64), 1,   { "pat_cogs", c(0.95, 0.74, 0.30), c(0.85, 0.45, 0.22) }, c(0.40, 0.95, 1.00), nil, nil, "INV_Gizmo_07", { "Mekgineer Thermaplugg", 0.03 }, nil, nil, nil },
+  { "skin_onyxian",      "Onyxian Whelpling Cat",   5, c(0.20, 0.17, 0.22), 1,   { "pat_scales", c(0.62, 0.20, 0.24), c(0.88, 0.64, 0.30) }, c(1.00, 0.55, 0.15), nil, nil, "INV_Misc_Head_Dragon_Black", { "Onyxia", 0.03 }, nil, nil, nil },
+  { "skin_qiraji",       "Qiraji Scarab Cat",       5, c(0.22, 0.20, 0.32), 1,   { "pat_scarab", c(1.00, 0.78, 0.30), c(0.30, 0.85, 0.80) }, c(0.30, 0.90, 0.85), nil, nil, "INV_Misc_AhnQirajTrinket_03", { "Ossirian the Unscarred", 0.03 }, nil, nil, nil },
+  { "skin_patchwork",    "Patchwork Kitty",         5, c(0.72, 0.76, 0.70), 1,   { "pat_patchwork", c(0.55, 0.75, 0.50), c(0.70, 0.58, 0.80) }, c(0.40, 1.00, 0.60), nil, nil, "Spell_Shadow_AbominationExplosion", { "Gluth", 0.02 }, nil, nil, nil },
+  -- chest-only cats (rolled each time that chest is opened)
+  { "skin_clover",       "Lucky Clover Cat",        4, c(0.97, 0.96, 0.90), 1,   { "pat_clover", c(0.30, 0.72, 0.30), c(1.00, 0.80, 0.30) }, c(0.35, 0.85, 0.35), nil, nil, "INV_Misc_Flower_04", nil, nil, nil, { kind = "chest", chest = "strong", chance = 0.008 } },
+  { "skin_rainbow",      "Rainbow Cat",             4, c(1.00, 1.00, 1.00), 1,   { "pat_rainbow", c(1.00, 1.00, 1.00) }, c(0.85, 0.45, 1.00), nil, nil, "INV_Misc_Gem_Variety_02", nil, nil, nil, { kind = "chest", chest = "strong", chance = 0.005 } },
+  { "skin_golden",       "Golden Treasure Cat",     5, c(1.00, 0.80, 0.30), 1,   { "pat_sparkles", c(1.00, 1.00, 0.92), c(1.00, 0.62, 0.15) }, c(0.30, 0.85, 0.40), nil, nil, "INV_Misc_Coin_04", nil, nil, nil, { kind = "chest", chest = "heroic", chance = 0.02 } },
+  { "skin_diamond",      "Diamond Cat",             5, c(0.72, 0.86, 1.00), 1,   { "pat_gems", c(1.00, 1.00, 1.00), c(0.55, 0.85, 1.00) }, c(0.55, 0.85, 1.00), nil, nil, "INV_Misc_Gem_Diamond_02", nil, nil, nil, { kind = "chest", chest = "heroic", chance = 0.01 } },
+  -- quest rewards
+  { "skin_questgiver",   "Quest-Giver Cat",         4, c(0.96, 0.86, 0.70), 1,   { "pat_quest", c(1.00, 0.82, 0.15) },   nil,                 nil, nil, "INV_Misc_Note_02", nil, nil, nil, { kind = "quest", quest = "weekly", chance = 0.08 } },
+  { "skin_turnin",       "Ready-to-Turn-In Cat",    4, c(0.40, 0.42, 0.50), 1,   { "pat_questq", c(1.00, 0.82, 0.15) },  c(1.00, 0.85, 0.30), nil, nil, "INV_Misc_Note_01", nil, nil, nil, { kind = "quest", quest = "daily", chance = 0.01 } },
+  -- expedition finds
+  { "skin_emberheart",   "Emberheart Cat",          4, c(0.62, 0.16, 0.10), 1,   { "pat_flames", c(1.00, 0.55, 0.12), c(1.00, 0.88, 0.35) }, c(1.00, 0.85, 0.30), nil, nil, "Spell_Fire_FlameShock", nil, nil, nil, { kind = "expedition", expedition = "mc", chance = 0.02 } },
+  { "skin_runebound",    "Runebound Cat",           4, c(0.24, 0.20, 0.40), 1,   { "pat_runes", c(0.40, 0.90, 1.00) },   c(0.40, 0.90, 1.00), nil, nil, "INV_Misc_Rune_06", nil, nil, nil, { kind = "expedition", expedition = "strat", chance = 0.01 } },
+  -- real WoW dungeon and raid rewards
+  { "skin_party",        "Party Animal",            3, c(1.00, 0.92, 0.80), 1,   { "pat_confetti", c(1.00, 1.00, 1.00) }, nil,                nil, nil, "INV_Holiday_Christmas_Present_01", nil, nil, nil, { kind = "realdungeon", run = "party", chance = 0.03 } },
+  { "skin_raidleader",   "Raid Leader Cat",         4, c(0.30, 0.30, 0.36), 1,   { "pat_raidmarks", c(1.00, 1.00, 1.00) }, c(1.00, 0.85, 0.30), nil, nil, "INV_Misc_Bone_HumanSkull_01", nil, nil, nil, { kind = "realdungeon", run = "raid", chance = 0.05 } },
+  -- crafted with professions
+  { "skin_moss",         "Mossy Stone Cat",         3, c(0.58, 0.55, 0.50), 1,   { "pat_moss", c(0.42, 0.68, 0.28), c(1.00, 0.85, 0.95) }, c(0.90, 0.80, 0.30), nil, nil, "INV_Misc_Herb_DreamFoil", nil, nil, nil, { kind = "craft", prof = "herbalism", mats = { sungrass = 500, fadeleaf = 400 }, skill = 210 } },
+  { "skin_coal",         "Coal Miner's Cat",        3, c(0.66, 0.64, 0.62), 1,   { "pat_soot", c(0.22, 0.20, 0.20), c(1.00, 0.88, 0.40) }, c(1.00, 0.75, 0.30), nil, nil, "INV_Misc_Lantern_01", nil, nil, nil, { kind = "craft", prof = "mining", mats = { thorium = 900, mithril = 500 }, skill = 250 } },
+  { "skin_koi",          "Koi Pond Cat",            4, c(0.98, 0.97, 0.95), 1,   { "pat_koi", c(0.92, 0.32, 0.18), c(0.15, 0.14, 0.16) }, c(0.30, 0.55, 0.95), nil, nil, "INV_Misc_Fish_27", nil, nil, nil, { kind = "craft", prof = "fishing", mats = { sunscale = 400, nightfin = 300 }, skill = 225 } },
 }
 TCF.SKIN_DROPS = {}  -- boss name -> { id, chance }
 
@@ -596,7 +642,7 @@ addUniversal(CRAFT, "craft")
 addUniversal(RACE_ITEMS, "race")
 for _, k in ipairs(SKINS) do
   local it = { id = k[1], slot = "skin", art = "cat_fur", name = k[2], rarity = k[3], c1 = k[4], alpha = k[5],
-    overlay = k[6], eyes = k[7], mane = k[8], skinPrice = k[9], icon = k[10], source = "skin", display3d = k[12], skinAch = k[13] }
+    overlay = k[6], eyes = k[7], mane = k[8], skinPrice = k[9], icon = k[10], source = "skin", display3d = k[12], skinAch = k[13], get = k[14] }
   add(it)
   if k[11] then TCF.SKIN_DROPS[k[11][1]] = { id = k[1], chance = k[11][2] } end
 end
@@ -733,7 +779,7 @@ local STAT_TEXT = {
   pets = "Pet your cat %s times.", streak = "Log in %s days in a row.",
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",
   tradeGold = "Earn %s Trade Gold in Professions.", renown = "Earn %s Renown by selling your business.",
-  skins = "Own %s cat skins.", dropSkins = "Get %s rare boss-drop skin (Swift Zulian Tiger or Skeletal Cat).",
+  skins = "Own %s cat skins.", dropSkins = "Get %s rare cat skin that can't be bought (boss drops, chests, quests and more).",
   races = "Collect %s different racial heritage pieces across your characters.",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s cosmetic(s) with professions.",

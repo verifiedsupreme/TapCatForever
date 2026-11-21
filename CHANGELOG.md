@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+**New cat skins**
+- 33 new cat skins, each with its own fur pattern in the cartoon style.
+- In the Shop: Mittens, Tuxedo Cat, Cow Cat, Russian Blue, Dalmatian Cat, Tortoiseshell and Snowshoe (300-650 TapCoins), Bengal, Maine Coon (with a fluffy mane) and Strawberry Sweetheart (1,000-1,200), and Galaxy Cat (3,200).
+- Rare Adventure boss drops (2-5% per kill): Ragefire Cinder Cat (Taragaman), Defias Bandit Cat (Edwin VanCleef), Stone Watcher Cat (Archaedas), Maraudon Crystal Cat (Princess Theradras), Scarlet Crusader Cat (Whitemane), Wind-Up Clockwork Cat (Thermaplugg), Onyxian Whelpling Cat (Onyxia), Qiraji Scarab Cat (Ossirian) and Patchwork Kitty (Gluth).
+- Chest-only cats: Lucky Clover Cat and Rainbow Cat (Adventurer's Strongbox), Golden Treasure Cat and Diamond Cat (Heroic Cache).
+- Quest cats: Quest-Giver Cat (weekly quests) and Ready-to-Turn-In Cat (very rare, daily quests).
+- Expedition cats: Emberheart Cat (Molten Core) and Runebound Cat (Purge Stratholme).
+- Real WoW rewards: Party Animal for finishing a real dungeon, Raid Leader Cat for finishing a real raid.
+- Craftable cats: Mossy Stone Cat (Herbalism), Coal Miner's Cat (Mining) and Koi Pond Cat (Fishing).
+- The Tiger King achievement counts any rare skin you can't buy.
+
+**Compendium**
+- New Compendium window (button at the top of the main window, or /tcf compendium): every skin, cosmetic, tap effect, effect and piece of gear, what you own, and exactly how to get the rest.
+
+**Loot**
+- Gear and cosmetics you find no longer open a big loot box. They go straight into your bags and a small notice appears above your cat. Hover it to see the item compared with what you're wearing, click it to open the Gear or Appearance tab, right-click to dismiss. Opening a chest still plays the reel and shows the loot box.
+- Every gear tooltip ends with a comparison against what your cat is wearing in that slot, as a Power change (+ in green, - in red).
+
+**Gear**
+- "Sell unequipped" is now "Sell junk": it sells gear that would lower your Power and extra copies you can't wear at once. Upgrades (even ones you need a higher level for) are kept.
+- The Gear page buttons no longer sit on top of the last item.
+- Starter weapons now fit the class: a bow for hunters, a dagger for rogues, a mace for paladins, priests and shamans, a sword for warriors and a staff for mages, warlocks and druids. Cats still holding the old starter get theirs automatically.
+
+**Other**
+- Enemies in Adventure are no longer cut off at the edges of their boxes.
+- New Send feedback window (button at the top of the main window, in Settings, or /tcf feedback) with links to report bugs and suggest ideas.
+- Professions: the crafting list shows a 6th recipe and says why a recipe can't be made yet.
+
 ## 1.4.0
 
 **More enemies in Adventure**

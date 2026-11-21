@@ -240,6 +240,8 @@ function TCF:InitDB()
       adv.tier, adv.stage, adv.best, adv.cleared = 1, 1, 0, {}
     end
   end
+  -- cats still holding the old lowest-numbered starter get their class weapon (once)
+  if self.FixStarterWeapons then self:FixStarterWeapons() end
   char.started = true
   db.version = 3
   db.stats.classesPlayed[db.class] = true
@@ -502,11 +504,10 @@ function TCF:GrantItem(it, reason, reveal, chestKey)
   local msg = (reason and (reason .. ": ") or "") .. TCF.ItemLink(it)
   if not isNew then msg = msg .. string.format(" (duplicate, salvaged for %d TapCoins)", salvage) end
   self:Print(msg)
-  if self.ShowLootReveal and (reveal or (self.window and self.window:IsShown())) then
-    self:ShowLootReveal(it, isNew, salvage, reason, chestKey)
-  elseif self.cat then
-    self.cat:ShowLoot(it, isNew)
-  end
+  -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
+  if self.ShowLootReveal then self:ShowLootReveal(it, isNew, salvage, reason, chestKey)
+  elseif self.cat then self.cat:ShowLoot(it, isNew) end
+  if self.cat and self.cat.SetFaceFor then self.cat:SetFaceFor(it.rarity >= 4 and "sparkle" or "happy", 2.5) end
   self:PlaySound(it.rarity >= 4 and "rare" or "loot")
   self:MarkDirty()
   self:RefreshAll()
@@ -544,15 +545,40 @@ function TCF:BuySkin(id)
   return true
 end
 
-function TCF:GrantSkin(id, reason)
+-- Gives a skin found somewhere in the game (boss drop, chest, quest, expedition, dungeon).
+-- Skins found in a chest show in the chest's loot box; any other find gets a small notice
+-- (LootToast.lua). force = true prints the chat line even
+-- with chat messages off: only for the player's own actions (opening a chest, claiming
+-- a quest or expedition, crafting), not for boss drops or dungeon runs.
+function TCF:GrantSkin(id, reason, force)
   local it = TCF.ITEMS[id]
   if not it or self.db.owned[id] then return false end
   self.db.owned[id] = 1
-  self:Print((reason or "Rare drop") .. ": the " .. TCF.ItemLink(it) .. " skin!")
-  if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, reason or "Rare skin!") end
+  reason = reason or "Rare drop"
+  self:Print(reason .. ": the " .. TCF.ItemLink(it) .. " cat skin! Wear it from the Appearance tab.", force)
+  -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
+  if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, reason, self.skinChestKey) end
   self:PlaySound("rare")
   self:MarkDirty(); self:RefreshAll()
   return true
+end
+
+-- Rolls the skins whose "get" source matches (see SKINS in Data.lua): each unowned
+-- matching skin rolls its own chance, and at most one is given per event (a random
+-- one of the winners). match(get) says whether a skin's source fits this event.
+-- Returns the skin item given, or nil. force is passed on to GrantSkin.
+function TCF:RollSkinSource(kind, match, reason, force)
+  local won
+  local n = 0
+  for _, it in ipairs(TCF.ITEM_LIST) do
+    local g = it.get
+    if it.slot == "skin" and g and g.kind == kind and not self.db.owned[it.id] and (not match or match(g))
+      and random() < (g.chance or 0) then
+      n = n + 1
+      if random(n) == 1 then won = it end -- keeps an even pick among the winners
+    end
+  end
+  if won and self:GrantSkin(won.id, reason, force) then return won end
 end
 
 -- chests hold gear this often, otherwise a cosmetic (also used by the chest reel and the Shop text)
@@ -568,6 +594,20 @@ function TCF:OpenChest(key, useKey)
     return
   end
   self.db.stats.chests = self.db.stats.chests + 1
+  self.skinChestKey = key   -- a skin found in this chest shows in the chest's loot box
+  local a, b, c = self:OpenChestContents(ch, key)
+  -- a few skins are only found in one kind of chest (rolled on top of the chest's
+  -- normal contents; at most one skin per chest)
+  if not (self.lastChest and self.lastChest.skin) then
+    self:RollSkinSource("chest", function(g) return g.chest == key end, "Found in a " .. ch.name, true)
+  end
+  self.skinChestKey = nil
+  return a, b, c
+end
+
+-- What is inside a chest (the chest is already paid for).
+function TCF:OpenChestContents(ch, key)
+  self.lastChest = nil
   local rarity = self:RollRarity(ch.weights)
   if key == "heroic" and random() < 0.03 then
     local pool = {}
@@ -576,8 +616,8 @@ function TCF:OpenChest(key, useKey)
     end
     if #pool > 0 then
       local it = pool[random(#pool)]
-      self:GrantSkin(it.id, ch.name)
-      self.lastChest = { item = it, isNew = true, salvage = 0 }
+      self:GrantSkin(it.id, "Found in a " .. ch.name, true)
+      self.lastChest = { item = it, isNew = true, salvage = 0, skin = true }
       return it, true
     end
   end
@@ -778,9 +818,16 @@ function TCF:GetStat(stat)
     end
     return 0
   elseif stat == "skins" or stat == "dropSkins" then
+    -- dropSkins: rare skins that can't be bought or earned from an achievement: Adventure
+    -- boss drops (TCF.SKIN_DROPS: one entry or a list per boss) and skins with a "get"
+    -- source (chest, quest, expedition, real dungeon or crafted)
+    local drops = {}
+    for _, d in pairs(TCF.SKIN_DROPS or {}) do
+      if d.id then drops[d.id] = true else for _, e in ipairs(d) do drops[e.id] = true end end
+    end
     local n = 0
     for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.slot == "skin" and db.owned[it.id] and (stat == "skins" or it.source == "skin" and not it.skinPrice and not it.skinAch and it.id ~= "skin_orange") then n = n + 1 end
+      if it.slot == "skin" and db.owned[it.id] and (stat == "skins" or drops[it.id] or it.get ~= nil) then n = n + 1 end
     end
     return n
   elseif stat == "tradeGold" then

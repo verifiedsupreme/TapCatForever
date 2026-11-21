@@ -48,7 +48,8 @@ local function Tip(owner, fn)
   owner:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
-function TCF:ItemTooltip(tt, it)
+-- noSource: leave out the "how to get" lines (the Compendium adds its own section)
+function TCF:ItemTooltip(tt, it, noSource)
   local col = TCF.RARITY[it.rarity].color
   tt:AddLine("|T" .. TCF.Icon(it.icon) .. ":20:20|t " .. it.name, col[1], col[2], col[3])
   tt:AddLine(TCF.RARITY[it.rarity].name .. " " .. TCF.SLOT_BY_KEY[it.slot].name, 1, 1, 1)
@@ -62,26 +63,9 @@ function TCF:ItemTooltip(tt, it)
   local owned = self.db.owned[it.id]
   if owned then
     tt:AddLine("Collected" .. (owned > 1 and (" (x" .. owned .. ")") or ""), 0.3, 1, 0.3)
-  elseif it.source == "achievement" then
-    tt:AddLine("Reward from an achievement", 1, 0.82, 0)
-  elseif it.source == "craft" then
-    tt:AddLine("Crafted with a profession", 1, 0.82, 0)
-  elseif it.slot == "skin" then
-    if it.skinPrice then tt:AddLine("Buy in the Appearance tab for " .. TCF.Commas(it.skinPrice) .. " TapCoins (or find one in a Heroic Cache)", 1, 0.82, 0, true)
-    elseif it.skinAch then
-      for _, a in ipairs(TCF.ACHIEVEMENTS) do
-        if a.id == it.skinAch then tt:AddLine("Achievement reward: " .. a.name .. " - " .. a.desc, 1, 0.5, 0, true) end
-      end
-    elseif it.id == "skin_orange" then tt:AddLine("Every cat starts as an Orange Tabby.", 0.8, 0.8, 0.8)
-    else
-      for boss, d in pairs(TCF.SKIN_DROPS) do
-        if d.id == it.id then tt:AddLine(string.format("Rare drop from %s in Adventure (%d%%)", boss, d.chance * 100), 1, 0.82, 0, true) end
-      end
-    end
-  elseif it.source == "race" then
-    tt:AddLine("Racial heritage: buy it in the Shop while playing a character of this race", 1, 0.82, 0, true)
-  else
-    tt:AddLine("Not collected - found in chests, random drops and the daily shop", 0.6, 0.6, 0.6, true)
+  elseif not noSource and self.HowToGet then
+    -- how to get it (Compendium.lua), the same lines the Compendium shows
+    for _, line in ipairs(self:HowToGet(it)) do tt:AddLine(line, 1, 0.82, 0, true) end
   end
 end
 
@@ -96,6 +80,86 @@ local function CropToBounds(tex, art)
   tex:SetTexCoord(l, l + s, t, t + s)
 end
 
+-- Cartoon cat pictures (skins, fur colours, fur patterns): the same drawings as the cat on
+-- screen (TCF.VEC "cat:" keys), tinted and fitted to the box. Draw order follows CatVector.lua.
+-- { texture slot, layer, sublevel }. ARTWORK 0-2 belong to the cosmetic layers (hidden here).
+local CAT_LAYERS = {
+  { "body_t", "BORDER", -5 }, { "belly", "BORDER", -4 }, { "body_marks_t", "BORDER", -3 }, { "patB", "BORDER", -2 },
+  { "patB2", "BORDER", -1 }, { "body_line", "BORDER", 0 }, { "mane", "BORDER", 1 },
+  { "head_t", "ARTWORK", 3 }, { "head_marks_t", "ARTWORK", 4 }, { "patH", "ARTWORK", 5 }, { "patH2", "ARTWORK", 6 },
+  { "face", "ARTWORK", 7 }, { "iris", "OVERLAY", -8 },
+  { "paw_L_t", "OVERLAY", -6 }, { "patPL", "OVERLAY", -5 }, { "paw_L", "OVERLAY", -4 },
+  { "paw_R_t", "OVERLAY", -3 }, { "patPR", "OVERLAY", -2 }, { "paw_R", "OVERLAY", -1 },
+}
+local CAT_STRIPE = 0.8  -- plain tabby stripes: the fur colour, darker (as in CatVector.lua)
+
+-- fur colour, fur alpha, pattern art, pattern colours, eye colour, mane colour, plain stripes?
+local function catLook(it)
+  if it.slot == "skin" then
+    local ov = it.overlay
+    return it.c1, it.alpha or 1, ov and ov[1], ov and ov[2], ov and (ov[3] or ov[2]), it.eyes, it.mane, false
+  elseif it.slot == "fur" then
+    return it.c1, it.alpha or 1, nil, nil, nil, nil, nil, true
+  end
+  -- a fur pattern on its own: shown on a fur that makes its colour stand out
+  local c = it.c1
+  local light = 0.3 * c[1] + 0.59 * c[2] + 0.11 * c[3] > 0.7
+  return light and { 0.36, 0.34, 0.40 } or { 1.00, 0.92, 0.80 }, 1, it.art, it.c1, it.c2 or it.c1, nil, nil, false
+end
+
+local function SetCatPicture(self, it, desat)
+  local V = TCF.VEC
+  local T = self.catTex
+  if not T then
+    T = {}
+    for _, l in ipairs(CAT_LAYERS) do T[l[1]] = self:CreateTexture(nil, l[2], nil, l[3]) end
+    self.catTex = T
+  end
+  local fur, alpha, art, c1, c2, eyes, mane, plain = catLook(it)
+  local white = { 1, 1, 1 }
+  local want = {
+    body_t = { "cat:body_t", fur, alpha }, belly = { "cat:belly" }, body_line = { "cat:body_line" },
+    head_t = { "cat:head_t", fur, alpha }, face = { "cat:face_normal" },
+    paw_L_t = { "cat:paw_L_down_t", fur, alpha }, paw_L = { "cat:paw_L_down" },
+    paw_R_t = { "cat:paw_R_down_t", fur, alpha }, paw_R = { "cat:paw_R_down" },
+  }
+  if plain then
+    local dark = { fur[1] * CAT_STRIPE, fur[2] * CAT_STRIPE, fur[3] * CAT_STRIPE }
+    want.body_marks_t = { "cat:body_marks_t", dark, alpha }; want.head_marks_t = { "cat:head_marks_t", dark, alpha }
+  end
+  if art then
+    local name = art:gsub("^pat_", ""):gsub("^skin_", "")
+    local k = "cat:pat_" .. name .. "_"
+    want.patB, want.patB2 = { k .. "body", c1 }, { k .. "body2", c2 }
+    want.patH, want.patH2 = { k .. "head", c1 }, { k .. "head2", c2 }
+    want.patPL, want.patPR = { k .. "paw_L", c1 }, { k .. "paw_R", c1 }
+  end
+  if mane then want.mane = { "cat:mane", mane } end
+  if eyes then want.iris = { "cat:iris_normal", eyes } end
+  -- fit everything that is drawn into the box
+  local x0, y0, x1, y1 = 1e9, 1e9, -1e9, -1e9
+  for _, w in pairs(want) do
+    local e = V[w[1]]
+    if e then x0 = min(x0, e[2]); y0 = min(y0, e[3]); x1 = max(x1, e[2] + e[4]); y1 = max(y1, e[3] + e[5]) end
+  end
+  local size = self:GetWidth()
+  local k = size * 0.96 / max(x1 - x0, y1 - y0)
+  local ox, oy = (size - (x1 - x0) * k) / 2, (size - (y1 - y0) * k) / 2
+  for slot, t in pairs(T) do
+    local w = want[slot]
+    local e = w and V[w[1]]
+    if e then
+      local c = w[2] or white
+      t:SetTexture(ART .. "v\\" .. e[1]); t:SetTexCoord(0, e[6], 0, e[7])
+      t:ClearAllPoints(); t:SetSize(e[4] * k, e[5] * k)
+      t:SetPoint("TOPLEFT", self, "TOPLEFT", ox + (e[2] - x0) * k, -(oy + (e[3] - y0) * k))
+      t:SetVertexColor(c[1], c[2], c[3]); t:SetAlpha(w[3] or 1); t:SetDesaturated(desat); t:Show()
+    else
+      t:Hide()
+    end
+  end
+end
+
 local function ItemPicture(parent, size)
   local f = CreateFrame("Frame", nil, parent)
   f:SetSize(size, size)
@@ -105,6 +169,15 @@ local function ItemPicture(parent, size)
   function f:SetItem(it, desat)
     self.base:Hide(); self.b:Hide()
     if self.model then self.model:Hide() end
+    if self.catTex then for _, t in pairs(self.catTex) do t:Hide() end end
+    desat = desat and true or false
+    -- skins, fur colours and fur patterns: the cartoon cat itself
+    if (it.slot == "skin" or it.slot == "fur" or it.slot == "pattern") and not (TCF.USE_3D and it.display3d)
+      and TCF.VEC and TCF.VEC["cat:body_t"] then
+      self.a:Hide()
+      SetCatPicture(self, it, desat)
+      return
+    end
     local art = it.art
     if TCF.USE_3D and it.slot == "skin" and it.display3d then
       -- cats show as their real 3D model
@@ -500,6 +573,21 @@ function TCF:CreateWindow()
     tt:AddLine("Unopened chests from quests, dungeons, raids, expeditions and level-ups.", 1, 1, 1, true)
   end)
 
+  -- the Compendium (Compendium.lua): every item in the game and how to get it
+  local compBtn = Button(win, "Compendium", 120, 22, function() TCF:ToggleCompendium(); TCF:PlaySound("click") end)
+  compBtn:SetPoint("TOP", 0, -15)  -- between the title (ends near x 200) and the Treasure Bag label (starts near x 610)
+  Tip(compBtn, function(tt)
+    tt:AddLine("Compendium", 1, 0.82, 0)
+    tt:AddLine("Every skin, cosmetic, effect and piece of gear, what you have, and how to get the rest.", 1, 1, 1, true)
+  end)
+
+  local fbBtn = Button(win, "Feedback", 84, 22, function() TCF:ShowFeedback(); TCF:PlaySound("click") end)
+  fbBtn:SetPoint("LEFT", compBtn, "RIGHT", 8, 0)
+  Tip(fbBtn, function(tt)
+    tt:AddLine("Send feedback", 1, 0.82, 0)
+    tt:AddLine("Found a bug or have an idea? This shows links to report it.", 1, 1, 1, true)
+  end)
+
   local tabs, pages = {}, {}
   local TAB_GEAR, TAB_ADVENTURE, TAB_ABILITIES, TAB_EXPEDITIONS, TAB_PROFESSIONS = 1, 2, 3, 4, 5
   local TAB_WARDROBE, TAB_QUESTS, TAB_SHOP, TAB_ACH, TAB_SETTINGS = 6, 7, 8, 9, 10
@@ -650,7 +738,13 @@ function TCF:CreateWindow()
     c:SetScript("OnClick", function(s)
       local it = s.item
       if it and it.slot == "skin" and not TCF.db.owned[it.id] then
-        if not it.skinPrice then TCF:Print(it.name .. (it.skinAch and " is an achievement reward (see its tooltip)." or " can only be found as a rare boss drop."), true) return end
+        if not it.skinPrice then
+          local how = TCF.HowToGet and TCF:HowToGet(it) or {}
+          local line = how[1] or "see its tooltip for how to get it"
+          if not line:find("[%.!?%)]$") then line = line .. "." end
+          TCF:Print(it.name .. ": " .. line, true)
+          return
+        end
         if TCF.db.coins < it.skinPrice then TCF:Print("You need " .. TCF.Commas(it.skinPrice) .. " TapCoins for " .. it.name .. ".", true) return end
         if StaticPopup_Show then
           StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN = StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN or {
@@ -728,7 +822,7 @@ function TCF:CreateWindow()
       if it then
         cells[i]:SetItem(it, TCF.db.owned[it.id], TCF:IsEquipped(it))
         if it.slot == "skin" and not TCF.db.owned[it.id] then
-          cells[i].count:SetText(it.skinPrice and ("|cffffd100" .. TCF.Commas(it.skinPrice) .. "|r") or it.skinAch and "|cffff8000ach.|r" or "|cffff8000drop|r")
+          cells[i].count:SetText(it.skinPrice and ("|cffffd100" .. TCF.Commas(it.skinPrice) .. "|r") or ("|cffff8000" .. TCF.SkinSourceTag(it) .. "|r"))
           cells[i].pic:SetAlpha(0.7)
         end
       else cells[i]:Hide() end
@@ -1059,6 +1153,12 @@ function TCF:CreateWindow()
   mmB:SetPoint("TOPLEFT", 280, -328)
   local welB = Button(st, "Welcome tour", 130, 22, function() TCF:ShowWelcome() end)
   welB:SetPoint("TOPLEFT", 280, -352)
+  local fbB = Button(st, "Send feedback", 130, 22, function() TCF:ShowFeedback() end)
+  fbB:SetPoint("LEFT", welB, "RIGHT", 8, 0)
+  Tip(fbB, function(tt)
+    tt:AddLine("Send feedback", 1, 0.82, 0)
+    tt:AddLine("Report a bug or suggest an idea. Shows links you can copy into your browser.", 1, 1, 1, true)
+  end)
   local function ConfirmReset(which, text)
     StaticPopupDialogs.TAPCATFOREVER_RESET = {
       text = text, button1 = "Reset", button2 = CANCEL or "Cancel",
@@ -1077,7 +1177,7 @@ function TCF:CreateWindow()
   resetAllB:SetPoint("TOPLEFT", 280, -404)
   local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 14); help:SetWidth(490)
   help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
-    "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats\n" ..
+    "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats | compendium | feedback\n" ..
     "TapCoins, quests and achievements are shared; gear, cosmetics, professions and cat levels are per character.")
 
   -- test mode shortcuts (/tcf testmode)
@@ -1216,6 +1316,8 @@ function TCF:CreateMinimapButton()
     if button == "RightButton" then
       TCF.db.ui.shown = not TCF.db.ui.shown; TCF.hud:ApplySettings()
       if TCF.window and TCF.window:IsShown() then TCF.window:RefreshSettings() end
+    elseif IsShiftKeyDown and IsShiftKeyDown() and TCF.ToggleCompendium then
+      TCF:ToggleCompendium()
     else
       TCF:ToggleWindow()
     end
@@ -1224,6 +1326,7 @@ function TCF:CreateMinimapButton()
     tt:AddLine("TapCatForever", 1, 0.72, 0.3)
     tt:AddLine(string.format("Level %d  |  %s TapCoins", TCF:CD().level, TCF.Commas(TCF.db.coins)), 1, 1, 1)
     tt:AddLine("Left-click: open window", 0.8, 0.8, 0.8)
+    tt:AddLine("Shift-click: Compendium", 0.8, 0.8, 0.8)
     tt:AddLine("Right-click: show / hide cat", 0.8, 0.8, 0.8)
     tt:AddLine("Drag: move this button", 0.8, 0.8, 0.8)
   end)
@@ -1371,7 +1474,9 @@ function TCF:CreateLootReveal()
     self.kind:SetText(string.format("|cff40ff40GEAR|r  %s %s %s  |cffffd100Item Level %d|r", TCF.RARITY[it.q].name, TCF.ITEM_TYPE_NAMES[it.sub] or "", TCF.ITEM_SLOT_NAMES[it.slot] or "", it.ilvl))
     local d = TCF.GearUpgrade and TCF:GearUpgrade(it)
     local status = isNew and "|cff20ff20NEW gear!|r" or ("|cffaaaaaaAnother copy (you have " .. (TCF:Bag()[it.id] or 1) .. ")|r")
-    if d and d > 0 then status = status .. "  |cff20ff20Upgrade: +" .. d .. " power|r" end
+    if d and d > 0 then status = status .. "  |cff20ff20Upgrade: +" .. d .. " Power|r"
+    elseif d and d < 0 then status = status .. "  |cffff4040" .. d .. " Power if worn|r"
+    elseif d then status = status .. "  |cffaaaaaaSame Power as what you wear|r" end
     if not TCF:GearUsable(it, TCF.db.class) then status = status .. "\n|cffff8040Your current class can't use it.|r" end
     self.status:SetText(status)
     local canEquip = TCF:CanEquipGear(it, TCF.db.class)

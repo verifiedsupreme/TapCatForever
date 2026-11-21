@@ -105,6 +105,9 @@ function TCF:DungeonComplete(run, how)
   db.stats[stat] = (db.stats[stat] or 0) + 1
   if self.cat then self.cat:Celebrate((run.name or "Dungeon"), 0.2, 1, 0.2, (run.type == "raid" and "Raid" or "Dungeon") .. " complete!") end
   self:AwardChest(chestKey, (run.name or "Dungeon") .. " complete")
+  -- a few skins are only found in real dungeon or raid runs (only when the run pays a chest)
+  self:RollSkinSource("realdungeon", function(g) return g.run == run.type end,
+    "Found after " .. (run.name or (run.type == "raid" and "a raid" or "a dungeon")))
 end
 
 function TCF:DungeonCheck()

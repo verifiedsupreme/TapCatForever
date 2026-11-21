@@ -395,11 +395,8 @@ function TCF:GrantGear(it, reason, reveal, chestKey)
   bag[it.id] = have + 1
   self.db.stats.gearFound = (self.db.stats.gearFound or 0) + 1
   self:Print((reason and (reason .. ": ") or "") .. TCF.GearLink(it))
-  if self.ShowLootReveal and (reveal or (self.window and self.window:IsShown())) then
-    self:ShowLootReveal(it, have == 0, 0, reason, chestKey, true)
-  elseif self.cat then
-    self.cat:Toast("|T" .. TCF.Icon(it.icon) .. ":18:18|t " .. it.name, unpack(TCF.RARITY[it.q].color))
-  end
+  -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
+  if self.ShowLootReveal then self:ShowLootReveal(it, have == 0, 0, reason, chestKey, true) end
   if it.q >= 4 then self:PlaySound("rare") else self:PlaySound("loot") end
   self:MarkDirty()
   self:RefreshAll()
@@ -662,17 +659,20 @@ TCF.STARTER_WEAPONS = {
   ROGUE = { "dagger" }, PRIEST = { "mace", "staff" }, SHAMAN = { "mace", "axe" },
   MAGE = { "staff" }, WARLOCK = { "staff", "dagger" }, DRUID = { "staff", "mace" },
 }
+local STARTER_MAX_REQ = 10
 local function isStarterCandidate(self, it, class)
   return it.q == 2 and (it.slot == "MH" or it.slot == "1H" or it.slot == "2H" or it.slot == "RANGED")
-    and it.req <= 5 and not it.crafted and self:GearUsable(it, class)
+    and it.req <= STARTER_MAX_REQ and not it.crafted and self:GearUsable(it, class)
 end
 function TCF:StarterWeapon(class)
   for _, sub in ipairs(TCF.STARTER_WEAPONS[class] or {}) do
     local best
-    for _, it in ipairs(TCF.WORLD_POOL[0] or {}) do
-      if it.sub == sub and isStarterCandidate(self, it, class)
-        and (not best or it.ilvl < best.ilvl or (it.ilvl == best.ilvl and it.id < best.id)) then
-        best = it
+    for band = 0, floor(STARTER_MAX_REQ / 5) do
+      for _, it in ipairs(TCF.WORLD_POOL[band] or {}) do
+        if it.sub == sub and isStarterCandidate(self, it, class)
+          and (not best or it.ilvl < best.ilvl or (it.ilvl == best.ilvl and it.id < best.id)) then
+          best = it
+        end
       end
     end
     if best then return best end
@@ -690,33 +690,27 @@ function TCF:StarterGear(class)
 end
 
 -- Older versions gave every class the lowest-numbered weapon it could use (a staff for hunters,
--- a hammer for rogues). Cats still holding that old starter get their class weapon instead;
--- the old one stays in the bag. Runs once per character.
+-- a hammer for rogues). A cat still holding a starter-level weapon that isn't its class weapon
+-- gets its class weapon equipped; the old one stays in the bag. Runs once per character and class.
 function TCF:FixStarterWeapons()
   for _, cl in ipairs(TCF.CLASSES) do
     local class = cl.key
-    local cd = self:CD(class)   -- per character and class, so every alt gets the fix once
-    if not cd.starterFixed then
+    local cd = self:CD(class)
+    if cd and not cd.starterFixed then
       cd.starterFixed = true
-      local old
-      for _, it in ipairs(TCF.WORLD_POOL[0] or {}) do
-        if it.q == 2 and (it.slot == "MH" or it.slot == "1H" or it.slot == "2H" or (class == "HUNTER" and it.slot == "RANGED"))
-          and it.req <= 5 and self:GearUsable(it, class) and (not old or it.id < old.id) then
-          old = it
-        end
-      end
       local new = self:StarterWeapon(class)
       local eq = self:GearEquipped(class)
-      local oldSlot = old and (old.slot == "RANGED" and "RANGED" or "MAINHAND")
-      if old and new and old.id ~= new.id and eq[oldSlot] == old.id then
+      local slot = new and (new.slot == "RANGED" and "RANGED" or "MAINHAND")
+      local cur = slot and eq[slot] and TCF.GEAR[eq[slot]]
+      local wanted = {}
+      for _, sub in ipairs(TCF.STARTER_WEAPONS[class] or {}) do wanted[sub] = true end
+      -- no weapon there yet, or a starter-level weapon of the wrong kind (a hunter with no bow
+      -- gets one; the cat shows the bow over any melee weapon)
+      local needs = new and (not cur or (not wanted[cur.sub] and cur.req <= STARTER_MAX_REQ))
+      if needs then
         local bag = self:Bag(class)
         bag[new.id] = (bag[new.id] or 0) + 1
-        if new.slot == "RANGED" then
-          eq.RANGED = new.id
-          if oldSlot == "MAINHAND" then eq.MAINHAND = nil end  -- a hunter's old staff comes off so the bow shows
-        else
-          eq.MAINHAND = new.id
-        end
+        eq[slot] = new.id
       end
     end
   end

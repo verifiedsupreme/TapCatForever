@@ -565,9 +565,9 @@ TCF.UI.Builders.professions = function(page, win)
   ------------------------------------------------ crafting (all professions)
   local craftView = View()
   local crafts = {}
-  for i = 1, 5 do
-    local r = Panel(craftView, 532, 62, 0.85); r:SetPoint("TOP", 0, -(i - 1) * 66)
-    r.cell = U.ItemCell(r, 50); r.cell:SetPoint("LEFT", 6, 0)
+  for i = 1, 6 do
+    local r = Panel(craftView, 532, 52, 0.85); r:SetPoint("TOP", 0, -(i - 1) * 55)
+    r.cell = U.ItemCell(r, 42); r.cell:SetPoint("LEFT", 6, 0)
     r.cell:SetScript("OnEnter", function(s)
       if not s.item then return end
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, s.item); GameTooltip:Show()
@@ -595,7 +595,8 @@ TCF.UI.Builders.professions = function(page, win)
           local have = s.mats[mk] or 0
           parts[#parts + 1] = string.format("%s%s/%s|r %s", have >= need and "|cff20ff20" or "|cffff5050", TCF.FormatBig(min(have, need)), TCF.FormatBig(need), TCF.MAT_BY_KEY[mk] and TCF.MAT_BY_KEY[mk].name or mk)
         end
-        r.need:SetText(table.concat(parts, ",  "))
+        local why = TCF:CraftBlocked(rec)
+        r.need:SetText(table.concat(parts, ",  ") .. (why and ("  |cffff5050" .. why .. "|r") or ""))
         r.craft:SetEnabled(TCF:CanCraft(rec))
       else r:Hide() end
     end

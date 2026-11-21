@@ -249,8 +249,16 @@ function TCF:AdvMobKilled(m)
     local first = not adv.cleared[key]
     adv.cleared[key] = true
     self:AdvLog(string.format("|cffffd100Defeated %s!|r", m.name))
+    -- rare cat skins some bosses drop (one entry, or a list if a boss drops several)
     local sd = TCF.SKIN_DROPS[m.name]
-    if sd and random() < sd.chance then self:GrantSkin(sd.id, m.name .. " dropped") end
+    if sd then
+      for _, d in ipairs(sd.id and { sd } or sd) do
+        if not self.db.owned[d.id] and random() < (d.chance or 0) then
+          self:GrantSkin(d.id, "Dropped by " .. m.name .. " in " .. t.name)
+          break
+        end
+      end
+    end
     -- the first time you beat each boss it always drops a piece of its real loot
     if first and self.RollBossLoot then
       local loot = self:RollBossLoot(adv.tier, m.boss, self.db.class)

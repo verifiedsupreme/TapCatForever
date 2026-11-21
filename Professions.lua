@@ -411,7 +411,36 @@ TCF.RECIPES = {
   },
 }
 
+-- Cat skins with a crafting source (get = { kind = "craft", prof, mats, skill } in
+-- Data.lua's SKINS) become recipes in that profession, after its cosmetics, easiest first.
+do
+  local skins = {}
+  for _, it in ipairs(TCF.ITEM_LIST) do
+    local g = it.get
+    if it.slot == "skin" and g and g.kind == "craft" and g.mats and TCF.RECIPES[g.prof] then skins[#skins + 1] = it end
+  end
+  table.sort(skins, function(a, b)
+    if (a.get.skill or 0) ~= (b.get.skill or 0) then return (a.get.skill or 0) < (b.get.skill or 0) end
+    return a.id < b.id
+  end)
+  for _, it in ipairs(skins) do
+    local list = TCF.RECIPES[it.get.prof]
+    list[#list + 1] = { item = it.id, mats = it.get.mats, skill = it.get.skill, prof = it.get.prof, skin = true }
+  end
+end
+for prof, list in pairs(TCF.RECIPES) do for _, r in ipairs(list) do r.prof = r.prof or prof end end
+
+-- Why a recipe can't be made yet (skill too low, or a skin you already have), or nil.
+function TCF:CraftBlocked(r)
+  local it = TCF.ITEMS[r.item]
+  if r.skill and r.prof and self:ProfSkill(r.prof) < r.skill then
+    return string.format("Needs %s skill %d.", TCF.PROF_BY_KEY[r.prof] and TCF.PROF_BY_KEY[r.prof].name or r.prof, r.skill)
+  end
+  if it and it.slot == "skin" and self.db.owned[it.id] then return "You already have this skin." end
+end
+
 function TCF:CanCraft(r)
+  if self:CraftBlocked(r) then return false end
   local s = S(self)
   for m, n in pairs(r.mats) do if (s.mats[m] or 0) < n then return false end end
   return true
@@ -422,7 +451,9 @@ function TCF:Craft(r)
   local s = S(self)
   for m, n in pairs(r.mats) do s.mats[m] = s.mats[m] - n end
   self.db.stats.crafted = (self.db.stats.crafted or 0) + 1
-  self:GrantItem(TCF.ITEMS[r.item], "Crafted", true)
+  local it = TCF.ITEMS[r.item]
+  self:GrantItem(it, "Crafted", true)
+  if it.slot == "skin" then self:Print("Wear your new " .. TCF.ItemLink(it) .. " skin from the Appearance tab.", true) end
   return true
 end
 

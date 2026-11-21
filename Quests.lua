@@ -125,6 +125,7 @@ function TCF:EnsureQuests()
       local tpl = TCF.QUEST_TEMPLATES.daily[pick]
       q.daily[n] = makeQuest(tpl, db, random(#tpl[4]))
       q.daily[n].key = "pouch"     -- every daily quest also gives a small chest
+      q.daily[n].kind = "daily"
     end
   end
   local wk = weekKey()
@@ -133,6 +134,7 @@ function TCF:EnsureQuests()
     local tpl = TCF.QUEST_TEMPLATES.weekly[random(#TCF.QUEST_TEMPLATES.weekly)]
     q.weekly = { makeQuest(tpl, db, 1) }
     q.weekly[1].key = "strong"   -- weekly quests also give a free Strongbox key
+    q.weekly[1].kind = "weekly"
   end
   if (q.v or 1) < 2 then
     for _, list in ipairs({ q.daily, q.weekly }) do
@@ -178,6 +180,16 @@ function TCF:ClaimQuest(quest)
   if self.cat then self.cat:Celebrate(quest.name, 1, 0.82, 0.1, "Quest complete!") end
   self:PlaySound("ach")
   if quest.key then self:AwardChest(quest.key, quest.name) end
+  -- a few skins are rare quest rewards (quests rolled before this have no kind saved)
+  local kind = quest.kind
+  if not kind then
+    kind = "daily"
+    for _, w in ipairs(self.db.quests and self.db.quests.weekly or {}) do if w == quest then kind = "weekly" end end
+  end
+  if self.RollSkinSource then
+    self:RollSkinSource("quest", function(g) return g.quest == kind end,
+      (kind == "weekly" and "Weekly" or "Daily") .. " quest reward (" .. quest.name .. ")", true)
+  end
   self:MarkDirty()
   self:RefreshAll()
 end

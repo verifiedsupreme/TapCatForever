@@ -111,6 +111,9 @@ function TCF:ClaimExpedition(index)
   for i = 1, e.rolls do
     if random() < bonus then self:AwardChest(e.chest[1] == "heroic" and "strong" or "pouch", e.name) end
   end
+  -- a few skins are only brought home by expeditions (some by one expedition, some by any)
+  self:RollSkinSource("expedition", function(g) return g.expedition == ex.key or g.expedition == "any" end,
+    "Your party brought it home from " .. e.name, true)
   self:MarkDirty(); self:RefreshAll()
   return true
 end

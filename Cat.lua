@@ -1,5 +1,6 @@
 -- TapCatForever: the animated cat widget (used for the HUD cat and the wardrobe preview)
 local ADDON, TCF = ...
+local PIXEL_PATTERNS = { pat_calico = true, pat_leopard = true, pat_points = true, pat_socks = true, pat_tabby = true, pat_tuxedo = true }
 
 local sin, floor, random = math.sin, math.floor, math.random
 local ART = TCF.ART_PATH
@@ -255,7 +256,10 @@ function Cat:ApplyAppearance(look)
   -- two-part gear slots
   for _, slot in ipairs({ "back", "pattern", "chest", "acc", "head", "main", "off" }) do
     local it = look[slot]
-    if slot == "pattern" and skin then it = skinPattern end
+    if slot == "pattern" and skin then
+      -- the old pixel cat only has art for the first few patterns; newer ones are cartoon only
+      it = skinPattern and PIXEL_PATTERNS[skinPattern.art] and skinPattern or nil
+    end
     local a, b = tex[slot .. "_a"], tex[slot .. "_b"]
     if it then
       if TCF.PART_B[it.art] then
