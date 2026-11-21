@@ -1,0 +1,81 @@
+# Cosmetic items (shop, chests, achievements, crafting, racial heritage).
+# art | kind | spec. Drawn with main colour = red and trim = green, then split into
+# two greyscale layers the game tints with the item's own two colours.
+head_antlers | head | head:antlers
+head_circlet | head | head:circlet gem
+head_crown | head | head:crown
+head_featcap | head | head:featcap
+head_flowers | head | head:flowers
+head_greathelm | head | head:greathelm
+head_halo | head | head:halo
+head_headdress | head | head:headdress
+head_hood | head | head:hood
+head_hornhelm | head | head:helm horns
+head_horns | head | head:none bighorns g=#ff0000
+head_mask | head | head:mask
+head_mitre | head | head:mitre
+head_partyhat | head | head:partyhat
+head_skull | head | head:skull
+head_tophat | head | head:tophat
+head_winghelm | head | head:helm wings
+head_wizard | head | head:wizard gem
+back_angelwings | back | back:angelwings
+back_batwings | back | back:batwings
+back_cape | back | back:cape
+back_quiver | back | back:quiver
+back_totempack | back | back:totempack
+back_vines | back | back:vines
+chest_furmantle | chest | chest:leather fur
+chest_leather | chest | chest:leather
+chest_leaves | chest | chest:leaves
+chest_mail | chest | chest:mail pauldrons
+chest_plate | chest | chest:plate
+chest_robe | chest | chest:robe
+chest_spiked | chest | chest:plate spikes
+chest_tabard | chest | chest:tabard e=#ff0000
+chest_vestment | chest | chest:robe emblem
+wpn_axe | weapon1 | axe:double
+wpn_bow | weapon1 | bow
+wpn_claws | weapon1 | fist:claw
+wpn_crystalstaff | weapon2 | staff:crystal e=#ff0000
+wpn_dagger | weapon1 | dagger:straight
+wpn_fishpole | weapon2 | staff:pole
+wpn_greatsword | weapon2 | sword:broad guard=ornate
+wpn_hammer | weapon2 | mace:hammer
+wpn_mace | weapon1 | mace:flanged
+wpn_rifle | weapon1 | rifle
+wpn_scythe | weapon2 | polearm:scythe
+wpn_spear | weapon2 | polearm:spear
+wpn_staff | weapon2 | staff:orb e=#ff0000
+wpn_sword | weapon1 | sword:straight
+wpn_torch | weapon1 | mace:torch e=#ff8a2a glow=fire
+wpn_totem | weapon2 | totem
+wpn_wand | weapon1 | wand e=#ff0000
+off_dagger | weapon1 | dagger:straight
+off_kiteshield | shield | shield:kite emblem=boss e=#00ff00
+off_lantern | held | held:lantern e=#ffd84a glow=holy
+off_orb | held | held:orb e=#ff0000
+off_roundshield | shield | shield:round emblem=boss e=#00ff00
+off_skull | held | held:skull e=#00ff00
+off_sword | weapon1 | sword:straight
+off_tome | held | held:book e=#00ff00
+off_totem | held | held:idol e=#00ff00
+acc_bandolier | acc | acc:bandolier
+acc_bell | acc | acc:bell
+acc_bowtie | acc | acc:bowtie
+acc_eyepatch | acc | acc:eyepatch
+acc_flower | acc | acc:flower
+acc_medal | acc | acc:medal
+acc_monocle | acc | acc:monocle
+acc_mustache | acc | acc:mustache
+acc_scarf | acc | acc:scarf
+acc_shades | acc | acc:shades
+acc_race_human | acc | acc:race_human
+acc_race_dwarf | acc | acc:race_dwarf
+acc_race_gnome | acc | acc:race_gnome
+acc_race_nightelf | acc | acc:race_nightelf
+acc_race_orc | acc | acc:race_orc
+acc_race_skyborne | acc | acc:race_skyborne
+acc_race_tauren | acc | acc:race_tauren
+acc_race_troll | acc | acc:race_troll
+acc_race_undead | acc | acc:race_undead

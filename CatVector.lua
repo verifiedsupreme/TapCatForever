@@ -8,17 +8,23 @@ local CANVAS = 512
 local LIFT = 44          -- how far a resting paw hovers above its tapping spot (canvas units)
 local STRIPE = 0.8       -- tabby stripes are the fur colour, darker
 
--- draw order: name -> { layer, sublevel }
+-- draw order: name -> { layer, sublevel }. Slots with _a/_b/_f hold either a gear drawing
+-- (full colour, in _f) or a cosmetic (_a main colour, _b trim colour, _f fixed colours).
 local ORDER = {
-  body_t = { "BACKGROUND", 0 }, body_marks_t = { "BACKGROUND", 1 }, belly = { "BACKGROUND", 2 }, body_line = { "BACKGROUND", 3 },
-  chest = { "BORDER", 0 }, belt = { "BORDER", 1 }, neck = { "BORDER", 2 },
-  head_t = { "BORDER", 3 }, head_marks_t = { "BORDER", 4 }, face = { "BORDER", 5 },
-  head = { "ARTWORK", 0 }, main = { "ARTWORK", 1 }, offw = { "ARTWORK", 2 },
-  paw_L_t = { "OVERLAY", 0 }, paw_L = { "OVERLAY", 1 }, paw_R_t = { "OVERLAY", 2 }, paw_R = { "OVERLAY", 3 },
-  ring = { "OVERLAY", 4 }, off = { "OVERLAY", 5 },
+  back_a = { "BACKGROUND", -8 }, back_b = { "BACKGROUND", -7 }, back_f = { "BACKGROUND", -6 },
+  body_t = { "BACKGROUND", -5 }, body_marks_t = { "BACKGROUND", -4 }, belly = { "BACKGROUND", -3 }, body_line = { "BACKGROUND", -2 },
+  chest_a = { "BORDER", -8 }, chest_b = { "BORDER", -7 }, chest_f = { "BORDER", -6 }, belt = { "BORDER", -5 }, neck = { "BORDER", -4 },
+  head_t = { "BORDER", -3 }, head_marks_t = { "BORDER", -2 }, face = { "BORDER", -1 },
+  acc_a = { "ARTWORK", -8 }, acc_b = { "ARTWORK", -7 }, acc_f = { "ARTWORK", -6 },
+  head_a = { "ARTWORK", -5 }, head_b = { "ARTWORK", -4 }, head_f = { "ARTWORK", -3 },
+  main_a = { "ARTWORK", -2 }, main_b = { "ARTWORK", -1 }, main_f = { "ARTWORK", 0 },
+  offw_a = { "ARTWORK", 1 }, offw_b = { "ARTWORK", 2 }, offw_f = { "ARTWORK", 3 },
+  paw_L_t = { "OVERLAY", -8 }, paw_L = { "OVERLAY", -7 }, paw_R_t = { "OVERLAY", -6 }, paw_R = { "OVERLAY", -5 },
+  ring = { "OVERLAY", -4 }, off_a = { "OVERLAY", -3 }, off_b = { "OVERLAY", -2 }, off_f = { "OVERLAY", -1 },
 }
 -- which paw each piece follows
-local FOLLOW = { paw_L_t = "L", paw_L = "L", ring = "L", off = "L", offw = "L", paw_R_t = "R", paw_R = "R", main = "R" }
+local FOLLOW = { paw_L_t = "L", paw_L = "L", ring = "L", paw_R_t = "R", paw_R = "R" }
+for _, p in ipairs({ "_a", "_b", "_f" }) do FOLLOW["off" .. p] = "L"; FOLLOW["offw" .. p] = "L"; FOLLOW["main" .. p] = "R" end
 
 function Cat:VecActive()
   return TCF.VEC and not self.opts.pixelOnly
@@ -95,7 +101,39 @@ local function iconOf(it)
   return it and it.icon and string.lower(it.icon)
 end
 
--- look: slot -> item (from TCF:GetAppearance). Real gear shows its own drawing.
+-- the drawing keys for a look item: gear -> its icon drawing; cosmetic -> its tintable layers
+local function artOf(it)
+  if not it then return nil end
+  if it.gear then local k = iconOf(it); return k and TCF.VEC[k] and k, nil end
+  local base = it.art and ("cos:" .. it.art .. ":")
+  if base and (TCF.VEC[base .. "a"] or TCF.VEC[base .. "f"]) then return nil, base end
+end
+
+-- fill a three-part slot (prefix_a/_b/_f) from a look item
+function Cat:VecSlot(prefix, it, flip)
+  local gearKey, cosBase = artOf(it)
+  if gearKey then
+    self:VecSet(prefix .. "_f", gearKey, flip); self.vt[prefix .. "_f"]:SetVertexColor(1, 1, 1)
+    self:VecSet(prefix .. "_a", nil); self:VecSet(prefix .. "_b", nil)
+  elseif cosBase then
+    local c1, c2 = it.c1 or { 1, 1, 1 }, it.c2 or it.c1 or { 1, 1, 1 }
+    if self:VecSet(prefix .. "_a", cosBase .. "a", flip) then self.vt[prefix .. "_a"]:SetVertexColor(c1[1], c1[2], c1[3]) end
+    if self:VecSet(prefix .. "_b", cosBase .. "b", flip) then self.vt[prefix .. "_b"]:SetVertexColor(c2[1], c2[2], c2[3]) end
+    if self:VecSet(prefix .. "_f", cosBase .. "f", flip) then self.vt[prefix .. "_f"]:SetVertexColor(1, 1, 1) end
+  else
+    for _, p in ipairs({ "_a", "_b", "_f" }) do self:VecSet(prefix .. p, nil) end
+  end
+end
+
+-- what kind of drawing an item is (weapon, shield, held, ...)
+local function kindOf(it)
+  local gearKey, cosBase = artOf(it)
+  local e = gearKey and TCF.VEC[gearKey] or cosBase and (TCF.VEC[cosBase .. "a"] or TCF.VEC[cosBase .. "f"])
+  return e and e[8]
+end
+
+-- look: slot -> item (from TCF:GetAppearance). Real gear shows its own drawing,
+-- cosmetics show their cartoon version tinted with their colours.
 function Cat:VecApply(look)
   self.is3d = false; self.disp3d = nil
   self.m3d:Hide(); self.pix:Hide()
@@ -104,25 +142,28 @@ function Cat:VecApply(look)
   local fur = look.skin or look.fur or TCF.ITEMS.fur_ginger
   self.rainbowFur = fur.rainbow
   self:VecTint(fur.c1[1], fur.c1[2], fur.c1[3], fur.alpha or 1)
-  for _, slot in ipairs({ "head", "chest", "neck", "belt", "ring" }) do
-    self:VecSet(slot, iconOf(look[slot]))
+  -- a fur pattern recolours the tabby markings
+  local pat = look.pattern
+  if pat and pat.c1 and not look.skin then
+    for _, n in ipairs({ "body_marks_t", "head_marks_t" }) do self.vt[n]:SetVertexColor(pat.c1[1], pat.c1[2], pat.c1[3]) end
   end
-  -- main hand in the right paw
-  self:VecSet("main", iconOf(look.main))
+  for _, slot in ipairs({ "neck", "belt", "ring" }) do
+    local it = look[slot]
+    self:VecSet(slot, it and it.gear and iconOf(it))
+  end
+  for _, slot in ipairs({ "head", "chest", "back", "acc", "main" }) do self:VecSlot(slot, look[slot]) end
   -- off hand: weapons are mirrored into the left paw; shields and held items have their own place
-  local off = iconOf(look.off)
-  local e = off and TCF.VEC[off]
-  if e and e[8] == "weapon" then
-    self:VecSet("offw", off, true); self:VecSet("off", nil)
+  if kindOf(look.off) == "weapon" then
+    self:VecSlot("offw", look.off, true); self:VecSlot("off", nil)
   else
-    self:VecSet("off", off); self:VecSet("offw", nil)
+    self:VecSlot("off", look.off); self:VecSlot("offw", nil)
   end
   self:VecPaws()
 end
 
 ---------------------------------------------------------------- tap effects
 -- A few sprites burst from the paw on every tap; the equipped Tap Effect picks shape and colour.
-local PAW_SPOT = { L = { 180, 432 }, R = { 332, 432 } }
+local PAW_SPOT = { L = { 180, 464 }, R = { 332, 464 } }
 local MAX_PARTS, LIFE, GRAVITY = 18, 0.55, 520
 
 local function hue(h)

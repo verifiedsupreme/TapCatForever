@@ -120,6 +120,35 @@ local function ItemPicture(parent, size)
         return
       end
     end
+    -- cartoon cosmetics: fit their tinted layers into the box
+    local vb = TCF.VEC and it.art and ("cos:" .. it.art .. ":")
+    if vb and (TCF.VEC[vb .. "a"] or TCF.VEC[vb .. "f"]) then
+      local x0, y0, x1, y1 = 1e9, 1e9, -1e9, -1e9
+      for _, p in ipairs({ "a", "b", "f" }) do
+        local e = TCF.VEC[vb .. p]
+        if e then x0 = math.min(x0, e[2]); y0 = math.min(y0, e[3]); x1 = math.max(x1, e[2] + e[4]); y1 = math.max(y1, e[3] + e[5]) end
+      end
+      local size = self:GetWidth()
+      local k = size * 0.92 / math.max(x1 - x0, y1 - y0)
+      local ox, oy = (size - (x1 - x0) * k) / 2, (size - (y1 - y0) * k) / 2
+      local c2 = it.c2 or it.c1
+      for p, t in pairs({ a = self.base, b = self.a, f = self.b }) do
+        local e = TCF.VEC[vb .. p]
+        if e then
+          t:SetTexture(TCF.ART_PATH .. "v\\" .. e[1]); t:SetTexCoord(0, e[6], 0, e[7])
+          t:ClearAllPoints(); t:SetSize(e[4] * k, e[5] * k); t:SetPoint("TOPLEFT", self, "TOPLEFT", ox + (e[2] - x0) * k, -(oy + (e[3] - y0) * k))
+          local c = p == "a" and it.c1 or p == "b" and c2 or { 1, 1, 1 }
+          t:SetVertexColor(c[1], c[2], c[3]); t:SetDesaturated(desat); t:Show()
+        else t:Hide() end
+      end
+      self.restore = true
+      return
+    end
+    if self.restore then
+      -- back to full-box layers for pixel-style pictures
+      self.restore = nil
+      for _, t in ipairs({ self.base, self.a, self.b }) do t:ClearAllPoints(); t:SetAllPoints(self) end
+    end
     if it.slot == "tap" then
       self.a:SetTexture(ART .. "v\\t_" .. art); self.a:SetTexCoord(0, 1, 0, 1)
       self.a:SetVertexColor(it.c1[1], it.c1[2], it.c1[3]); self.a:SetDesaturated(desat); self.a:Show()

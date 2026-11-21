@@ -11,7 +11,7 @@ Every drawing is in the 256x256 cat canvas: head gear in the head's own space (t
 shrinks it onto the body), weapons in the right paw (mirrored in game for the left paw),
 shields and held items in the left paw.
 """
-import math, random, re
+import math, random, re, zlib
 
 INK = "#3b2620"
 HEAD_TF = 'transform="translate(128 16) scale(0.8) translate(-128 -28)"'
@@ -134,7 +134,7 @@ def draw_sword(o, two=False):
     L = 165 if two else 135
     w = {"broad": 22, "katana": 10, "cleaver": 24, "curved": 15}.get(v, 18 if two else 14)
     m = C(o.get("m"), "steel")
-    b = P(blade_path(v, L, w, hash(o.get("_key", "")) & 0xffff), m, 4.5)
+    b = P(blade_path(v, L, w, zlib.crc32(o.get("_key", "").encode()) & 0xffff), m, 4.5)
     if v not in ("curved", "katana", "flame", "jagged"):
         b += LN("M 0 -24 L 0 %d" % -(L - w - 8), light(m, .55) if "rune" not in o["flags"] else C(o.get("e"), "sky"), 3 if "rune" not in o["flags"] else 4)
     s = grip(o) + guard(o, o.get("guard", "bar"), w) + b
@@ -286,6 +286,8 @@ def draw_polearm(o, two=True):
     y = -L
     if v == "halberd":
         b = P("M -5 %s L 0 %s L 5 %s Z" % (y, y - 40, y), m) + P("M 4 %s Q 34 %s 38 %s Q 34 %s 4 %s Z" % (y + 6, y + 2, y + 22, y + 44, y + 38), m) + P("M -4 %s L -22 %s L -4 %s Z" % (y + 14, y + 22, y + 28), m)
+    elif v == "scythe":
+        b = P("M -4 %s Q 20 %s 58 %s Q 30 %s 4 %s Z" % (y + 4, y - 22, y + 10, y - 2, y + 18), m)
     elif v == "glaive":
         b = P("M -5 %s Q -10 %s 8 %s Q 16 %s 6 %s Z" % (y + 6, y - 30, y - 56, y - 26, y + 6), m)
     elif v == "trident":
@@ -311,8 +313,33 @@ def draw_fist(o, two=False):
     if "e" in o: s += GEM(0, -1, 5, C(o["e"], "ruby"))
     return s, b
 
+def draw_bow(o, two=False):
+    m, t = C(o.get("m"), "wood"), C(o.get("t"), "leather")
+    b = LN("M 4 -150 Q 40 -70 4 10", INK, 11) + LN("M 4 -150 Q 40 -70 4 10", m, 6) + LN("M 4 -150 L 4 10", "#f4f0e0", 1.6)
+    b += RC(-2, -78, 12, 22, t, 3, 3)
+    return b, b
+
+def draw_rifle(o, two=False):
+    m, t = C(o.get("m"), "iron"), C(o.get("t"), "wood")
+    b = RC(-6, -150, 12, 120, m, 3) + RC(-9, -40, 18, 60, t, 5) + RC(-12, -10, 24, 34, t, 6) + RC(-10, -156, 20, 10, m, 2, 3) + CI(0, -52, 5, darker(t, .7), 2.5)
+    return b, b
+
+def draw_wand(o, two=False):
+    m, t = C(o.get("m"), "wood"), C(o.get("t"), "gold")
+    b = RC(-4, -70, 8, 86, m, 3) + RC(-6, -72, 12, 8, t, 2, 3)
+    top = GEM(0, -84, 10, C(o.get("e"), t))
+    return b + GLOW(top, C(o.get("glow"), o.get("e") or "arcane")) + top, b + top
+
+def draw_totem(o, two=True):
+    m, t = C(o.get("m"), "wood"), C(o.get("t"), "red")
+    s = RC(-5, -110, 10, 140, m, 4)
+    b = RC(-20, -168, 40, 30, m, 6) + RC(-16, -140, 32, 26, t, 5)
+    b += CI(-7, -156, 4, INK, 0) + CI(7, -156, 4, INK, 0) + LN("M -8 -146 L 8 -146", INK, 3)
+    b += P("M -20 -164 L -40 -176 L -20 -150 Z", t, 3) + P("M 20 -164 L 40 -176 L 20 -150 Z", t, 3)
+    return s + b, b
+
 WEAPONS = {"sword": draw_sword, "axe": draw_axe, "mace": draw_mace, "dagger": draw_dagger, "staff": draw_staff,
-           "polearm": draw_polearm, "fist": draw_fist}
+           "polearm": draw_polearm, "fist": draw_fist, "bow": draw_bow, "rifle": draw_rifle, "wand": draw_wand, "totem": draw_totem}
 
 def weapon(o, two):
     s, glow_part = WEAPONS[o["family"]](o, two)
@@ -439,7 +466,9 @@ def head(o):
     v = o["variant"] or "helm"
     m, t, e = C(o.get("m"), "steel"), C(o.get("t"), "gold"), C(o.get("e"), "ruby")
     f = o["flags"]; s = ""
-    if v in ("hood", "cowl"):
+    if v == "none":
+        pass
+    elif v in ("hood", "cowl"):
         top = "Q 128 -6 128 -6" if v == "hood" and "point" in f else ""
         outer = ("M 34 128 Q 22 40 112 10 L 128 -10 L 144 10 Q 234 40 222 128 Q 228 176 196 182 L 60 182 Q 28 176 34 128 Z" if "point" in f
                  else "M 34 128 Q 26 26 128 14 Q 230 26 222 128 Q 228 176 196 182 L 60 182 Q 28 176 34 128 Z")
@@ -476,6 +505,37 @@ def head(o):
         s += LN("M 172 126 Q 190 160 176 184", t, 2.5)
     elif v == "eyepatch":
         s += LN("M 40 92 Q 128 70 216 92", INK, 4) + EL(98, 112, 17, 14, m, 4)
+    elif v == "antlers":
+        for sx in (-1, 1):
+            ant = P("M 92 60 Q 70 30 60 0 Q 66 4 70 14 Q 74 0 84 -8 Q 82 10 78 22 Q 86 36 100 54 Z", m, 4)
+            s += ant if sx < 0 else mirror(ant, 128)
+    elif v == "flowers":
+        s += P("M 50 84 Q 128 52 206 84 L 204 94 Q 128 64 52 94 Z", C(o.get("g"), "green"), 3.5)
+        for k, x in enumerate(range(62, 200, 24)):
+            y = 82 - math.sin((x - 50) / 156 * math.pi) * 24
+            col = m if k % 2 == 0 else t
+            for j in range(5):
+                a = j * 2 * math.pi / 5
+                s += CI(x + math.cos(a) * 6, y + math.sin(a) * 6, 5.5, col, 2.5)
+            s += CI(x, y, 4, "#fff6a0", 2)
+    elif v == "halo":
+        ring = '<ellipse cx="128" cy="24" rx="62" ry="14" fill="none" stroke="%s" stroke-width="12"/><ellipse cx="128" cy="24" rx="62" ry="14" fill="none" stroke="%s" stroke-width="6"/>' % (INK, m)
+        s += GLOW(ring, m) + ring
+    elif v == "headdress":
+        for k in range(9):
+            a = math.radians(-60 + k * 15)
+            x1, y1 = 128 + math.sin(a) * 70, 74 - math.cos(a) * 70
+            fe = P("M %.1f %.1f Q %.1f %.1f %.1f %.1f Q %.1f %.1f %.1f %.1f Z" % (128 + math.sin(a) * 30, 74 - math.cos(a) * 30, x1 - 10, y1 + 6, x1, y1 - 30, x1 + 10, y1 + 6, 128 + math.sin(a) * 30 + 2, 74 - math.cos(a) * 30), m if k % 2 else t, 3)
+            s += fe
+        s += P("M 44 94 Q 128 64 212 94 L 212 108 Q 128 80 44 108 Z", t, 4)
+        for x in (80, 128, 176): s += GEM(x, 96 - (14 if x == 128 else 8), 5, C(o.get("e"), "teal"))
+    elif v == "partyhat":
+        s += P("M 92 70 L 128 -16 L 164 70 Z", m, 5)
+        for y in (10, 34, 56): s += LN("M %d %d L %d %d" % (128 - (y + 16) * 0.42, y, 128 + (y + 16) * 0.42, y), t, 7)
+        s += CI(128, -18, 9, t, 4)
+    elif v == "featcap":
+        s += P("M 56 92 Q 60 40 128 34 Q 196 40 200 92 Q 128 80 56 92 Z", m, 5) + P("M 50 90 Q 128 74 206 90 L 204 100 Q 128 86 52 100 Z", darker(m, .85), 4)
+        s += P("M 176 64 Q 230 30 232 -6 Q 210 30 168 56 Z", t, 4) + LN("M 172 60 Q 214 30 228 2", darker(t, .7), 2)
     elif v == "circlet":
         s += P("M 46 86 Q 128 54 210 86 L 208 98 Q 128 68 48 98 Z", t, 4) + GEM(128, 72, 8, e)
         if "gem" in f: s += GEM(88, 80, 4.5, e) + GEM(168, 80, 4.5, e)
@@ -579,6 +639,10 @@ def chest(o):
         if v == "leather":
             s += LN("M 80 150 Q 128 164 176 150", darker(m, .7), 3) + LN("M 128 128 L 128 212", darker(m, .7), 3)
             for y in (136, 156, 176, 196): s += CI(128, y, 3, C(o.get("t"), "brass"), 2)
+    if v == "leaves":
+        for row, y in enumerate(range(128, 214, 18)):
+            for x in range(62 + (row % 2) * 12, 200, 24):
+                s += '<g clip-path="url(#chestclip)">%s</g>' % EL(x, y, 13, 8, m if (x // 24 + row) % 2 else t, 2.5, 30 if row % 2 else -30)
     if "fur" in f:
         s += P("M 70 124 Q 128 146 186 124 Q 190 110 176 108 Q 128 128 80 108 Q 66 110 70 124 Z", C(o.get("g"), "cream"), 4)
     if "sash" in f:
@@ -646,10 +710,98 @@ def ring(o, pose):
     if "glow" in o: s = GLOW(s, C(o["glow"], "arcane")) + s
     return s
 
+def back(o):
+    v = o["variant"] or "cape"
+    m, t = C(o.get("m"), "red"), C(o.get("t"), "gold")
+    if v == "cape":
+        return P("M 68 112 Q 26 172 30 226 L 226 226 Q 230 172 188 112 Z", m, 5) + P("M 80 116 Q 48 172 52 226 L 204 226 Q 208 172 176 116 Z", t, 3)
+    if v in ("angelwings", "batwings"):
+        if v == "angelwings":
+            w = P("M 84 140 Q 40 86 4 64 Q 8 96 20 106 Q 0 116 4 138 Q 22 140 30 146 Q 12 162 22 180 Q 48 172 86 172 Z", m, 4)
+            w += LN("M 70 140 Q 40 116 16 100", t, 2.5) + LN("M 72 152 Q 40 140 14 132", t, 2.5) + LN("M 74 164 Q 46 160 28 164", t, 2.5)
+        else:
+            w = P("M 86 140 L 12 64 L 22 112 L 2 124 L 28 148 L 14 176 L 86 172 Z", m, 4)
+            w += LN("M 86 142 L 12 64 M 70 152 L 22 112 M 62 160 L 2 124 M 70 166 L 28 148", t, 3)
+        return w + mirror(w, 128)
+    if v == "quiver":
+        q = RC(160, 50, 30, 100, m, 6, 5)
+        for k, x in enumerate((164, 174, 184)):
+            q = P("M %d 52 L %d 18 L %d 52 Z" % (x - 4, x, x + 4), t, 3) + LN("M %d 52 L %d 24" % (x, x), INK, 2.5) + q
+        return '<g transform="rotate(24 175 100)">%s%s</g>' % (q, RC(158, 70, 34, 10, t, 3, 3))
+    if v == "totempack":
+        g = RC(46, 40, 34, 110, m, 4) + RC(40, 30, 46, 30, t, 6) + CI(55, 44, 4, INK, 0) + CI(71, 44, 4, INK, 0)
+        g += P("M 40 34 L 20 22 L 40 52 Z", t, 3) + P("M 86 34 L 106 22 L 86 52 Z", t, 3)
+        return '<g transform="rotate(-14 63 120)">%s</g>' % g
+    # vines: leafy vines climbing behind the body
+    s = LN("M 40 226 Q 30 160 70 112 Q 96 90 128 98", m, 7) + mirror(LN("M 40 226 Q 30 160 70 112 Q 96 90 128 98", m, 7), 128)
+    for x, y, a in ((44, 190, -30), (40, 150, 20), (60, 122, -40), (92, 100, 10)):
+        leaf = EL(x, y, 13, 7, t, 3, a)
+        s += leaf + mirror(leaf, 128)
+    return s
+
+def acc(o):
+    v = o["variant"] or "bowtie"
+    m, t = C(o.get("m"), "red"), C(o.get("t"), "gold")
+    H = lambda body: "<g %s>%s</g>" % (HEAD_TF, body)
+    if v == "bowtie":
+        return P("M 128 140 L 104 128 L 104 154 Z", m, 4) + P("M 128 140 L 152 128 L 152 154 Z", m, 4) + RC(121, 133, 14, 14, t, 4, 3.5)
+    if v == "bell":
+        return P("M 92 128 Q 128 142 164 128 L 164 138 Q 128 152 92 138 Z", m, 3.5) + CI(128, 150, 10, t, 4) + LN("M 122 152 L 134 152", INK, 2.5) + CI(128, 156, 2, INK, 0)
+    if v == "medal":
+        return P("M 116 128 L 124 158 L 132 158 L 140 128 Z", m, 3.5) + CI(128, 166, 11, t, 4) + CI(128, 166, 5, light(t, .4), 2)
+    if v == "scarf":
+        return (P("M 84 124 Q 128 146 172 124 L 176 140 Q 128 162 80 140 Z", m, 4) + P("M 150 140 L 168 196 L 150 200 L 138 146 Z", m, 4)
+                + LN("M 146 162 L 160 158 M 150 178 L 164 174", t, 4))
+    if v == "bandolier":
+        s = '<g clip-path="url(#bodyclip)">%s</g>' % P("M 66 118 L 84 112 L 196 204 L 180 214 Z", m, 4)
+        for k in range(5): s += RC(92 + k * 18, 128 + k * 15, 10, 14, t, 2, 3)
+        return s
+    if v == "eyepatch":
+        return H(LN("M 40 92 Q 128 70 216 92", INK, 4) + EL(98, 112, 17, 14, m, 4))
+    if v == "monocle":
+        return H('<circle cx="158" cy="112" r="19" fill="#d8f0ff" fill-opacity=".3" stroke="%s" stroke-width="5"/><circle cx="158" cy="112" r="19" fill="none" stroke="%s" stroke-width="2.5"/>' % (INK, t) + LN("M 172 126 Q 190 160 176 184", t, 2.5))
+    if v == "mustache":
+        return H(P("M 128 128 Q 110 120 98 132 Q 88 142 76 134 Q 86 150 104 142 Q 118 136 128 134 Q 138 136 152 142 Q 170 150 180 134 Q 168 142 158 132 Q 146 120 128 128 Z", m, 3.5))
+    if v == "shades":
+        return H(LN("M 70 104 L 186 104", INK, 5) + RC(74, 98, 46, 28, m, 8, 4) + RC(136, 98, 46, 28, m, 8, 4) + LN("M 82 106 L 92 106", "#ffffff", 3, .7) + LN("M 144 106 L 154 106", "#ffffff", 3, .7))
+    if v == "flower":
+        s = ""
+        for j in range(6):
+            a = j * math.pi / 3
+            s += EL(182 + math.cos(a) * 11, 62 + math.sin(a) * 11, 9, 6, m, 3, math.degrees(a))
+        return H(s + CI(182, 62, 7, t, 3))
+    if v == "race_human":
+        return CI(128, 156, 15, m, 4) + P("M 120 150 L 128 144 L 136 150 L 134 162 L 128 166 L 122 162 Z", t, 2.5)
+    if v == "race_dwarf":
+        beard = P("M 70 132 Q 76 176 104 190 L 114 214 L 128 196 L 142 214 L 152 190 Q 180 176 186 132 Q 160 150 128 150 Q 96 150 70 132 Z", m, 4)
+        return H(beard + CI(114, 212, 5, t, 2.5) + CI(142, 212, 5, t, 2.5) + LN("M 100 160 Q 110 176 108 186 M 156 160 Q 146 176 148 186", darker(m, .7), 2.5))
+    if v == "race_nightelf":
+        ear = P("M 48 104 Q 6 70 -6 40 Q 26 60 54 86 Z", m, 4)
+        return H(ear + mirror(ear, 128) + P("M 86 92 Q 98 84 112 90", t, 3) + mirror(P("M 86 92 Q 98 84 112 90", t, 3), 128))
+    if v == "race_gnome":
+        return H(P("M 44 84 Q 128 70 212 84 L 212 96 Q 128 82 44 96 Z", m, 4) + CI(100, 80, 18, m, 5) + CI(100, 80, 11, t, 3) + CI(156, 80, 18, m, 5) + CI(156, 80, 11, t, 3))
+    if v == "race_orc":
+        tusk = P("M 106 138 Q 100 120 92 116 Q 108 116 114 136 Z", m, 3)
+        return H(tusk + mirror(tusk, 128))
+    if v == "race_undead":
+        return H(LN("M 62 120 L 82 138", m, 3) + "".join(LN("M %d %d L %d %d" % (64 + k * 6, 132 - k * 6 + 8, 72 + k * 6, 132 - k * 6 + 2), m, 2.5) for k in range(3))
+                 + LN("M 170 70 L 188 96", m, 3) + "".join(LN("M %d %d L %d %d" % (168 + k * 6, 82 + k * 8, 180 + k * 6, 78 + k * 8), m, 2.5) for k in range(3)))
+    if v == "race_tauren":
+        horn = P("M 60 64 Q 14 58 10 20 Q 26 40 66 46 Z", m, 4)
+        return H(horn + mirror(horn, 128) + '<circle cx="128" cy="134" r="9" fill="none" stroke="%s" stroke-width="7"/><circle cx="128" cy="134" r="9" fill="none" stroke="%s" stroke-width="3.5"/>' % (INK, t))
+    if v == "race_troll":
+        tusk = P("M 104 140 Q 92 112 80 104 Q 104 106 112 138 Z", m, 3)
+        return H(tusk + mirror(tusk, 128) + P("M 104 40 Q 128 -10 152 40 Q 140 30 128 34 Q 116 30 104 40 Z", t, 4))
+    if v == "race_skyborne":
+        fe = P("M 60 70 Q 24 40 20 6 Q 44 30 70 56 Z", m, 3.5) + P("M 66 76 Q 30 64 14 40 Q 46 52 72 64 Z", t, 3)
+        return H(fe + mirror(fe, 128))
+    return ""
+
 CLIPS = ('<defs><clipPath id="bodyclip"><path d="M 78 112 Q 54 160 58 214 L 198 214 Q 202 160 178 112 Z"/></clipPath>'
          '<clipPath id="chestclip"><path d="%s"/></clipPath></defs>' % BODY_OUT)
 
-FAMILIES = {"sword", "axe", "mace", "dagger", "staff", "polearm", "fist", "shield", "held", "head", "chest", "belt", "neck", "ring"}
+FAMILIES = {"sword", "axe", "mace", "dagger", "staff", "polearm", "fist", "shield", "held", "head", "chest", "belt", "neck", "ring",
+            "bow", "rifle", "wand", "totem", "back", "acc"}
 def render(spec, kind, key=""):
     """Returns {layer_name: svg_body} for one item spec. kind: head chest belt neck ring weapon1 weapon2 shield held."""
     o = parse(spec); o["_key"] = key
@@ -660,8 +812,13 @@ def render(spec, kind, key=""):
     if kind == "ring": return {"_down": ring(o, "down"), "_up": ring(o, "up")}
     if kind == "shield": return {"": shield(o)}
     if kind == "held": return {"": held(o)}
+    if kind == "back": return {"": back(o)}
+    if kind == "acc": return {"": acc(o)}
     return {"": weapon(o, kind == "weapon2")}
 
+# everything sits a little lower on the canvas so tall hats fit above the head
+DROP = 16
 def svg(body, cel=True):
     if cel: body = '<g filter="url(#cel)">%s</g>' % body
+    body = '<g transform="translate(0 %d)">%s</g>' % (DROP, body)
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">%s%s%s</svg>' % (DEFS, CLIPS, body)

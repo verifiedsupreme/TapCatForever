@@ -113,7 +113,7 @@ L["tf_fx2"] = '<g %s>%s%s</g>' % (SWORD_TF, bolt([(186, 62), (199, 76), (188, 82
 
 for name, body in L.items():
     with open(os.path.join(OUT, name + ".svg"), "w") as f:
-        f.write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">%s%s</svg>' % (CLIPS, body))
+        f.write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">%s<g transform="translate(0 16)">%s</g></svg>' % (CLIPS, body))
 subprocess.check_call(["node", os.path.join(os.path.dirname(__file__), "render_svg.js"), OUT, "512"])
 
 # ---- preview sheet

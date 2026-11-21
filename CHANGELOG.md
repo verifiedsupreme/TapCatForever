@@ -10,6 +10,8 @@
 - The level and XP text now sit above the cat (Settings: "Text above the cat"). Chat messages and sounds now start off.
 - Mining veins only run when you start them or a foreman works them (key presses no longer restart them).
 - Each cat class has its own gear bag: gear found on one class no longer shows up for the others (an old shared bag is split once: worn items stay with their class, the rest go to the class you are playing).
+- **All cosmetics redrawn for the cartoon cat**: every hat, chest, cape and wings, weapon, off-hand, accessory and racial heritage item (78 designs), tinted in each item's own colours. Fur patterns recolour the cat's markings.
+- **Test mode** (`/tcf testmode`): shortcuts in Settings for TapCoins, Trade Gold, unlocking professions, chests, cat levels and skipping an hour.
 - **Tap Effects**: a new cosmetic slot. A little burst pops from the paw on every tap: 17 to collect (Dust Puffs and Paw Prints up to Holy Light and Rainbow Stars), from chests and the shop.
 - Paws move further on each tap. The chest badge next to the cat is gone (open chests from the Treasure Bag button in the window).
 - Settings: "Reset this character" and "Reset ALL progress".
