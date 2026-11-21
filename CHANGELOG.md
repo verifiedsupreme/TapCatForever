@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Loot box: Open another, Equip, OK to all and OK no longer overlap.
 - Welcome: the tip on the second page no longer hides behind the Back button.
 
 ## 1.3.2

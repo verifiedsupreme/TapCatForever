@@ -1201,7 +1201,7 @@ local revealQueue = {}
 
 function TCF:CreateLootReveal()
   local f = CreateFrame("Frame", "TapCatForeverLootReveal", UIParent, BT)
-  f:SetSize(380, 360); f:SetPoint("CENTER", 0, 60)
+  f:SetSize(470, 360); f:SetPoint("CENTER", 0, 60)  -- wide enough for Open another, Equip, OK to all and OK side by side
   f:SetFrameStrata("FULLSCREEN_DIALOG"); f:SetToplevel(true)
   f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -1230,7 +1230,7 @@ function TCF:CreateLootReveal()
   f.name = Text(f, "GameFontNormalLarge"); f.name:SetPoint("TOP", stage, "BOTTOM", 12, -10); f.name:SetWidth(270)
   f.icon:SetPoint("RIGHT", f.name, "LEFT", 0, 0)
   f.kind = Text(f, "GameFontHighlight"); f.kind:SetPoint("TOP", f.name, "BOTTOM", -12, -4)
-  f.status = Text(f, "GameFontNormal"); f.status:SetPoint("TOP", f.kind, "BOTTOM", 0, -6)
+  f.status = Text(f, "GameFontNormal"); f.status:SetPoint("TOP", f.kind, "BOTTOM", 0, -6); f.status:SetWidth(430)
   f.ok = Button(f, "OK", 80, 24, function() f:Next() end); f.ok:SetPoint("BOTTOMRIGHT", -18, 16)
   -- drops waiting behind this one
   f.queueLabel = Text(f, "GameFontDisableSmall", nil, "LEFT"); f.queueLabel:SetPoint("BOTTOMLEFT", 22, 76)
