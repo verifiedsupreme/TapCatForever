@@ -74,7 +74,7 @@ FAQ
 No. It only listens to your key presses and mouse clicks and never presses anything for you.
 
 **What counts as a tap?**
-Every key press (movement, abilities, chat keys, everything), every mouse click, and your spell casts. Your cat keeps tapping in combat too.
+Every key press (movement, abilities, everything except typing in chat), every mouse click, and your spell casts. Your cat keeps tapping in combat too.
 
 **Can I turn off the sounds, chat messages or chest animation?**
 Yes, all of them are in Settings (right-click the cat, then the Settings tab). Sounds and chat messages start off.
