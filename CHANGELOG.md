@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Chests now give real gear 90% of the time (cosmetics 10%).
+- Cosmetics are clearly marked: a COSMETIC tag and "appearance only, no stats" in the loot box and tooltips, and a purple badge on the chest reel. Gear shows a GEAR tag.
+
 ## 1.3.0
 - **Hand-drawn Adventure backgrounds** for all 28 zones, dungeons and raids.
 - **Chest opening reel**: possible loot spins by and lands on your reward (can be turned off in Settings).

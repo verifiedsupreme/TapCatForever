@@ -52,6 +52,7 @@ function TCF:ItemTooltip(tt, it)
   local col = TCF.RARITY[it.rarity].color
   tt:AddLine("|T" .. TCF.Icon(it.icon) .. ":20:20|t " .. it.name, col[1], col[2], col[3])
   tt:AddLine(TCF.RARITY[it.rarity].name .. " " .. TCF.SLOT_BY_KEY[it.slot].name, 1, 1, 1)
+  tt:AddLine("Cosmetic: changes your cat's look only, no stats", 0.82, 0.55, 1)
   if it.class then
     local cl = TCF.CLASS_BY_KEY[it.class]
     tt:AddLine(cl.name .. " only", cl.color[1], cl.color[2], cl.color[3])
@@ -1299,9 +1300,10 @@ function TCF:CreateLootReveal()
     self.icon:SetTexture(TCF.Icon(it.icon))
     self.name:SetText(it.name); self.name:SetTextColor(col[1], col[2], col[3])
     local cl = it.class and TCF.CLASS_BY_KEY[it.class]
-    self.kind:SetText(TCF.RARITY[it.rarity].name .. " " .. TCF.SLOT_BY_KEY[it.slot].name .. "  |cffaaaaaa" .. (cl and cl.name or "Any class") .. "|r")
-    if isNew then self.status:SetText("|cff20ff20NEW! Added to your collection|r")
-    else self.status:SetText(string.format("|cffaaaaaaDuplicate: salvaged for|r %s", coinStr(salvage, 14))) end
+    self.kind:SetText("|cffd28cffCOSMETIC|r  " .. TCF.RARITY[it.rarity].name .. " " .. TCF.SLOT_BY_KEY[it.slot].name .. "  |cffaaaaaa" .. (cl and cl.name or "Any class") .. "|r")
+    local note = "\n|cffd28cffAppearance only, no stats. Wear it from the Appearance tab.|r"
+    if isNew then self.status:SetText("|cff20ff20NEW! Added to your collection|r" .. note)
+    else self.status:SetText(string.format("|cffaaaaaaDuplicate: salvaged for|r %s", coinStr(salvage, 14)) .. note) end
     local canEquip = TCF.db.owned[it.id] and TCF:CanEquip(it) and not TCF:IsEquipped(it)
     self.equip:SetShown(canEquip and true or false)
     local left = chestKey and (TCF.db.keys[chestKey] or 0) or 0
@@ -1321,7 +1323,7 @@ function TCF:CreateLootReveal()
     self.pic:Hide(); self.gearIcon:Show(); self.gearIcon:SetTexture(TCF.Icon(it.icon))
     self.icon:SetTexture(nil)
     self.name:SetText(it.name); self.name:SetTextColor(col[1], col[2], col[3])
-    self.kind:SetText(string.format("%s %s %s  |cffffd100Item Level %d|r", TCF.RARITY[it.q].name, TCF.ITEM_TYPE_NAMES[it.sub] or "", TCF.ITEM_SLOT_NAMES[it.slot] or "", it.ilvl))
+    self.kind:SetText(string.format("|cff40ff40GEAR|r  %s %s %s  |cffffd100Item Level %d|r", TCF.RARITY[it.q].name, TCF.ITEM_TYPE_NAMES[it.sub] or "", TCF.ITEM_SLOT_NAMES[it.slot] or "", it.ilvl))
     local d = TCF.GearUpgrade and TCF:GearUpgrade(it)
     local status = isNew and "|cff20ff20NEW gear!|r" or ("|cffaaaaaaAnother copy (you have " .. (TCF:Bag()[it.id] or 1) .. ")|r")
     if d and d > 0 then status = status .. "  |cff20ff20Upgrade: +" .. d .. " power|r" end

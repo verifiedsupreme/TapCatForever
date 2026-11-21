@@ -560,8 +560,8 @@ function TCF:OpenChest(key, useKey)
       return it, true
     end
   end
-  -- 65%: real gear for your current class and level; 35%: a cosmetic
-  if self.RollWorldLoot and random() < 0.65 then
+  -- 90%: real gear for your current class and level; 10%: a cosmetic
+  if self.RollWorldLoot and random() < 0.9 then
     local level = self:CD().level
     local gear
     if rarity >= 5 then

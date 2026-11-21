@@ -17,13 +17,13 @@ local function gearPool(q)
   return gearByQ[q] or {}
 end
 
--- a random thing this chest could hold: gear (65%) or a cosmetic (35%) of a rolled rarity
+-- a random thing this chest could hold: gear (90%) or a cosmetic (10%) of a rolled rarity
 local function randomLoot(ch, seen)
   local class = TCF.db.class
   for _ = 1, 30 do
     local r = TCF:RollRarity(ch.weights)
     local it, rarity
-    if random() < 0.65 then
+    if random() < 0.9 then
       local pool = gearPool(max(2, r))
       local g = pool[random(max(1, #pool))]
       if g and TCF:GearUsable(g, class) then it, rarity = g, g.q end
@@ -44,6 +44,8 @@ local function makeCard(parent)
   c.edge = c:CreateTexture(nil, "BORDER"); c.edge:SetAllPoints()
   c.icon = c:CreateTexture(nil, "ARTWORK"); c.icon:SetPoint("TOPLEFT", 4, -4); c.icon:SetPoint("BOTTOMRIGHT", -4, 4)
   c.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  -- cosmetics get a purple corner badge so they're easy to tell from gear
+  c.tag = c:CreateTexture(nil, "OVERLAY", nil, 2); c.tag:SetSize(14, 14); c.tag:SetPoint("TOPRIGHT", -2, -2); c.tag:SetColorTexture(0.75, 0.45, 1, 1)
   c.glow = c:CreateTexture(nil, "OVERLAY"); c.glow:SetPoint("TOPLEFT", -10, 10); c.glow:SetPoint("BOTTOMRIGHT", 10, -10)
   c.glow:SetTexture("Interface\\Buttons\\CheckButtonHilight"); c.glow:SetBlendMode("ADD"); c.glow:Hide()
   return c
@@ -53,6 +55,7 @@ local function setCard(c, it, rarity)
   local col = TCF.RARITY[rarity] and TCF.RARITY[rarity].color or { 1, 1, 1 }
   c.edge:SetColorTexture(col[1], col[2], col[3], 1)
   c.icon:SetTexture(TCF.Icon(it.icon or "INV_Misc_QuestionMark"))
+  c.tag:SetShown(it.q == nil)
   c.glow:Hide()
 end
 
