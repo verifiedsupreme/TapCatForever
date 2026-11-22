@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.3.1
+
+**Chests**
+- Chests now give gear for your cat's level: never more than 3 levels above it. Before, a chest could reach about 20 levels too high when it couldn't find gear of the rolled quality near your level.
+- When there is no gear of the rolled quality near your level, you get the next quality down instead of gear you can't wear yet.
+- Epics from chests are dungeon and raid boss loot only. Rare open-world Epics like Staff of Jordan no longer come from chests, and a chest never gives you a second copy of an Epic you already have.
+- Raid boss Epics (from the Raider's Hoard and the rarest chest rolls) are level 60 gear, so they come only to cats of level 55 and up. Younger cats get the best gear near their level instead. Real legendaries only drop for level 60 cats.
+- A chest prefers gear your cat doesn't have yet.
+- The odds shown on each chest and the items on its reel now match what it can really give your cat.
+- Gear you already got stays yours.
+
+**Opening chests**
+- Every chest you open yourself spins the reel again, pouches included. The loot box after it only shows for blue or better; for a green or white the reel lands and a slim line shows what you got.
+
 ## 1.5.3
 
 **Realm leaderboard**

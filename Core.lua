@@ -873,6 +873,83 @@ local function nearLevel(list, level)
   return near
 end
 
+-- Chest gear (1.5.3.1): what a chest can give a cat of this level, by quality. Required level
+-- from 10 below to 3 above the cat (never more than 3 above), not crafted or retired, usable by
+-- the class. World and dungeon loot near the level; raid loot only for cats of 55 and up.
+-- Built once per class, level and quality.
+local CHEST_UP, CHEST_DOWN = 3, 10
+local bossSet, chestPools, chestPoolsKey
+local function isBossLoot(it)
+  if not bossSet then
+    bossSet = {}
+    for _, bosses in pairs(TCF.BOSS_LOOT or {}) do
+      for _, list in pairs(bosses) do for _, g in ipairs(list) do bossSet[g] = true end end
+    end
+  end
+  return bossSet[it]
+end
+function TCF:ChestGearPool(class, level, q)
+  class = class or self.db.class
+  level = min(60, max(1, floor(level or 1)))
+  local key = class .. ":" .. level
+  if chestPoolsKey ~= key then chestPools, chestPoolsKey = {}, key end
+  if chestPools[q] then return chestPools[q] end
+  local out, seen = {}, {}
+  local function scan(list, lo, hi)
+    for _, it in ipairs(list or {}) do
+      local r = it.req or 0
+      -- Epics only from boss loot: the few open-world Epics (Staff of Jordan and the like) are
+      -- famously rare drops and never come from chests
+      if it.q == q and not seen[it] and not it.crafted and not it.retired and r <= hi and r >= lo
+        and (q < 4 or isBossLoot(it)) and self:GearUsable(it, class) then
+        seen[it] = true; out[#out + 1] = it
+      end
+    end
+  end
+  local function fill(lo)
+    local hi = level + CHEST_UP
+    for b = floor(max(0, lo) / 5), floor(hi / 5) do scan(TCF.WORLD_POOL[b], lo, hi) end
+    for ti, t in ipairs(TCF.TIERS or {}) do
+      if not t.raid or level >= 55 then
+        scan(TCF.TIER_POOL[ti], lo, hi)
+        for _, list in pairs(TCF.BOSS_LOOT[ti] or {}) do scan(list, lo, hi) end
+      end
+    end
+  end
+  fill(level - CHEST_DOWN)
+  if #out == 0 then fill(level - 25) end
+  chestPools[q] = out
+  return out
+end
+
+-- A piece from ChestGearPool, by weight: gear made for the class counts more, and a piece the
+-- cat already has is rolled again (twice); an Epic it already has becomes a Rare. Nothing of that quality near the level: one quality lower.
+function TCF:RollChestGear(class, level, q)
+  class = class or self.db.class
+  for wq = max(2, min(4, q or 2)), 2, -1 do
+    local pool = self:ChestGearPool(class, level, wq)
+    if #pool > 0 then
+      local total, w = 0, {}
+      for i, it in ipairs(pool) do
+        local x = self:GearSuits(it, class) and 4 or 1
+        w[i] = x; total = total + x
+      end
+      local pick
+      for _ = 1, 3 do
+        local r = random() * total
+        for i, it in ipairs(pool) do
+          r = r - w[i]
+          if r <= 0 then pick = it; break end
+        end
+        pick = pick or pool[#pool]
+        if not self:GearOwned(pick.id, class) then break end
+      end
+      -- never a second copy of an Epic: one the cat already has gives a Rare instead
+      if not (wq >= 4 and self:GearOwned(pick.id, class)) then return pick end
+    end
+  end
+end
+
 -- Every piece a Dungeon Chest could hold for this class right now, by quality (the chest reel
 -- shows these): { [2] = {...}, [3] = {...}, [4] = {...} }.
 function TCF:DungeonChestPool(class)
@@ -962,7 +1039,7 @@ function TCF:RollDungeonGear(class, q)
     local cands = nearLevel(dungeonGear(self, tiers, class, wq, own), level)
     if #cands == 0 and own then cands = nearLevel(dungeonGear(self, tiers, class, wq, false), level) end
     if #cands > 0 then return cands[random(#cands)] end
-    local g = worldGearOfQuality(self, level, wq)
+    local g = self:RollChestGear(class, level, wq)
     if g and g.q == wq then return g end
     fallback = fallback or g
   end
@@ -973,23 +1050,31 @@ end
 -- from zones it has cleared), or a raid boss Epic for a Legendary roll.
 function TCF:ChestGear(ch, rarity)
   local class = self.db.class
-  if ch.raidLoot then return self:RollRaidEpic(class) end
+  local level = min(60, max(1, self:CD().level or 1))
+  -- raid epics are level 60 gear: a Raider's Hoard or a Legendary roll gives them to cats of 55
+  -- and up; younger cats get the best gear near their level instead
+  if ch.raidLoot or rarity >= 5 then
+    if level >= 55 then
+      local g = ch.raidLoot and self:RollRaidEpic(class) or self:RollRaidEpic(class, self:RaidTiers(class, true))
+      if g then return g end
+    end
+    return self:RollChestGear(class, level, 4)
+  end
   if ch.dungeonLoot then return self:RollDungeonGear(class, rarity) end
-  if rarity >= 5 then return self:RollRaidEpic(class, self:RaidTiers(class, true)) end
   local q = max(2, min(4, rarity))
   local gear
-  -- half the time: real boss loot from a zone this class has cleared
+  -- half the time: real boss loot from a zone this class has cleared, if it fits the level
   local adv = self:CD().adv
   local bestTier = floor(adv.best / 100)
   if bestTier >= 1 and random() < 0.5 then
     for _ = 1, 6 do
       local ti = random(max(1, bestTier - 3), bestTier)
       local t = TCF.TIERS[ti]
-      local it = t and self:RollBossLoot(ti, random(#t.bosses))
-      if it and it.q == q then gear = it; break end
+      local it = t and (not t.raid or level >= 55) and self:RollBossLoot(ti, random(#t.bosses))
+      if it and it.q == q and (it.req or 0) <= level + CHEST_UP and (it.req or 0) >= level - CHEST_DOWN then gear = it; break end
     end
   end
-  return gear or worldGearOfQuality(self, self:CD().level, q)
+  return gear or self:RollChestGear(class, level, q)
 end
 
 -- Odds of what a chest holds, per opening, in the order they are listed in tooltips:
@@ -998,7 +1083,7 @@ function TCF:ChestOdds(ch)
   local out = {}
   local skin = (ch.key == "heroic" and #self:UnownedShopSkins() > 0) and TCF.CHEST_SKIN_CHANCE or 0
   local rest = 1 - skin
-  local legend = rest * (ch.legendary or 0)
+  local legend = ((self:CD().level or 1) >= 60) and rest * (ch.legendary or 0) or 0
   rest = rest - legend
   local gearShare = ch.gearOnly and 1 or TCF.CHEST_GEAR_CHANCE
   local total = 0
@@ -1007,6 +1092,16 @@ function TCF:ChestOdds(ch)
   for r = 1, 5 do
     local q = ch.raidLoot and 4 or max(2, min(4, r))
     byQ[q] = (byQ[q] or 0) + (ch.weights[r] or 0) / total
+  end
+  -- a quality with no gear near the cat's level gives the next one down (TCF:RollChestGear)
+  if self.ChestGearPool and not ch.dungeonLoot then
+    local level = min(60, max(1, (self:CD() and self:CD().level) or 1))
+    for q = 4, 3, -1 do
+      if (byQ[q] or 0) > 0 and not ((ch.raidLoot or q == 4 and ch.legendary) and level >= 55)
+        and #self:ChestGearPool(nil, level, q) == 0 then
+        byQ[q - 1] = (byQ[q - 1] or 0) + byQ[q]; byQ[q] = 0
+      end
+    end
   end
   for q = 2, 4 do
     if (byQ[q] or 0) > 0 then
@@ -1057,7 +1152,7 @@ function TCF:OpenChestContents(ch, key)
   if self.RollWorldLoot then
     -- a real Legendary: about 1 in 500 Heroic Caches and 1 in 100 Raider's Hoards. A class
     -- that can use none of them gets the raid boss Epic instead.
-    if (ch.legendary or 0) > 0 and random() < ch.legendary then
+    if (ch.legendary or 0) > 0 and (self:CD().level or 1) >= 60 and random() < ch.legendary then
       gear = self:RollLegendary()
       if not gear then rarity = 5 end
     end

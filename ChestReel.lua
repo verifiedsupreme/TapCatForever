@@ -42,13 +42,18 @@ local function randomLoot(ch, seen, raidPool, legends, dungeonPool)
     elseif ch.gearOnly or random() < (TCF.CHEST_GEAR_CHANCE or 0.9) then
       local g
       local dpool = ch.dungeonLoot and dungeonPool and dungeonPool[max(2, min(4, r))]
-      if ch.raidLoot or r >= 5 then
-        g = raidPool[random(max(1, #raidPool))]   -- the Legendary rarity roll is a raid boss Epic
+      if (ch.raidLoot or r >= 5) and #raidPool > 0 then
+        g = raidPool[random(#raidPool)]   -- the Legendary rarity roll is a raid boss Epic (cats 55+)
       elseif dpool and #dpool > 0 then
         g = dpool[random(#dpool)]
       else
-        local pool = gearPool(max(2, min(4, r)))
-        g = pool[random(max(1, #pool))]
+        -- what this chest can really give the cat now: gear near its level (TCF:ChestGearPool),
+        -- one quality lower when there is none of the rolled one
+        local level = (TCF:CD() and TCF:CD().level) or 1
+        for q = max(2, min(4, (ch.raidLoot or r >= 5) and 4 or r)), 2, -1 do
+          local pool = TCF.ChestGearPool and TCF:ChestGearPool(class, level, q) or gearPool(q)
+          if #pool > 0 then g = pool[random(#pool)]; break end
+        end
       end
       if g and TCF:GearUsable(g, class) then it, rarity = g, g.q end
     else
@@ -127,7 +132,12 @@ local function createReel()
     for i, args in ipairs(queue) do
       -- the item the reel landed on takes over a loot box that is already up, so the box
       -- shows what you just watched (everything else still queues behind it)
-      if i == 1 and lr and lr:IsShown() and lr.ShowFront then lr:ShowFront(args)
+      local it, isGear = args[1], args[6]
+      local q = it and (isGear and it.q or it.rarity) or 1
+      if q < 3 and TCF.ShowLootToast then
+        -- a common or green find: the slim line under the Treasure Bag, no loot box
+        TCF:ShowLootToast(it, args[2], args[3], args[4], isGear, true, args[7])
+      elseif i == 1 and lr and lr:IsShown() and lr.ShowFront then lr:ShowFront(args)
       else TCF.ShowLootRevealDirect(TCF, unpack(args, 1, 7)) end
     end
   end
@@ -146,10 +156,9 @@ function TCF:PlayChestReel(it, rarity, chestKey, args)
   -- built once per reel: raid epics for a Raider's Hoard (the ones it can hold for this cat)
   -- or for a Legendary rarity roll (any raid), and the legendaries this class can use
   local raidPool, legends, dungeonPool = {}, {}, nil
-  if ch and TCF.RaidHoardPool then
-    raidPool = TCF:RaidHoardPool(nil, not ch.raidLoot)
-    legends = TCF:LegendariesFor()
-  end
+  local level = (self:CD() and self:CD().level) or 1
+  if ch and TCF.RaidHoardPool and level >= 55 then raidPool = TCF:RaidHoardPool(nil, not ch.raidLoot) end
+  if ch and TCF.LegendariesFor and level >= 60 then legends = TCF:LegendariesFor() end
   -- and for a Dungeon Chest: the dungeon loot it can hold for this cat, by quality
   if ch and ch.dungeonLoot and TCF.DungeonChestPool then dungeonPool = TCF:DungeonChestPool() end
   for i, c in ipairs(f.cards) do
@@ -189,13 +198,14 @@ function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear, coins)
     return self:ShowLootToast(it, isNew, salvage, title, isGear)
   end
   local quality = it and (isGear and it.q or it.rarity) or 1
+  local ch = chestKey and TCF.CHEST_BY_KEY[chestKey]
+  -- every chest you open yourself spins the reel (unless turned off); what it lands on gets the
+  -- loot box only when it is blue (Rare) or better, otherwise the slim line (see Finish)
+  if ch and it and self.db.ui.chestAnim ~= false and not self.openingAll then
+    return self:PlayChestReel(it, quality, chestKey, args)
+  end
   if self.ShowLootToast and it and quality < 3 and not self.openingAll then
     return self:ShowLootToast(it, isNew, salvage, title, isGear, true, coins)
-  end
-  local ch = chestKey and TCF.CHEST_BY_KEY[chestKey]
-  if ch and it and self.db.ui.chestAnim ~= false and not self.openingAll then
-    local rarity = isGear and it.q or it.rarity or 1
-    return self:PlayChestReel(it, rarity, chestKey, args)
   end
   if self.reel and self.reel:IsShown() then table.insert(self.reel.queue, args); return end
   -- no reel (animation off): a single chest opened while the box is up still shows at once

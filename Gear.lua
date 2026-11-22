@@ -684,7 +684,7 @@ end
 -- is a weight for white (Common) gear. Chests never pass it, so chests never give whites.
 -- If the rolled quality has nothing near the level, the search widens (a little higher
 -- level, plus zone and boss loot of zones at this level), then for Rare and Epic to the world
--- items of that quality nearest the level (up to 20 below, 10 above: some levels, like 5-14,
+-- items of that quality nearest the level (up to 20 below, 3 above: some levels, like 5-14,
 -- have no world blues at all), before dropping one quality.
 function TCF:RollWorldLoot(level, class, weights, tier)
   class = class or self.db.class
@@ -701,7 +701,7 @@ function TCF:RollWorldLoot(level, class, weights, tier)
   local suits = function(it) return self:GearSuits(it, class) end
   local usable = function(it) return self:GearUsable(it, class) end
   local function find(wq, test, wide)
-    local lo, hi = level - 8, level + (wide and 5 or 2)
+    local lo, hi = level - 8, level + (wide and 3 or 2)   -- never more than 3 levels above the cat
     local cands, seen = {}, {}
     local function scan(list)
       if not list then return end
@@ -727,9 +727,9 @@ function TCF:RollWorldLoot(level, class, weights, tier)
   -- lowest above it (an upgrade for a little later)
   local function nearest(wq, test)
     local below, above
-    for b = floor(max(0, level - 20) / 5), floor(min(60, level + 10) / 5) do
+    for b = floor(max(0, level - 20) / 5), floor(min(60, level + 3) / 5) do
       for _, it in ipairs(TCF.WORLD_POOL[b] or {}) do
-        if it.q == wq and not it.crafted and it.req >= level - 20 and it.req <= level + 10 and test(it) then
+        if it.q == wq and not it.crafted and it.req >= level - 20 and it.req <= level + 3 and test(it) then
           if it.req <= level then
             if not below or it.req > below[1].req then below = { it } elseif it.req == below[1].req then below[#below + 1] = it end
           else

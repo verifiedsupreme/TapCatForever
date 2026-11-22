@@ -1024,10 +1024,11 @@ TEST = r'''
         TCF:OpenChest("pouch", true)
         if TCF.lastChest and TCF.lastChest.gear then
           gotGear = true
-          if TCF.lastChest.gear.q >= 3 then
-            check(toasts == 0 and TapCatForeverReel and TapCatForeverReel:IsShown(), "blue+ chest gear: the reel plays")
-          else
-            check(toasts == 1 and not (TapCatForeverReel and TapCatForeverReel:IsShown()), "green chest gear: a slim line, no reel")
+          -- 1.5.3.1: every chest opened by hand spins the reel; a green gets the slim line after it
+          check(toasts == 0 and TapCatForeverReel and TapCatForeverReel:IsShown(), "chest gear: the reel plays")
+          if TCF.lastChest.gear.q < 3 and TCF.reel then
+            TCF.reel:Finish()
+            check(toasts == 1, "green chest gear: a slim line after the reel")
           end
         end
         if TapCatForeverReel then TapCatForeverReel:Hide() end
@@ -1785,8 +1786,10 @@ TEST = r'''
         cd.level = lvl
         cd.adv.tier, cd.adv.best = 1, 0
         for k = 1, 15 do
+          -- 1.5.3.1: blue when there is a blue within 3 levels of the cat, else one quality lower
           local g = TCF:ChestGear(TCF.CHEST_BY_KEY.pouch, 3)
-          check(g and g.q == 3, "a blue pouch roll is blue at level " .. lvl .. ": " .. (g and (g.name .. " q" .. g.q) or "nothing"))
+          local want = #TCF:ChestGearPool(nil, lvl, 3) > 0 and 3 or 2
+          check(g and g.q == want and (g.req or 0) <= lvl + 3, "a blue pouch roll at level " .. lvl .. ": " .. (g and (g.name .. " q" .. g.q .. " req " .. (g.req or 0)) or "nothing"))
         end
       end
       cd.level, cd.adv.tier, cd.adv.best = oldLevel, oldTier, oldBest
@@ -2526,7 +2529,8 @@ TEST = r'''
       check((TCF.db.stats.dungeonChests or 0) == stat0 + 360, "Dungeon Chests counted")
       TCF:CheckAchievements()
       check(TCF.db.achievements.dchest1 and TCF.db.achievements.dchest25, "opening Dungeon Chests earns their achievements")
-      check((byQ[3] or 0) > (byQ[2] or 0) and (byQ[2] or 0) > (byQ[4] or 0) and (byQ[4] or 0) > 0 and not byQ[5],
+      -- 1.5.3.1: gear stays within 3 levels of the cat, so low cats get a green where no blue is that close
+      check((byQ[3] or 0) >= (byQ[2] or 0) * 0.7 and (byQ[2] or 0) > (byQ[4] or 0) and (byQ[4] or 0) > 0 and not byQ[5],
         string.format("mostly Rare: %d green, %d blue, %d epic", byQ[2] or 0, byQ[3] or 0, byQ[4] or 0))
       check(bluesFromDungeon >= blues * 0.95, "Rare pieces are dungeon boss loot: " .. bluesFromDungeon .. " of " .. blues)
       check(fromDungeon >= counted * 0.7, "most pieces come from the dungeons reached: " .. fromDungeon .. " of " .. counted)
