@@ -284,9 +284,25 @@ local function ItemCell(parent, size)
   b:SetSize(size, size)
   if b.SetBackdrop then b:SetBackdrop(BACKDROP_PANEL) end
   b.pic = ItemPicture(b, size - 8); b.pic:SetPoint("CENTER")
-  b.check = b:CreateTexture(nil, "OVERLAY"); b.check:SetSize(18, 18)
+  -- the check, the count and the price/source label sit on a layer above the picture (a child
+  -- frame draws over its parent's text, and a faded picture made the label look see-through)
+  b.over = CreateFrame("Frame", nil, b)
+  b.over:SetAllPoints()
+  if b.over.SetFrameLevel and b.pic.GetFrameLevel and b.pic:GetFrameLevel() then b.over:SetFrameLevel(b.pic:GetFrameLevel() + 2) end
+  b.check = b.over:CreateTexture(nil, "OVERLAY"); b.check:SetSize(18, 18)
   b.check:SetPoint("TOPRIGHT", 2, 2); b.check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-  b.count = Text(b, "NumberFontNormalSmall", nil, "RIGHT"); b.count:SetPoint("BOTTOMRIGHT", -4, 4)
+  b.countBg = b.over:CreateTexture(nil, "ARTWORK")
+  b.countBg:SetColorTexture(0, 0, 0, 0.7)
+  b.countBg:SetPoint("BOTTOMLEFT", 3, 3); b.countBg:SetPoint("BOTTOMRIGHT", -3, 3); b.countBg:SetHeight(13)
+  b.countBg:Hide()
+  b.count = b.over:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+  b.count:SetJustifyH("RIGHT"); b.count:SetPoint("BOTTOMRIGHT", -4, 4)
+  -- show the dark strip only when there is text
+  local setText = b.count.SetText
+  b.count.SetText = function(fs, t)
+    setText(fs, t)
+    b.countBg:SetShown(t ~= nil and t ~= "")
+  end
   b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
   function b:SetItem(it, owned, equipped)
     self.item = it
