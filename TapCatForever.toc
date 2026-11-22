@@ -43,6 +43,7 @@ UI_Adventure.lua
 UI_Abilities.lua
 UI_Expeditions.lua
 UI_Professions.lua
+UI_Leaderboard.lua
 Compendium.lua
 Feedback.lua
 NewsData.lua

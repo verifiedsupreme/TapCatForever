@@ -3,10 +3,11 @@
 ## 1.5.3
 
 **Realm leaderboard**
-- New: a leaderboard of the cats of players on your realm. It ranks them by total taps, cat level, achievements earned or Adventure zones cleared, with your own row highlighted. Open it with the Leaderboard button in Settings > Help and info, or /tcf top.
-- It is opt-in, with the same checkbox as the developer stats: Share my cat's progress (developer stats and leaderboard), in Settings > Help and info. It is off by default, and only players who turn it on are on the leaderboard and can see it.
-- The first time you turn it on, the character you are playing gets a Heroic Cache in its Treasure Bag, with one chat line. This happens once for your account: turning it off and on again, or on another character, gives nothing more.
-- When it is on, your addon sends your character's name and realm, your cat's class and level, your total taps, achievements earned, Adventure zones cleared and addon version on an addon channel that TapCatForever players on your realm join when they turn it on. Players pass the list on to each other inside the game, so you also see players you are never online with. Nothing goes over the internet, and the channel never shows in your chat. Anyone who joins that channel could read what is shared there with an addon.
+- New: a Leaderboard tab in the main window, with the cats of players on your realm. Open it with the tab, the Leaderboard button in Settings > Help and info, /tcf top or /tcf leaderboard. The tabs are now two rows of six to make room for it.
+- It has three sections. Total taps ranks everyone by total taps, and you can sort by cat level, achievements earned or Adventure zones cleared instead. Per class has a button for each of the nine classes and ranks players' cats of that class by cat level, with ties going to more taps. Professions ranks Trade Gold earned by all of a player's cats, and the best Blacksmithing, Leatherworking, Tailoring, Herbalism, First Aid, Fishing and Cooking skill of any of their cats. Your own row is highlighted in every section.
+- It is opt-in and off by default. Until you join, the tab shows what the leaderboard is, exactly what is shared and with whom, and a Join the leaderboard button. Joining turns on Share my cat's progress (developer stats and leaderboard) in Settings > Help and info, the same option as the developer stats, which you can also use there. A Leave button on the tab turns it off again after a short question. Only players who joined are on the leaderboard and can see it.
+- The first time you join, the character you are playing gets a Heroic Cache in its Treasure Bag, with one chat line. This happens once for your account: leaving and joining again, or joining on another character, gives nothing more.
+- When it is on, your addon sends your character's name and realm, your cat's class and level, the level of each of your class cats, your total taps, achievements earned, Adventure zones cleared, Trade Gold earned, your best profession skills and addon version on an addon channel that TapCatForever players on your realm join when they turn it on. Players pass the list on to each other inside the game, so you also see players you are never online with. Nothing goes over the internet, and the channel never shows in your chat. Anyone who joins that channel could read what is shared there with an addon.
 - The option is for your whole account, so all your characters share. Since taps and achievements are shared between them, other players may be able to tell your characters on the same realm belong together.
 - The leaderboard fills up over time and can be a little behind. Players not seen for 30 days drop off, and up to 500 players are kept. Turning the option off stops sharing and asks other players to take you off their leaderboard. Players who are offline then hear it later from the others, and each of your other characters that shared asks the next time you log in on it.
 - One player can only add a limited number of other players to your leaderboard each hour, and a player who took themselves off only comes back by sharing again.
@@ -39,11 +40,13 @@
 - Every class starts with a weapon of its own: a sword for Warriors, a mace for Paladins, a bow for Hunters, a dagger for Rogues and Warlocks, an axe for Shamans, and a different staff each for Priests, Mages and Druids.
 - A cat can always wear its class's starter weapon, whatever the weapon's level. A cat still holding the weapon an older version gave it gets the new one, unless that would push out an off-hand item you chose or lower its Power. Then the new one waits in its bag. Hunters keep their bow, and a weapon you picked yourself is left alone.
 - Capes and cloaks now hang down both sides of your cat and tuck in behind it, with no band across the bottom under the paws. Cosmetic capes use the same shape.
+- An Equip best button on the Gear page puts on the gear in your bag that gives your cat the most Power.
 
 **Professions**
 - Herbalism, First Aid, Fishing and Cooking now unlock as each cat earns Trade Gold: 25M, 2.5B, 250B and 2T earned in total. Selling your business for Renown never lowers this, and Renown makes the gold come faster. The old Renown amounts still unlock them too, and professions you already unlocked stay unlocked.
 - When a cat can learn a new profession you get one chat line, once. A cat you aren't playing hears about it the next time you play it.
 - The Professions page shows how much Trade Gold a locked profession needs and how far along this cat is, for example So far: 5.00M (20%).
+- Crafting: an All button next to Craft makes a recipe as many times as your materials allow (up to 50).
 
 **Adventure**
 - Enemies are measured and sized to fit the fight scene, so big ones such as the Foe Reaper 4000 are no longer cut off, and every enemy stands on the ground.

@@ -633,14 +633,16 @@ function TCF:CreateWindow()
   end)
 
   local tabs, pages = {}, {}
-  local TAB_GEAR, TAB_ADVENTURE, TAB_ABILITIES, TAB_EXPEDITIONS, TAB_PROFESSIONS = 1, 2, 3, 4, 5
-  local TAB_WARDROBE, TAB_QUESTS, TAB_SHOP, TAB_ACH, TAB_SETTINGS = 6, 7, 8, 9, 10
-  local tabNames = { "Gear", "Adventure", "Abilities", "Expeditions", "Professions",
-                     "Appearance", "Quests", "Shop", "Achievements", "Settings" }
+  local TAB_GEAR, TAB_ADVENTURE, TAB_ABILITIES, TAB_EXPEDITIONS, TAB_PROFESSIONS, TAB_WARDROBE = 1, 2, 3, 4, 5, 6
+  local TAB_QUESTS, TAB_SHOP, TAB_ACH, TAB_LEADERBOARD, TAB_SETTINGS = 7, 8, 9, 10, 11
+  local tabNames = { "Gear", "Adventure", "Abilities", "Expeditions", "Professions", "Appearance",
+                     "Quests", "Shop", "Achievements", "Leaderboard", "Settings" }
   local builderKeys = { [TAB_GEAR] = "gear", [TAB_ADVENTURE] = "adventure", [TAB_ABILITIES] = "abilities",
-                        [TAB_EXPEDITIONS] = "expeditions", [TAB_PROFESSIONS] = "professions" }
+                        [TAB_EXPEDITIONS] = "expeditions", [TAB_PROFESSIONS] = "professions",
+                        [TAB_LEADERBOARD] = "leaderboard" }
   local pageRefresh = {}
-  win.TAB_GEAR = TAB_GEAR
+  win.TAB_GEAR, win.TAB_LEADERBOARD, win.TAB_SETTINGS = TAB_GEAR, TAB_LEADERBOARD, TAB_SETTINGS
+  win.tabNames = tabNames
   local SelectTab -- defined below
   function win:SelectTab(i) SelectTab(i) end
 
@@ -727,8 +729,11 @@ function TCF:CreateWindow()
   local statLines = Text(left, "GameFontHighlightSmall", nil, "LEFT")
   statLines:SetPoint("TOPLEFT", 12, -402); statLines:SetWidth(292); statLines:SetSpacing(3)
 
-  ------------------------------------------------ right column: two rows of tabs
+  ------------------------------------------------ right column: two rows of six tabs over the 560 wide panel
   local right = Panel(win, W - 360, H - 126); right:SetPoint("TOPLEFT", left, "TOPRIGHT", 12, -60)
+  -- 5 steps plus one tab fill the 560 wide panel exactly (5 * 93.6 + 92 = 560)
+  local TAB_W, TAB_STEP, TAB_ROW = 92, 93.6, 6
+  win.tabButtons, win.tabWidth, win.tabStep = tabs, TAB_W, TAB_STEP
   SelectTab = function(i)
     win.tab = i
     for j, p in ipairs(pages) do p:SetShown(j == i) end
@@ -736,12 +741,30 @@ function TCF:CreateWindow()
     win:Refresh()
   end
   for i, n in ipairs(tabNames) do
-    local b = Button(win, n, 104, 24, function() SelectTab(i); TCF:PlaySound("click") end)
-    local col, row = (i - 1) % 5, i <= 5 and 1 or 0
-    b:SetPoint("BOTTOMLEFT", right, "TOPLEFT", col * 107, 4 + row * 27)
+    local b = Button(win, n, TAB_W, 24, function() SelectTab(i); TCF:PlaySound("click") end)
+    local col, row = (i - 1) % TAB_ROW, i <= TAB_ROW and 1 or 0
+    b:SetPoint("BOTTOMLEFT", right, "TOPLEFT", col * TAB_STEP, 4 + row * 27)
     tabs[i] = b
     local p = CreateFrame("Frame", nil, right); p:SetAllPoints(); p:Hide()
     pages[i] = p
+  end
+  -- every label has to fit its tab ("Achievements" is the longest), clear of the button's rounded
+  -- ends (5 px each side): if one doesn't in this client's font, all the tabs use the small font
+  -- so they still match
+  do
+    local tooWide = false
+    for _, b in ipairs(tabs) do
+      local fs = b.GetFontString and b:GetFontString()
+      local w = fs and fs.GetStringWidth and fs:GetStringWidth()
+      if type(w) == "number" and w > TAB_W - 10 then tooWide = true end
+    end
+    if tooWide then
+      for _, b in ipairs(tabs) do
+        b:SetNormalFontObject("GameFontNormalSmall"); b:SetHighlightFontObject("GameFontHighlightSmall")
+        b:SetDisabledFontObject("GameFontDisableSmall")
+      end
+    end
+    win.tabSmallFont = tooWide
   end
   -- pages built by UI_*.lua files
   for i, key in pairs(builderKeys) do
@@ -1264,8 +1287,9 @@ function TCF:CreateWindow()
       "Developer stats: when the developer of TapCatForever asks, your addon answers with the addon version, " ..
       "your cat's class, cat level, zones cleared and TapCoins. This is only shared with the addon's developer " ..
       "(checked by character name), and only while you are both online.\n\n" ..
-      "Realm leaderboard: your character's name and realm, your cat's class and cat level, your total taps, " ..
-      "achievements earned, Adventure zones cleared and addon version are sent on an addon channel that " ..
+      "Realm leaderboard: your character's name and realm, your cat's class and cat level, the level of each of " ..
+      "your class cats, your total taps, achievements earned, Adventure zones cleared, Trade Gold earned, best " ..
+      "profession skills and addon version are sent on an addon channel that " ..
       "TapCatForever players on your realm join when they turn this on. They pass it on to each other, so it can " ..
       "reach players you are never online with. In return you see their cats on the leaderboard. Nothing else is sent.\n\n" ..
       "This setting applies to every character on your account. Each of them joins the channel and shares its own " ..
@@ -1277,12 +1301,12 @@ function TCF:CreateWindow()
       "offline then hear it later from the others, and each of your other characters that shared asks the next time " ..
       "you log in on it.\n\n" ..
       "The first time you turn it on, your cat gets a Heroic Cache.",
-      function() if TCF.DevShareChanged then TCF:DevShareChanged() end end)
+      function() if TCF.SetShareProgress then TCF:SetShareProgress(ui.shareDev) end end)
     table.remove(checks)
     win.settingsShare = shareCB
-    PageButton("Leaderboard", COL[4], gy + 28, COL_W, function() TCF:ToggleLeaderboard(); TCF:PlaySound("click") end,
-      "Leaderboard", "Players on your realm who share their cat's progress, ranked by taps, cat level, achievements or zones. " ..
-      "Turn on the sharing option beside it to see it. Also /tcf top.")
+    PageButton("Leaderboard", COL[4], gy + 28, COL_W, function() TCF:ShowLeaderboard(); TCF:PlaySound("click") end,
+      "Leaderboard", "Opens the Leaderboard tab: players on your realm who share their cat's progress, by total taps, " ..
+      "per class and by professions. Join there, or turn on the sharing option beside this button. Also /tcf top.")
 
     -- notes between Help and Progress (y 363 to 431): the party note, then the help line, or
     -- the test mode buttons in place of both while test mode is on

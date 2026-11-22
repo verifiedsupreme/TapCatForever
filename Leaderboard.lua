@@ -18,12 +18,21 @@
 --     don't bring the player back. Only the player's own summary, heard from them, clears the note.
 --   * Limits per sender: a few messages a minute and a few new players an hour each, so one
 --     character can't flood the board. Nothing is signed, so a summary can still be made up.
+--   * The board is the Leaderboard tab of the main window (UI_Leaderboard.lua): Total taps, Per class
+--     and Professions sections, or the opt-in panel for players who haven't joined.
 --
 -- Protocol (prefix "TapCatFvr", CHANNEL only, every field checked; older versions ignore it):
 --   L1;<Name-Realm>;<class>;<level>;<taps>;<achievements>;<zones>;<version>;<time>   one player's summary
+--   L2;<Name-Realm>;<time>;<levels>;<gold>;<skills>[;...]                            the extra fields (1.5.3)
 --   R1;<time>                                                                        take me off
 --   X1;<Name-Realm>;<time>                                                           that player took themselves off
 -- <time> is the realm's clock (GetServerTime), so summaries from different players compare fairly.
+-- L2 always follows its player's L1 (own summary and passed on alike) and has its own time: the newest
+-- L2 of a player on the board wins, and it never adds a player. Clients that only know L1 skip it.
+--   <levels>  the cat level of each class, in LB_CLASSES order, "." between them (0 = no cat)
+--   <gold>    Trade Gold earned in total by all the player's cats: digits, or <digits>e<exponent>
+--   <skills>  the best skill of any of the player's cats, in LB_SKILLS order, "." between them
+-- A later version may add more numbers to a list or more fields at the end; they are skipped.
 local ADDON, TCF = ...
 local floor, min, max, random = math.floor, math.min, math.max, math.random
 
@@ -42,16 +51,23 @@ local RELAY_FRESH = 15 * 60          -- an entry heard on the channel this recen
 local RELAY_AGAIN = 60 * 60          -- and we pass on the same entry at most once an hour (newcomers aside)
 local HELLO_GAP = 2 * 60             -- at most one newcomer batch this often
 local SEND_GAP = 2                   -- seconds between our messages
-local SEND_BUDGET, SEND_WINDOW = 15, 600     -- at most 15 messages in 10 minutes
+local SEND_BUDGET, SEND_WINDOW = 30, 600     -- at most 30 messages in 10 minutes (an L1 and its L2 are two)
 local READ_BUDGET, READ_WINDOW = 240, 60     -- at most 240 messages read a minute; the rest are ignored
-local SENDER_MSGS, SENDER_WINDOW = 20, 600   -- at most 20 messages read from one sender in 10 minutes
+local SENDER_MSGS, SENDER_WINDOW = 40, 600   -- at most 40 messages read from one sender in 10 minutes
 local SENDER_ADDS, SENDER_ADD_WINDOW = 40, 3600   -- and at most 40 players added or taken off by them an hour
 local REMOVE_GAP = 10                -- seconds between two of our "take me off" (unless we shared in between)
-local MAX_QUEUE, QUEUE_TTL = 8, 120
-local ROWS = 14                      -- rows shown at once (the mouse wheel scrolls)
+local MAX_QUEUE, QUEUE_TTL = 12, 120
 
 TCF.LB_MAX_ENTRIES, TCF.LB_EXPIRE, TCF.LB_SEND_BUDGET, TCF.LB_READ_BUDGET = MAX_ENTRIES, EXPIRE, SEND_BUDGET, READ_BUDGET
 TCF.LB_SENDER_MSGS, TCF.LB_SENDER_ADDS = SENDER_MSGS, SENDER_ADDS
+
+-- the order of the numbers in an L2 message: never reorder, only add at the end
+local LB_CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
+local LB_SKILLS = { "blacksmithing", "leatherworking", "tailoring", "herbalism", "firstaid", "fishing", "cooking" }
+local CLASS_INDEX, SKILL_INDEX = {}, {}
+for i, k in ipairs(LB_CLASSES) do CLASS_INDEX[k] = i end
+for i, k in ipairs(LB_SKILLS) do SKILL_INDEX[k] = i end
+TCF.LB_CLASSES, TCF.LB_SKILLS = LB_CLASSES, LB_SKILLS
 
 local function isSecret(v) return TCF.IsSecret and TCF.IsSecret(v) end
 local function plain(v) return type(v) == "string" and not isSecret(v) end
@@ -113,6 +129,22 @@ local function validEntry(e)
     and type(e.v) == "string" and #e.v <= 16 and type(e.ts) == "number" and e.ts > 0
 end
 
+-- the extra fields of an L2: x = { lv = { level per LB_CLASSES }, g = Trade Gold, sk = { skill per LB_SKILLS } }
+local MAX_GOLD = 1e100
+local function validList(l, n, hi)
+  if type(l) ~= "table" or #l ~= n then return false end
+  for i = 1, n do
+    local v = l[i]
+    if type(v) ~= "number" or v < 0 or v > hi or v ~= floor(v) then return false end
+  end
+  return true
+end
+local function validExtra(x)
+  return type(x) == "table" and validList(x.lv, #LB_CLASSES, 200) and validList(x.sk, #LB_SKILLS, 999)
+    and type(x.g) == "number" and x.g >= 0 and x.g < MAX_GOLD and x.g == x.g
+end
+TCF.LeaderboardValidExtra = validExtra
+
 local pruned = {}   -- realm -> true once tidied this session
 
 -- drop anything odd, too old or too far ahead, and keep the newest MAX_ENTRIES
@@ -122,6 +154,7 @@ local function prune(b, t)
     if type(k) ~= "string" or not validEntry(e) or keyOf(e.n) ~= k or e.ts < t - EXPIRE or e.ts > t + SKEW then
       b.e[k] = nil
     else
+      if e.x ~= nil and not (validExtra(e.x) and type(e.xts) == "number" and e.xts > 0 and e.xts <= t + SKEW) then e.x, e.xts = nil, nil end
       n = n + 1; list[n] = k
     end
   end
@@ -187,6 +220,69 @@ local function parseEntry(text)
 end
 TCF.LeaderboardParse = parseEntry
 
+-- Trade Gold as it travels: whole numbers up to 7 digits, then 7 digits and a power of ten
+local function bigText(n)
+  n = max(0, floor(n))
+  if n < 1e7 then return numStr(n) end
+  local e = floor(math.log10(n)) - 6
+  local m = floor(n / 10 ^ e)
+  if m >= 1e7 then m, e = floor(m / 10), e + 1 end
+  return numStr(m) .. "e" .. numStr(e)
+end
+local function parseBig(s)
+  local m, e = s:match("^(%d+)e(%d+)$")
+  if m then
+    if #m > 7 or #e > 2 then return nil end
+    local v = tonumber(m) * 10 ^ tonumber(e)
+    return v < MAX_GOLD and v or nil
+  end
+  if not s:find("^%d+$") or #s > 7 then return nil end
+  return tonumber(s)
+end
+TCF.LeaderboardBigText, TCF.LeaderboardParseBig = bigText, parseBig
+
+-- the L2 for entry e (nil without extra fields)
+local function extraText(e)
+  local x = e.x
+  if not validExtra(x) or type(e.xts) ~= "number" then return nil end
+  local lv, sk = {}, {}
+  for i = 1, #LB_CLASSES do lv[i] = numStr(x.lv[i]) end
+  for i = 1, #LB_SKILLS do sk[i] = numStr(x.sk[i]) end
+  local text = "L2;" .. e.n .. ";" .. numStr(e.xts) .. ";" .. table.concat(lv, ".") .. ";" .. bigText(x.g) .. ";" .. table.concat(sk, ".")
+  return #text <= 250 and text or nil
+end
+TCF.LeaderboardExtraText = extraText
+
+-- "1.2.3" -> { 1, 2, 3 }: at least n numbers of up to 3 digits; more (from a later version) are skipped
+local function numList(s, n, hi)
+  if #s > 120 then return nil end
+  local out = {}
+  for part in (s .. "."):gmatch("([^%.]*)%.") do
+    if not part:find("^%d+$") or #part > 3 then return nil end
+    if #out < n then
+      local v = tonumber(part)
+      if v > hi then return nil end
+      out[#out + 1] = v
+    end
+  end
+  return #out == n and out or nil
+end
+
+-- an L2: the player's name, the time, and x; nil when anything is off
+local function parseExtra(text)
+  if not plain(text) or #text > 255 then return nil end
+  local n, ts, lv, g, sk = text:match("^L2;([^;|]+);(%d+);([%d%.]+);([%de]+);([%d%.]+)")
+  if not n or #ts > 11 or not validName(n) then return nil end
+  -- whatever follows must be a new field (";..."), not more of the last one
+  local rest = text:sub(#("L2;" .. n .. ";" .. ts .. ";" .. lv .. ";" .. g .. ";" .. sk) + 1)
+  if rest ~= "" and rest:sub(1, 1) ~= ";" then return nil end
+  local x = { lv = numList(lv, #LB_CLASSES, 200), g = parseBig(g), sk = numList(sk, #LB_SKILLS, 999) }
+  ts = tonumber(ts)
+  if not ts or ts <= 0 or not validExtra(x) then return nil end
+  return n, ts, x
+end
+TCF.LeaderboardParseExtra = parseExtra
+
 local function parseRemove(text)
   if not plain(text) or #text > 20 then return nil end
   local ts = text:match("^R1;(%d+)$")
@@ -226,6 +322,11 @@ local function merge(b, e, t, mine, direct)
   local cur = b.e[k]
   local copy = { n = e.n, c = e.c, l = e.l, t = e.t, a = e.a, z = e.z, v = e.v, ts = e.ts,
     d = (direct or (cur and cur.d)) and true or nil }
+  -- the extra fields: the newest of what we had and what came with e (an L2 follows its L1)
+  if cur and cur.x then copy.x, copy.xts = cur.x, cur.xts end
+  if validExtra(e.x) and type(e.xts) == "number" and e.xts <= t + SKEW and (not copy.xts or e.xts > copy.xts) then
+    copy.x, copy.xts = e.x, e.xts
+  end
   if cur then
     if cur.ts >= e.ts then return nil, "older" end
     b.e[k] = copy; b.rm[k] = nil; b.rmn[k] = nil
@@ -248,6 +349,22 @@ local function merge(b, e, t, mine, direct)
   return "added"
 end
 TCF.LeaderboardMerge = merge
+
+-- An L2 for key k: only for a player already on the board, newest wins, never older than the
+-- player's "take me off", never about yourself. Returns "updated", or nil and why not.
+local function mergeExtra(b, k, x, xts, t, mine)
+  if mine and k == mine then return nil, "self" end
+  if xts > t + SKEW then return nil, "future" end
+  if xts < t - EXPIRE then return nil, "old" end
+  local rm = b.rm[k]
+  if rm and rm >= xts then return nil, "removed" end
+  local cur = b.e[k]
+  if not cur then return nil, "unknown" end
+  if cur.xts and cur.xts >= xts then return nil, "older" end
+  cur.x, cur.xts = x, xts
+  return "updated"
+end
+TCF.LeaderboardMergeExtra = mergeExtra
 
 -- a "take me off" for key k at time ts: from the player (R1) or passed on (X1). `name` is kept so
 -- the note can be passed on. Returns true when it changed the board.
@@ -287,12 +404,39 @@ function TCF:LeaderboardOwnEntry()
   local s = self.DevSummary and self:DevSummary()
   local v = s and s.version or "?"
   if not v:find("^[%w%.%-]+$") then v = "?" end
+  local ts = serverNow()
   return { n = full, c = db.class, l = max(1, min(200, floor(cd and cd.level or 1))), t = max(0, floor(db.taps or 0)),
-    a = countAchievements(), z = min(200, TCF.DevZonesCleared and TCF.DevZonesCleared() or 0), v = v, ts = serverNow() }
+    a = countAchievements(), z = min(200, TCF.DevZonesCleared and TCF.DevZonesCleared() or 0), v = v, ts = ts,
+    x = self:LeaderboardOwnExtra(), xts = ts }
+end
+
+-- every class cat's level, Trade Gold earned by all the cats, and the best skill of any cat
+function TCF:LeaderboardOwnExtra()
+  local db = self.db
+  local lv, sk, g = {}, {}, 0
+  for i, ck in ipairs(LB_CLASSES) do
+    local cd = type(db.classData) == "table" and db.classData[ck]
+    local l = type(cd) == "table" and tonumber(cd.level) or 0
+    lv[i] = max(0, min(200, floor(l)))
+  end
+  for i = 1, #LB_SKILLS do sk[i] = 1 end   -- a skill is at least 1, as ProfSkill says
+  if TCF.TradeClasses and self.ProfState then
+    for _, ck in ipairs(TCF.TradeClasses(self)) do
+      local s = self:ProfState(ck)
+      if type(s) == "table" then
+        g = g + max(0, tonumber(s.lifetime) or 0)
+        for i, key in ipairs(LB_SKILLS) do
+          local v = type(s.skill) == "table" and tonumber(s.skill[key]) or 1
+          sk[i] = max(sk[i], max(0, min(999, floor(v))))
+        end
+      end
+    end
+  end
+  return { lv = lv, g = min(g, MAX_GOLD * 0.99), sk = sk }
 end
 
 ---------------------------------------------------------------- sending
-local queue = {}            -- { text, own, at, tries, key (a relay: the player it is about) }
+local queue = {}            -- { text, own, at, tries, key (a relay: the player it is about), follow (an L2 after its L1) }
 local sentAt = {}           -- GetTime of our recent messages (SEND_BUDGET)
 local lastSend = -1e9
 local ownAt, lastOwnAt, lastOwn = nil, -1e9, nil
@@ -305,10 +449,10 @@ local senderMsgs, senderAdds, lastSweep = {}, {}, -1e9   -- sender key -> GetTim
 local lastRemoveAt = -1e9
 local signupPending = false
 local dirty = false
-local view
 
-local function enqueue(text, own, key)
-  if not text then return end
+-- text (an L1) and, right after it, extra (its L2, or nil)
+local function enqueue(text, own, key, extra)
+  if not text then return false end
   local t = now()
   for i = #queue, 1, -1 do
     if not queue[i].own and t - queue[i].at > QUEUE_TTL then table.remove(queue, i) end
@@ -316,9 +460,19 @@ local function enqueue(text, own, key)
   if own then
     for i = #queue, 1, -1 do if queue[i].own then table.remove(queue, i) end end   -- only the newest summary
     table.insert(queue, 1, { text = text, own = true, at = t, tries = 0 })
-  elseif #queue < MAX_QUEUE then
-    queue[#queue + 1] = { text = text, at = t, tries = 0, key = key }
+    if extra then table.insert(queue, 2, { text = extra, own = true, at = t, tries = 0, follow = true }) end
+    return true
   end
+  if #queue + (extra and 2 or 1) > MAX_QUEUE then return false end
+  queue[#queue + 1] = { text = text, at = t, tries = 0, key = key }
+  if extra then queue[#queue + 1] = { text = extra, at = t, tries = 0, key = key, follow = true } end
+  return true
+end
+
+-- drops the L2 waiting right behind an L1 that won't go out
+local function dropFollow(item)
+  local nxt = queue[1]
+  if nxt and nxt.follow and not item.follow and nxt.key == item.key and nxt.own == item.own then table.remove(queue, 1) end
 end
 
 -- the account's characters that shared (db.ui.lbShared) and those still to send "take me off" (db.ui.lbRemove)
@@ -368,7 +522,7 @@ local function pump(t)
   if not id or not TCF.DevSendRaw then return end   -- waiting for the channel
   local item = table.remove(queue, 1)
   -- someone else passed this one on while ours waited: no need to send it again
-  if item.key and heardAt[item.key] and heardAt[item.key] >= item.at then return pump(t) end
+  if item.key and not item.follow and heardAt[item.key] and heardAt[item.key] >= item.at then dropFollow(item); return pump(t) end
   lastSend = t
   if item.own then
     -- counted as shared even when the game reports a failure: it may still have gone out
@@ -378,10 +532,10 @@ local function pump(t)
   end
   if TCF.DevSendRaw(item.text, "CHANNEL", id) then
     sentAt[#sentAt + 1] = t
-    if item.key then heardAt[item.key], relayedAt[item.key] = t, t end   -- the others online heard it from us
+    if item.key and not item.follow then heardAt[item.key], relayedAt[item.key] = t, t end   -- the others online heard it from us
   else
     item.tries = item.tries + 1   -- throttled or blocked: try once or twice more
-    if item.tries < 3 then table.insert(queue, 1, item) end
+    if item.tries < 3 then table.insert(queue, 1, item) else dropFollow(item) end
   end
 end
 
@@ -424,13 +578,10 @@ local function relay(t, since, hourly)
   if not b or not channel() then return 0 end
   local n = 0
   for _, k in ipairs(pickRelays(t, since, hourly)) do
-    local text
-    if b.e[k] then text = entryText(b.e[k])
+    local text, extra
+    if b.e[k] then text, extra = entryText(b.e[k]), extraText(b.e[k])
     elseif b.rm[k] and b.rmn[k] then text = removalText(b.rmn[k], b.rm[k]) end
-    if text and #queue < MAX_QUEUE then
-      enqueue(text, nil, k)
-      n = n + 1
-    end
+    if text and enqueue(text, nil, k, extra) then n = n + 1 end
   end
   return n
 end
@@ -454,13 +605,17 @@ local function sendRemove(t)
   return true
 end
 
-local function snapshot(e) return { c = e.c, l = e.l, a = e.a, z = e.z, t = e.t } end
+local function sum(l) local n = 0; for _, v in ipairs(l) do n = n + v end; return n end
+local function snapshot(e)
+  return { c = e.c, l = e.l, a = e.a, z = e.z, t = e.t, lv = e.x and table.concat(e.x.lv, "."), sk = e.x and sum(e.x.sk) or 0,
+    g = e.x and e.x.g or 0 }
+end
 
 -- our own summary, then (unless noRelay) a few entries the others online haven't heard lately
 local function sendOwn(t, noRelay)
   local e = TCF:LeaderboardOwnEntry()
   if not e then return false end
-  enqueue(entryText(e), true)
+  enqueue(entryText(e), true, nil, extraText(e))
   lastOwnAt, lastOwn = t, snapshot(e)
   ownAt = t + OWN_GAP + random() * OWN_JITTER
   if not noRelay then relay(t, t - RELAY_FRESH, true) end
@@ -468,13 +623,16 @@ local function sendOwn(t, noRelay)
   return true
 end
 
--- a level, an achievement, a zone or a quarter more taps since our last summary
+-- a level (of any class cat), an achievement, a zone, a quarter more taps, 10 more skill points or
+-- twice the Trade Gold since our last summary
 local function bigChange()
   if not lastOwn then return false end
   local e = TCF:LeaderboardOwnEntry()
   if not e then return false end
+  local now_ = snapshot(e)
   return e.c ~= lastOwn.c or e.l ~= lastOwn.l or e.a ~= lastOwn.a or e.z ~= lastOwn.z
-    or e.t >= lastOwn.t * 1.25 + 500
+    or e.t >= lastOwn.t * 1.25 + 500 or now_.lv ~= lastOwn.lv or now_.sk >= lastOwn.sk + 10
+    or now_.g >= lastOwn.g * 2 + 1e6
 end
 
 ---------------------------------------------------------------- receiving
@@ -532,7 +690,7 @@ local function onAddon(prefix, text, chan, sender, chanName)
   if isSecret(prefix) or prefix ~= PREFIX then return end
   if not plain(text) or not plain(chan) or not plain(sender) or chan ~= "CHANNEL" then return end
   local kind = text:sub(1, 3)
-  if kind ~= "L1;" and kind ~= "R1;" and kind ~= "X1;" then return end
+  if kind ~= "L1;" and kind ~= "L2;" and kind ~= "R1;" and kind ~= "X1;" then return end
   if isSecret(chanName) then return end
   if type(chanName) == "string" and chanName ~= "" and not chanName:lower():find(CHANNEL:lower(), 1, true) then return end
   local sk = keyOf(sender)
@@ -570,6 +728,14 @@ local function onAddon(prefix, text, chan, sender, chanName)
         helloAt, helloSince = t + 5 + random() * 15, t
       end
     end
+  elseif kind == "L2;" then
+    -- the extra fields of a player already on the board
+    local n, ts, x = parseExtra(text)
+    if not n then return end
+    local k = keyOf(n)
+    if not k then return end
+    if k ~= sk and b.rm[k] then return end   -- like L1: only the player's own brings them back
+    if mergeExtra(b, k, x, ts, st, mine) then dirty = true end
   elseif kind == "R1;" then
     -- the player's own "take me off"
     local ts = parseRemove(text)
@@ -640,31 +806,79 @@ local SORTS = {
 }
 TCF.LB_SORTS = SORTS
 
--- everyone on your realm's board and you, ranked by sortKey ("taps", "level", "ach" or "zones");
--- empty when you don't share
-function TCF:LeaderboardRows(sortKey)
+-- the boards of the Professions section: { key, name, heading, icon }
+local PROF_BOARDS = {
+  { "gold", "Trade Gold", "Trade Gold earned by all cats", "INV_Misc_Coin_02" },
+  { "blacksmithing", "Blacksmithing", "Best Blacksmithing skill", "Trade_BlackSmithing" },
+  { "leatherworking", "Leatherworking", "Best Leatherworking skill", "Trade_LeatherWorking" },
+  { "tailoring", "Tailoring", "Best Tailoring skill", "Trade_Tailoring" },
+  { "herbalism", "Herbalism", "Best Herbalism skill", "Trade_Herbalism" },
+  { "firstaid", "First Aid", "Best First Aid skill", "Spell_Holy_SealOfSacrifice" },
+  { "fishing", "Fishing", "Best Fishing skill", "Trade_Fishing" },
+  { "cooking", "Cooking", "Best Cooking skill", "INV_Misc_Food_15" },
+}
+TCF.LB_PROF_BOARDS = PROF_BOARDS
+
+-- A section's value for entry e: nil when e is not on that board.
+--   "taps": the sort column. "class": that class cat's level (from L2, or L1 for the class being
+--   played). "prof": Trade Gold or a skill (L2 only). Your own row is always there.
+local function sectionValue(e, section, sub)
+  if section == "class" then
+    if e.c == sub then return e.l end   -- the class they play: L1's level is the freshest
+    local i = CLASS_INDEX[sub]
+    local v = i and e.x and e.x.lv[i]
+    if v and (v >= 2 or e.self) then return v end
+    return e.self and 1 or nil
+  elseif section == "prof" then
+    local v
+    if sub == "gold" then v = e.x and e.x.g
+    else local i = SKILL_INDEX[sub]; v = i and e.x and e.x.sk[i] end
+    if v and (v > (sub == "gold" and 0 or 1) or e.self) then return v end
+    return e.self and (sub == "gold" and 0 or 1) or nil
+  end
+  return e[(SORTS[sub] or SORTS.taps)[1]]
+end
+
+-- Everyone on your realm's board and you, ranked for a section of the Leaderboard tab:
+--   ("taps", sortKey)    sortKey "taps", "level", "ach" or "zones"
+--   ("class", classKey)  by that class cat's level, ties by taps
+--   ("prof", boardKey)   "gold" or a skill key from LB_SKILLS
+-- Each row has the entry's fields, rank, val (the section's number) and self for your own.
+-- Empty when you don't share.
+function TCF:LeaderboardSection(section, sub)
   local list = {}
   if not optedIn() then return list end
-  local field = (SORTS[sortKey] or SORTS.taps)[1]
+  if section ~= "class" and section ~= "prof" then section = "taps" end
+  if section == "taps" and not SORTS[sub] then sub = "taps" end
+  if section == "class" and not CLASS_INDEX[sub] then sub = self.db.class end
+  if section == "prof" and sub ~= "gold" and not SKILL_INDEX[sub] then sub = "gold" end
   local mine, st = myKey(), serverNow()
+  local function add(e, isSelf)
+    local r = { n = e.n, c = e.c, l = e.l, t = e.t, a = e.a, z = e.z, v = e.v, ts = e.ts, x = e.x, self = isSelf }
+    r.val = sectionValue(r, section, sub)
+    if r.val then list[#list + 1] = r end
+  end
   local b = board(false)
   if b then
     for k, e in pairs(b.e) do
-      if k ~= mine and fresh(e.ts, st) then   -- 30 days old during a long session: gone at once
-        list[#list + 1] = { n = e.n, c = e.c, l = e.l, t = e.t, a = e.a, z = e.z, v = e.v, ts = e.ts }
-      end
+      if k ~= mine and fresh(e.ts, st) then add(e) end   -- 30 days old during a long session: gone at once
     end
   end
   local own = self:LeaderboardOwnEntry()
-  if own then own.self = true; list[#list + 1] = own end
+  if own then add(own, true) end
   table.sort(list, function(x, y)
-    if x[field] ~= y[field] then return x[field] > y[field] end
+    if x.val ~= y.val then return x.val > y.val end
     if x.t ~= y.t then return x.t > y.t end
     if x.l ~= y.l then return x.l > y.l end
     return x.n < y.n
   end)
   for i, r in ipairs(list) do r.rank = i end
   return list
+end
+
+-- the Total taps board, ranked by sortKey ("taps", "level", "ach" or "zones")
+function TCF:LeaderboardRows(sortKey)
+  return self:LeaderboardSection("taps", SORTS[sortKey] and sortKey or "taps")
 end
 
 local function ago(ts, t)
@@ -676,162 +890,33 @@ local function ago(ts, t)
 end
 TCF.LeaderboardAgo = ago
 
-local function displayName(full)
+-- "Name" for players on your realm, "Name-Realm" otherwise
+function TCF.LeaderboardDisplayName(full)
   local n, r = full:match("^([^%-]+)%-(.+)$")
   local mine = myRealm()
   if n and mine and r:lower() == mine:lower() then return n end
   return full
 end
+TCF.LeaderboardRealm = myRealm
+TCF.LeaderboardServerNow = serverNow
+TCF.LeaderboardOptedIn = optedIn
 
----------------------------------------------------------------- the window
--- { title, x, width, sort key }
-local COLS = { { "#", 0, 30 }, { "Name", 32, 150 }, { "Cat level", 184, 60, "level" }, { "Taps", 246, 92, "taps" },
-  { "Achievements", 340, 90, "ach" }, { "Zones", 432, 46, "zones" }, { "Last seen", 480, 76 } }
-local W = 588
-
-local function openSettings()
-  if not TCF.window and TCF.CreateWindow then TCF:CreateWindow() end
-  local win = TCF.window
-  if not win then return end
-  win:Show()
-  if win.SelectTab then win:SelectTab(10) end
+-- whether the board changed since the Leaderboard tab last drew it; clear: it is drawing now
+function TCF.LeaderboardDirty(clear)
+  local d = dirty
+  if clear then dirty = false end
+  return d
 end
 
-local function createView()
-  local U = TCF.UI
-  local f = CreateFrame("Frame", "TapCatForeverLeaderboard", UIParent, U and U.BT)
-  f:SetSize(W, 150 + ROWS * 18); f:SetPoint("CENTER", 0, 30)
-  f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
-  f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  if f.SetBackdrop and U and U.BACKDROP_DIALOG then f:SetBackdrop(U.BACKDROP_DIALOG) end
-  f:Hide()
-  tinsert(UISpecialFrames, "TapCatForeverLeaderboard")
-  local function T(font, parent) return (parent or f):CreateFontString(nil, "OVERLAY", font) end
-  f.title = T("GameFontNormalLarge"); f.title:SetPoint("TOP", 0, -16)
-  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", -6, -6)
-  f.sort = "taps"
-  f.scroll = 0
-
-  -- column headings; the ones with a sort key are buttons
-  f.heads = {}
-  for i, c in ipairs(COLS) do
-    local h
-    if c[4] then
-      h = CreateFrame("Button", nil, f)
-      h:SetSize(c[3], 16); h:SetPoint("TOPLEFT", 16 + c[2], -44)
-      h.label = T("GameFontNormalSmall", h); h.label:SetPoint("LEFT", 0, 0); h.label:SetJustifyH("LEFT")
-      h.sortKey = c[4]
-      h:SetScript("OnClick", function() f.sort = c[4]; f.scroll = 0; f:Refresh(); TCF:PlaySound("click") end)
-      if U and U.Tip then
-        U.Tip(h, function(tt) tt:AddLine("Sort by " .. SORTS[c[4]][2]:lower(), 1, 0.82, 0) end)
-      end
-    else
-      h = CreateFrame("Frame", nil, f)
-      h:SetSize(c[3], 16); h:SetPoint("TOPLEFT", 16 + c[2], -44)
-      h.label = T("GameFontNormalSmall", h); h.label:SetPoint("LEFT", 0, 0); h.label:SetJustifyH("LEFT")
-    end
-    h.label:SetText(c[1])
-    f.heads[i] = h
-  end
-
-  f.rows = {}
-  for r = 1, ROWS do
-    local row = { cells = {} }
-    local y = -44 - r * 18
-    row.hl = f:CreateTexture(nil, "BACKGROUND")
-    row.hl:SetPoint("TOPLEFT", 12, y + 2); row.hl:SetSize(W - 24, 18)
-    row.hl:SetColorTexture(1, 0.82, 0.2, 0.18)
-    for i, c in ipairs(COLS) do
-      local t = T("GameFontHighlightSmall"); t:SetPoint("TOPLEFT", 16 + c[2], y); t:SetWidth(c[3]); t:SetJustifyH("LEFT")
-      if t.SetWordWrap then t:SetWordWrap(false) end
-      row.cells[i] = t
-    end
-    f.rows[r] = row
-  end
-
-  f.empty = T("GameFontHighlight"); f.empty:SetPoint("TOP", 0, -96); f.empty:SetWidth(W - 80)
-  if f.empty.SetJustifyH then f.empty:SetJustifyH("CENTER") end
-  f.settingsBtn = (U and U.Button or function(p, txt, w, h, fn)
-    local b = CreateFrame("Button", nil, p, "UIPanelButtonTemplate"); b:SetSize(w, h); b:SetText(txt); b:SetScript("OnClick", fn); return b
-  end)(f, "Open Settings", 120, 22, function() openSettings(); TCF:PlaySound("click") end)
-  f.settingsBtn:SetPoint("TOP", f.empty, "BOTTOM", 0, -12)
-  f.count = T("GameFontDisableSmall"); f.count:SetPoint("BOTTOMRIGHT", -18, 70); f.count:SetJustifyH("RIGHT")
-  f.note = T("GameFontDisableSmall"); f.note:SetPoint("BOTTOMLEFT", 18, 16); f.note:SetWidth(W - 36); f.note:SetJustifyH("LEFT")
-  f.note:SetText("Only players on your realm who turned on sharing are listed. Players pass the list on to each other " ..
-    "inside the game, so it fills up over time and can be a little behind. Taps count all of a player's characters. " ..
-    "Players not seen for 30 days drop off, and at most " .. MAX_ENTRIES .. " are kept. Click a heading to sort. " ..
-    "Scroll with the mouse wheel.")
-
-  f:EnableMouseWheel(true)
-  f:SetScript("OnMouseWheel", function(s, d) s.scroll = max(0, s.scroll - d); s:Refresh() end)
-
-  function f:Refresh()
-    dirty = false
-    local on = optedIn()
-    local list = TCF:LeaderboardRows(self.sort)
-    self.scroll = max(0, min(self.scroll, #list - ROWS))
-    local realm = myRealm()
-    self.title:SetText("Realm leaderboard" .. (realm and (" - " .. realm) or ""))
-    for i, h in ipairs(self.heads) do
-      local c = COLS[i]
-      h.label:SetText(c[1])
-      if c[4] and c[4] == self.sort then h.label:SetTextColor(1, 1, 1) elseif c[4] then h.label:SetTextColor(1, 0.82, 0) end
-      h:SetShown(on)
-    end
-    local t = serverNow()
-    for r, row in ipairs(self.rows) do
-      local e = list[r + self.scroll]
-      if e then
-        local cl = TCF.CLASS_BY_KEY[e.c]
-        local cells = row.cells
-        cells[1]:SetText(e.rank)
-        cells[2]:SetText((displayName(e.n):gsub("|", "||")) .. (e.self and " (you)" or ""))
-        if cl then cells[2]:SetTextColor(cl.color[1], cl.color[2], cl.color[3]) end
-        cells[3]:SetText(e.l)
-        cells[4]:SetText(TCF.Commas(e.t))
-        cells[5]:SetText(e.a)
-        cells[6]:SetText(e.z)
-        cells[7]:SetText(e.self and "now" or ago(e.ts, t))
-      end
-      for _, c in ipairs(row.cells) do c:SetShown(e and true or false) end
-      row.hl:SetShown(e and e.self and true or false)
-      row.entry = e
-    end
-    if not on then
-      self.empty:SetText("The realm leaderboard shows the cats of players on your realm who share their progress.\n\n" ..
-        "To see it and be on it, turn on \"Share my cat's progress\" in Settings > Help and info. " ..
-        "It applies to every character on your account. The first time you do, your cat gets a Heroic Cache.")
-    else
-      self.empty:SetText("No other players yet. Others on your realm who turn on sharing show up here " ..
-        "as you and they are online, which can take a while.")
-    end
-    self.empty:SetShown(not on or #list <= 1)
-    self.settingsBtn:SetShown(not on)
-    self.note:SetShown(on)
-    self.count:SetText(on and string.format("%d players", #list) or "")
-  end
-
-  local acc = 0
-  f:SetScript("OnUpdate", function(s, e)
-    acc = acc + e
-    if acc >= 5 or (dirty and acc >= 0.5) then acc = 0; s:Refresh() end
-  end)
-  f:SetScript("OnShow", function(s) s:Refresh() end)
-  return f
-end
-
+---------------------------------------------------------------- the tab
+-- The board is the Leaderboard tab of the main window (UI_Leaderboard.lua).
 function TCF:ShowLeaderboard()
-  view = view or createView()
-  TCF.leaderboardView = view
-  view:Show()
-  view:Refresh()
-  return view
-end
-
-function TCF:ToggleLeaderboard()
-  if view and view:IsShown() then view:Hide(); return view end
-  return self:ShowLeaderboard()
+  if not self.window and self.CreateWindow then self:CreateWindow() end
+  local win = self.window
+  if not win then return nil end
+  win:Show()
+  if win.SelectTab and win.TAB_LEADERBOARD then win:SelectTab(win.TAB_LEADERBOARD) end
+  return win
 end
 
 -- /tcf top: wrapped at login, after every file has added its own commands (Compendium.lua answers

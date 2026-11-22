@@ -293,6 +293,15 @@ function TCF:DevShareChanged()
   end
 end
 
+-- Turns the opt-in on or off. The Settings checkbox and the Leaderboard tab's Join and Leave buttons
+-- all come here, so the sign-up chest, the channel and the leaderboard's "take me off" always follow.
+function TCF:SetShareProgress(on)
+  if not self.db then return end
+  self.db.ui.shareDev = on and true or false
+  self:DevShareChanged()
+  if self.window and self.window:IsShown() and self.window.Refresh then self.window:Refresh() end
+end
+
 ---------------------------------------------------------------- answering (players who opted in)
 local lastAnswer, lastNonce = -1e9, nil
 local pendingAnswer = nil   -- { target, nonce, at }

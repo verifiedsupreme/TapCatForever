@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Runs the addon against a mocked WoW API (Lua 5.1 via lupa) and exercises every feature."""
-import os, sys, time
+import os, re, sys, time
 import lupa
 try:
     from lupa import lua51 as L
@@ -218,7 +218,7 @@ TEST = r'''
       win.slot = s.key; win.page = 1; win:RefreshWardrobe()
     end
     -- hit every tab via its functions
-    for tab = 1, 10 do win:SelectTab(tab) end
+    for tab = 1, #win.tabButtons do win:SelectTab(tab) end
     win.acScroll = 100; win:RefreshAchievements()
     for i = 1, 200 do _update(0.05) end
     -- pet the cat
@@ -442,7 +442,7 @@ TEST = r'''
     assert(ps.gold == 0 and ps.ops.mining[1].n == 0 and ps.ops.cloth[1].n == 0 and ps.ops.skinning[1].n == 0 and TCF:ProfUnlocked("cooking"), "reset keeps unlocks")
     print("renown after selling:", ps.renown)
     -- paperdoll click (right click unequips, left click jumps to the wardrobe)
-    for tab = 1, 10 do win:SelectTab(tab) end
+    for tab = 1, #win.tabButtons do win:SelectTab(tab) end
     for i = 1, 20 do _update(0.25) end
     print("coins now", TCF.db.coins, "quests done", TCF.db.stats.questsDone, "dungeons", TCF.db.stats.dungeons, "raids", TCF.db.stats.raids)
     -- migration from v1 save (shared level)
@@ -1214,7 +1214,7 @@ TEST = r'''
         check(ui[k] == (not old), "the " .. k .. " checkbox flips its setting")
         ui[k] = old
       end
-      win:SelectTab(10)
+      win:SelectTab(win.TAB_SETTINGS)
       -- minimap button: shows what it will do, and flips the setting
       local mm = byLabel["Minimap icon"].frame
       local hid = ui.minimap.hide
@@ -1454,6 +1454,153 @@ TEST = r'''
         check(not TapCatForeverCompareTip1:IsShown(), "no comparison when hovering the worn item itself")
         eq.HEAD = saveHead
       end
+    end
+    -- 10g. Equip best (Gear page): a level 30 cat with about 60 usable items in its bag puts on what
+    -- raises its Power; a second run changes nothing; nothing above its level or that it can't use is
+    -- worn; never a two-hander together with an off-hand
+    do
+      local class = TCF.db.class
+      local cd, eq, bag = TCF:CD(class), TCF:GearEquipped(class), TCF:Bag(class)
+      local saveLevel, saveEq, saveBag = cd.level, {}, {}
+      for k, v in pairs(eq) do saveEq[k] = v end
+      for k, v in pairs(bag) do saveBag[k] = v end
+      cd.level = 30
+      -- only the weapon it holds now, then about 60 usable items up to level 30 (a few per slot,
+      -- two-handers and off-hands among them), a few above its level and a few it can't use
+      local keep = eq.MAINHAND
+      for k in pairs(eq) do eq[k] = nil end
+      for k in pairs(bag) do bag[k] = nil end
+      if keep then eq.MAINHAND = keep; bag[keep] = 1 end
+      local perSlot, usable, high, unusable = {}, 0, {}, {}
+      local nHigh, nBad, n2H, nOH = 0, 0, 0, 0
+      for _, it in ipairs(TCF.GEAR_LIST) do
+        if not it.crafted and it.req >= 5 then
+          local ok = TCF:GearUsable(it, class)
+          if ok and it.req <= 30 and (perSlot[it.slot] or 0) < 4 and usable < 60 then
+            perSlot[it.slot] = (perSlot[it.slot] or 0) + 1; usable = usable + 1
+            bag[it.id] = (bag[it.id] or 0) + 1
+            if it.slot == "2H" then n2H = n2H + 1 end
+            if it.slot == "HOLD" or it.slot == "OH" or it.sub == "shield" then nOH = nOH + 1 end
+          elseif ok and it.req >= 45 and nHigh < 5 and not bag[it.id] then
+            nHigh = nHigh + 1; high[it.id] = true; bag[it.id] = 1
+          elseif not ok and it.req <= 30 and nBad < 5 and not bag[it.id] then
+            nBad = nBad + 1; unusable[it.id] = true; bag[it.id] = 1
+          end
+        end
+      end
+      check(usable >= 55 and n2H > 0 and nOH > 0 and nHigh == 5 and nBad == 5, string.format("Equip best test bag: %d usable (%d two-handers, %d off-hands), %d above level, %d unusable", usable, n2H, nOH, nHigh, nBad))
+      local function worn() local t = {}; for k, v in pairs(eq) do t[k] = v end; return t end
+      local function same(a, b) for k, v in pairs(a) do if b[k] ~= v then return false end end; for k, v in pairs(b) do if a[k] ~= v then return false end end; return true end
+      local chat0 = #_chat
+      local p0 = TCF:CombatStats(class).power
+      local n1, g1 = TCF:EquipBestGear(class)
+      local p1 = TCF:CombatStats(class).power
+      check(n1 > 0 and p1 > p0 and g1 == p1 - p0, string.format("Equip best raises Power: %d pieces, %d -> %d", n1, p0, p1))
+      check(#_chat == chat0 + 1 and _chat[#_chat]:find("Equipped your best gear", 1, true) and not _chat[#_chat]:find("!", 1, true), "Equip best: one plain chat line")
+      for slot, id in pairs(eq) do
+        local it = TCF.GEAR[id]
+        check(it and (it.req <= 30 or id == keep) and TCF:GearUsable(it, class) and not high[id] and not unusable[id], "Equip best wore " .. slot .. " " .. tostring(it and it.name))
+        check(TCF.GearEquippedCount(eq, id) <= (bag[id] or 0), "Equip best wears only copies it has: " .. it.name)
+      end
+      local mh = eq.MAINHAND and TCF.GEAR[eq.MAINHAND]
+      check(not (mh and mh.slot == "2H" and eq.OFFHAND), "Equip best never wears a two-hander with an off-hand")
+      local snap = worn()
+      local n2, g2 = TCF:EquipBestGear(class)
+      check(n2 == 0 and g2 == 0 and same(eq, snap) and TCF:CombatStats(class).power == p1, "Equip best again changes nothing")
+      check(_chat[#_chat]:find("already wearing your best gear", 1, true) and not _chat[#_chat]:find("!", 1, true), "Equip best again: " .. _chat[#_chat])
+      -- a strong two-hander and a weaker one-hander with an off-hand: whichever it picks, never both
+      for k in pairs(eq) do eq[k] = nil end
+      for k in pairs(bag) do bag[k] = nil end
+      local staff, oneH, off
+      for _, it in ipairs(TCF.GEAR_LIST) do
+        if not it.crafted and it.req <= 30 and TCF:GearUsable(it, class) then
+          if it.slot == "2H" and (not staff or it.ilvl > staff.ilvl) then staff = it end
+          if it.slot == "1H" and (not oneH or it.ilvl > oneH.ilvl) then oneH = it end
+          if (it.slot == "HOLD" or it.slot == "OH" or it.sub == "shield") and (not off or it.ilvl > off.ilvl) then off = it end
+        end
+      end
+      if staff and oneH and off then
+        bag[staff.id], bag[oneH.id], bag[off.id] = 1, 1, 1
+        eq.MAINHAND, eq.OFFHAND = oneH.id, off.id
+        TCF:EquipBestGear(class)
+        mh = eq.MAINHAND and TCF.GEAR[eq.MAINHAND]
+        check(not (mh and mh.slot == "2H" and eq.OFFHAND), "two-hander or one-hander and off-hand, never both")
+        eq.MAINHAND, eq.OFFHAND = staff.id, nil
+        TCF:EquipBestGear(class)
+        mh = eq.MAINHAND and TCF.GEAR[eq.MAINHAND]
+        check(not (mh and mh.slot == "2H" and eq.OFFHAND), "starting from the two-hander too")
+      end
+      for k in pairs(eq) do eq[k] = nil end
+      for k in pairs(bag) do bag[k] = nil end
+      for k, v in pairs(saveEq) do eq[k] = v end
+      for k, v in pairs(saveBag) do bag[k] = v end
+      cd.level = saveLevel
+    end
+    -- 10h. Craft all: materials for 7 make 7 with one chat line and the crafting skill rises; at most
+    -- 50 at once; a cosmetic recipe makes at most 1
+    do
+      local ps = TCF:ProfState()
+      local craft = TCF:CraftProf()
+      local saveMats, saveSkill = {}, ps.skill[craft]
+      for k, v in pairs(ps.mats) do saveMats[k] = v end
+      local r
+      for _, rr in ipairs(TCF.RECIPES[craft]) do
+        if rr.gear and rr.skill >= 100 and rr.skill <= 250 and TCF:RecipeUsable(rr) then r = rr; break end
+      end
+      check(r, "a gear recipe for Craft all")
+      ps.skill[craft] = r.skill   -- orange: every craft gives a point
+      for m, need in pairs(r.mats) do ps.mats[m] = need * 7 end
+      local it = TCF:RecipeItem(r)
+      local bag = TCF:Bag()
+      local had = bag[it.id] or 0
+      check(TCF:CraftCount(r) == 7, "materials for 7: CraftCount " .. TCF:CraftCount(r))
+      -- notices: crafted gear gets one only while the window is open. Count the notices that are
+      -- really drawn (LootToast.lua asks ChestCoinsText once per notice), one level below the
+      -- ShowLootToast that CraftAll swaps out, so the check sees what the player would see.
+      if not TCF.window then TCF:CreateWindow() end
+      local winWasShown = TCF.window:IsShown()
+      TCF.window:Show()
+      local toasts0 = 0
+      local origCoinsText = TCF.ChestCoinsText
+      TCF.ChestCoinsText = function(...) toasts0 = toasts0 + 1; return origCoinsText(...) end
+      for m, need in pairs(r.mats) do ps.mats[m] = need * 8 end
+      check(TCF:Craft(r) and toasts0 == 1, "one Craft with the window open draws a notice (" .. toasts0 .. "), so the next check can fail")
+      ps.skill[craft], toasts0 = r.skill, 0
+      local had1 = bag[it.id] or 0
+      local chat0 = #_chat
+      local made = TCF:CraftAll(r)
+      TCF.ChestCoinsText = origCoinsText
+      if not winWasShown then TCF.window:Hide() end
+      check(made == 7 and (bag[it.id] or 0) == had1 + 7, "Craft all made " .. made)
+      check(#_chat == chat0 + 1 and _chat[#_chat]:find("Crafted 7 x", 1, true) and _chat[#_chat]:find("skill +7", 1, true) and not _chat[#_chat]:find("!", 1, true),
+        "Craft all: one chat line: " .. tostring(_chat[#_chat]))
+      check(toasts0 == 0, "Craft all: no notice per item")
+      check(ps.skill[craft] == r.skill + 7, "Craft all: the crafting skill rises (" .. ps.skill[craft] .. ")")
+      for m in pairs(r.mats) do check(ps.mats[m] == 0, "Craft all used the materials") end
+      check(TCF:CraftCount(r) == 0 and TCF:CraftAll(r) == 0 and #_chat == chat0 + 1, "nothing left: nothing made, nothing said")
+      for m, need in pairs(r.mats) do ps.mats[m] = need * 80 end
+      check(TCF:CraftCount(r) == TCF.CRAFT_ALL_MAX and TCF.CRAFT_ALL_MAX == 50, "at most 50 at once")
+      bag[it.id] = had > 0 and had or nil
+      -- a cosmetic recipe: one at most, whatever the materials
+      local cr
+      for _, rr in ipairs(TCF.RECIPES[craft]) do
+        if rr.cosmetic and (rr.skill or 1) <= r.skill then cr = rr; break end
+      end
+      if cr then
+        local cit = TCF.ITEMS[cr.item]
+        local owned = TCF.db.owned[cit.id]
+        TCF.db.owned[cit.id] = nil
+        for m, need in pairs(cr.mats) do ps.mats[m] = need * 5 end
+        check(TCF:CraftCount(cr) == 1, "a cosmetic recipe counts 1: " .. TCF:CraftCount(cr))
+        check(TCF:CraftAll(cr) == 1 and TCF.db.owned[cit.id], "Craft all makes the cosmetic once")
+        for m, need in pairs(cr.mats) do check(ps.mats[m] == need * 4, "and uses one set of materials") end
+        check(TCF:CraftCount(cr) == 0, "then it can't be made again")
+        TCF.db.owned[cit.id] = owned
+      end
+      for k in pairs(ps.mats) do ps.mats[k] = nil end
+      for k, v in pairs(saveMats) do ps.mats[k] = v end
+      ps.skill[craft] = saveSkill
+      print(string.format("Equip best and Craft all (%s, cosmetic %s): all checks passed", r.skill and (craft .. " " .. r.skill) or craft, cr and cr.item or "none"))
     end
     -- 11. What's new strip and Patch notes
     do
@@ -3460,8 +3607,24 @@ def check_capes_art():
 
 # ---- leaderboard section (1.5.3, realm leaderboard): several fake clients, each its own Lua state with
 # the addon loaded, share one realm clock and one hidden channel. The test routes every channel message
-# to the others, so the board has to spread by gossip; then merge rules, caps, expiry, opt-out, the
-# sign-up chest, odd or secret input, the rate limits and the window.
+# to the others, so the board has to spread by gossip; then the extra fields (L2) and a client that
+# only knows L1, merge rules, caps, expiry, opt-out, the sign-up chest, odd or secret input, the rate
+# limits, and the Leaderboard tab (opt-in panel, Join and Leave, sections).
+LB_KINDS = ("L1;", "L2;", "R1;", "X1;")
+# the L1 pattern of the first 1.5.3 builds: what a client that doesn't know L2 reads
+OLD_L1 = re.compile(r"^L1;([^;|]+);([A-Z]+);(\d+);(\d+);(\d+);(\d+);([A-Za-z0-9.\-]+);(\d+)$")
+# GameFontNormal (Friz Quadrata, 12 px): a rough, generous width of a label in pixels
+def est_width(text):
+    w = 0.0
+    for ch in text:
+        if ch in "il.,'|": w += 3.5
+        elif ch in "fjrt ": w += 4.5
+        elif ch in "mw": w += 10
+        elif ch in "MW": w += 11.5
+        elif ch.isupper(): w += 8.5
+        elif ch.isdigit(): w += 7
+        else: w += 6.8
+    return w
 LB_CLIENT = r"""
 _srv = 1800000000
 function GetServerTime() return _srv end
@@ -3538,14 +3701,22 @@ def check_leaderboard(seed=1):
                     c.sent.append((srv[0], msg))
                     log.append((srv[0], c.name, msg, ch, target))
                     ck(p == "TapCatFvr", "prefix " + str(p))
-                    if msg[:3] not in ("L1;", "R1;", "X1;"): continue
+                    if msg[:3] not in LB_KINDS: continue
                     ck(ch == "CHANNEL" and target == 7, "leaderboard messages only go to the hidden channel: %s %s" % (ch, target))
                     ck(len(msg) <= 255, "message too long")
                     for d in clients.values():   # everyone in the channel hears it, the sender too (echo)
                         if d.online and d.ev("_chanId") > 0:
                             d.lua.globals()._deliver(p, msg, c.full)
 
-    def lbmsgs(c, since=0): return [m for (t, m) in c.sent if t > since and m[:3] in ("L1;", "R1;", "X1;")]
+    def lbmsgs(c, since=0): return [m for (t, m) in c.sent if t > since and m[:3] in LB_KINDS]
+    def xstr(c, k):   # entry k's extra fields on c's board, as one string (None without them)
+        return c.ev('(function() local e = _entry("%s"); if not e or not e.x then return nil end; local x = e.x; '
+                    'return table.concat(x.lv, ".") .. "|" .. TapCatForever.LeaderboardBigText(x.g) .. "|" .. table.concat(x.sk, ".") end)()' % k)
+    def own_x(c):
+        return c.ev('(function() local x = TapCatForever:LeaderboardOwnExtra(); '
+                    'return table.concat(x.lv, ".") .. "|" .. TapCatForever.LeaderboardBigText(x.g) .. "|" .. table.concat(x.sk, ".") end)()')
+    def page(c): return c.lua.eval("TapCatForever.leaderboardView")
+    def click(c, path): c.ex("local b = %s; b.scripts.OnClick(b)" % path)
 
     # 0. a player who never opts in: joins nothing, sends nothing, reads nothing, sees no board
     E = Client("Echo", "DRUID")
@@ -3558,6 +3729,10 @@ def check_leaderboard(seed=1):
     # 1. Alpha and Cedric opt in together. Alpha gets the sign-up chest once, with one chat line
     A = Client("Alpha", "WARRIOR")
     C = Client("Cedric", "MAGE")
+    # Alpha's other cats and trade: a level 17 Mage cat, Trade Gold and a few skills (the extra fields)
+    A.ex("""local TCF = TapCatForever
+      TCF.db.classData.MAGE.level = 17
+      local s = TCF:ProfState("WARRIOR"); s.lifetime = 1234567890123; s.skill.blacksmithing = 150; s.skill.herbalism = 42""")
     ha, chat0 = A.heroic(), A.ev("#_chat")
     A.ex("_optIn(true)"); C.ex("_optIn(true)")
     ck(A.heroic() == ha + 1, "sign-up: a Heroic Cache")
@@ -3568,6 +3743,12 @@ def check_leaderboard(seed=1):
     ck(A.ev("_joins") >= 1 and A.ev("_chanId") == 7, "opting in joins the hidden channel")
     ck(A.ev("_boardKeys()") == "cedric-forever" and C.ev("_boardKeys()") == "alpha-forever", "two players online together see each other: %s / %s" % (A.ev("_boardKeys()"), C.ev("_boardKeys()")))
     ck(len([m for m in lbmsgs(A) if m.startswith("L1;Alpha-Forever;WARRIOR;")]) == 1, "Alpha shared its own summary once")
+    own = [m for m in lbmsgs(A) if m[:3] in ("L1;", "L2;")]
+    ck(len(own) == 2 and own[0].startswith("L1;") and own[1].startswith("L2;Alpha-Forever;"), "its L2 right after its L1: %r" % own)
+    ck(OLD_L1.match(own[0]), "the L1 is unchanged, so builds that only know L1 still read it: " + own[0])
+    ck(own[1].split(";")[3] == "1.1.1.1.1.1.17.1.1" and own[1].split(";")[4] == "1234567e6" and own[1].split(";")[5] == "150.1.1.42.1.1.1",
+       "L2 holds every class cat's level, Trade Gold and the best skills: " + own[1])
+    ck(xstr(C, "alpha-forever") == own_x(A), "Cedric has Alpha's extra fields: %s" % xstr(C, "alpha-forever"))
     e = C.ev('_entry("alpha-forever")')
     ck(e.c == "WARRIOR" and e.l == A.ev("TapCatForever:CD().level") and e.t == A.ev("TapCatForever.db.taps") and e.v == A.ev("TapCatForever:DevSummary().version"), "the summary holds the right numbers")
     for c in (A, C):
@@ -3580,9 +3761,33 @@ def check_leaderboard(seed=1):
 
     # 3. Bravo, never online with Alpha, logs in and opts in: Cedric passes Alpha on
     B = Client("Bravo", "PRIEST")
-    B.ex("_optIn(true)")
+    # Bravo joins from the Leaderboard tab: the opt-in panel, then the big Join button
+    hb = B.heroic()
+    B.ex("TapCatForever:ShowLeaderboard()")
+    ck(B.ev("TapCatForever.window:IsShown() and TapCatForever.window.tab == TapCatForever.window.TAB_LEADERBOARD"), "/tcf top opens the Leaderboard tab")
+    ck(B.ev("TapCatForever.leaderboardView.join:IsShown()") and not B.ev("TapCatForever.leaderboardView.board:IsShown()"),
+       "not joined: the tab shows the opt-in panel, not the board")
+    jt = "\n".join(B.ev("TapCatForever.leaderboardView.joinText[%d]:GetText()" % i) for i in range(1, B.ev("#TapCatForever.leaderboardView.joinText") + 1))
+    for words in ("your realm", "name and realm", "class cats", "total taps", "achievements earned", "Adventure zones cleared",
+                  "Trade Gold", "profession skills", "addon version", "Nothing else", "joined too", "through the addon",
+                  "no internet", "nothing shows in your chat", "could read", "every character on your account", "developer", "leave at any time"):
+        ck(words in jt, "the opt-in panel says: " + words)
+    ck("!" not in jt, "no exclamation marks on the opt-in panel")
+    ck("first time you join" in B.ev("TapCatForever.leaderboardView.joinReward:GetText()") and "Heroic Cache" in B.ev("TapCatForever.leaderboardView.joinReward:GetText()"),
+       "the panel offers the Heroic Cache")
+    ck(B.ev("TapCatForever.leaderboardView.joinBtn:GetText()") == "Join the leaderboard", "the big Join button")
+    ck(not B.ev("TapCatForever.db.ui.shareDev") and B.ev("_joins") == 0, "nothing turned on just by looking")
+    click(B, "TapCatForever.leaderboardView.joinBtn")
+    ck(B.ev("TapCatForever.db.ui.shareDev") == True and B.heroic() == hb + 1, "Join turns sharing on and gives the Heroic Cache")
+    B.ex("TapCatForever.window:SelectTab(TapCatForever.window.TAB_SETTINGS)")
+    ck(B.ev("TapCatForever.window.settingsShare:GetChecked()") == True, "the Settings checkbox follows")
+    B.ex("TapCatForever.window:SelectTab(TapCatForever.window.TAB_LEADERBOARD)")
+    ck(B.ev("TapCatForever.leaderboardView.board:IsShown()") and not B.ev("TapCatForever.leaderboardView.join:IsShown()"), "after joining the tab shows the board")
+    ck(B.ev("TapCatForever.leaderboardView.rows[1].entry.self") == True and B.ev("TapCatForever.leaderboardView.rows[1].hl:IsShown()"), "your own row, highlighted")
     step(180)
+    ck(B.ev("_joins") >= 1, "Join joins the hidden channel")
     ck(B.ev("_boardKeys()") == "alpha-forever,cedric-forever", "gossip: Bravo learned about Alpha from Cedric: " + B.ev("_boardKeys()"))
+    ck(xstr(B, "alpha-forever") == own_x(A), "gossip carries the extra fields too: %s" % xstr(B, "alpha-forever"))
 
     # 4. Cedric logs off, Delta logs in with only Bravo online: gets Alpha and Cedric from Bravo
     C.online = False
@@ -3614,9 +3819,111 @@ def check_leaderboard(seed=1):
     ck(any(m.startswith("L1;Alpha-Forever;WARRIOR;31;") for m in lbmsgs(A)[n0:]), "a new level is shared within minutes")
     ck(D.ev('_entry("alpha-forever").l') == 31, "and reaches the others")
 
-    # 6. Alpha opts out: one "take me off", honoured by the others, and nothing more is sent
+    # 5b. the extra fields (L2): a skill-up is shared within minutes; newest wins; an L2 never adds a
+    # player; a client that only knows L1 still sees and is seen on Total taps and its own class
+    n0 = len(lbmsgs(A))
+    A.ex('TapCatForever:ProfState("WARRIOR").skill.blacksmithing = 200')
+    step(6 * 60)
+    ck(any(m.startswith("L2;Alpha-Forever;") and m.split(";")[5].startswith("200.") for m in lbmsgs(A)[n0:]), "10 more skill points are shared within minutes")
+    ck(xstr(D, "alpha-forever") == own_x(A) and xstr(B, "alpha-forever") == own_x(A), "and reach the others: %s" % xstr(D, "alpha-forever"))
+    D.ex(r"""
+      local TCF = TapCatForever
+      local b, t = TCF.LeaderboardBoard(false), _srv
+      _r = {}
+      local e = b.e["alpha-forever"]
+      local xts = e.xts
+      _r.older = select(2, TCF.LeaderboardMergeExtra(b, "alpha-forever", { lv = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, g = 1, sk = { 1, 1, 1, 1, 1, 1, 1 } }, xts - 10, t))
+      _r.kept = e.x.sk[1] == 200
+      _r.unknown = select(2, TCF.LeaderboardMergeExtra(b, "nobody-forever", e.x, t, t))
+      _r.self = select(2, TCF.LeaderboardMergeExtra(b, "delta-forever", e.x, t, t, "delta-forever"))
+      _r.future = select(2, TCF.LeaderboardMergeExtra(b, "alpha-forever", e.x, t + 3600, t))
+      -- a newer L1 keeps the extra fields until the next L2
+      TCF.LeaderboardMerge(b, { n = e.n, c = e.c, l = e.l, t = e.t + 5, a = e.a, z = e.z, v = e.v, ts = e.ts + 1 }, t)
+      _r.keptAfterL1 = b.e["alpha-forever"].x ~= nil and b.e["alpha-forever"].xts == xts
+      -- the sections
+      local function find(list, n) for _, r in ipairs(list) do if r.n == n then return r end end end
+      local mage = TCF:LeaderboardSection("class", "MAGE")
+      _r.mageAlpha = find(mage, "Alpha-Forever") and find(mage, "Alpha-Forever").val
+      _r.mageSelf = find(mage, "Delta-Forever") and find(mage, "Delta-Forever").self
+      _r.mageBravo = find(mage, "Bravo-Forever") ~= nil   -- Bravo's Mage cat is level 1
+      local war = TCF:LeaderboardSection("class", "WARRIOR")
+      _r.warAlpha = find(war, "Alpha-Forever") and find(war, "Alpha-Forever").val
+      local bs = TCF:LeaderboardSection("prof", "blacksmithing")
+      _r.bsAlpha = find(bs, "Alpha-Forever") and find(bs, "Alpha-Forever").val
+      _r.bsTop = bs[1].n
+      local gold = TCF:LeaderboardSection("prof", "gold")
+      _r.gold = find(gold, "Alpha-Forever") and find(gold, "Alpha-Forever").val
+      local herb = TCF:LeaderboardSection("prof", "herbalism")
+      _r.herb = find(herb, "Alpha-Forever") and find(herb, "Alpha-Forever").val
+      _r.herbBravo = find(herb, "Bravo-Forever") ~= nil
+      _r.sorted = true
+      for _, sec in ipairs({ { "class", "MAGE" }, { "class", "WARRIOR" }, { "prof", "gold" }, { "prof", "cooking" }, { "taps", "level" } }) do
+        local list = TCF:LeaderboardSection(sec[1], sec[2])
+        for i = 2, #list do if list[i].val > list[i - 1].val then _r.sorted = false end end
+        if not find(list, "Delta-Forever") then _r.sorted = false end   -- your own row is in every section
+      end
+    """)
+    r = D.lua.globals()._r
+    ck(r.older == "older" and r.kept and r.unknown == "unknown" and r.self == "self" and r.future == "future", "L2 merge rules: %s %s %s %s" % (r.older, r.unknown, r.self, r.future))
+    ck(r.keptAfterL1, "a newer L1 keeps the extra fields until the next L2")
+    ck(r.mageAlpha == 17 and r.mageSelf and not r.mageBravo, "Per class: Alpha's level 17 Mage cat, you, and no level 1 cats of others")
+    ck(r.warAlpha == 31, "Per class: the class a player plays uses their summary's level")
+    ck(r.bsAlpha == 200 and r.bsTop == "Alpha-Forever" and abs(r.gold - 1234567890123) < 1e6 and r.herb == 42 and not r.herbBravo,
+       "Professions: skills and Trade Gold (%s %s %s)" % (r.bsAlpha, r.gold, r.herb))
+    ck(r.sorted, "every section is ranked, with your own row")
+    # forward and backward: more numbers or fields from a later version are skipped; odd ones refused
+    ok = "L2;Zed-Forever;%d;1.2.3.4.5.6.7.8.9;12345;1.2.3.4.5.6.7" % srv[0]
+    for msg, good in ((ok, True), (ok.replace("8.9;", "8.9.60.61;") + ".300;and more;5", True), (ok + ";", True),
+                      (ok.replace(";12345;", ";9999999e93;"), True), (ok.replace(";12345;", ";12345678;"), False),
+                      (ok.replace(";12345;", ";1e100;"), False), (ok.replace(";12345;", ";1e;"), False), (ok.replace("1.2.3.4.5.6.7.8.9", "1.2.3.4.5.6.7.8"), False),
+                      (ok.replace("1.2.3.4.5.6.7.8.9", "1.2.3.4.5.6.7.8.201"), False), (ok.replace("1.2.3.4.5.6.7.8.9", "1..3.4.5.6.7.8.9"), False),
+                      (ok[:-1] + "1000", False), (ok + "x", False), (ok.replace("Zed-Forever", "Zed"), False), (ok.replace("Zed", "Z|d"), False),
+                      ("L2;Zed-Forever;%d;1.2.3.4.5.6.7.8.9;12345" % srv[0], False), ("L2;" + "A" * 300, False)):
+        got = D.ev('TapCatForever.LeaderboardParseExtra("%s") ~= nil' % msg.replace('"', '\\"'))
+        ck(got == good, "L2 parse %s: %s" % ("accepts" if good else "refuses", msg))
+    D.lua.globals()._deliver("TapCatFvr", ok, "Zed-Forever")
+    ck(D.ev('_entry("zed-forever")') is None, "an L2 never adds a player")
+    D.lua.globals()._deliver("TapCatFvr", "L2;Delta-Forever;%d;60.60.60.60.60.60.60.60.60;99999e9;300.300.300.300.300.300.300" % srv[0], "Bravo-Forever")
+    ck(D.ev('(function() for _, r in ipairs(TapCatForever:LeaderboardSection("prof", "cooking")) do if r.self then return r.val end end end)()') == 1,
+       "your own extra fields never come from someone else")
+    big = D.ev('TapCatForever.LeaderboardExtraText({ n = string.rep("A", 40) .. "-" .. string.rep("B", 39), xts = 99999999999, '
+               'x = { lv = { 200, 200, 200, 200, 200, 200, 200, 200, 200 }, g = 9.9e99, sk = { 999, 999, 999, 999, 999, 999, 999 } } })')
+    ck(big and len(big) <= 255 and D.ev('TapCatForever.LeaderboardParseExtra("%s") ~= nil' % big), "the longest L2 fits in one message: %d" % len(big or ""))
+    # Oscar runs a build that only knows L1: drops every L2 it would send or hear
+    O = Client("Oscar", "HUNTER")
+    O.ex(r"""
+      local send = C_ChatInfo.SendAddonMessage
+      C_ChatInfo.SendAddonMessage = function(p, msg, ch, target) if msg:sub(1, 3) == "L2;" then return 0 end return send(p, msg, ch, target) end
+      local deliver = _deliver
+      _deliver = function(p, msg, ...) if msg:sub(1, 3) == "L2;" then return end return deliver(p, msg, ...) end
+      _optIn(true)
+    """)
+    step(240)
+    ck("alpha-forever" in O.ev("_boardKeys()") and O.ev('_entry("alpha-forever").x') is None, "the L1-only client lists Alpha, without extra fields: " + O.ev("_boardKeys()"))
+    ck(D.ev('_entry("oscar-forever")') is not None and D.ev('_entry("oscar-forever").x') is None, "and is listed by the others")
+    def in_section(c, sec, sub, n):
+        return c.ev('(function() for _, r in ipairs(TapCatForever:LeaderboardSection("%s", "%s")) do if r.n == "%s" then return true end end return false end)()' % (sec, sub, n))
+    ck(in_section(D, "taps", "taps", "Oscar-Forever") and in_section(D, "class", "HUNTER", "Oscar-Forever"), "Oscar shows under Total taps and the class he plays")
+    ck(not in_section(D, "class", "MAGE", "Oscar-Forever") and not in_section(D, "prof", "gold", "Oscar-Forever"), "but not elsewhere")
+    O.online = False
+
+    # 6. Alpha leaves from the Leaderboard tab (Leave asks first): one "take me off", honoured by the
+    # others, and nothing more is sent
     s0 = len(A.sent)
-    A.ex("_optIn(false)")
+    A.ex("TapCatForever:ShowLeaderboard()")
+    click(A, "TapCatForever.leaderboardView.leaveBtn")
+    ck(A.ev("TapCatForever.leaderboardView.confirm:IsShown()") and A.ev("TapCatForever.db.ui.shareDev") == True, "Leave asks first")
+    ck("!" not in A.ev("TapCatForever.leaderboardView.confirmText:GetText()"), "the question is plain")
+    click(A, "TapCatForever.leaderboardView.confirmNo")
+    ck(not A.ev("TapCatForever.leaderboardView.confirm:IsShown()") and A.ev("TapCatForever.db.ui.shareDev") == True, "Stay keeps you on")
+    # the question doesn't wait for you after leaving the tab (the test frames don't run OnHide on Hide)
+    click(A, "TapCatForever.leaderboardView.leaveBtn")
+    A.ex("local v = TapCatForever.leaderboardView; v:Hide(); if v.scripts.OnHide then v.scripts.OnHide(v) end; TapCatForever:ShowLeaderboard()")
+    ck(not A.ev("TapCatForever.leaderboardView.confirm:IsShown()") and A.ev("TapCatForever.leaderboardView.leaveBtn:IsShown()")
+       and A.ev("TapCatForever.db.ui.shareDev") == True, "leaving the tab drops the Leave question")
+    click(A, "TapCatForever.leaderboardView.leaveBtn")
+    click(A, "TapCatForever.leaderboardView.confirmYes")
+    ck(A.ev("TapCatForever.db.ui.shareDev") == False, "Leave turns sharing off")
     step(1)
     rm = [m for (t, m) in A.sent[s0:]]
     ck(len(rm) == 1 and rm[0].startswith("R1;"), "opting out sends one take-me-off: %r" % rm)
@@ -3627,10 +3934,10 @@ def check_leaderboard(seed=1):
     ck(len(A.sent) == s0 + 1, "opted out: nothing else sent")
     ck(A.ev("#TapCatForever:LeaderboardRows()") == 0, "opted out: you don't see the board")
     A.ex("TapCatForever:ShowLeaderboard()")
-    ck("Settings > Help and info" in A.ev("TapCatForever.leaderboardView.empty:GetText()") and A.ev("TapCatForever.leaderboardView.settingsBtn:IsShown()"),
-       "opted out: the window says how to opt in")
-    ck(not A.ev("TapCatForever.leaderboardView.rows[1].cells[1]:IsShown()"), "opted out: no rows in the window")
-    A.ex("TapCatForever.leaderboardView:Hide()")
+    ck(A.ev("TapCatForever.leaderboardView.join:IsShown()") and not A.ev("TapCatForever.leaderboardView.board:IsShown()"),
+       "opted out: the tab shows the opt-in panel again")
+    ck("already got" in A.ev("TapCatForever.leaderboardView.joinReward:GetText()"), "and says the account already had its Heroic Cache")
+    A.ex("TapCatForever.window:Hide()")
     # an old copy of Alpha passed on later doesn't bring them back; nor does their old take-me-off replayed
     rmTs = int(rm[0][3:])
     D.lua.globals()._deliver("TapCatFvr", "L1;Alpha-Forever;WARRIOR;31;123456;1;0;1.5.3;%d" % (rmTs - 60), "Bravo-Forever")
@@ -3645,8 +3952,10 @@ def check_leaderboard(seed=1):
     ck(D.ev('_entry("bravo-forever")') is not None, "a newer one from Bravo does")
     D.lua.globals()._deliver("TapCatFvr", "R1;%d" % (srv[0] - 30), "Bravo-Forever")
     ck(D.ev('_entry("bravo-forever")') is not None, "an old take-me-off replayed after a newer summary is ignored")
-    # Alpha opts in again: back on the boards, no second chest
-    A.ex("_optIn(true)")
+    # Alpha joins again from the tab: back on the boards, no second chest
+    A.ex("TapCatForever:ShowLeaderboard()")
+    click(A, "TapCatForever.leaderboardView.joinBtn")
+    A.ex("TapCatForever.window:Hide()")
     step(120)
     ck(A.heroic() == ha + 1, "opting in again: no second chest")
     ck(D.ev('_entry("alpha-forever")') is not None, "opting in again puts you back on the board")
@@ -3665,15 +3974,17 @@ def check_leaderboard(seed=1):
     step(2)
     ck(F.heroic() == 1, "and only once")
 
-    # 8. every client stayed inside the send limits: a gap of 2 seconds and at most 15 in 10 minutes
+    # 8. every client stayed inside the send limits: a gap of 2 seconds and at most 30 in 10 minutes
+    budget = A.ev("TapCatForever.LB_SEND_BUDGET")
+    ck(budget == 30, "send budget %s" % budget)
     def send_limits():
         for c in clients.values():
-            ts = [t for (t, m) in c.sent if m[:3] in ("L1;", "X1;")]
+            ts = [t for (t, m) in c.sent if m[:3] in ("L1;", "L2;", "X1;")]
             for i in range(1, len(ts)):
                 ck(ts[i] - ts[i - 1] >= 2, c.name + " sent two messages less than 2 seconds apart")
-            ts = [t for (t, m) in c.sent if m[:3] in ("L1;", "X1;", "R1;")]
+            ts = [t for (t, m) in c.sent if m[:3] in LB_KINDS]
             for i in range(len(ts)):
-                ck(len([t for t in ts if ts[i] <= t < ts[i] + 600]) <= 15, c.name + " sent more than 15 messages in 10 minutes")
+                ck(len([t for t in ts if ts[i] <= t < ts[i] + 600]) <= budget, c.name + " sent more than %d messages in 10 minutes" % budget)
     send_limits()
 
     # 9. merge rules, caps and expiry (Delta's board)
@@ -3773,15 +4084,15 @@ def check_leaderboard(seed=1):
       end
     """)
     ck(D.ev("_boardCount()") == D.ev("TapCatForever.LB_READ_BUDGET"), "at most %d read a minute: %d" % (D.ev("TapCatForever.LB_READ_BUDGET"), D.ev("_boardCount()")))
-    # the send limit: many newcomers in a row never push a client past 15 messages in 10 minutes
+    # the send limit: many newcomers in a row never push a client past 30 messages in 10 minutes
     s0 = len(D.sent)
     t0 = srv[0]
     for i in range(30):
         nm = "New" + "abcdefghijklmnopqrstuvwxyz"[i // 26] + "abcdefghijklmnopqrstuvwxyz"[i % 26] + "-Forever"
         D.lua.globals()._deliver("TapCatFvr", "L1;%s;MAGE;5;1;1;0;1.5.3;%d" % (nm, srv[0]), nm)
         step(20)
-    sentNow = [t for (t, m) in D.sent[s0:] if m.startswith("L1;")]
-    ck(len(sentNow) > 0 and all(len([u for u in sentNow if s <= u < s + 600]) <= 15 for s in sentNow), "send limit held: %d sent" % len(sentNow))
+    sentNow = [t for (t, m) in D.sent[s0:] if m[:3] in ("L1;", "L2;")]
+    ck(len(sentNow) > 0 and all(len([u for u in sentNow if s <= u < s + 600]) <= budget for s in sentNow), "send limit held: %d sent" % len(sentNow))
 
     # 11b. a take-me-off reaches players who were offline: it is passed on (X1) like the board, and a
     # newcomer never shows that player. The earlier clients log off for this part.
@@ -3894,11 +4205,15 @@ def check_leaderboard(seed=1):
         _deliver("TapCatFvr", "L1;" .. n .. ";MAGE;5;1;1;0;1.5.3;" .. _srv, "Spammer-Forever")
       end
     """
+    # 30 messages that change nothing (an L2 about nobody), then 30 new players: only the first 10 are read
+    H.ex('for i = 1, 30 do _deliver("TapCatFvr", "L2;Nobody-Forever;" .. _srv .. ";1.1.1.1.1.1.1.1.1;0;1.1.1.1.1.1.1", "Spammer-Forever") end')
     H.ex(flood % (1, 30))
-    ck(H.ev("_boardCount()") == n0 + H.ev("TapCatForever.LB_SENDER_MSGS"), "one sender: at most %d messages read in 10 minutes (%d)" % (H.ev("TapCatForever.LB_SENDER_MSGS"), H.ev("_boardCount()") - n0))
-    H.ex("_clock = _clock + 601"); H.ex(flood % (31, 50))
-    H.ex("_clock = _clock + 601"); H.ex(flood % (51, 70))
-    ck(H.ev("_boardCount()") == n0 + H.ev("TapCatForever.LB_SENDER_ADDS"), "one sender adds at most %d players an hour (%d)" % (H.ev("TapCatForever.LB_SENDER_ADDS"), H.ev("_boardCount()") - n0))
+    msgs, adds = H.ev("TapCatForever.LB_SENDER_MSGS"), H.ev("TapCatForever.LB_SENDER_ADDS")
+    ck(msgs == 40 and adds == 40, "per-sender limits %s %s" % (msgs, adds))
+    ck(H.ev("_boardCount()") == n0 + msgs - 30, "one sender: at most %d messages read in 10 minutes (%d)" % (msgs, H.ev("_boardCount()") - n0))
+    H.ex("_clock = _clock + 601"); H.ex(flood % (31, 70))
+    H.ex("_clock = _clock + 601"); H.ex(flood % (71, 90))
+    ck(H.ev("_boardCount()") == n0 + adds, "one sender adds at most %d players an hour (%d)" % (adds, H.ev("_boardCount()") - n0))
     H.ex("_clock = _clock + 601")
     H.lua.globals()._deliver("TapCatFvr", "L1;Spammer-Forever;MAGE;5;1;1;0;1.5.3;%d" % srv[0], "Spammer-Forever")
     ck(H.ev('_entry("spammer-forever")') is not None, "their own summary still counts")
@@ -3965,58 +4280,130 @@ def check_leaderboard(seed=1):
     H.ex("_takeOut()")
     send_limits()
 
-    # 12. the window: ranks, sorting, your row, scrolling; the Settings button and /tcf top open it
-    B.ex("TapCatForever:ToggleWindow()")
+    # 12. the Leaderboard tab: 11 tabs in two rows of 6 whose labels fit; the Settings button, /tcf top
+    # and /tcf leaderboard open it; the three sections with ranks, sorting, your row in each, scrolling
+    B.ex("if not TapCatForever.window then TapCatForever:CreateWindow() end; TapCatForever.window:Show()")
+    names = [B.ev("TapCatForever.window.tabNames[%d]" % i) for i in range(1, B.ev("#TapCatForever.window.tabNames") + 1)]
+    ck(len(names) == 11 and B.ev("#TapCatForever.window.tabButtons") == 11 and names[B.ev("TapCatForever.window.TAB_LEADERBOARD") - 1] == "Leaderboard"
+       and names[-1] == "Settings", "11 tabs, Leaderboard among them: %r" % names)
+    tw, ts = B.ev("TapCatForever.window.tabWidth"), B.ev("TapCatForever.window.tabStep")
+    ck(tw == 92 and ts > tw and abs(5 * ts + tw - 560) < 0.01, "two rows of 6 tabs, 92 wide, filling the 560 wide panel (step %s)" % ts)
+    for n in names:
+        # clear of the button's rounded ends, 5 px each side (UI.lua switches to the small font past that)
+        ck(est_width(n) <= tw - 10, "tab label fits: %s (about %.1f of %d px)" % (n, est_width(n), tw - 10))
     lay = B.lua.eval("TapCatForever.window.settingsLayout")
     items = [lay[i] for i in range(1, len(lay) + 1)]
     lb = [a for a in items if a.label == "Leaderboard"]
     share = [a for a in items if a.kind == "check" and "leaderboard" in a.label]
     ck(len(lb) == 1 and lb[0].kind == "button" and len(share) == 1 and lb[0].y == share[0].y and share[0].x + share[0].w <= lb[0].x,
        "Settings: the Leaderboard button sits beside the sharing checkbox in Help and info")
+    B.ex("TapCatForever.window:SelectTab(TapCatForever.window.TAB_SETTINGS)")
     B.ex("local f = TapCatForever.window.settingsLayout; for _, a in ipairs(f) do if a.label == 'Leaderboard' then a.frame.scripts.OnClick(a.frame) end end")
-    ck(B.ev("TapCatForever.leaderboardView and TapCatForever.leaderboardView:IsShown()"), "the Settings button opens the leaderboard")
-    B.ex("TapCatForever.leaderboardView:Hide(); SlashCmdList.TAPCATFOREVER('top')")
-    ck(B.ev("TapCatForever.leaderboardView:IsShown()"), "/tcf top opens it")
+    ck(B.ev("TapCatForever.window:IsShown() and TapCatForever.window.tab == TapCatForever.window.TAB_LEADERBOARD"), "the Settings button opens the Leaderboard tab")
+    for word in ("top", "leaderboard"):
+        B.ex("TapCatForever.window:Hide(); TapCatForever.window:SelectTab(1); SlashCmdList.TAPCATFOREVER('%s')" % word)
+        ck(B.ev("TapCatForever.window:IsShown() and TapCatForever.window.tab == TapCatForever.window.TAB_LEADERBOARD"), "/tcf %s opens the tab" % word)
     B.ex(r"""
       local TCF = TapCatForever
       local b, t = TCF.LeaderboardBoard(true), _srv
       local classes = { "MAGE", "WARRIOR", "PRIEST", "ROGUE" }
       for i = 1, 20 do
         local n = "Rank" .. string.char(96 + i) .. "-Forever"
-        TCF.LeaderboardMerge(b, { n = n, c = classes[i % 4 + 1], l = i, t = 1000 * (21 - i), a = i % 7, z = i % 5, v = "1.5.3", ts = t - i * 4000 }, t)
+        local x = { lv = { i, 2, 3, 4, 5, 6, (i * 7) % 23 + 1, 8, 9 }, g = 1000 * i * i, sk = { i * 10, 1, 1, 1, 1, 1, (i * 13) % 300 } }
+        TCF.LeaderboardMerge(b, { n = n, c = classes[i % 4 + 1], l = i, t = 1000 * (21 - i), a = i % 7, z = i % 5, v = "1.5.3", ts = t - i * 4000,
+          x = x, xts = t - i * 4000 }, t)
       end
       TCF.db.taps = 999999999   -- you lead on taps
-      local v = TCF.leaderboardView
+      local win, v = TCF.window, TCF.leaderboardView
+      local function click(f) f.scripts.OnClick(f) end
+      local function youRow()
+        local you
+        for i, row in ipairs(v.rows) do if row.entry and row.entry.self then you = i end end
+        return you
+      end
+      local function sorted(field)
+        for i = 2, 14 do
+          local a, c = v.rows[i - 1].entry, v.rows[i].entry
+          if a and c and c[field] > a[field] then return false end
+        end
+        return true
+      end
+      win.lbScroll = 0
       v:Refresh()
       _w = { title = v.title:GetText(), r1 = v.rows[1].cells[2]:GetText(), rank1 = v.rows[1].cells[1]:GetText(), seen = v.rows[2].cells[7]:GetText() }
-      local you
-      for i, row in ipairs(v.rows) do if row.entry and row.entry.self then you = i end end
+      local you = youRow()
       _w.youHl = you and v.rows[you].hl:IsShown() or false
       _w.otherHl = v.rows[you == 1 and 2 or 1].hl:IsShown()
+      _w.sections = #v.sectionBtns
       local lvl
+      _w.tapsLabel = v.subLabel:GetText()
       for _, h in ipairs(v.heads) do if h.sortKey == "level" then lvl = h end end
-      lvl.scripts.OnClick(lvl)
+      click(lvl)
+      _w.levelLabel = v.subLabel:GetText()
       _w.byLevel = v.rows[1].entry.l
       _w.maxLevel = 0
       for _, r in ipairs(TCF:LeaderboardRows("taps")) do _w.maxLevel = math.max(_w.maxLevel, r.l) end
-      _w.sorted = true
-      for i = 2, 14 do if v.rows[i].entry and v.rows[i].entry.l > v.rows[i - 1].entry.l then _w.sorted = false end end
+      _w.sorted = sorted("l")
       v.scripts.OnMouseWheel(v, -1)
-      _w.scroll = v.scroll
+      _w.scroll = win.lbScroll
       _w.note = v.note:GetText()
       _w.empty = v.empty:IsShown()
+      -- Per class: 9 class buttons, the Mage board by the Mage cat's level, your row highlighted
+      click(v.sectionBtns[2])
+      _w.classShown, _w.profHidden = 0, true
+      for _, b in ipairs(v.classBtns) do if b:IsShown() then _w.classShown = _w.classShown + 1 end end
+      for _, b in ipairs(v.profBtns) do if b:IsShown() then _w.profHidden = false end end
+      for _, b in ipairs(v.classBtns) do if b.class == "MAGE" then click(b) end end
+      _w.classHead = v.heads[3].label:GetText()
+      _w.classSorted = sorted("val")
+      _w.classTop = v.rows[1].entry.val
+      _w.classLabel = v.subLabel:GetText()
+      _w.classScroll = win.lbScroll
+      local cy = youRow()
+      for _ = 1, 40 do if cy then break end; v.scripts.OnMouseWheel(v, -1); cy = youRow() end
+      _w.classYouHl = cy and v.rows[cy].hl:IsShown() or false
+      -- Professions: 8 boards, Trade Gold first
+      click(v.sectionBtns[3])
+      _w.profShown = 0
+      for _, b in ipairs(v.profBtns) do if b:IsShown() then _w.profShown = _w.profShown + 1 end end
+      _w.goldHead = v.heads[3].label:GetText()
+      _w.profCol4 = v.heads[4].label:GetText()
+      _w.profTaps = v.rows[1].cells[4]:GetText() == TCF.Commas(v.list[1].t)
+      _w.goldTop = v.rows[1].cells[3]:GetText() == TCF.FormatBig(v.list[1].val) and v.list[1].val >= 400000
+      _w.goldSorted = sorted("val")
+      for _, b in ipairs(v.profBtns) do if b.board == "cooking" then click(b) end end
+      _w.cookHead = v.heads[3].label:GetText()
+      _w.cookSorted = sorted("val")
+      _w.cookLabel = v.subLabel:GetText()
+      local py = youRow()
+      for _ = 1, 40 do if py then break end; v.scripts.OnMouseWheel(v, -1); py = youRow() end
+      _w.profYouHl = py and v.rows[py].hl:IsShown() or false
+      _w.profNote = v.note:GetText()
+      click(v.sectionBtns[1])
+      _w.back = v.heads[4].label:GetText()
     """)
     w = B.lua.globals()._w
-    ck(w.title.startswith("Realm leaderboard") and w.rank1 == 1, "window title and ranks: %s" % w.title)
+    ck(w.title.startswith("Realm leaderboard") and w.rank1 == 1, "tab title and ranks: %s" % w.title)
     ck(w.youHl and not w.otherHl, "your own row is highlighted, others are not")
+    ck(w.sections == 3, "three sections")
     ck(w.byLevel == w.maxLevel and w.maxLevel >= 20 and w.sorted, "sorting by cat level: %s" % w.byLevel)
+    ck(w.tapsLabel.startswith("Everyone by total taps.") and w.levelLabel.startswith("Everyone by cat level.") and "!" not in w.levelLabel,
+       "the line under the sections follows the sort: %r / %r" % (w.tapsLabel, w.levelLabel))
     ck(w.scroll == 1 and not w.empty, "the list scrolls with the mouse wheel")
     ck("30 days" in w.note and "your realm" in w.note and "!" not in w.note, "the limits are explained at the bottom: " + w.note)
+    ck(w.classShown == 9 and w.profHidden and w.classHead == "Level" and w.classSorted and w.classTop == 23 and "Mage" in w.classLabel,
+       "Per class: 9 class buttons, the Mage board by level (%s, top %s)" % (w.classLabel, w.classTop))
+    ck(w.classYouHl, "Per class: your own row highlighted")
+    ck(w.profShown == 8 and w.goldHead == "Trade Gold" and w.goldTop and w.goldSorted, "Professions: the Trade Gold board")
+    ck(w.profCol4 == "Taps" and w.profTaps, "Professions: a Taps column, not the level of the cat being played (%s)" % w.profCol4)
+    ck(w.cookHead == "Cooking" and w.cookSorted and "Cooking" in w.cookLabel and w.profYouHl, "Professions: the Cooking board, your row highlighted")
+    ck("!" not in w.profNote and "older version" in w.profNote, "the section notes: " + w.profNote)
+    ck(w.back == "Taps", "back to Total taps")
     ck(B.ev("TapCatForever.LeaderboardAgo(%d - 7200, %d)" % (srv[0], srv[0])) == "2 h ago" and B.ev("TapCatForever.LeaderboardAgo(%d - 3 * 86400, %d)" % (srv[0], srv[0])) == "3 days ago", "last seen")
 
     # 13. the What's new strip leads with the leaderboard
     hl = B.ev('(function() for _, n in ipairs(TapCatForever.NEWS) do if n.version == "1.5.3" then return n.highlight end end end)()')
-    ck(hl and hl.startswith("New: a realm leaderboard.") and "Settings" in hl and len(hl) <= 170 and "!" not in hl, "1.5.3 What's new note: %r" % hl)
+    ck(hl and hl.startswith("New: a realm leaderboard tab.") and "Join" in hl and len(hl) <= 170 and "!" not in hl, "1.5.3 What's new note: %r" % hl)
 
     # nobody who opted out ever sent a leaderboard message, and nothing printed with an exclamation mark
     ck(lbmsgs(E) == [] and E.heroic() == h0, "Echo (never opted in) sent nothing and got no chest")
@@ -4024,8 +4411,8 @@ def check_leaderboard(seed=1):
         for i in range(1, c.ev("#_chat") + 1):
             line = c.ev("_chat[%d]" % i)
             ck("!" not in line and "TapCatFvr" not in line, "chat line: " + line)
-    print("leaderboard section (%d clients, %d channel messages, gossip, merge, caps, expiry, opt-out, sign-up chest, odd input, limits, window): all checks passed"
-          % (len(clients), len([1 for l in log if l[2][:3] in ("L1;", "R1;", "X1;")])))
+    print("leaderboard section (%d clients, %d channel messages, gossip, extra fields, L1-only client, merge, caps, expiry, opt-out, sign-up chest, odd input, limits, tab, opt-in panel, sections): all checks passed"
+          % (len(clients), len([1 for l in log if l[2][:3] in LB_KINDS])))
 
 def load_addon(login=True):
     """Loads every file in the TOC into a sandboxed Lua 5.1 with the mocked WoW API."""

@@ -26,12 +26,13 @@ INTRO2 = "It never touches your gameplay. It just watches your key presses and m
 
 FEATURES = [
     ("What's new in 1.5.3", [
-        "A realm leaderboard, opt-in and off by default: see the cats of other players on your realm who share their progress, ranked by taps, cat level, achievements or zones. It all stays inside the game, and the first time you opt in you get a Heroic Cache. Open it with /tcf top or from Settings > Help and info.",
+        "A realm leaderboard tab, opt-in and off by default: see the cats of other players on your realm who joined, by total taps, per class and by professions. It all stays inside the game, and the first time you join you get a Heroic Cache. Open the Leaderboard tab, or type /tcf top.",
         "Cat levels now stop at 60, like Classic. Early levels come faster: about 2 hours a day gets a new cat to level 10 in about an hour, and to 60 in a few months. Existing cats keep their share of the current level.",
         "New Dungeon Chest, full of dungeon boss gear near your cat's level, mostly blue. The first clear of each dungeon in Adventure gives one, repeat clears give one about every 2 to 3 hours of dungeon fighting, and real WoW dungeons give one (up to 2 a day).",
         "Herbalism, First Aid, Fishing and Cooking unlock as each cat earns Trade Gold, and the Professions page shows how far along it is.",
         "Chests now and then hold a few TapCoins on top of their contents.",
         "Every class starts with a weapon of its own, and capes now hang down both sides of your cat.",
+        "An Equip best button on the Gear page, and an All button that crafts a recipe as many times as your materials allow (up to 50).",
         "Burning Crusade items, greens and blues with no stats, and leftover test items no longer drop.",
         "A Text distance slider and a tidier Settings page, and Adventure enemies sized to fit the fight scene.",
         "The same option, off by default, also shares your cat's class, level, zones cleared, TapCoins and addon version with the developer when asked.",
@@ -77,8 +78,8 @@ FEATURES = [
         "The addons find each other on their own, so there is nothing to set up. Invite a friend and play together.",
     ]),
     ("Realm leaderboard", [
-        "An opt-in leaderboard of the cats of players on your realm, ranked by taps, cat level, achievements or Adventure zones cleared. Open it with /tcf top or the Leaderboard button in Settings > Help and info.",
-        "Turn on Share my cat's progress in Settings > Help and info to join. It is off by default, and only players who turn it on are listed and can see it. The first time you join, you get a Heroic Cache, once per account.",
+        "A Leaderboard tab with the cats of players on your realm who joined, in three sections: Total taps (sort by taps, cat level, achievements or Adventure zones cleared), Per class (each class's cats by cat level) and Professions (Trade Gold earned, and the best Blacksmithing, Leatherworking, Tailoring, Herbalism, First Aid, Fishing and Cooking skill). Your own row is highlighted. Also /tcf top.",
+        "It is off by default. Until you join, the tab explains exactly what is shared and with whom, with a Join the leaderboard button (the same as Share my cat's progress in Settings > Help and info). A Leave button turns it off again. Only players who joined are listed and can see it. The first time you join, you get a Heroic Cache, once per account.",
         "Players pass the list on to each other inside the game, on your realm, so it also shows players you are never online with. Nothing goes over the internet, and turning the option off asks the others to take you off.",
     ]),
     ("Chests, shop and collecting", [
@@ -104,7 +105,7 @@ COMMANDS = [
     ("/tcf or /tapcat", "open the main window"),
     ("/tcf compendium", "every item and how to get it"),
     ("/tcf news", "patch notes"),
-    ("/tcf top", "the realm leaderboard"),
+    ("/tcf top", "the Leaderboard tab"),
     ("/tcf feedback", "report a bug or suggest an idea"),
     ("/tcf welcome", "show the welcome tour again"),
     ("/tcf bag", "open the Treasure Bag"),
@@ -120,7 +121,7 @@ FAQ = [
     ("What counts as a tap?", "Every key press (movement, abilities, everything except typing in chat), every mouse click, and your spell casts."),
     ("Can I turn off the sounds, chat messages or chest animation?", "Yes, all of them are in Settings (right-click the cat, then the Settings tab). Sounds and chat messages start off."),
     ("Where are the patch notes?", "In Settings > Patch notes, or type /tcf news."),
-    ("Does it send anything about me?", "Only if you turn on Share my cat's progress in Settings > Help and info, which is off by default. Then your character's name and realm, cat class, cat level, total taps, achievements earned, Adventure zones cleared and addon version are sent on an addon channel that TapCatForever players on your realm join when they turn it on, and they see them on the leaderboard, passed between players inside the game. Anyone who joins that channel could read what is shared there with an addon. The option is for your whole account, and since taps and achievements are shared between your characters, other players may be able to tell your characters on the same realm belong together. When the developer asks, it also answers with your addon version, cat class, cat level, zones cleared and TapCoins. Nothing else is sent, and nothing goes over the internet."),
+    ("Does it send anything about me?", "Only if you turn on Share my cat's progress in Settings > Help and info, which is off by default. Then your character's name and realm, cat class, cat level, the level of each of your class cats, total taps, achievements earned, Adventure zones cleared, Trade Gold earned, your best profession skills and addon version are sent on an addon channel that TapCatForever players on your realm join when they turn it on, and they see them on the leaderboard, passed between players inside the game. Anyone who joins that channel could read what is shared there with an addon. The option is for your whole account, and since taps and achievements are shared between your characters, other players may be able to tell your characters on the same realm belong together. When the developer asks, it also answers with your addon version, cat class, cat level, zones cleared and TapCoins. Nothing else is sent, and nothing goes over the internet."),
     ("Can I start over?", "Settings has \"Reset this character\" and \"Reset ALL progress\"."),
 ]
 
