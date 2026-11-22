@@ -178,3 +178,28 @@ TCF.SPELL_FX = {
            nature = { 0.5, 1, 0.4 }, lightning = { 0.7, 0.9, 1 }, arrow = { 1, 1, 1 }, poison = { 0.55, 1, 0.3 }, moon = { 0.8, 0.85, 1 },
            rock = { 0.85, 0.7, 0.5 }, impact = { 1, 1, 1 }, slash = { 1, 1, 1 } },
 }
+
+-- Passive abilities and auras (never cast, always on) still show in fights (AdventureFX.lua):
+--   aura  (a ring at the cat's feet when a pack appears), form (a sparkle burst on the cat when a pack
+--   appears), proc (a sparkle on the target with every basic hit), pet (claws strike the target every
+--   few seconds), totem (a totem stands by the cat and throws small fire bolts), orbs (orbs circle the
+--   cat when a pack appears), guard (a shadow shield flashes on the cat when it is hit, now and then)
+-- { sprite, mode, tint }
+local PASSIVE = {
+  PALADIN = { sor = { "sparkle", "proc", { 1, 0.9, 0.45 } }, dev = { "aura", "aura", { 1, 0.85, 0.35 } },
+              bom = { "aura", "aura", { 1, 0.6, 0.25 } } },
+  HUNTER = { pet = { "claw", "pet", { 1, 0.92, 0.8 } }, ts = { "aura", "aura", { 0.6, 1, 0.55 } } },
+  PRIEST = { ["if"] = { "aura", "aura", { 1, 0.65, 0.3 } }, sf = { "aura", "aura", { 0.7, 0.4, 1 } } },
+  SHAMAN = { ls = { "orb", "orbs", { 0.7, 0.88, 1 } }, st = { "totem", "totem" } },
+  MAGE = { fa = { "aura", "aura", { 0.65, 0.9, 1 } } },
+  WARLOCK = { vw = { "shield", "guard", { 0.7, 0.45, 1 } } },
+  DRUID = { cat = { "sparkle", "form", { 1, 0.85, 0.5 } } },
+}
+TCF.SPELL_FX.Passive = function(class, key)
+  local c = PASSIVE[class]
+  return c and c[key]
+end
+-- the damage school a sprite stands for (picks the game's impact visual when an ability has none)
+TCF.SPELL_FX.SCHOOL = { fire = "fire", frost = "frost", shadow = "shadow", arcane = "arcane", holy = "holy", nature = "nature",
+  lightning = "nature", poison = "nature", moon = "arcane", rock = "nature", arrow = "physical", slash = "physical", impact = "physical",
+  stun = "physical" }

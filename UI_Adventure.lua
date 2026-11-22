@@ -648,73 +648,39 @@ TCF.UI.Builders.adventure = function(page, win)
     end
   end
 
-  local fxPool = {}
-  local function fxSprite()
-    for _, f in ipairs(fxPool) do if not f.on then return f end end
-    if #fxPool >= 40 then return nil end
-    local f = { tex = fxLayer:CreateTexture(nil, "OVERLAY") }
-    fxPool[#fxPool + 1] = f
-    return f
-  end
-  -- mode: proj (fly a to b), burst (pop at a), rise (float up at a), fall (drop onto a)
-  local function playFx(sprite, mode, ax, ay, bx, by, size, dur, tint)
-    local f = fxSprite(); if not f then return end
-    f.on, f.age, f.mode, f.dur = true, 0, mode, dur or 0.45
-    f.ax, f.ay, f.bx, f.by, f.size = ax, ay, bx or ax, by or ay, size or 40
-    f.tex:SetTexture(TCF.ART_PATH .. "v\\s_" .. sprite)
-    if tint then f.tex:SetVertexColor(tint[1], tint[2], tint[3]) else f.tex:SetVertexColor(1, 1, 1) end
-    f.tex:SetRotation(0)
-    if mode == "proj" and bx then f.tex:SetRotation(math.atan2(-(by - ay), bx - ax)) end
-    f.impact = (mode == "proj" or mode == "fall") and sprite
-    f.tint = tint
-    f.tex:Show()
-  end
-  local function updateFx(e)
-    for _, f in ipairs(fxPool) do
-      if f.on then
-        f.age = f.age + e
-        local t = f.age / f.dur
-        if t >= 1 then
-          f.on = false; f.tex:Hide()
-          if f.impact then playFx("impact", "burst", f.bx, f.by, nil, nil, 46, 0.3, SPELL.TINT[f.impact]) end
-        else
-          local x, y, sz, a = f.ax, f.ay, f.size, 1
-          if f.mode == "proj" then x = f.ax + (f.bx - f.ax) * t; y = f.ay + (f.by - f.ay) * t + math.sin(t * math.pi) * 18
-          elseif f.mode == "fall" then x = f.bx - 30 * (1 - t); y = f.by + 130 * (1 - t)
-          elseif f.mode == "burst" then sz = f.size * (0.5 + t); a = 1 - t
-          elseif f.mode == "rise" then y = f.ay + 40 * t; sz = f.size * (0.8 + 0.4 * t); a = t < 0.6 and 1 or (1 - t) / 0.4
-          elseif f.mode == "bubble" then sz = f.size * (0.9 + 0.1 * math.sin(t * 12)); a = t < 0.7 and 0.9 or (1 - t) / 0.3 * 0.9 end
-          f.tex:ClearAllPoints(); f.tex:SetSize(sz, sz); f.tex:SetPoint("CENTER", scene, "BOTTOMLEFT", x, y); f.tex:SetAlpha(a)
-        end
-      end
+  -- fight visuals (AdventureFX.lua): shots, ability effects (with the game's own spell visuals on the
+  -- enemies), passive abilities. Positions are from the fight panel's bottom-left corner.
+  local function slotPos(i)
+    local f = i and slots[i]
+    -- a just-killed enemy still gets the killing blow; long-faded corpses are skipped
+    if f and f:IsShown() and f.mob and (f.mob.alive or not f.gone) then
+      -- aim at the fitted model's chest; the old fixed spot for the fallback model
+      return 532 + f.baseX - (f.slotW or 110) / 2 + (f.fitDX or 0), f.fitH and (8 + FIT.GROUND + f.fitH * 0.55) or 80
     end
   end
-  local CAT_X, CAT_Y = 120, 90
-  local function castFx(info, slotPos)
-    local fx = SPELL.For(info.class, info.key, info.kind)
-    if not fx then return end
-    local sprite, mode = fx[1], fx[2]
-    local targets = {}
-    if mode == "each" or mode == "multi" or mode == "rain" then
-      for i = 1, 3 do local x, y = slotPos(i); if x then targets[#targets + 1] = { x, y } end end
-    else
-      local x, y = slotPos(info.target); if x then targets[1] = { x, y } end
-    end
-    if mode == "proj" or mode == "multi" then
-      for k, p in ipairs(targets) do playFx(sprite, "proj", CAT_X, CAT_Y, p[1], p[2], 40, 0.35 + k * 0.05) end
-    elseif mode == "drain" then
-      if targets[1] then playFx(sprite, "proj", targets[1][1], targets[1][2], CAT_X, CAT_Y, 36, 0.45) end
-    elseif mode == "hit" or mode == "each" then
-      for _, p in ipairs(targets) do playFx(sprite, "burst", p[1], p[2], nil, nil, 60, 0.4) end
-    elseif mode == "rain" then
-      for _, p in ipairs(targets) do
-        for k = 1, 2 do playFx(sprite, "fall", p[1], p[2], p[1] + (k - 1.5) * 24, p[2], 34, 0.4 + k * 0.08) end
-      end
-    elseif mode == "stun" then
-      for _, p in ipairs(targets) do playFx("stun", "rise", p[1], p[2] + 46, nil, nil, 46, 1.2) end
-    elseif mode == "self" then playFx(sprite, "rise", CAT_X - 20, CAT_Y, nil, nil, 50, 0.9)
-    elseif mode == "bubble" then playFx(sprite, "bubble", CAT_X - 25, CAT_Y - 10, nil, nil, 120, 1.4, fx[3]) end
-  end
+  local FX = TCF.AdvFX.New(fxLayer, scene, {
+    slotPos = slotPos,
+    slotFrame = function(i) return slots[i] end,
+    float = function(txt, x, y, r, g, b, big) FloatText(txt, x, y, r, g, b, big) end,
+    shake = function(i, t) local f = slots[i]; if f then f.shake = max(f.shake or 0, t) end end,
+    anim = function(i, id, t)
+      local f = slots[i]
+      if not (f and f:IsShown() and f.mob and f.mob.alive) then return end
+      setAnim(f, id); f.anim = t
+    end,
+    -- a killing shot landed: its enemy falls now (if the slot still holds it)
+    die = function(i, mob)
+      local d = slots[i]
+      if d and d.mob == mob then setAnim(d, ANIM_DEATH); d.fade = 1.0; d.anim = 0 end
+    end,
+    target = function()
+      local run = TCF.advRun
+      local m = run and run.pack and run.pack[run.target]
+      if m and m.alive then return run.target end
+      for i, x in ipairs(run and run.pack or {}) do if x.alive then return i end end
+    end,
+  })
+  TCF.advFx = FX
 
   local function layoutSlots(pack)
     local n = pack and #pack or 0
@@ -799,8 +765,9 @@ TCF.UI.Builders.adventure = function(page, win)
     elseif t.art and t.art > 0 then
       art:SetTexture(t.art); art:SetTexCoord(0, 0.78, 0.05, 0.62); art:Show()
     else art:Hide() end
-    advCat:ApplyAppearance(TCF:GetAppearance())
+    advCat:ApplyAppearance(TCF.AdvFX.FightLook(TCF:GetAppearance(), TCF.advRun, TCF.db.class, adv.active)) -- holds its bow or wand while fighting
     local run = TCF.advRun
+    if FX.fighting and not (adv.active and run and run.pack and not run.away) and not (run and run.respawn > 0 and adv.active) then FX:Stand() end
     local st = TCF:CombatStats()
     local known = 0
     for _, a in ipairs(TCF.ABILITIES[TCF.db.class]) do if TCF:AbilityKnown(TCF.db.class, a.key) then known = known + 1 end end
@@ -843,6 +810,7 @@ TCF.UI.Builders.adventure = function(page, win)
   page:SetScript("OnShow", function()
     TCF.advWatching = true
     if TCF.advRun then TCF.advRun.events = {}; layoutSlots(TCF.advRun.pack) end
+    if TCF.advRun and TCF.advRun.pack and TCF:CD().adv.active then FX:Spawn(TCF.advRun.class) end -- passives (pet, totem) pick up again
   end)
   page:SetScript("OnHide", function() TCF.advWatching = false end)
   page:SetScript("OnUpdate", function(_, e)
@@ -855,6 +823,12 @@ TCF.UI.Builders.adventure = function(page, win)
       local fx = f and f:IsShown() and (532 + f.baseX - (f.slotW or 110) / 2 + (f.fitDX or 0)) or 400
       if kind == "spawn" then
         layoutSlots(run.pack); refresh()
+        FX:Spawn(run.class)
+      elseif kind == "swing" then
+        -- a basic attack: a shot flies (the right paw holds the ranged weapon), or a swipe or plain spell
+        if FX:Swing(idx, run.stats, run.class) then advCat:Tap("R") end
+      elseif (kind == "hit" or kind == "crit") and FX:CarryHit(idx, short(amt), fx, kind == "crit") then
+        -- (a shot or spell on its way carries the number and the flinch until it lands)
       elseif kind == "hit" or kind == "crit" or kind == "dot" then
         if kind ~= "dot" then advCat:Tap() end
         if f then f.shake = 0.2 end
@@ -867,31 +841,29 @@ TCF.UI.Builders.adventure = function(page, win)
       elseif kind == "hurt" then
         FloatText("-" .. short(amt), 95, 150, 1, 0.25, 0.25)
         if f then setAnim(f, ANIM_ATTACK); f.anim = 0.7 end
+        FX:Hurt()
       elseif kind == "heal" then
         FloatText("+" .. short(amt), 95, 160, 0.3, 1, 0.3)
       elseif kind == "ability" then
         abilityText:SetText("|T" .. TCF.Icon(ev[3]) .. ":16:16|t " .. amt); abilityT = 1.2
         local info = ev[4]
         if info then
-          castFx(info, function(i)
-            local f = i and slots[i]
-            -- a just-killed enemy still gets the killing blow; long-faded corpses are skipped
-            if f and f:IsShown() and f.mob and (f.mob.alive or not f.gone) then
-              -- aim at the fitted model's chest; the old fixed spot for the fallback model
-              return 532 + f.baseX - (f.slotW or 110) / 2 + (f.fitDX or 0), f.fitH and (8 + FIT.GROUND + f.fitH * 0.55) or 80
-            end
-          end)
+          if FX:Ability(info) then advCat:Tap() end
           for _, b in ipairs(abtns) do if b.a and b.a.key == info.key then b.flashA = 1; b.flash:SetAlpha(1) end end
         end
       elseif kind == "mobdie" then
         local d = slots[amt]
+        if d and FX:DieOnLand(amt, d.mob) then d = nil end -- a killing shot still flying: it falls when it lands
         if d then setAnim(d, ANIM_DEATH); d.fade = 1.0; d.anim = 0 end
+        FX:Gone(amt)
       elseif kind == "kill" then
         refresh()
       elseif kind == "defeat" then
+        FX:Stand()
         advCat:SetFaceFor("blink", 2); layoutSlots(nil); refresh()
       end
     end
+    FX:EndBatch()
     if #run.events > 0 then run.events = {} end
     catBar:SetMinMaxValues(0, run.catMax); catBar:SetValue(max(0, run.catHP))
     catBar.text:SetText(short(max(0, run.catHP)) .. " / " .. short(run.catMax) .. (run.shield > 0 and (" |cff99ccff+" .. short(run.shield) .. "|r") or ""))
@@ -931,7 +903,7 @@ TCF.UI.Builders.adventure = function(page, win)
     end
     if abilityT > 0 then abilityT = abilityT - e; abilityText:SetAlpha(min(1, abilityT * 2)) end
     if abar.class ~= TCF.db.class or abar.count == nil then layoutAbilities() end
-    updateAbilities(); updateFx(e)
+    updateAbilities(); FX:Update(e)
     for _, fs in ipairs(floats) do
       if fs.active then
         fs.age = fs.age + e

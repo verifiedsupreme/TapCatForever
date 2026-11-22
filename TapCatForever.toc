@@ -37,6 +37,7 @@ Sets\DireMaul.lua
 Sets\Scholomance.lua
 Sets\Stratholme.lua
 Abilities.lua
+SpellKitData.lua
 Adventure.lua
 AdventureRewards.lua
 Expeditions.lua
@@ -66,6 +67,7 @@ UI_DeathRoll.lua
 UI_RPS.lua
 Welcome.lua
 UI_Gear.lua
+AdventureFX.lua
 UI_Adventure.lua
 UI_AdventureInfo.lua
 UI_DungeonBanner.lua

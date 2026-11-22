@@ -952,6 +952,25 @@ local GROWTH = {
   DRUID   = { str = 0.9, agi = 0.9, sta = 1.0, int = 1.3, spi = 1.4 },
 }
 
+-- How the basic attacks land in Adventure (AdventureFX.lua draws them, same damage either way):
+-- "shoot" a hunter's bow, gun, crossbow or thrown weapon, "wand" bolts from an equipped wand
+-- (mage, priest, warlock), "spell" a caster without a wand or a hybrid whose spells hit harder,
+-- otherwise "melee". Returns attack, shot (the ranged weapon's type), school (a wand's damage school).
+local function attackStyle(rule, eq, overrideItem, overrideSlot, wRanged, ranged, melee, spell)
+  local rangedId = eq.RANGED
+  if overrideSlot == "RANGED" then rangedId = overrideItem and overrideItem.id end
+  local rangedIt = rangedId and TCF.GEAR[rangedId]
+  if rule.role == "ranged" and wRanged and ranged >= melee * 0.8 and rangedIt then return "shoot", rangedIt.sub end
+  if rule.role == "caster" then
+    if rangedIt and rangedIt.sub == "wand" then
+      return "wand", "wand", TCF.WAND_SCHOOL and (TCF.WAND_SCHOOL[rangedIt.base or rangedIt.id] or TCF.WAND_SCHOOL[rangedIt.id]) or "arcane"
+    end
+    return "spell"
+  end
+  if rule.role == "hybrid" and spell > melee then return "spell" end
+  return "melee"
+end
+
 function TCF:CombatStats(class, overrideItem, overrideSlot)
   class = class or self.db.class
   local L = min(60, self:CD(class).level)
@@ -997,13 +1016,15 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
   if wOff and rule.dual then weaponDPS = weaponDPS + wOff.dps * 0.5 end
   local melee = (weaponDPS + ap / 14) * 1.4   -- keeps melee on par with spellcasters
   local ranged = 0
-  if class == "HUNTER" then
+  -- a hunter with nothing in its ranged slot fights in melee (no shots without a bow, gun or thrown weapon)
+  if class == "HUNTER" and wRanged then
     local rap = t.agi * 2 + L * 2 + t.ap + t.rap
     ranged = ((wRanged and wRanged.dps or 1 + L * 0.3) + rap / 14) * 1.4
   end
   -- spells (wands add a little)
   local spell = 6 + L * 1.4 + (t.sp + t.heal * 0.25) * 0.35 + t.int * 0.05
   if wRanged and wRanged.dps and (class == "MAGE" or class == "WARLOCK" or class == "PRIEST") then spell = spell + wRanged.dps * 0.3 end
+  local attack, shot, school = attackStyle(rule, eq, overrideItem, overrideSlot, wRanged, ranged, melee, spell)
 
   local dps, crit
   if rule.role == "caster" then
@@ -1026,6 +1047,7 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
     str = t.str, agi = t.agi, sta = t.sta, int = t.int, spi = t.spi, ap = ap, sp = t.sp, def = t.def,
     ilvl = nItems > 0 and floor(ilvlSum / nItems + 0.5) or 0, items = nItems,
     power = floor(dps * 10 + hp / 4 + armor / 10), -- one number for expeditions and comparisons
+    attack = attack, shot = shot, school = school,
   }
 end
 
@@ -1121,6 +1143,16 @@ function TCF:GearAppearance(class, override)
   return out
 end
 ART_FOR.SHOULDER = { plate = "shoulder_plate", mail = "shoulder_mail", leather = "shoulder_leather", cloth = "shoulder_cloth" }
+
+-- The look item for the equipped ranged weapon (bow, gun, crossbow, thrown weapon or wand), drawn
+-- in the main paw while the cat shoots in Adventure (AdventureFX.lua). nil when the slot is empty.
+function TCF:RangedLook(class)
+  class = class or self.db.class
+  local id = self:GearEquipped(class).RANGED
+  local it = id and TCF.GEAR[id]
+  if not it then return nil end
+  return look(ART_FOR.WEAPON[it.sub] or "wpn_bow", it, "main")
+end
 
 -- A starter weapon so a fresh cat isn't fighting bare-pawed: the weapon each class is known
 -- for (a bow for hunters, a dagger for rogues, a staff for mages...), the plainest one there is.
