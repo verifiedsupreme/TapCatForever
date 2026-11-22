@@ -289,6 +289,8 @@ function TCF:AdvMobKilled(m)
       self.db.zonesCleared = self.db.zonesCleared or {}   -- account-wide: the first cat to clear it gets the full bonus
       self.db.zonesCleared[t.key] = true
       self:AddCoins(coins)
+      -- clearing a raid zone in Adventure counts for the raid achievements (WoW: Forever has no raids yet)
+      if t.raid then self.db.stats.raids = (self.db.stats.raids or 0) + 1 end
       -- raids give a Raider's Hoard, dungeons a Dungeon Chest, open-world zones a Strongbox
       local dungeon = TCF.IsDungeonTier(t)
       if dungeon then adv.dungeonClock = 0 end

@@ -154,7 +154,7 @@ local function getLine(g)
     if g.chest == "heroic" then
       -- (Dungeons.lua rolls the Heroic Cache's skins after some real dungeon runs)
       local lo, hi = TCF.DUNGEON_HEROIC_SKIN_LOW or 0.10, TCF.DUNGEON_HEROIC_SKIN_HIGH or 0.25
-      return line, string.format("Or after a real WoW dungeon from level 20: %s of runs get this same chance (%s from level 50)",
+      return line, string.format("In WoW: or after a real dungeon from level 20: %s of runs get this same chance (%s from level 50)",
         pct(lo), pct(hi))
     end
     return line
@@ -167,8 +167,8 @@ local function getLine(g)
     return string.format("Expedition reward: %s chance each time %s comes back successful", pct(g.chance),
       ex and ("\"" .. ex.name .. "\"") or "any expedition")
   elseif k == "realdungeon" then
-    local raid = g.run == "raid"
-    return string.format("Finish a real WoW %s with TapCatForever on: %s chance each time", raid and "raid" or "dungeon", pct(g.chance))
+    local what = g.run == "raid" and "raid" or g.run == "any" and "dungeon or raid" or "dungeon"
+    return string.format("In WoW: finish a real %s with TapCatForever on, %s chance each time", what, pct(g.chance))
   elseif k == "craft" then
     return craftLine(g.prof, g.skill, g.mats), whereLine(g.prof)
   end
@@ -228,7 +228,7 @@ local function gearLines(it, add)
     return
   end
   if it.q == 1 then
-    add(string.format("Plain (white) gear: now and then an enemy in Adventure drops it, around level %d", max(1, it.req or 1)))
+    add(string.format("Adventure: plain (white) gear that regular enemies drop now and then, around level %d", max(1, it.req or 1)))
     add("Mostly found early on, and mostly for slots your cat has empty. Chests never hold white gear")
     return
   end
@@ -253,7 +253,7 @@ local function gearLines(it, add)
   local t = it.tier and it.tier > 0 and TCF.TIERS and TCF.TIERS[it.tier]
   local b = t and it.boss and it.boss > 0 and t.bosses[it.boss]
   if b then
-    add(string.format("Dropped by %s in %s (Adventure)", b[1], t.name))
+    add(string.format("Adventure: dropped by %s in %s", b[1], t.name))
     add("Each Adventure boss always drops a piece of its own loot the first time you beat it")
     add("After that, chests can hold loot from bosses your cat has already beaten")
     if TCF.IsDungeonTier and TCF.IsDungeonTier(t) and it.q >= 2 and it.q <= 4 then
@@ -271,12 +271,12 @@ local function gearLines(it, add)
       if not bl[i] or #bl[i] == 0 then fallback = true; break end
     end
     if fallback then
-      add(string.format("Zone loot from %s (Adventure): a possible first-kill reward from bosses there that have no loot of their own", t.name))
+      add(string.format("Adventure: zone loot from %s, a possible first-kill reward from bosses there that have no loot of their own", t.name))
     end
     local lv = t.min == t.max and tostring(t.min) or (t.min .. "-" .. t.max)
-    add(string.format("Zone loot from %s (Adventure): rarely found in chests opened while your cat is level %s", t.name, lv))
+    add(string.format("Adventure: zone loot from %s, rarely found in chests opened while your cat is level %s", t.name, lv))
   else
-    add(string.format("World drop around level %d", max(1, it.req or 1)))
+    add(string.format("Adventure and chests: world drop around level %d", max(1, it.req or 1)))
     add("Chests give gear close to your cat's class level, so open them around that level")
     if it.q == 2 then add("Enemies in Adventure sometimes drop it too, mostly for slots your cat has empty") end
   end
@@ -297,7 +297,7 @@ function TCF:HowToGet(it)
     if it.skinPrice then add("Buy in the Appearance tab for " .. commas(it.skinPrice) .. " TapCoins") end
     for _, d in ipairs(skinDrops(it)) do
       local t = zoneOfBoss(d[1])
-      add(string.format("Dropped by %s%s (Adventure), %s chance", d[1], t and (" in " .. t.name) or "", pct(d[2])))
+      add(string.format("Adventure: dropped by %s%s, %s chance", d[1], t and (" in " .. t.name) or "", pct(d[2])))
     end
     for _, g in ipairs(getsOf(it)) do
       local a, b = getLine(g)

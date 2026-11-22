@@ -394,7 +394,7 @@ function TCF:GearTooltip(tt, it, class)
   elseif it.tier > 0 then
     local t = TCF.TIERS[it.tier]
     local src = it.boss > 0 and t.bosses[it.boss][1] or "enemies"
-    tt:AddLine(string.format("Drops from %s (%s)%s", src, t.name, it.dc > 0 and string.format(" - %.1f%%", it.dc / 10) or ""), 0.6, 0.8, 1, true)
+    tt:AddLine(string.format("Adventure: drops from %s (%s)%s", src, t.name, it.dc > 0 and string.format(" - %.1f%%", it.dc / 10) or ""), 0.6, 0.8, 1, true)
   else
     tt:AddLine("World drop", 0.6, 0.8, 1)
   end

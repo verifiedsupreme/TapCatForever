@@ -3,7 +3,8 @@
 --
 -- How it works, all inside the game (addon messages, no internet):
 --   * Opted-in players share a short summary of their own cat on the hidden addon channel that
---     DevView.lua joins for them (never shown in chat): a little after login, about every 12 to 15
+--     DevView.lua joins for them (never shown in chat): a little after login, about every 2 minutes while
+--     your taps go up (otherwise every 12 to 15
 --     minutes after that, and sooner when something changes a lot (a level, an achievement, a zone,
 --     many taps).
 --   * Everyone also passes on a few of the entries they know (gossip): after their own summary, and
@@ -45,6 +46,8 @@ local SKEW = 600                     -- a summary may be this far ahead of our c
 local FIRST_DELAY = 45               -- seconds after login or opting in before our first summary (the channel joins at 20)
 local OWN_GAP, OWN_JITTER = 12 * 60, 3 * 60   -- then every 12 to 15 minutes
 local OWN_MIN_GAP = 5 * 60           -- a big change sends sooner, but not more often than this
+local TAP_GAP = 2 * 60               -- while your taps go up, your summary goes out about every 2 minutes
+local RELAY_GAP = 12 * 60            -- other players' entries are passed on at most this often
 local CHECK_GAP = 60                 -- how often we look for a big change
 local RELAY_BATCH = 3                -- entries passed on at a time
 local RELAY_FRESH = 15 * 60          -- an entry heard on the channel this recently is not passed on again
@@ -52,7 +55,7 @@ local RELAY_AGAIN = 60 * 60          -- and we pass on the same entry at most on
 local HELLO_GAP = 2 * 60             -- at most one newcomer batch this often
 local SEND_GAP = 2                   -- seconds between our messages
 local SEND_BUDGET, SEND_WINDOW = 30, 600     -- at most 30 messages in 10 minutes (an L1 and its L2 are two)
-local READ_BUDGET, READ_WINDOW = 240, 60     -- at most 240 messages read a minute; the rest are ignored
+local READ_BUDGET, READ_WINDOW = 600, 60     -- at most 600 messages read a minute; the rest are ignored
 local SENDER_MSGS, SENDER_WINDOW = 40, 600   -- at most 40 messages read from one sender in 10 minutes
 local SENDER_ADDS, SENDER_ADD_WINDOW = 40, 3600   -- and at most 40 players added or taken off by them an hour
 local REMOVE_GAP = 10                -- seconds between two of our "take me off" (unless we shared in between)
@@ -441,6 +444,7 @@ local sentAt = {}           -- GetTime of our recent messages (SEND_BUDGET)
 local lastSend = -1e9
 local ownAt, lastOwnAt, lastOwn = nil, -1e9, nil
 local lastOwnSentAt = -1e9  -- GetTime our own summary last went out
+local lastRelayAt = -1e9    -- GetTime we last passed on other players' entries (RELAY_GAP)
 local checkAt = nil
 local helloAt, helloSince, lastHello = nil, nil, -1e9
 local heardAt, relayedAt, senders = {}, {}, {}   -- entry key -> GetTime; direct sender key -> first heard
@@ -618,7 +622,8 @@ local function sendOwn(t, noRelay)
   enqueue(entryText(e), true, nil, extraText(e))
   lastOwnAt, lastOwn = t, snapshot(e)
   ownAt = t + OWN_GAP + random() * OWN_JITTER
-  if not noRelay then relay(t, t - RELAY_FRESH, true) end
+  -- passing on others' entries stays on the slow schedule, however often our own taps go out
+  if not noRelay and t - lastRelayAt >= RELAY_GAP then lastRelayAt = t; relay(t, t - RELAY_FRESH, true) end
   dirty = true
   return true
 end
@@ -984,7 +989,12 @@ ev:SetScript("OnUpdate", function(_, e)
   end
   if checkAt and t >= checkAt then
     checkAt = t + CHECK_GAP
-    if bigChange() and t - lastOwnAt >= OWN_MIN_GAP then ownAt = t end
+    if bigChange() and t - lastOwnAt >= OWN_MIN_GAP then ownAt = t
+    elseif lastOwn and t - lastOwnAt >= TAP_GAP then
+      -- taps went up since our last summary: share them (nothing goes out when nothing changed)
+      local e = TCF:LeaderboardOwnEntry()
+      if e and e.t > lastOwn.t then ownAt = t end
+    end
   end
   if helloAt and t >= helloAt then
     -- a newcomer: our own summary (unless just sent) and what they missed while away
@@ -1006,6 +1016,7 @@ TCF.LeaderboardTest = {
     wipe(senderMsgs); wipe(senderAdds)
     lastSend, ownAt, lastOwnAt, lastOwn, checkAt = -1e9, nil, -1e9, nil, nil
     helloAt, helloSince, lastHello, lastRemoveAt, lastOwnSentAt, lastSweep = nil, nil, -1e9, -1e9, -1e9, -1e9
+    lastRelayAt = -1e9
     signupPending = false
   end,
   setOwnAt = function(t) ownAt = t end,

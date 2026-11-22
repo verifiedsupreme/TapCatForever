@@ -105,7 +105,7 @@ function TCF:DungeonComplete(run, how)
   if self.cat then self.cat:Celebrate((run.name or "Dungeon"), 0.2, 1, 0.2, (run.type == "raid" and "Raid" or "Dungeon") .. " complete") end
   self:AwardChest(chestKey, (run.name or "Dungeon") .. " complete")
   -- a few skins are only found in real dungeon or raid runs (only when the run pays a chest)
-  local won = self:RollSkinSource("realdungeon", function(g) return g.run == run.type end,
+  local won = self:RollSkinSource("realdungeon", function(g) return g.run == run.type or g.run == "any" end,
     "Found after " .. (run.name or (run.type == "raid" and "a raid" or "a dungeon")))
   -- Dungeons used to give a Heroic Cache now and then (10% of runs from level 20, 25% from 50).
   -- They give a Dungeon Chest now, so the Heroic Cache's own skins (Golden Treasure Cat, Diamond

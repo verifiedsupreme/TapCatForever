@@ -2678,7 +2678,7 @@ TEST = r'''
         TCF.db.keys.dungeon = k0
         TCF.RollSkinSource = function() end
         local golden = table.concat(TCF:HowToGet(TCF.ITEMS.skin_golden), " / ")
-        check(golden:find("after a real WoW dungeon from level 20", 1, true), "the Compendium names real dungeons for the Golden Treasure Cat: " .. golden)
+        check(golden:find("after a real dungeon from level 20", 1, true), "the Compendium names real dungeons for the Golden Treasure Cat: " .. golden)
       end
       TCF.AwardChest = origAward
       -- the chat line names it in Rare blue
@@ -4077,13 +4077,14 @@ def check_leaderboard(seed=1):
     D.ex("TapCatForever.LeaderboardTest.reset(); _optIn(true)")
     D.ex(r"""
       local letters = "abcdefghijklmnopqrstuvwxyz"
-      for i = 1, 400 do
+      for i = 1, 700 do
         local a, c = (i % 26) + 1, (math.floor(i / 26) % 26) + 1
         local n = "Flood" .. letters:sub(c, c) .. letters:sub(a, a) .. "-Forever"
         _deliver("TapCatFvr", "L1;" .. n .. ";MAGE;5;" .. i .. ";1;0;1.5.3;" .. _srv, n)
       end
     """)
-    ck(D.ev("_boardCount()") == D.ev("TapCatForever.LB_READ_BUDGET"), "at most %d read a minute: %d" % (D.ev("TapCatForever.LB_READ_BUDGET"), D.ev("_boardCount()")))
+    _lim = min(D.ev("TapCatForever.LB_READ_BUDGET"), D.ev("TapCatForever.LB_MAX_ENTRIES"))
+    ck(D.ev("_boardCount()") == _lim, "at most %d kept from a minute's flood: %d" % (_lim, D.ev("_boardCount()")))
     # the send limit: many newcomers in a row never push a client past 30 messages in 10 minutes
     s0 = len(D.sent)
     t0 = srv[0]

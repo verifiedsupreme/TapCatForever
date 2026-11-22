@@ -11,6 +11,7 @@
 - The option is for your whole account, so all your characters share. Since taps and achievements are shared between them, other players may be able to tell your characters on the same realm belong together.
 - The leaderboard fills up over time and can be a little behind. Players not seen for 30 days drop off, and up to 500 players are kept. Turning the option off stops sharing and asks other players to take you off their leaderboard. Players who are offline then hear it later from the others, and each of your other characters that shared asks the next time you log in on it.
 - One player can only add a limited number of other players to your leaderboard each hour, and a player who took themselves off only comes back by sharing again.
+- Your taps are shared about every 2 minutes while you play, so the board stays current.
 
 **Levels**
 - Cat levels now stop at 60, like Classic. A cat above 60 becomes 60 and keeps its gear, abilities and titles. A cat at 60 no longer gains XP, and its XP bar says Max level.
@@ -61,6 +62,8 @@
 - Scroll the mouse wheel over a slider to move it one step at a time. The Ctrl and Shift mouse wheel tips for the cat are now in the Cat size and Opacity slider tooltips.
 
 **Other fixes**
+- WoW: Forever has no raids yet, so nothing needs a real raid: the Raid Leader Cat now comes from finishing any real dungeon (2%, raids too once they open), and the Raid Cat achievement counts raid zones cleared in Adventure.
+- Every "how to get it" line now says where: "Adventure:" for the Adventure game, "In WoW:" for real World of Warcraft.
 - Party cats: your own cat no longer shows up in the little row beside your cat.
 - Messages, notices and achievement names use plainer wording, without exclamation marks.
 - Up to 10 taps every second earn TapCoins, however fast you tap. Faster taps still count as taps and XP.

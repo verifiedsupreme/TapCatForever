@@ -550,7 +550,7 @@ local SKINS = {
   { "skin_runebound",    "Runebound Cat",           4, c(0.24, 0.20, 0.40), 1,   { "pat_runes", c(0.40, 0.90, 1.00) },   c(0.40, 0.90, 1.00), nil, nil, "INV_Misc_Rune_06", nil, nil, nil, { kind = "expedition", expedition = "strat", chance = 0.01 } },
   -- real WoW dungeon and raid rewards
   { "skin_party",        "Party Animal",            3, c(1.00, 0.92, 0.80), 1,   { "pat_confetti", c(1.00, 1.00, 1.00) }, nil,                nil, nil, "INV_Holiday_Christmas_Present_01", nil, nil, nil, { kind = "realdungeon", run = "party", chance = 0.03 } },
-  { "skin_raidleader",   "Raid Leader Cat",         4, c(0.30, 0.30, 0.36), 1,   { "pat_raidmarks", c(1.00, 1.00, 1.00) }, c(1.00, 0.85, 0.30), nil, nil, "INV_Misc_Bone_HumanSkull_01", nil, nil, nil, { kind = "realdungeon", run = "raid", chance = 0.05 } },
+  { "skin_raidleader",   "Raid Leader Cat",         4, c(0.30, 0.30, 0.36), 1,   { "pat_raidmarks", c(1.00, 1.00, 1.00) }, c(1.00, 0.85, 0.30), nil, nil, "INV_Misc_Bone_HumanSkull_01", nil, nil, nil, { kind = "realdungeon", run = "any", chance = 0.02 } },
   -- crafted with professions
   { "skin_moss",         "Mossy Stone Cat",         3, c(0.58, 0.55, 0.50), 1,   { "pat_moss", c(0.42, 0.68, 0.28), c(1.00, 0.85, 0.95) }, c(0.90, 0.80, 0.30), nil, nil, "INV_Misc_Herb_DreamFoil", nil, nil, nil, { kind = "craft", prof = "herbalism", mats = { sungrass = 500, fadeleaf = 400 }, skill = 210 } },
   { "skin_coal",         "Coal Miner's Cat",        3, c(0.66, 0.64, 0.62), 1,   { "pat_soot", c(0.22, 0.20, 0.20), c(1.00, 0.88, 0.40) }, c(1.00, 0.75, 0.30), nil, nil, "INV_Misc_Lantern_01", nil, nil, nil, { kind = "craft", prof = "blacksmithing", mats = { thorium = 900, mithril = 500 }, skill = 250 } },
@@ -814,7 +814,7 @@ local STAT_TEXT = {
   races = "Collect %s different racial heritage pieces across your characters.",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s item(s) with professions.",
-  dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s real WoW raid(s).",
+  dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s raid(s): a real WoW raid or a raid zone in Adventure.",
 }
 local CLEAR_NAMES = { gnomer = "Gnomeregan", zg = "Zul'Gurub", mc = "Molten Core", bwl = "Blackwing Lair", aq40 = "the Temple of Ahn'Qiraj", naxx = "Naxxramas (defeat Kel'Thuzad)" }
 for _, a in ipairs(TCF.ACHIEVEMENTS) do
