@@ -225,15 +225,16 @@ TCF.UI.Builders.adventure = function(page, win)
   TCF.ShowAdventureLoot = function() showLoot() end
 
   ------------------------------------------------ the two buttons on the right of the zone line
-  local lootBtn = Button(page, "Bosses and loot", 112, 18, function()
+  -- (under the zone arrows, above the fight panel at -50)
+  local lootBtn = Button(page, "Bosses and loot", 112, 17, function()
     if loot:IsShown() then loot:Hide() else showLoot() end
   end)
-  lootBtn:SetPoint("TOPRIGHT", -12, -31)
+  lootBtn:SetPoint("TOPRIGHT", -12, -34)
   Tip(lootBtn, function(tt)
     tt:AddLine("Bosses and loot", 1, 0.82, 0)
     tt:AddLine("Each boss in this zone, its first-kill reward and the loot it can drop for your cat. Pick a piece and press Farm to stay on that boss until it drops.", 1, 1, 1, true)
   end)
-  local helpBtn = Button(page, "Help", 50, 18, function()
+  local helpBtn = Button(page, "Help", 50, 17, function()
     if guide:IsShown() then guide:Hide() else loot:Hide(); showGuide(1) end
   end)
   helpBtn:SetPoint("RIGHT", lootBtn, "LEFT", -4, 0)
