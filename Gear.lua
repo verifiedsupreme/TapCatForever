@@ -1110,8 +1110,12 @@ function TCF:GearAppearance(class, override)
     elseif o.sub == "dagger" then art = "off_dagger" else art = "off_sword" end
     out.off = look(art, o, "off")
   end
+  -- shoulders (1.6): the cartoon cat draws pauldrons on both shoulders
+  local sh = get("SHOULDER")
+  if sh then out.shoulder = look(ART_FOR.SHOULDER[sh.sub] or "shoulder_cloth", sh, "shoulder") end
   return out
 end
+ART_FOR.SHOULDER = { plate = "shoulder_plate", mail = "shoulder_mail", leather = "shoulder_leather", cloth = "shoulder_cloth" }
 
 -- A starter weapon so a fresh cat isn't fighting bare-pawed: the weapon each class is known
 -- for (a bow for hunters, a dagger for rogues, a staff for mages...), the plainest one there is.

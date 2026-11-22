@@ -468,7 +468,7 @@ TEST = r'''
     assert(TCF:CD("WARRIOR").level == 1, "alt cats start at level 1")
     assert(not TCF.db.owned.race_tauren and not TCF.db.owned.race_orc, "alt has its own cosmetics")
     TCF:AddCoins(1000); assert(TCF:BuyRaceAccessory())
-    assert(TCF:GetLoadout("MAGE").acc == "race_tauren", "racial piece worn by the alt's cats")
+    assert(TCF:GetLoadout("MAGE").race == "race_tauren", "racial piece worn by the alt's cats (1.6: in its own slot)")
     -- only the selected class's cat adventures: others stay paused
     TCF:SetClass("MAGE"); TCF:AdvStart()
     for i = 1, 400 do _update(0.25) end
@@ -4431,7 +4431,7 @@ def load_addon(login=True):
     toc = open(os.path.join(ROOT, "TapCatForever.toc")).read().splitlines()
     files = [l.strip() for l in toc if l.strip().endswith(".lua")]
     for fn in files:
-        src = open(os.path.join(ROOT, fn), encoding="utf-8").read()
+        src = open(os.path.join(ROOT, fn.replace("\\", "/")), encoding="utf-8").read()  # TOC paths like Sets\X.lua
         chunk = lua.execute("return function(src, name) return assert(loadstring(src, name)) end")(src, "@" + fn)
         lua.execute("return function(f) setfenv(f, setmetatable({ os = false, io = false, require = false, loadfile = false, dofile = false }, { __index = _G, __newindex = _G })) end")(chunk)
         chunk("TapCatForever", ns)

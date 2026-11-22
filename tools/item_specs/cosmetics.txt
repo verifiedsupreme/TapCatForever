@@ -79,3 +79,8 @@ acc_race_skyborne | acc | acc:race_skyborne
 acc_race_tauren | acc | acc:race_tauren
 acc_race_troll | acc | acc:race_troll
 acc_race_undead | acc | acc:race_undead
+# shoulders (1.6): the fallback drawings for real shoulder gear by armour type, tinted with the item's colours
+shoulder_plate | shoulder | shoulder:plate rivets
+shoulder_mail | shoulder | shoulder:mail
+shoulder_leather | shoulder | shoulder:leather
+shoulder_cloth | shoulder | shoulder:cloth

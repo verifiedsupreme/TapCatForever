@@ -289,7 +289,7 @@ local function pickHouse()
   for _, it in ipairs(TCF.ITEM_LIST or {}) do
     if it.slot == "fur" then furs[#furs + 1] = it.id
     elseif it.slot == "skin" and not it.rainbow then skins[#skins + 1] = it.id
-    elseif it.slot == "head" and not it.class then hats[#hats + 1] = it.id end
+    elseif it.slot == "head" and not it.class and it.source ~= "set" then hats[#hats + 1] = it.id end
   end
   local h = { name = HOUSE_NAMES[random(#HOUSE_NAMES)] }
   if h.name == "Lucky Paws" and TCF.ITEMS and TCF.ITEMS.skin_tuxedo then h.skin = "skin_tuxedo"   -- the classic tuxedo

@@ -256,6 +256,7 @@ function Cat:ApplyAppearance(look)
   -- two-part gear slots
   for _, slot in ipairs({ "back", "pattern", "chest", "acc", "head", "main", "off" }) do
     local it = look[slot]
+    if slot == "acc" and not it then it = look.race end  -- 1.6: the pixel cat shows the racial piece when no accessory is worn
     if slot == "pattern" and skin then
       -- the old pixel cat only has art for the first few patterns; newer ones are cartoon only
       it = skinPattern and PIXEL_PATTERNS[skinPattern.art] and skinPattern or nil
