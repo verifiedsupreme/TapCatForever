@@ -159,7 +159,9 @@ end
 ev:SetScript("OnEvent", function(_, event, ...)
   if not TCF.db then return end
   if event == "ENCOUNTER_END" then
-    local _, _, _, _, success = ...
+    local encounterID, encounterName, _, _, success = ...
+    -- rewards for killing specific real bosses (RealBosses.lua)
+    if TCF.RealBossEncounter then TCF:RealBossEncounter(encounterID, encounterName, success) end
     local run = TCF.db.dungeonRun
     if run and not run.leftAt and safeEq(success, 1) then
       run.bosses = run.bosses + 1

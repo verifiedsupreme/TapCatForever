@@ -48,3 +48,14 @@ do
     end
   end
 end
+
+-- the short source word on Compendium skin cells: "WoW" for a skin from a real boss
+do
+  local tag = TCF.SkinSourceTag
+  if tag then
+    function TCF.SkinSourceTag(it)
+      if TCF.RealBossRewardsFor and #TCF:RealBossRewardsFor(it.id) > 0 then return "WoW" end
+      return tag(it)
+    end
+  end
+end

@@ -28,3 +28,18 @@
 - When the piece drops, farming stops with one chat line. Stop farming, moving to another stage or zone, or turning Auto-advance on also stops it.
 - Fighting-time chests keep their own timers while you farm.
 - Gear tooltips in the Compendium say how often a boss drops the piece for your cat on later kills.
+
+## Rewards for real WoW bosses
+- Some rewards now come from killing certain bosses in real World of Warcraft with TapCatForever on. Tooltips and the Compendium say "In WoW: kill <boss> in <place>" for these, and how many times you have killed that boss on this character.
+- Dungeon bosses count when the game says the encounter was won. Hogger, out in Elwynn Forest, counts when you fought him and then see him dead (as your target, focus or nameplate). If someone else tagged him, he doesn't count.
+- Hogger: Hogger's Chewed Bandana, always on your first kill.
+- Archmage Arugal (Shadowfang Keep): Arugal's Worgen Cowl, 20% each kill.
+- General Drakkisath (Blackrock Spire): Drakkisath's Ember Crown, 20% each kill.
+- These skins moved from Adventure drops to the real bosses: Defias Bandit Cat (Edwin VanCleef, The Deadmines, 15%), Ragefire Cinder Cat (Taragaman the Hungerer, Ragefire Chasm, 15%) and Stone Watcher Cat (Archaedas, Uldaman, 10%). Adventure keeps its other boss skins, such as the Scarlet Crusader Cat and the Wind-Up Clockwork Cat.
+- Nothing needs a raid: WoW: Forever has no raids yet.
+- All of these are Cosmetic only.
+
+## For other tracks: TCF.BOSS_COSMETICS
+- TCF.BOSS_COSMETICS = TCF.BOSS_COSMETICS or {} (AdventureRewards.lua).
+- Key: the Adventure boss's display name exactly as TCF.TIERS names it (the first field of an entry in a tier's bosses list), for example "Ragnaros", "Edwin VanCleef", "Hogger".
+- Value: a list of TCF.ITEMS keys. On every Adventure kill of that boss, each listed item the player doesn't own yet is given quietly (no notice for cosmetics, one chat line if chat messages are on). The Compendium and tooltips then say "Adventure: <boss> in <zone> gives it every time you beat it, until you have it".

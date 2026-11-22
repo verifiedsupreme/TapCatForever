@@ -32,6 +32,7 @@ Fishing.lua
 Cooking.lua
 Quests.lua
 Dungeons.lua
+RealBosses.lua
 UI.lua
 ChestReel.lua
 LootToast.lua
