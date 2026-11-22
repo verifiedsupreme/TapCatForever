@@ -741,6 +741,7 @@ function TCF:CreateWindow()
     win.tab = i
     for j, p in ipairs(pages) do p:SetShown(j == i) end
     for j, t in ipairs(tabs) do if j == i then t:LockHighlight() else t:UnlockHighlight() end end
+    if win.OnTabSelected then win:OnTabSelected(i) end
     win:Refresh()
   end
   local iconPrev = ver
@@ -1286,6 +1287,8 @@ function TCF:CreateWindow()
     Check("Show XP bar", "showXP", CB, Row(3), CB_W)
     Check("Show tap counter", "showTaps", CB, Row(4), CB_W)
     Check("Show TapCoins", "showCoins", CB, Row(5), CB_W)
+    -- Window size (UI_Window.lua): - and + in the free spot under the text checkboxes
+    if TCF.UI.WindowSizeControl then TCF.UI.WindowSizeControl(win, st, Place, CB, Row(6), CB_W) end
 
     -- Chat and sounds (left half) beside Position (right half)
     gy = Heading("Chat and sounds", COL[1], 231, COL[3] - 8 - COL[1])
@@ -1457,6 +1460,10 @@ function TCF:CreateWindow()
     self:RefreshLight()
   end
 
+  -- window size, character pane and compact layout (UI_Window.lua)
+  win.parts = { W = W, H = H, title = title, ver = ver, close = close, coins = coins, bagBtn = bagBtn, bagLabel = bagLabel,
+                compBtn = compBtn, left = left, right = right, pages = pages, iconTabs = ICON_TABS }
+  if TCF.UI.SetupWindowLayout then TCF.UI.SetupWindowLayout(win) end
   win:SetScript("OnShow", function(s) s:Refresh() end)
   SelectTab(TAB_ADVENTURE)
 end

@@ -79,6 +79,7 @@ UI_PartyExpeditions.lua
 UI_Professions.lua
 UI_Leaderboard.lua
 UI_Casino.lua
+UI_Window.lua
 Compendium.lua
 AdventureSources.lua
 Feedback.lua
