@@ -50,3 +50,17 @@
 - When real bosses there have rewards you don't have yet, the banner says so. Hover it to see them.
 - In a raid it says Raider's Hoard and 10 TapCoins a boss (for when WoW: Forever opens raids).
 - It updates while the window is open and is hidden outside dungeons and raids. It is part of the window, not a pop-up.
+
+## Boss effects
+- Six new back effects play behind your cat. Each is unlocked by a big boss kill, in real WoW or in Adventure:
+  - Storm Aura: In WoW, kill Mekgineer Thermaplugg in Gnomeregan. Adventure: beat Ossirian the Unscarred in Ruins of Ahn'Qiraj.
+  - Firelord's Blaze: In WoW, kill Emperor Dagran Thaurissan in Blackrock Depths. Adventure: beat Ragnaros in Molten Core.
+  - Frostwhisper Chill: In WoW, kill Ras Frostwhisper in Scholomance. Adventure: beat Kel'Thuzad in Naxxramas.
+  - Shadowflame Shroud: In WoW, kill Baron Rivendare in Stratholme. Adventure: beat Nefarian in Blackwing Lair.
+  - Crusader's Radiance: In WoW, kill High Inquisitor Whitemane in Scarlet Monastery. Adventure: beat C'Thun in Ahn'Qiraj.
+  - Verdant Wisps: In WoW, kill Princess Theradras in Maraudon. Adventure: beat Hakkar in Zul'Gurub.
+- The first such kill always unlocks the effect. Wear it from Appearance like any effect. Cosmetic only.
+- These unlocks are the one big moment that shows over your cat: "You unlocked Storm Aura" appears above it with the effect playing behind it, then fades after about 5 seconds. Two unlocks at once show one after the other. Nothing else pops up. The "Popups on cat" setting turns it off.
+
+## Art to build
+- tools/art_specs_adv/boss_effects.txt: six back-effect drawings (fx_storm_aura, fx_firelord, fx_frost_chill, fx_shadow_shroud, fx_holy_radiance, fx_verdant_wisps). Until they exist, the effects use the current effect drawings in their own colours (Art/fx_lightning, fx_flames, fx_runes, fx_aura, fx_rays, fx_wisps). When built, change the art field in BossEffects.lua (TCF.BOSS_EFFECTS).

@@ -33,6 +33,7 @@ Cooking.lua
 Quests.lua
 Dungeons.lua
 RealBosses.lua
+BossEffects.lua
 UI.lua
 ChestReel.lua
 LootToast.lua

@@ -29,6 +29,9 @@ local function extraLines(self, it)
   if self.RealBossSourceLines then
     for _, l in ipairs(self:RealBossSourceLines(it)) do out[#out + 1] = l end
   end
+  if self.BossEffectSourceLines then
+    for _, l in ipairs(self:BossEffectSourceLines(it)) do out[#out + 1] = l end
+  end
   return out
 end
 TCF.AdvExtraSourceLines = extraLines
