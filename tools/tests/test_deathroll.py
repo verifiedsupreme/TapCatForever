@@ -703,6 +703,17 @@ def _scene(seed, load_addon):
       v:SetMode("house"); snap()
       return out''')
     texts = list(texts.values())
+    # the How to play box: always shown, the rules for the opponent on screen, the same text in its tooltip
+    how = lua.execute('''
+      local v = TapCatForever.DR.views[1]
+      local out = {}
+      v:SetMode("friend"); v:Refresh(true); out[1] = v.how:IsShown() and v.how.body:GetText() or "hidden"
+      v:SetMode("house"); v:Refresh(true); out[2] = v.how:IsShown() and v.how.body:GetText() or "hidden"
+      return out''')
+    ck("1. Both players bet the same amount." in how[1] and "4. Whoever rolls a 1 loses, and the other player gets the bet." in how[1], "How to play (friend): %r" % how[1])
+    ck("2. The first player rolls 1 to 1,000 (or the start you picked)." in how[1] and "3. Each next roll is 1 to the number just rolled." in how[1], "How to play (friend) lines 2, 3")
+    ck("house cat" in how[2] and "1.9 times" in how[2], "How to play (house cat): %r" % how[2])
+    texts += [how[1], how[2]]
     for t in texts:
         ck("!" not in t and "%s" not in t and "%d" not in t and "nil" not in t, "scene text: %r" % t)
     ck(any("You win" in t for t in texts) and any("Your turn" in t for t in texts) and any("No TapCoins moved" in t for t in texts), "scene texts")

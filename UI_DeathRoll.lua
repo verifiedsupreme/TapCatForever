@@ -15,6 +15,7 @@ local DR = TCF.DR
 local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local CONFETTI = 36
 local CONF_COLORS = { { 1, 0.36, 0.36 }, { 1, 0.8, 0.2 }, { 0.35, 0.75, 1 }, { 0.5, 0.9, 0.4 }, { 1, 0.55, 0.85 }, { 0.75, 0.55, 1 } }
+local HOW_W = 356   -- the How to play box: as wide as the gap between the two cats' roll bubbles
 local NOTE_ROLL = "Rolls with a friend use the game's /roll, so they also show in chat for your group like a normal /roll."
 
 local function now() return GetTime and GetTime() or 0 end
@@ -284,11 +285,26 @@ function TCF.UI.CasinoDeathRoll(container, win)
 
   -- middle: the current range, on a dark plate so it reads over the bar and its shelves
   v.plate = scene:CreateTexture(nil, "ARTWORK")
-  v.plate:SetTexture(ART .. "dr_plate"); v.plate:SetSize(200, 100); v.plate:SetPoint("CENTER", scene, "CENTER", 0, 18)
-  v.rangeCap = U.Text(scene, "GameFontNormal"); v.rangeCap:SetPoint("CENTER", scene, "CENTER", 0, 34)
+  v.plate:SetTexture(ART .. "dr_plate"); v.plate:SetSize(200, 100); v.plate:SetPoint("CENTER", scene, "CENTER", 0, 6)
+  v.rangeCap = U.Text(scene, "GameFontNormal"); v.rangeCap:SetPoint("CENTER", scene, "CENTER", 0, 22)
   v.rangeCap:SetShadowOffset(1, -1)
   v.rangeNum = scene:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-  v.rangeNum:SetFont(FONT, 34, "THICKOUTLINE"); v.rangeNum:SetPoint("CENTER", scene, "CENTER", 0, 4)
+  v.rangeNum:SetFont(FONT, 34, "THICKOUTLINE"); v.rangeNum:SetPoint("CENTER", scene, "CENTER", 0, -8)
+
+  -- How to play: a small box between the top bar and the plate, clear of the cats, their roll
+  -- bubbles and the buttons; hovering it shows the same text as a tooltip
+  local how = U.Panel(scene, HOW_W, 76, 0.8)
+  how:SetPoint("TOP", scene, "TOP", 0, -68)
+  how:EnableMouse(true)
+  how.title = U.Text(how, "GameFontNormalSmall", "How to play", "LEFT"); how.title:SetPoint("TOPLEFT", 10, -7)
+  how.body = U.Text(how, "GameFontHighlightSmall", "", "LEFT"); how.body:SetPoint("TOPLEFT", how.title, "BOTTOMLEFT", 0, -3)
+  how.body:SetWidth(HOW_W - 20)
+  if how.body.SetJustifyV then how.body:SetJustifyV("TOP") end
+  U.Tip(how, function(tt)
+    tt:AddLine("How to play", 1, 0.82, 0)
+    for _, l in ipairs(v:HowTo()) do tt:AddLine(l, 1, 1, 1, true) end
+  end)
+  v.how = how
 
   -- invite (when a friend challenges you)
   local inv = U.Panel(scene, 330, 78, 0.92)
@@ -494,6 +510,8 @@ function Scene:Refresh(full)
   if cur <= 10 then self.rangeNum:SetTextColor(1, 0.25, 0.2) else self.rangeNum:SetTextColor(1, 0.86, 0.35) end
   self.rangeCap:SetText(g and "Next roll" or "Rolls start at")
 
+  self:RefreshHowTo()
+
   -- invite, status, buttons
   self.inv:Hide()
   local status, btn, btnOn = "", nil, true
@@ -581,6 +599,33 @@ function Scene:Refresh(full)
     self.note:SetText("Who rolls first is a coin flip. Win and you get 1.9 times your bet back.")
     self.note2:SetText("TapCoins are scarce: the house keeps a little of every bet on average.")
   end
+end
+
+-- the How to play lines for the game and opponent on screen
+function Scene:HowTo()
+  if self.mode == "friend" then
+    return { "1. Both players bet the same amount.",
+             "2. The first player rolls 1 to 1,000 (or the start you picked).",
+             "3. Each next roll is 1 to the number just rolled.",
+             "4. Whoever rolls a 1 loses, and the other player gets the bet." }
+  end
+  return { "1. You and the house cat bet the same amount.",
+           "2. A coin flip picks who rolls first: 1 to 1,000 (or the start you picked).",
+           "3. Each next roll is 1 to the number just rolled.",
+           "4. Whoever rolls a 1 loses. Beat the house cat and you get 1.9 times your bet back." }
+end
+
+function Scene:RefreshHowTo()
+  local how = self.how
+  local text = table.concat(self:HowTo(), "\n")
+  if how.text ~= text then
+    how.text = text
+    how.body:SetText(text)
+  end
+  -- as tall as the text needs (long lines wrap)
+  local th = how.body.GetStringHeight and how.body:GetStringHeight()
+  local h = (type(th) == "number" and th > 0) and floor(th + 0.5) + 30 or 76
+  how:SetHeight(min(104, max(52, h)))
 end
 
 ---------------------------------------------------------------- animation
