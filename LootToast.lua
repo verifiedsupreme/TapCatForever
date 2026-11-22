@@ -1,34 +1,37 @@
--- TapCatForever: small loot notices. Gear and cosmetics you find (Adventure, quests,
--- expeditions, crafting, the shop...) go straight into your bags and a little notice slides in
--- instead of the big loot box. Hover a notice to see the item (gear is compared with what your
--- cat is wearing), click it to open the Gear or Appearance tab, right-click to dismiss.
--- Opening a chest yourself still plays the reel and shows the loot box.
+-- TapCatForever: quiet loot notices. Everything you find outside a chest you open (Adventure,
+-- quests, expeditions, crafting...) goes straight into your bags. Nothing ever shows on or
+-- around the cat on your screen.
+--  * Cosmetics and skins: no notice at all (they're in Appearance; chat says so if chat is on).
+--  * Gear: only while the TapCatForever window is open, one slim line under the window (icon,
+--    name, Power change) that fades after a few seconds. Hover it for the item compared with
+--    what your cat wears; click to open Gear.
+-- Opening a chest yourself plays the reel and shows the loot box only for a blue (Rare) or
+-- better item; a common or green one gets the same slim line, under the Treasure Bag.
 local ADDON, TCF = ...
 local min, max = math.min, math.max
 
--- wide enough for the longest random-bonus names ("Swashbuckler's Shoulderpads of the Monkey")
-local W, H, GAP, MAX_SHOWN = 330, 46, 4, 5
-local LIFE, FADE = 7, 0.6
+-- one slim line per item; names that don't fit end in "..." (the tooltip has the full name)
+local W, H, GAP, MAX_SHOWN = 240, 22, 2, 3
+local LIFE, FADE = 5, 0.8
 
 local holder, toasts = nil, {}
 
 local function anchorHolder()
   holder:ClearAllPoints()
-  local hud = TCF.hud
-  if hud and hud:IsShown() then
-    holder:SetPoint("BOTTOM", hud, "TOP", 0, 26)
-  else
-    holder:SetPoint("TOP", UIParent, "TOP", 0, -170)
-  end
+  -- under the Treasure Bag when it is open (chest openings), otherwise under the main window
+  local bag, win = TCF.bag, TCF.window
+  if bag and bag:IsShown() then holder:SetPoint("TOP", bag, "BOTTOM", 0, -4)
+  elseif win and win:IsShown() then holder:SetPoint("TOP", win, "BOTTOM", 0, -4)
+  else holder:SetPoint("TOP", UIParent, "TOP", 0, -170) end
 end
 
 local function layout()
   anchorHolder()
   local y = 0
-  for i = #toasts, 1, -1 do   -- newest at the bottom, nearest the cat
+  for i = #toasts, 1, -1 do   -- newest at the top, right under the window
     local t = toasts[i]
     t:ClearAllPoints()
-    t:SetPoint("BOTTOM", holder, "BOTTOM", 0, y)
+    t:SetPoint("TOP", holder, "TOP", 0, -y)
     y = y + H + GAP
   end
 end
@@ -44,16 +47,18 @@ local pool = {}
 local function getToast()
   for _, t in ipairs(pool) do if t.free then t.free = false; return t end end
   local U = TCF.UI
-  local t = CreateFrame("Button", nil, holder, U.BT)
+  local t = CreateFrame("Button", nil, holder)
   t:SetSize(W, H)
-  t:SetFrameStrata("DIALOG")
-  if t.SetBackdrop then t:SetBackdrop(U.BACKDROP_DIALOG or U.BACKDROP) end
-  t.icon = t:CreateTexture(nil, "ARTWORK"); t.icon:SetSize(32, 32); t.icon:SetPoint("LEFT", 9, 0)
+  t:SetFrameStrata("MEDIUM")
+  -- a faint dark strip, no border, so it reads over the game without looking like a window
+  t.bg = t:CreateTexture(nil, "BACKGROUND"); t.bg:SetAllPoints(); t.bg:SetColorTexture(0, 0, 0, 0.35)
+  t.icon = t:CreateTexture(nil, "ARTWORK"); t.icon:SetSize(18, 18); t.icon:SetPoint("LEFT", 3, 0)
   t.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-  t.name = U.Text(t, "GameFontNormal", nil, "LEFT"); t.name:SetPoint("TOPLEFT", t.icon, "TOPRIGHT", 8, -1); t.name:SetWidth(W - 60)
-  t.name:SetWordWrap(false)
-  t.sub = U.Text(t, "GameFontHighlightSmall", nil, "LEFT"); t.sub:SetPoint("BOTTOMLEFT", t.icon, "BOTTOMRIGHT", 8, 1); t.sub:SetWidth(W - 60)
+  t.sub = U.Text(t, "GameFontHighlightSmall", nil, "RIGHT"); t.sub:SetPoint("RIGHT", -5, 0)
   t.sub:SetWordWrap(false)
+  t.name = U.Text(t, "GameFontHighlightSmall", nil, "LEFT"); t.name:SetPoint("LEFT", t.icon, "RIGHT", 5, 0)
+  t.name:SetPoint("RIGHT", t.sub, "LEFT", -6, 0)
+  t.name:SetWordWrap(false)
   t:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   t:SetScript("OnClick", function(self, button)
     if button == "LeftButton" and TCF.OpenTab then TCF:OpenTab(self.isGear and "gear" or "appearance") end
@@ -83,8 +88,14 @@ local function getToast()
 end
 
 -- it: a gear item (isGear) or a cosmetic/skin/effect from TCF.ITEMS
-function TCF:ShowLootToast(it, isNew, salvage, title, isGear)
+-- fromChest: a common or green item from a chest you just opened (always gets its line)
+function TCF:ShowLootToast(it, isNew, salvage, title, isGear, fromChest)
   if not it then return end
+  if not fromChest then
+    -- found while playing: cosmetics and skins get no notice; gear only while the window is open
+    if not isGear then return end
+    if not (self.window and self.window:IsShown()) then return end
+  end
   if not holder then
     holder = CreateFrame("Frame", "TapCatForeverLootToasts", UIParent)
     holder:SetSize(W, H)
@@ -107,32 +118,21 @@ function TCF:ShowLootToast(it, isNew, salvage, title, isGear)
   t.icon:SetTexture(TCF.Icon(it.icon or "INV_Misc_QuestionMark"))
   local q = isGear and it.q or it.rarity or 1
   local col = TCF.RARITY[q] and TCF.RARITY[q].color or { 1, 1, 1 }
-  if t.SetBackdropBorderColor then t:SetBackdropBorderColor(col[1], col[2], col[3], 1) end
   t.name:SetText(it.name .. (t.count > 1 and (" |cffffffffx" .. t.count .. "|r") or ""))
   t.name:SetTextColor(col[1], col[2], col[3])
+  -- the right side: just the Power change, short
   local sub
-  if isGear then
-    local d = self.GearUpgrade and self:GearUpgrade(it)
-    if not self:GearUsable(it, self.db.class) then sub = "|cffff8040Your class can't use it|r"
-    elseif d and d > 0 then
-      -- a piece for a slot the cat has empty says so (small finds from Adventure mostly are)
-      local slot = self.BestGearSlot and self:BestGearSlot(it)
-      local empty = slot and not self:GearEquipped(self.db.class)[slot]
-      local sn = empty and TCF.GEAR_SLOT_BY_KEY and TCF.GEAR_SLOT_BY_KEY[slot]
-      sub = "|cff20ff20+" .. d .. " Power|r " .. (sn and ("for your empty " .. sn.name .. " slot") or "if worn")
-    elseif d and d < 0 then sub = "|cffff4040" .. d .. " Power|r if worn"
-    else sub = "|cffaaaaaaSame Power as what you wear|r" end
-  elseif it.slot == "skin" then
-    sub = "|cffcc88ffNew cat skin|r"
+  if not isGear then
+    sub = isNew and "|cffcc88ffnew|r" or string.format("|cffaaaaaa+%d coins|r", salvage or 0)
   else
-    sub = isNew and "|cffcc88ffNew cosmetic|r" or string.format("|cffcc88ffDuplicate:|r +%d TapCoins", salvage or 0)
+    local d = self.GearUpgrade and self:GearUpgrade(it)
+    if not self:GearUsable(it, self.db.class) then sub = "|cffff8040can't use|r"
+    elseif d and d > 0 then sub = "|cff20ff20+" .. d .. "|r"
+    elseif d and d < 0 then sub = "|cffff4040" .. d .. "|r"
+    else sub = "|cffaaaaaa=|r" end
   end
   t.title = title
   t.sub:SetText(sub)
-  -- a name still too long: the random bonus is what tells finds apart, so repeat it on the sub line
-  if isGear and it.suffix and TCF.GEAR_SUFFIXES and TCF.GEAR_SUFFIXES[it.suffix] and t.name.IsTruncated and t.name:IsTruncated() then
-    t.sub:SetText("|cffffffff" .. TCF.GEAR_SUFFIXES[it.suffix] .. "|r  " .. sub)
-  end
   t:Show()
   layout()
 end

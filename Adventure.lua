@@ -285,7 +285,6 @@ function TCF:AdvMobKilled(m)
       self:AddCoins(coins)
       self:AwardChest(t.raid and "raid" or "strong", t.name .. " cleared")
       self:AdvLog(string.format("|cff20ff20%s cleared for the first time.|r +%s TapCoins and a chest", t.name, TCF.Commas(coins)))
-      if self.cat and self.cat.Toast then self.cat:Toast(string.format("%s cleared: +%s TapCoins", t.name, TCF.Commas(coins)), 1, 0.82, 0.2) end
     else
       local lo, ramp = ADV.CHEST_MIN, ADV.CHEST_RAMP
       if t.raid then lo, ramp = ADV.RAID_CHEST_MIN, ADV.RAID_CHEST_RAMP end

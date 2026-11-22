@@ -516,8 +516,7 @@ function TCF:GrantItem(it, reason, reveal, chestKey)
   if not isNew then msg = msg .. string.format(" (duplicate, salvaged for %d TapCoins)", salvage) end
   self:Print(msg)
   -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
-  if self.ShowLootReveal then self:ShowLootReveal(it, isNew, salvage, reason, chestKey)
-  elseif self.cat then self.cat:ShowLoot(it, isNew) end
+  if self.ShowLootReveal then self:ShowLootReveal(it, isNew, salvage, reason, chestKey) end
   if self.cat and self.cat.SetFaceFor then self.cat:SetFaceFor(it.rarity >= 4 and "sparkle" or "happy", 2.5) end
   self:PlaySound(it.rarity >= 4 and "rare" or "loot")
   self:MarkDirty()
@@ -546,11 +545,6 @@ function TCF:AwardChest(key, source)
   local hex = ch.color or (col and col.hex) or "ff1eff00"
   local art = ch.name:find("^[AEIOUaeiou]") and "an" or "a"
   self:Print(string.format("%s: you earned %s |c%s%s|r. Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name))
-  if self.cat and self.cat.Toast then
-    local r, g, b = 0.2, 1, 0.2
-    if col and col.color then r, g, b = col.color[1], col.color[2], col.color[3] end
-    self.cat:Toast("|T" .. TCF.Icon(ch.icon) .. ":18:18|t " .. ch.name, r, g, b)
-  end
   self:PlaySound("loot")
   self:MarkDirty()
   self:RefreshAll()

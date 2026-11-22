@@ -162,10 +162,15 @@ end
 TCF.ShowLootRevealDirect = TCF.ShowLootReveal
 function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   local args = { it, isNew, salvage, title, chestKey, isGear }
-  -- only chest openings (your own click) get the reel and the loot box; everything else you
-  -- find goes straight into your bags with a small notice you can hover (LootToast.lua)
+  -- only chest openings (your own click) can get the reel and the loot box, and only for a
+  -- blue (Rare) or better find; everything else goes straight into your bags with at most a
+  -- slim line (LootToast.lua). "Open all" still lists everything in the loot window.
   if self.ShowLootToast and not chestKey and not self.forceReveal then
     return self:ShowLootToast(it, isNew, salvage, title, isGear)
+  end
+  local quality = it and (isGear and it.q or it.rarity) or 1
+  if self.ShowLootToast and it and quality < 3 and not self.openingAll then
+    return self:ShowLootToast(it, isNew, salvage, title, isGear, true)
   end
   local ch = chestKey and TCF.CHEST_BY_KEY[chestKey]
   if ch and it and self.db.ui.chestAnim ~= false and not self.openingAll then

@@ -973,9 +973,20 @@ TEST = r'''
     check(near(sg, ps.gold - gold0) and sg >= jg, "junk Trade Gold: " .. tostring(sg) .. " vs " .. jg)
     check(_chat[#_chat]:find("TapCoins and", 1, true) and _chat[#_chat]:find("Trade Gold", 1, true), "junk line: " .. _chat[#_chat])
     check(select(2, TCF:JunkGear()) == 0, "nothing left to sell")
-    -- 7. loot notices: gear from anything but your own chest click goes to the bag with a small notice
+    -- a hunter with a melee weapon but no bow gets its bow once
+    do
+      local hcd, heq = TCF:CD("HUNTER"), TCF:GearEquipped("HUNTER")
+      local saveR, saveM = heq.RANGED, heq.MAINHAND
+      heq.RANGED = nil; heq.MAINHAND = 1317; hcd.hunterBow = nil
+      TCF:FixStarterWeapons()
+      check(heq.RANGED and TCF.GEAR[heq.RANGED].sub == "bow", "hunter gets its bow")
+      heq.RANGED, heq.MAINHAND = saveR, saveM
+    end
+    -- 7. loot notices: gear found while playing goes to the bag; a slim line only while the window is open
     toasts = 0
     if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
+    if not TCF.window then TCF:CreateWindow() end
+    TCF.window:Show()
     TCF:GrantGear(found, "Adventure")
     TCF:GrantGear(TCF:RollWorldLoot(20, "MAGE") or found, "Quest")
     check(toasts == 2 and TapCatForeverLootToasts and TapCatForeverLootToasts:IsShown(), "non-chest gear: notices")
@@ -983,6 +994,20 @@ TEST = r'''
     local named = false
     for _, f in ipairs(_frames) do if f.kind == "FontString" and type(f.text) == "string" and f.text:find(found.name, 1, true) == 1 and f.shown then named = true end end
     check(named, "the notice names the item")
+    do
+      TCF.window:Hide()
+      local shownBefore = 0
+      for _, f in ipairs(_frames) do if f.kind == "Button" and f.item and f.shown then shownBefore = shownBefore + 1 end end
+      for _, f in ipairs(_frames) do if f.kind == "Button" and f.item then f:Hide() end end
+      TCF:GrantGear(found, "Adventure")
+      local cos
+      for _, it in ipairs(TCF.ITEM_LIST) do if it.source == "loot" then cos = it; break end end
+      if cos then TCF:GrantItem(cos, "Lucky find while tapping") end
+      local shown = 0
+      for _, f in ipairs(_frames) do if f.kind == "Button" and f.item and f.shown then shown = shown + 1 end end
+      check(shown == 0, "window closed: no notice anywhere (not over the cat)")
+      TCF.window:Show()
+    end
     TCF:AwardChest("pouch", "test")   -- earning a chest key is not opening it
     check(not (TapCatForeverLootReveal and TapCatForeverLootReveal:IsShown()), "a chest key alone shows no loot box")
     -- opening a chest by hand: the reel plays (your own click), no small notice
@@ -998,8 +1023,11 @@ TEST = r'''
         TCF:OpenChest("pouch", true)
         if TCF.lastChest and TCF.lastChest.gear then
           gotGear = true
-          check(toasts == 0, "chest gear: no small notice")
-          check(TapCatForeverReel and TapCatForeverReel:IsShown(), "chest gear: the reel plays")
+          if TCF.lastChest.gear.q >= 3 then
+            check(toasts == 0 and TapCatForeverReel and TapCatForeverReel:IsShown(), "blue+ chest gear: the reel plays")
+          else
+            check(toasts == 1 and not (TapCatForeverReel and TapCatForeverReel:IsShown()), "green chest gear: a slim line, no reel")
+          end
         end
         if TapCatForeverReel then TapCatForeverReel:Hide() end
         if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
@@ -1809,6 +1837,8 @@ TEST = r'''
       weq.CHEST = nil
       TCF:Bag("WARRIOR")[sChest.id] = nil
       if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
+      if not TCF.window then TCF:CreateWindow() end
+      TCF.window:Show()
       local toastFrom = #_frames
       TCF:GrantGear(wChest, "Found on Kobold Vermin")
       TCF:GrantGear(sHead, "Found on Kobold Vermin")
@@ -1816,10 +1846,10 @@ TEST = r'''
       for _, f in ipairs(_frames) do
         if f.kind == "FontString" and type(f.text) == "string" and f.shown then
           if f.text:find(wChest.name, 1, true) == 1 then nameShown = true end
-          if f.text:find("for your empty Chest slot", 1, true) then emptyShown = true end
+          if f.text:find("+", 1, true) then emptyShown = true end
         end
       end
-      check(nameShown and emptyShown, "a found white gets a notice that names it and its empty slot")
+      check(nameShown and emptyShown, "a found white gets a slim line with its name and Power change")
       check(not (TapCatForeverLootReveal and TapCatForeverLootReveal:IsShown()), "found gear: no loot box")
       check(_chat[#_chat]:find("Found on Kobold Vermin", 1, true), "found gear chat line")
       -- the Gear page lists them
