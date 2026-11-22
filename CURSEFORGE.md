@@ -11,6 +11,8 @@ A cartoon cat taps along with every key you press. Level a cat for each class, d
 TapCatForever
 =============
 
+This is my first addon, and I'm so glad you're here. I update it often, so keep it up to date for the newest features and fixes. If you have an idea or find a bug, I'd love to hear it: type /tcf feedback in game or use the link at the bottom of this page.
+
 **A little cartoon cat lives on your screen and taps its paws every time you press a key.** Every keystroke you already make in World of Warcraft earns your cat XP and TapCoins, and behind it is a whole collection game: real WoW gear, class abilities, an idle Adventure through Azeroth's dungeons and raids, class professions that craft real gear, loot chests and hundreds of things to collect.
 
 It never touches your gameplay. It just watches your key presses and makes them a little more fun.
@@ -59,6 +61,7 @@ Features
 - Herbalism, First Aid, Fishing and Cooking unlock later: a garden that grows in real time, bandages that heal your cat in fights, a fishing dock with a fishing buddy, and recipes you discover by experimenting.
 - Sell your business for Renown to grow faster and unlock new professions.
 - Every class's cat runs its own business with its own Trade Gold and Renown, and the helpers of all your cats keep working while you play another.
+- Each profession has a short "How it works" guide (the Help button next to its name).
 
 **Play with friends**
 - Group up with friends who also have TapCatForever and their cats sit in a little row beside yours. Hover one to see whose cat it is.

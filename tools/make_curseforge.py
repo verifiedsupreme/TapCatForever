@@ -19,6 +19,9 @@ INTRO_BOLD = "A little cartoon cat lives on your screen and taps its paws every 
 INTRO = (" Every keystroke you already make in World of Warcraft earns your cat XP and TapCoins, and behind it "
          "is a whole collection game: real WoW gear, class abilities, an idle Adventure through Azeroth's dungeons "
          "and raids, class professions that craft real gear, loot chests and hundreds of things to collect.")
+PERSONAL = ("This is my first addon, and I'm so glad you're here. I update it often, so keep it up to date for the "
+            "newest features and fixes. If you have an idea or find a bug, I'd love to hear it: type /tcf feedback in "
+            "game or use the link at the bottom of this page.")
 INTRO2 = "It never touches your gameplay. It just watches your key presses and makes them a little more fun."
 
 FEATURES = [
@@ -63,6 +66,7 @@ FEATURES = [
         "Herbalism, First Aid, Fishing and Cooking unlock later: a garden that grows in real time, bandages that heal your cat in fights, a fishing dock with a fishing buddy, and recipes you discover by experimenting.",
         "Sell your business for Renown to grow faster and unlock new professions.",
         "Every class's cat runs its own business with its own Trade Gold and Renown, and the helpers of all your cats keep working while you play another.",
+        "Each profession has a short \"How it works\" guide (the Help button next to its name).",
     ]),
     ("Play with friends", [
         "Group up with friends who also have TapCatForever and their cats sit in a little row beside yours. Hover one to see whose cat it is.",
@@ -114,7 +118,7 @@ FEEDBACK = ("Found a bug or have an idea? Type /tcf feedback in game, leave a co
 
 
 def txt():
-    o = [TITLE.upper(), "", INTRO_BOLD + INTRO, "", INTRO2, "", "Features", ""]
+    o = [TITLE.upper(), "", PERSONAL, "", INTRO_BOLD + INTRO, "", INTRO2, "", "Features", ""]
     for head, items in FEATURES:
         o.append(head)
         o += ["• " + i for i in items]
@@ -130,7 +134,7 @@ def txt():
 
 def md():
     o = ["# CurseForge page text", "", "## Summary (under 256 characters)", "", SUMMARY, "", "## Description", "",
-         "![TapCatForever]({})".format(LOGO), "", TITLE, "=" * len(TITLE), "",
+         "![TapCatForever]({})".format(LOGO), "", TITLE, "=" * len(TITLE), "", PERSONAL, "",
          "**" + INTRO_BOLD + "**" + INTRO, "", INTRO2, "", "Features", "--------", ""]
     for head, items in FEATURES:
         o.append("**{}**".format(head))
@@ -150,7 +154,7 @@ def h(s):
 
 
 def htm():
-    o = ['<p><img src="{}" alt="TapCatForever" width="400" /></p>'.format(LOGO), "<h1>{}</h1>".format(TITLE),
+    o = ['<p><img src="{}" alt="TapCatForever" width="400" /></p>'.format(LOGO), "<h1>{}</h1>".format(TITLE), "<p><em>{}</em></p>".format(h(PERSONAL)),
          "<p><strong>{}</strong>{}</p>".format(h(INTRO_BOLD), h(INTRO)), "<p>{}</p>".format(h(INTRO2)), "<h2>Features</h2>"]
     for head, items in FEATURES:
         o.append("<p><strong>{}</strong></p>".format(h(head)))
