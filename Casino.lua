@@ -17,6 +17,7 @@ TCF.CASINO_GAMES = {
   { key = "slots", name = "Slots" },
   { key = "blackjack", name = "Blackjack" },
   { key = "deathroll", name = "Death roll" },
+  { key = "rps", name = "Rock paper scissors" },
 }
 TCF.CASINO_MIN_BET, TCF.CASINO_MAX_BET = 10, 500
 
@@ -40,7 +41,7 @@ function TCF:CasinoData()
     if type(c[g.key]) ~= "table" then c[g.key] = newStats() end
   end
   if type(c.total) ~= "table" then c.total = newStats() end
-  for _, k in ipairs({ "total", "slots", "blackjack", "deathroll" }) do
+  for _, k in ipairs({ "total", "slots", "blackjack", "deathroll", "rps" }) do
     local s = c[k]
     for _, f in ipairs({ "played", "wagered", "won", "biggest" }) do s[f] = num(s[f]) or 0 end
   end
@@ -142,11 +143,12 @@ function TCF:CasinoCollect(game)
   return paid
 end
 
--- Party death roll: moves TapCoins between you and another player. delta > 0 credits you, < 0
--- debits you (never below zero), at most the top bet either way. stake: the bet of the duel (for
--- the stats: it counts as bet, and a win counts stake + delta as paid back, so the net is right).
--- Logged in TCF.db.casino.duels (the last 20). Returns the change really made.
-function TCF:CasinoSettleDuel(delta, opponent, stake)
+-- Party death roll and rock paper scissors: moves TapCoins between you and another player. delta > 0
+-- credits you, < 0 debits you (never below zero), at most the top bet either way. stake: the bet of
+-- the duel (for the stats: it counts as bet, and a win counts stake + delta as paid back, so the net
+-- is right). game: "deathroll" (the default) or "rps", for the stats. Logged in TCF.db.casino.duels
+-- (the last 20). Returns the change really made.
+function TCF:CasinoSettleDuel(delta, opponent, stake, game)
   delta = num(delta)
   if not delta then return 0 end
   delta = floor(delta + 0.5)
@@ -158,19 +160,20 @@ function TCF:CasinoSettleDuel(delta, opponent, stake)
   self.db.coins = coins + delta
   stake = num(stake)
   stake = stake and max(0, min(TCF.CASINO_MAX_BET, floor(stake))) or (delta < 0 and -delta or 0)
-  local s = c.deathroll
+  if game ~= "rps" then game = "deathroll" end
+  local s = c[game]
   s.duels = (s.duels or 0) + 1
   s.net = (s.net or 0) + delta
-  addStat(c, "deathroll", "played", 1)
-  addStat(c, "deathroll", "wagered", stake)
+  addStat(c, game, "played", 1)
+  addStat(c, game, "wagered", stake)
   local back = max(0, stake + delta)
-  if back > 0 then addStat(c, "deathroll", "won", back) end
+  if back > 0 then addStat(c, game, "won", back) end
   if delta > 0 then
     s.biggest = max(s.biggest, delta); c.total.biggest = max(c.total.biggest, delta)
   end
   if type(opponent) ~= "string" or TCF.IsSecret(opponent) or opponent == "" then opponent = "another player" end
   c.duels = type(c.duels) == "table" and c.duels or {}
-  table.insert(c.duels, { t = time and time() or 0, opp = opponent:sub(1, 48), delta = delta })
+  table.insert(c.duels, { t = time and time() or 0, opp = opponent:sub(1, 48), delta = delta, game = game })
   while #c.duels > 20 do table.remove(c.duels, 1) end
   self:MarkDirty()
   return delta

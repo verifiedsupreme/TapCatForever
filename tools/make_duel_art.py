@@ -10,6 +10,10 @@ usage: python3 tools/make_duel_art.py [work_dir] [preview.png]   -> Art/casino/*
   dr_xeyes.tga       256x256 the X eyes for that cat (same canvas, so all three turn together)
                      The three are drawn on the cat's own 64-pixel grid (4 texels a pixel, hard edges),
                      like Art/cat_fur.tga, so the flop looks like the same cat.
+  mountain.tga       512x256 rock paper scissors: a snowy peak above the clouds, blue sky, little flags blowing,
+                     a flat rocky ledge for the cats
+  rps_<sign>_fur.tga, rps_<sign>_line.tga   128x128 the paw signs (rock = a fist paw, paper = an open paw,
+                     scissors = two toes up): white fur tinted to the cat in game, and its fixed outline layer
   dr_plate.tga       256x128 the dark plate behind the range in the middle of the arena
   dr_ghost.tga       128x128 a little ghost cat that floats up and fades
   dr_pop.tga         128x128 the bubble behind a roll number (white, tinted in game)
@@ -265,6 +269,163 @@ def tavern():
     s += '<rect width="%d" height="%d" fill="url(#fire)"/><rect width="%d" height="%d" fill="url(#warm)"/><rect width="%d" height="%d" fill="url(#vg)"/>' % (W, H, W, H, W, H)
     return defs + s
 
+# ---------------------------------------------------------------- the mountaintop (512x256, ledge at 192)
+# Rock paper scissors is played up here: a snowy peak above the clouds, blue sky, little flags
+# blowing in the wind, and the cats on a flat rocky ledge in the lower third. The middle of the
+# picture sits behind the How to play box and the plate, so the peaks stand to the sides.
+def flag(x0, y0, w, h, c, wave=1.0):
+    """a pennant blowing to the right from the pole at (x0, y0)"""
+    return path("M %.1f %.1f Q %.1f %.1f %.1f %.1f Q %.1f %.1f %.1f %.1f Q %.1f %.1f %.1f %.1f Z"
+                % (x0, y0, x0 + w * 0.45, y0 - 4 * wave, x0 + w, y0 + h * 0.45, x0 + w * 0.5, y0 + h * 0.55 + 3 * wave,
+                   x0, y0 + h, x0, y0 + h * 0.5, x0, y0), c, 2)
+
+def cloud_bumps(x, y, w, h, c):
+    n = max(3, int(w / (h * 0.9)))
+    out = ""
+    for i in range(n):
+        cx = x + w * (i + 0.5) / n
+        r = h * (0.62 + 0.28 * ((i * 7) % 3) / 2)
+        out += circ(cx, y + h - r * 0.9, r, c, 0)
+    return out + rect(x, y + h * 0.55, w, h * 0.45, c)
+
+def clouds(items, c="#ffffff", edge="#a9c3dc"):
+    """puffy clouds (x, y, w, h): every outline first, then every fill, so only the outer edge shows"""
+    fills = "".join(cloud_bumps(x, y, w, h, c) for x, y, w, h in items)
+    return '<g stroke="%s" stroke-width="3">%s</g>' % (edge, fills) + fills
+
+def peak(x, y, wl, wr, base, rock, light, snow_to):
+    """a mountain with its summit at (x, y), flanks out to x - wl and x + wr at the base, snow down to snow_to"""
+    s = path("M %.1f %.1f L %.1f %.1f L %.1f %.1f Z" % (x - wl, base, x, y, x + wr, base), rock, 3)
+    s += path("M %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f Z" % (x, y, x + wr, base, x + wr * 0.35, base, x + 6, y + (base - y) * 0.45), light)
+    # the snow cap with a zigzag lower edge
+    k = (snow_to - y) / (base - y)
+    lx, rx = x - wl * k, x + wr * k
+    zig = "L %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f" % (
+        rx - (rx - x) * 0.25, snow_to - 9, x + (rx - x) * 0.45, snow_to + 4, x, snow_to - 8, x - (x - lx) * 0.45, snow_to + 5, lx + (x - lx) * 0.22, snow_to - 7)
+    s += path("M %.1f %.1f L %.1f %.1f %s L %.1f %.1f Z" % (x, y, rx, snow_to, zig, lx, snow_to), "#ffffff", 3)
+    s += path("M %.1f %.1f L %.1f %.1f L %.1f %.1f Z" % (x, y + 2, rx - 3, snow_to - 1, x + 4, snow_to - 10), "#dcebf7")
+    return s
+
+def mountain():
+    rnd = random.Random(5)
+    defs = ('<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fb2ec"/>'
+            '<stop offset=".7" stop-color="#a9dcf7"/><stop offset="1" stop-color="#d8f1fc"/></linearGradient>'
+            '<radialGradient id="sun" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff8d0" stop-opacity=".9"/>'
+            '<stop offset="1" stop-color="#fff8d0" stop-opacity="0"/></radialGradient>'
+            '<radialGradient id="vg" cx="50%" cy="50%" r="72%"><stop offset=".7" stop-color="#0d2a4a" stop-opacity="0"/>'
+            '<stop offset="1" stop-color="#0d2a4a" stop-opacity=".3"/></radialGradient></defs>')
+    s = '<rect width="%d" height="%d" fill="url(#sky)"/>' % (W, H)
+    s += '<circle cx="256" cy="70" r="70" fill="url(#sun)"/>' + circ(256, 70, 20, "#fff4b8", op=0.9)
+    # far range, pale and soft, just above the cloud sea
+    far = "M -10 150 L 30 118 L 58 132 L 96 104 L 130 128 L 176 112 L 214 134 L 256 116 L 300 136 L 338 108 L 374 130 L 420 112 L 460 128 L 492 110 L 522 150 Z"
+    s += path(far, "#b9cfe6", 2.5, stroke="#8aa5c4")
+    for x, y in ((96, 104), (176, 112), (256, 116), (338, 108), (420, 112), (492, 110)):
+        s += path("M %d %d L %d %d L %d %d L %d %d Z" % (x - 9, y + 8, x, y, x + 9, y + 8, x, y + 5), "#f4faff")
+    # the two big snowy peaks, to the sides of the middle
+    s += peak(108, 40, 150, 140, 168, "#8b8fa9", "#a7abc4", 92)
+    s += peak(414, 54, 136, 150, 168, "#868aa3", "#a2a6bf", 98)
+    # a little flag planted on the right summit
+    s += line("M 414 54 L 414 30", INK, 2.2) + flag(414, 30, 16, 10, "#e0473c", 1)
+    # the sea of clouds around the peaks
+    s += clouds(((-20, 140, 150, 30), (100, 148, 130, 26), (210, 142, 120, 30), (310, 146, 130, 28), (420, 138, 120, 32)))
+    s += rect(0, 166, W, 30, "#ffffff")
+    # small clouds drifting in the sky and two birds
+    s += clouds(((178, 40, 54, 16),), "#ffffff", "#bcd4ea") + clouds(((300, 24, 44, 14),), "#ffffff", "#bcd4ea")
+    s += line("M 200 86 Q 205 81 210 86 Q 215 81 220 86", "#3b4a66", 2) + line("M 318 74 Q 322 70 326 74 Q 330 70 334 74", "#3b4a66", 1.8)
+    # the rocky ledge: a deep flat top the cats stand on (the cats' feet are near y 212) and a front lip
+    edge = "M -6 188 Q 40 180 96 184 Q 170 178 256 183 Q 340 178 420 184 Q 470 180 518 188"
+    s += path(edge + " L 518 %d L -6 %d Z" % (H + 6, H + 6), "#c9b69c", 3)
+    s += path("M -6 236 Q 256 230 518 236 L 518 %d L -6 %d Z" % (H + 6, H + 6), "#8f7b66", 3)
+    s += path("M 4 189 Q 60 184 110 187 Q 180 182 256 186 Q 330 182 400 187 Q 460 184 508 190", "none", 0) \
+        .replace('fill="none"', 'fill="none" stroke="#e2d4be" stroke-width="3"')
+    # flat stone slabs and cracks on the top
+    for x, y, w, h in ((24, 200, 70, 14), (120, 196, 60, 12), (236, 204, 54, 12), (330, 198, 64, 13), (430, 202, 60, 13), (70, 218, 50, 10), (380, 220, 56, 10)):
+        s += '<rect x="%d" y="%d" width="%d" height="%d" rx="5" fill="#bba78c" stroke="#a48f75" stroke-width="2"/>' % (x, y, w, h)
+    for x, y, d in ((200, 214, "l 8 6 l -2 8"), (300, 222, "l -6 5 l 4 6"), (470, 224, "l 6 5")):
+        s += line("M %d %d %s" % (x, y, d), "#97826b", 2)
+    for x, y, d in ((40, 240, "l 8 8 l -4 6"), (138, 242, "l -6 7 l 5 8"), (232, 244, "l 7 8"), (330, 240, "l -5 8 l 6 7"), (452, 242, "l 6 7 l -3 8")):
+        s += line("M %d %d %s" % (x, y, d), "#6f5d4c", 2.2)
+    for _ in range(30):
+        s += circ(rnd.uniform(0, W), rnd.uniform(194, 232), rnd.uniform(1.2, 2.4), rnd.choice(("#a8937d", "#b39f88", "#9c8670")), op=0.9)
+    # snow patches on the ledge and rocks at its ends
+    for x, y, rx in ((70, 186, 26), (196, 183, 18), (318, 183, 22), (446, 186, 24)):
+        s += ell(x, y, rx, 4.5, "#ffffff", 2) + ell(x - rx * 0.3, y - 1, rx * 0.4, 1.6, "#eaf4ff")
+    s += path("M -6 190 Q -2 160 22 158 Q 44 158 48 186 Z", "#a6927c", 3) + path("M 4 168 Q 14 160 26 162", "none", 0).replace('fill="none"', 'fill="none" stroke="#c9b8a2" stroke-width="3"')
+    s += path("M 518 190 Q 514 162 492 162 Q 468 164 466 188 Z", "#a6927c", 3) + path("M 476 172 Q 486 164 500 166", "none", 0).replace('fill="none"', 'fill="none" stroke="#c9b8a2" stroke-width="3"')
+    s += ell(22, 160, 14, 4, "#ffffff", 2) + ell(492, 164, 14, 4, "#ffffff", 2)
+    # flag poles on the rocks, little pennants blowing to the right, and a string of flags between them
+    for x, ybase in ((30, 160), (484, 164)):
+        s += line("M %d %d L %d %d" % (x, ybase, x, ybase - 74), INK, 3) + circ(x, ybase - 76, 3, "#f2c14e", 2)
+    s += flag(30, 86, 30, 18, "#3d8fd8", 1) + flag(484, 90, 24, 16, "#f2c14e", -1)
+    rope = [(30, 96), (110, 116), (200, 124), (256, 125), (312, 124), (402, 116), (484, 104)]
+    s += line("M " + " L ".join("%d %d" % p_ for p_ in rope), "#6a4b3a", 1.6)
+    cols = ("#e0473c", "#f2c14e", "#3d8fd8", "#5fbf6a", "#f08ab0")
+    for i, t in enumerate([j / 13 for j in range(1, 13)]):
+        # position along the rope, with a little flutter in each triangle
+        seg = t * (len(rope) - 1); k = min(int(seg), len(rope) - 2); f = seg - k
+        x = rope[k][0] + (rope[k + 1][0] - rope[k][0]) * f; y = rope[k][1] + (rope[k + 1][1] - rope[k][1]) * f
+        if 150 < x < 360: continue    # behind the How to play box anyway: keep the middle calm
+        sway = (i % 3 - 1) * 3
+        s += path("M %.1f %.1f L %.1f %.1f L %.1f %.1f Z" % (x - 6, y, x + 6, y, x + 3 + sway, y + 13), cols[i % len(cols)], 1.6)
+    s += '<rect width="%d" height="%d" fill="url(#vg)"/>' % (W, H)
+    return defs + s
+
+# ---------------------------------------------------------------- rock paper scissors paw signs (128x128)
+# A paw held up, wrist at the bottom, pointing up: rock = a fist paw, paper = an open paw with its toes
+# spread, scissors = two toes up in a V. Each comes in two layers on the same canvas, like the flop:
+# rps_<sign>_fur (white fur, tinted to the cat's fur in game) and rps_<sign>_line (outline, pink toe
+# beans and creases, fixed colours, drawn on top). Drawn on a 32-pixel grid (4 texels a pixel) so they
+# match the pixel cat next to them.
+BEAN = "#f6a3b4"
+def sign_shapes(sign):
+    """the fur shapes of a sign (svg elements without fill), for the fill and the outline passes"""
+    wrist = "M 48 128 L 48 100 Q 64 92 80 100 L 80 128 Z"
+    if sign == "rock":
+        shapes = [wrist, ell(64, 72, 33, 30, "%s"), circ(36, 74, 11, "%s")]
+        shapes += [circ(42 + i * 15, 48, 11, "%s") for i in range(4)]
+    elif sign == "paper":
+        shapes = [wrist, ell(64, 84, 28, 24, "%s")]
+        for a in (-62, -22, 22, 62):
+            r = math.radians(a)
+            shapes.append(ell(64 + 40 * math.sin(r), 84 - 40 * math.cos(r), 10, 14, "%s", rot=a))
+    else:  # scissors: a fist with the two middle toes up in a V
+        shapes = [wrist, ell(64, 78, 32, 28, "%s"), circ(36, 82, 10, "%s"), circ(43, 56, 10.5, "%s"), circ(85, 56, 10.5, "%s")]
+        shapes += [ell(52, 33, 9, 22, "%s", rot=-20), ell(76, 33, 9, 22, "%s", rot=20)]
+    return shapes
+
+def sign_svg(sign, part):
+    shapes = sign_shapes(sign)
+    def fill(c):
+        out = ""
+        for sh in shapes:
+            out += path(sh, c) if sh.startswith("M ") else sh.replace('"%s"', '"%s"' % c)
+        return out
+    if part == "fur":
+        return fill("#ffffff")
+    # outline: every shape stroked, with the fur area masked out, so only the outer edge shows
+    strokes = ""
+    for sh in shapes:
+        if sh.startswith("M "): strokes += path(sh, "none", 9)
+        else: strokes += sh.replace('fill="%s"', 'fill="none" stroke="%s" stroke-width="9"' % INK)
+    s = '<defs><mask id="out"><rect width="128" height="128" fill="#fff"/>%s</mask></defs>' % fill("#000")
+    s += '<g mask="url(#out)">%s</g>' % strokes
+    if sign == "rock":
+        for i in range(4):   # the folded toes and their creases
+            s += line("M %d 52 Q %d 60 %d 56" % (35 + i * 15, 42 + i * 15, 49 + i * 15), INK, 3)
+        s += line("M 36 84 Q 46 90 56 86", INK, 3) + ell(70, 80, 9, 6, BEAN, op=0.9)
+    elif sign == "paper":
+        for a in (-62, -22, 22, 62):
+            r = math.radians(a)
+            s += ell(64 + 42 * math.sin(r), 84 - 42 * math.cos(r), 5.5, 7, BEAN, rot=a)
+        s += path("M 50 96 Q 50 80 64 80 Q 78 80 78 96 Q 71 102 64 98 Q 57 102 50 96 Z", BEAN)
+    else:
+        s += ell(47, 21, 5, 7, BEAN, rot=-20) + ell(81, 21, 5, 7, BEAN, rot=20)
+        s += line("M 64 34 L 64 50", INK, 3)     # the gap between the two toes
+        for x in (36, 78):   # the folded toes' creases
+            s += line("M %d 60 Q %d 68 %d 64" % (x, x + 7, x + 14), INK, 3)
+        s += line("M 36 92 Q 46 98 56 94", INK, 3) + ell(70, 86, 9, 6, BEAN, op=0.9)
+    return s
+
 # ---------------------------------------------------------------- the flopped cat (256x256, on its back)
 # One shape list drawn three ways: fur fills (white, tinted in game), fixed parts and outlines, X eyes.
 # Everything stays inside a circle of radius ~118 around the centre, so it can spin without clipping.
@@ -400,7 +561,8 @@ def main():
     work = sys.argv[1] if len(sys.argv) > 1 else tempfile.mkdtemp(prefix="duelart")
     os.makedirs(OUT, exist_ok=True)
     out = {}
-    out.update(render({"colosseum": colosseum(), "tavern": tavern()}, 512, 256, work))
+    out.update(render({"colosseum": colosseum(), "tavern": tavern(), "mountain": mountain()}, 512, 256, work))
+    out.update(render({"rps_%s_%s" % (sg, part): sign_svg(sg, part) for sg in ("rock", "paper", "scissors") for part in ("fur", "line")}, 128, 128, work))
     flop = render({"dr_flop_fur": flop_svg("fur"), "dr_flop_line": flop_svg("line"), "dr_xeyes": flop_svg("xeyes")}, 256, 256, work)
     out.update({k: pixelize(v) for k, v in flop.items()})
     out["dr_xeyes"] = xeyes_pixels()

@@ -121,6 +121,9 @@ local function release(id)
   return h.bet
 end
 
+-- shared with RPS.lua (rock paper scissors uses the same stake hold, so only one game runs at a time)
+DR.Store, DR.Hold, DR.Release, DR.ValidBet = store, hold, release, validBet
+
 local function settleDuel(delta, opponent, stake)
   if TCF.CasinoSettleDuel then return TCF:CasinoSettleDuel(delta, opponent, stake) end
   if delta > 0 then TCF:AddCoins(delta) else TCF:SpendCoins(-delta) end
@@ -158,6 +161,11 @@ local function inGroup()
   local ok, g = pcall(IsInGroup)
   return ok and g and not isSecret(g) and true or false
 end
+DR.Base, DR.IsMe, DR.InGroup = base, isMe, inGroup
+
+-- another casino game with a party member or the house cat is running (RPS.lua sets this)
+local function otherBusy() return DR.OtherBusy and DR.OtherBusy() or false end
+local OTHER_BUSY = "Finish your rock paper scissors game first."
 
 -- duels with friends read the /roll lines in system chat, which the game hides inside dungeons,
 -- raids, battlegrounds and arenas (and during boss fights): no duels there
@@ -196,6 +204,7 @@ local function oppPresent(d)
   end
   return false
 end
+DR.OppPresent = oppPresent
 
 local function chatType()
   local home = LE_PARTY_CATEGORY_HOME and IsInGroup and IsInGroup(LE_PARTY_CATEGORY_HOME)
@@ -289,6 +298,7 @@ local function pickHouse()
   if #hats > 0 and random() < 0.5 then h.head = hats[random(#hats)] end
   return h
 end
+DR.PickHouse = pickHouse
 
 -- a look table (like TCF:GetAppearance) for the house cat
 function DR.HouseLook(h)
@@ -339,6 +349,7 @@ function TCF:DeathRollSoloStart(bet, range)
   if not self.db then return false end
   bet, range = tonumber(bet), tonumber(range) or DR.DEFAULT_RANGE
   if solo then return false, "Finish this death roll first." end
+  if otherBusy() then return false, OTHER_BUSY end
   local d = DR.duel
   if d and d.state ~= "over" then return false, "Finish your death roll with your friend first." end
   if not validRange(range) then return false, "Pick a roll range." end
@@ -366,6 +377,12 @@ function TCF:DeathRollSoloRoll()
 end
 
 function TCF:DeathRollSolo() return solo or lastSolo, solo ~= nil end
+
+-- a death roll is running (with the house cat, or with a friend, invites included): RPS.lua waits
+function DR.Busy()
+  local d = DR.duel
+  return solo ~= nil or (d ~= nil and d.state ~= "over")
+end
 
 ---------------------------------------------------------------- sending (party/raid channel)
 local outQ = {}
@@ -500,6 +517,7 @@ function TCF:DeathRollChallenge(name, bet, range)
   bet, range = tonumber(bet), tonumber(range) or DR.DEFAULT_RANGE
   if busy() then return false, "You already have a death roll going." end
   if solo then return false, "Finish your death roll with the house cat first." end
+  if otherBusy() then return false, OTHER_BUSY end
   if not inGroup() then return false, "Join a party or raid with a friend who has TapCatForever." end
   if InCombatLockdown and InCombatLockdown() then return false, "Death rolls can't start in combat." end
   if chatHidden() then return false, NO_DUEL_HERE end
@@ -530,6 +548,11 @@ function TCF:DeathRollAnswer(accept)
     return true
   end
   if solo then return false, "Finish your death roll with the house cat first." end
+  if otherBusy() then
+    send("D2", d.id, "b", "-")
+    finish(d, "cancel", "x", "me")
+    return false, OTHER_BUSY
+  end
   if chatHidden() then
     send("D2", d.id, "b", "-")
     finish(d, "cancel", "s", "me")
@@ -574,7 +597,7 @@ function TCF:DeathRollDuel() return DR.duel end
 
 ---------------------------------------------------------------- incoming addon messages
 local seen = {}   -- sender -> { t, n, lastChallenge }
-local function allow(sender)
+local function allow(sender)   -- shared with RPS.lua (DR.Allow): one budget per sender
   local t = now()
   local s = seen[sender]
   if not s then
@@ -591,6 +614,7 @@ local function allow(sender)
   return s.n <= IN_MAX, s
 end
 
+DR.Allow = allow
 local function fromOpp(d, sender) return d and base(sender) == d.oppBase end
 
 local function onChallenge(sender, id, target, bet, range, s)
@@ -610,7 +634,7 @@ local function onChallenge(sender, id, target, bet, range, s)
     if d.id ~= id then send("D2", id, "b", "-") end
     return
   end
-  if solo or (InCombatLockdown and InCombatLockdown()) or chatHidden() then send("D2", id, "b", "-"); return end
+  if solo or otherBusy() or (InCombatLockdown and InCombatLockdown()) or chatHidden() then send("D2", id, "b", "-"); return end
   if not validBet(bet) then
     send("D2", id, "c", "-")
     DR.duel = { id = id, role = "in", opp = m.name, oppBase = base(m.name), bet = bet, range = range, cur = range,

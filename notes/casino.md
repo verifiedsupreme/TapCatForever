@@ -2,13 +2,13 @@
 
 ## Where to find it
 - A new Casino tab sits between Leaderboard and Settings in the TapCatForever window.
-- The Casino fills the whole window under the tabs. Pick Slots, Blackjack or Death roll with the buttons at the top.
+- The Casino fills the whole window under the tabs. Pick Slots, Blackjack or Death roll with the buttons at the top. The Death roll view also plays rock paper scissors.
 - The line at the top shows your bet limits, and your stats for the game you are playing: games played, total bet, paid back, net and your biggest win (hover it for every game).
 
 ## Bets
 - A bet is at least 10 TapCoins and at most a quarter of your TapCoins, up to 500.
 - You need at least 40 TapCoins to play.
-- Use the - and + buttons or the quick 10, 50, 100 and Max buttons to choose your bet. All three games share the same bet, and it is kept for next time.
+- Use the - and + buttons or the quick 10, 50, 100 and Max buttons to choose your bet. All the games share the same bet, and it is kept for next time.
 - Every game against the house keeps a small house edge, so over time the Casino takes a few TapCoins out of the game. Duels with friends are even: no table fee. It is for fun, not for getting rich. There are no free spins.
 - Casino bets and wins don't count toward the TapCoins earned and spent achievements.
 
@@ -60,3 +60,22 @@
 - Duels with friends don't work inside dungeons, raids, battlegrounds or arenas: the game hides the roll results there. Challenge each other outside.
 - Once the 1 has been rolled, the result stands: leaving the group or a reload then doesn't undo it.
 - If you decline or don't answer, that friend can challenge you again after 20 seconds.
+
+## Rock paper scissors
+- Pick Rock paper scissors under the top bar of the Death roll view (Death roll switches back). It plays out on a snowy mountaintop above the clouds, with little flags blowing in the wind.
+- Rock beats scissors, scissors beat paper, paper beats rock. Both cats shake a paw three times ("rock, paper, scissors") and then show their sign: a fist paw, an open paw, or two toes up, drawn in each cat's own fur colour. The winner hops in confetti and the loser flops over, like the death roll.
+- A small How to play box explains the rules (hover it for a tooltip too).
+
+## Rock paper scissors against the house cat
+- Press House cat, choose your bet and press Rock, Paper or Scissors: that places the bet. The house cat picks at random.
+- A tie plays again for free: your bet stays on the table until someone wins.
+- A win gives you 1.9 times your bet back: on a bet of 100 you win 90. Ties replay, so you win half the games, and over many games the house keeps about 5% of what is bet, the same as the death roll.
+- A game waiting after a tie waits for you, even after a reload.
+
+## Rock paper scissors with a friend
+- Press Friend, pick a friend in your party or raid who has TapCatForever with the arrows, choose a bet and press Challenge. They get the same small Accept or Decline box as for a death roll.
+- Best of 1, and a tie plays again. You both bet the same amount, and the winner gets the whole bet (no table fee).
+- Neither addon can see the other pick first: each one locks in its pick (it sends only a scrambled code of the pick and a random secret), and only when both are locked in do they show their picks, and each checks the other's matches what was locked in.
+- If a pick doesn't match what was locked in, or doesn't arrive within 30 seconds, the game is called off and no TapCoins move. The game says why.
+- Each pick has 60 seconds. A reload or leaving the group before the result calls the game off, and no TapCoins move.
+- Unlike death roll, it works inside dungeons and raids too: it doesn't use /roll.

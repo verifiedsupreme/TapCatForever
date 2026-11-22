@@ -7,7 +7,10 @@
 -- preallocated pieces (no tables made per frame).
 --
 -- Also here: the one allowed pop-up during play, a tiny Accept/Decline prompt just above the screen
--- cat when a party member challenges you (it goes away after 60 seconds).
+-- cat when a party member challenges you (it goes away after 60 seconds), for a death roll or a game
+-- of rock paper scissors. The same scene plays rock paper scissors (RPS.lua) on a mountaintop: the
+-- "Death roll / Rock paper scissors" switch under the top bar picks the game, and UI_RPS.lua adds
+-- that game's parts (paw signs, pick buttons, its texts) to the scene.
 local ADDON, TCF = ...
 local floor, min, max, sin, cos, random, pi, abs = math.floor, math.min, math.max, math.sin, math.cos, math.random, math.pi, math.abs
 local ART = TCF.ART_PATH .. "casino\\"
@@ -44,6 +47,19 @@ end
 DR.OpenView = openView
 
 ---------------------------------------------------------------- the prompt above the screen cat
+-- the challenge waiting for your answer: "dr" (death roll) or "rps", and its game
+local function pendingInvite()
+  local d = DR.duel
+  if d and d.state == "invited" then return "dr", d end
+  local R = TCF.RPS
+  local r = R and R.duel
+  if r and r.state == "invited" then return "rps", r end
+end
+local function answer(kind, yes)
+  if kind == "rps" then return TCF:RPSAnswer(yes) end
+  return TCF:DeathRollAnswer(yes)
+end
+
 local prompt
 local function buildPrompt()
   local U = TCF.UI
@@ -58,13 +74,13 @@ local function buildPrompt()
   if f.SetClampedToScreen then f:SetClampedToScreen(true) end
   f.text = U.Text(f, "GameFontHighlightSmall"); f.text:SetPoint("TOP", 0, -8); f.text:SetWidth(236)
   f.yes = U.Button(f, "Accept", 72, 20, function()
-    local ok, err = TCF:DeathRollAnswer(true)
+    local ok, err = answer(pendingInvite(), true)
     if err then TCF:Print(err, true) end
     TCF:PlaySound("click")
     if ok then openView() end
   end)
   f.yes:SetPoint("BOTTOMLEFT", 10, 8)
-  f.no = U.Button(f, "Decline", 72, 20, function() TCF:DeathRollAnswer(false); TCF:PlaySound("click") end)
+  f.no = U.Button(f, "Decline", 72, 20, function() answer(pendingInvite(), false); TCF:PlaySound("click") end)
   f.no:SetPoint("LEFT", f.yes, "RIGHT", 6, 0)
   f.left = U.Text(f, "GameFontDisableSmall", nil, "RIGHT"); f.left:SetPoint("BOTTOMRIGHT", -12, 12)
   local acc = 0
@@ -72,8 +88,8 @@ local function buildPrompt()
     acc = acc + e
     if acc < 0.25 then return end
     acc = 0
-    local d = DR.duel
-    if not d or d.state ~= "invited" then self:Hide(); return end
+    local _, d = pendingInvite()
+    if not d then self:Hide(); return end
     self.left:SetText(string.format("%d s", max(0, floor(d.expires - now()))))
   end)
   f:Hide()
@@ -99,14 +115,19 @@ local function placePrompt()
 end
 
 local function updatePrompt()
-  local d = DR.duel
-  if not d or d.state ~= "invited" then
+  local kind, d = pendingInvite()
+  if not d then
     if prompt then prompt:Hide() end
     return
   end
   if not prompt then prompt = buildPrompt() end
-  prompt.text:SetText(string.format("%s challenges you to a death roll\n%s each, rolls from 1 to %s",
-    shortName(d.opp), coins(d.bet), TCF.Commas(d.range)))
+  if kind == "rps" then
+    prompt.text:SetText(string.format("%s challenges you to rock paper scissors\n%s each, best of 1",
+      shortName(d.opp), coins(d.bet)))
+  else
+    prompt.text:SetText(string.format("%s challenges you to a death roll\n%s each, rolls from 1 to %s",
+      shortName(d.opp), coins(d.bet), TCF.Commas(d.range)))
+  end
   prompt.left:SetText(string.format("%d s", max(0, floor(d.expires - now()))))
   placePrompt()
   prompt:Show()
@@ -205,7 +226,7 @@ function TCF.UI.CasinoDeathRoll(container, win)
   -- future duel mode)
   local bg = scene:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints(scene); bg:SetTexture(ART .. "tavern")
-  v.bg = bg
+  v.bg, v.bgName = bg, "tavern"
   local aspect = cw / ch
   if aspect < 2 then
     local cut = (1 - aspect / 2) / 2
@@ -306,18 +327,32 @@ function TCF.UI.CasinoDeathRoll(container, win)
   end)
   v.how = how
 
+  -- the game: death roll in the tavern, or rock paper scissors on the mountaintop (UI_RPS.lua)
+  v.gameDR = U.Button(scene, "Death roll", 90, 22, function() v:SetGame("dr"); TCF:PlaySound("click") end)
+  v.gameDR:SetPoint("TOPLEFT", scene, "TOPLEFT", 8, -68)
+  v.gameRPS = U.Button(scene, "Rock paper scissors", 140, 22, function() v:SetGame("rps"); TCF:PlaySound("click") end)
+  v.gameRPS:SetPoint("LEFT", v.gameDR, "RIGHT", 4, 0)
+  U.Tip(v.gameDR, function(tt)
+    tt:AddLine("Death roll", 1, 0.82, 0)
+    tt:AddLine("Take turns rolling, each roll 1 to the last number. Whoever rolls a 1 loses.", 1, 1, 1, true)
+  end)
+  U.Tip(v.gameRPS, function(tt)
+    tt:AddLine("Rock paper scissors", 1, 0.82, 0)
+    tt:AddLine("Pick rock, paper or scissors. Rock beats scissors, scissors beat paper, paper beats rock. A tie plays again.", 1, 1, 1, true)
+  end)
+
   -- invite (when a friend challenges you)
   local inv = U.Panel(scene, 330, 78, 0.92)
   inv:SetPoint("CENTER", scene, "CENTER", 0, 10)
   if inv.SetFrameLevel and scene.GetFrameLevel then pcall(inv.SetFrameLevel, inv, (scene:GetFrameLevel() or 1) + 25) end
   inv.text = U.Text(inv, "GameFontHighlight"); inv.text:SetPoint("TOP", 0, -10); inv.text:SetWidth(310)
   inv.yes = U.Button(inv, "Accept", 90, 22, function()
-    local _, err = TCF:DeathRollAnswer(true)
+    local _, err = answer(pendingInvite(), true)
     if err then v.msg = err end
     TCF:PlaySound("click"); v:Refresh(true)
   end)
   inv.yes:SetPoint("BOTTOM", inv, "BOTTOM", -50, 10)
-  inv.no = U.Button(inv, "Decline", 90, 22, function() TCF:DeathRollAnswer(false); TCF:PlaySound("click"); v:Refresh(true) end)
+  inv.no = U.Button(inv, "Decline", 90, 22, function() answer(pendingInvite(), false); TCF:PlaySound("click"); v:Refresh(true) end)
   inv.no:SetPoint("LEFT", inv.yes, "RIGHT", 10, 0)
   inv:Hide()
   v.inv = inv
@@ -336,6 +371,8 @@ function TCF.UI.CasinoDeathRoll(container, win)
   local st = TCF.db.deathRoll
   if type(st) ~= "table" then st = {}; TCF.db.deathRoll = st end
   v.mode = (st.mode == "friend") and "friend" or "house"
+  v.game = (st.game == "rps" and TCF.RPS and v.BuildRPS) and "rps" or "dr"
+  if v.BuildRPS then v:BuildRPS() end
   v.range = tonumber(st.range) or DR.DEFAULT_RANGE
   -- the bet is shared with the other Casino games (TCF.db.casino.bet) when there is one
   local cd = TCF.CasinoData and TCF:CasinoData()
@@ -357,7 +394,7 @@ end
 function Scene:Save()
   local st = TCF.db.deathRoll
   if type(st) ~= "table" then st = {}; TCF.db.deathRoll = st end
-  st.mode, st.range, st.bet = self.mode, self.range, self.bet
+  st.mode, st.range, st.bet, st.game = self.mode, self.range, self.bet, self.game
   if TCF.CasinoData then TCF:CasinoData().bet = self.bet end
 end
 
@@ -369,11 +406,22 @@ function Scene:SetMode(m)
   self:Refresh(true)
 end
 
--- a game is running: the mode can't change
+function Scene:SetGame(g)
+  if self:Locked() or (g == "rps" and not self.BuildRPS) then return end
+  if self.game ~= g then
+    self.game = g
+    self:ResetAnims()
+  end
+  self.msg = nil
+  self:Save()
+  self:Refresh(true)
+end
+
+-- a game is running (either game): the mode and the game can't change
 function Scene:Locked()
-  local _, running = TCF:DeathRollSolo()
-  local d = DR.duel
-  return running or (d and d.state ~= "over")
+  if DR.Busy() then return true end
+  local R = TCF.RPS
+  return R and R.Busy() or false
 end
 
 
@@ -386,6 +434,7 @@ function Scene:Friends()
 end
 
 function Scene:Action()
+  if self.game == "rps" and self.ActionRPS then return self:ActionRPS() end
   TCF:PlaySound("click")
   self.msg = nil
   local d = DR.duel
@@ -417,8 +466,9 @@ function Scene:FriendIndex(n)
   return i
 end
 
--- which game the scene shows: "duel" (with a friend) or "solo"
+-- which game the scene shows: "duel" (with a friend) or "solo", for the death roll or rock paper scissors
 function Scene:Showing()
+  if self.game == "rps" then return self:ShowingRPS() end
   local d = DR.duel
   if d and (d.state ~= "over" or self.mode == "friend") then return "duel", d end
   local g = TCF:DeathRollSolo()
@@ -437,6 +487,15 @@ end
 function Scene:Refresh(full)
   if not TCF.db then return end
   local L, R = self.L, self.R
+  -- a game that is running (or an invite) shows its own game
+  local RPS = TCF.RPS
+  if RPS and self.BuildRPS and self.game ~= "rps" and RPS.Busy() then self.game = "rps"; self:ResetAnims()
+  elseif self.game ~= "dr" and DR.Busy() then self.game = "dr"; self:ResetAnims() end
+  local rps = self.game == "rps"
+  local bgName = rps and "mountain" or "tavern"
+  if self.bgName ~= bgName then self.bgName = bgName; self.bg:SetTexture(ART .. bgName) end
+  if rps then self.gameRPS:LockHighlight(); self.gameDR:UnlockHighlight()
+  else self.gameDR:LockHighlight(); self.gameRPS:UnlockHighlight() end
   local kind, g = self:Showing()
   if kind == "duel" and self.mode ~= "friend" then self.mode = "friend" end
   local lo, hi = DR.Limits()
@@ -451,6 +510,7 @@ function Scene:Refresh(full)
   if self.mode == "house" then self.modeHouse:LockHighlight(); self.modeFriend:UnlockHighlight()
   else self.modeFriend:LockHighlight(); self.modeHouse:UnlockHighlight() end
   self.modeHouse:SetEnabled(not locked); self.modeFriend:SetEnabled(not locked)
+  self.gameDR:SetEnabled(not locked); self.gameRPS:SetEnabled(not locked and self.BuildRPS ~= nil)
   local friends = self:Friends()
   self.prev:SetShown(friendMode); self.next:SetShown(friendMode); self.friend:SetShown(friendMode)
   local fm
@@ -474,7 +534,9 @@ function Scene:Refresh(full)
     local sel = (locked and g and g.range or self.range) == r
     if sel then b:LockHighlight() else b:UnlockHighlight() end
     b:SetEnabled(not locked)
+    b:SetShown(not rps)
   end
+  self.rangeLabel:SetShown(not rps)
 
   -- the two cats
   if full or not L.lookKey then
@@ -502,6 +564,9 @@ function Scene:Refresh(full)
   local stake = g and g.bet
   L.bet:SetText(stake and ("Bet " .. coins(stake)) or "")
   R.bet:SetText((stake and rightName) and ("Bet " .. coins(stake)) or "")
+  self:RefreshHowTo()
+  if self.ShowRPSParts then self:ShowRPSParts(rps) end
+  if rps then return self:RefreshRPS(kind, g, fm, friends, lo, hi) end
 
   -- the range in the middle
   local cur = g and g.cur or self.range
@@ -509,8 +574,6 @@ function Scene:Refresh(full)
   self.rangeNum:SetText("1 - " .. TCF.Commas(floor(cur)))
   if cur <= 10 then self.rangeNum:SetTextColor(1, 0.25, 0.2) else self.rangeNum:SetTextColor(1, 0.86, 0.35) end
   self.rangeCap:SetText(g and "Next roll" or "Rolls start at")
-
-  self:RefreshHowTo()
 
   -- invite, status, buttons
   self.inv:Hide()
@@ -584,7 +647,7 @@ function Scene:Refresh(full)
   if hi < lo and not kind then status = string.format("You need at least %s to play.", coins(lo * 4)) end
   if self.msg then status = "|cffff8080" .. self.msg .. "|r" end
   if DR.refunded and DR.refunded > 0 then
-    status = string.format("Your death roll was called off by the reload. Your %s bet came back.", coins(DR.refunded))
+    status = string.format("Your game with a friend was called off by the reload. Your %s bet came back.", coins(DR.refunded))
     if t - (self.refundShownAt or t) > 8 then DR.refunded = nil end
     self.refundShownAt = self.refundShownAt or t
   end
@@ -603,6 +666,7 @@ end
 
 -- the How to play lines for the game and opponent on screen
 function Scene:HowTo()
+  if self.game == "rps" and self.HowToRPS then return self:HowToRPS() end
   if self.mode == "friend" then
     return { "1. Both players bet the same amount.",
              "2. The first player rolls 1 to 1,000 (or the start you picked).",
@@ -639,6 +703,7 @@ function Scene:ResetAnims()
   end
   for _, c in ipairs(self.conf) do c.on = false; c.tex:Hide() end
   self.rangeTween = nil
+  if self.ResetRPS then self:ResetRPS() end
 end
 
 -- a roll: the number pops over the roller's head and the range in the middle counts down to it
@@ -771,6 +836,7 @@ function Scene:Animate(e)
   local t = now()
   animSide(self, self.L, t)
   animSide(self, self.R, t)
+  if self.AnimateRPS then self:AnimateRPS(t, e) end
   if self.rangeTween then
     local p = (t - self.rangeTween) / 0.45
     if p >= 1 then self.rangeTween = nil; self.rangeShown = self.rangeTo
@@ -807,7 +873,7 @@ DR.OnChange = function(ev, kind, a, b, c)
   updatePrompt()
   for _, v in ipairs(views) do
     local showing = v:Showing()
-    local visible = v.scene:IsVisible()
+    local visible = v.scene:IsVisible() and v.game == "dr"
     if ev == "roll" and showing == kind and visible then
       v:OnRoll(a, b, c)
     elseif ev == "end" and showing == kind and visible then
@@ -820,4 +886,14 @@ DR.OnChange = function(ev, kind, a, b, c)
     v.msg = nil
     v:Refresh(true)
   end
+end
+
+-- for UI_RPS.lua: the scene and the helpers it shares
+DR.UI = { Scene = Scene, views = views, coins = coins, shortName = shortName, safeName = safeName, now = now,
+          ART = ART, FONT = FONT, furColor = furColor, pendingInvite = pendingInvite, answer = answer,
+          updatePrompt = updatePrompt, burst = burst }
+-- the game the Death roll view shows, for the Casino's stats line: "deathroll" or "rps"
+function DR.ViewGame()
+  local v = views[1]
+  return (v and v.game == "rps") and "rps" or "deathroll"
 end

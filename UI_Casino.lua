@@ -1,7 +1,8 @@
 -- TapCatForever: the Casino tab. The money and the rules are in Casino.lua; this file draws them.
 --   The page covers the whole window under the tabs (the profile column too), with a sign where
 --   the profile cat sits. Sub-views: Slots, Blackjack and Death roll (DeathRoll.lua and
---   UI_DeathRoll.lua fill that one through TCF.UI.CasinoDeathRoll(container, win)).
+--   UI_DeathRoll.lua fill that one through TCF.UI.CasinoDeathRoll(container, win); it also plays
+--   rock paper scissors, RPS.lua and UI_RPS.lua).
 --   Slots: a cartoon cat slot machine; the reels scroll, slow down and stop left to right, the
 --   lever pulls, the bulbs chase, and a win glows on the line and bursts coins (a big win does a
 --   bigger show, inside the window only). Blackjack: cards slide from the shoe, the hole card flips.
@@ -976,7 +977,10 @@ TCF.UI.Builders.casino = function(page, win)
     else
       limits:SetText("|cffff8080You need at least 40 TapCoins to play: a bet is at most a quarter of your TapCoins.|r")
     end
-    stats:SetText(TCF:CasinoStatsLine(self.view))
+    -- the Death roll view also plays rock paper scissors: the stats of the game on screen
+    local key = self.view
+    if key == "deathroll" and TCF.DR and TCF.DR.ViewGame then key = TCF.DR.ViewGame() end
+    stats:SetText(TCF:CasinoStatsLine(key))
     if self.view == "slots" then self.slots:Refresh(light)
     elseif self.view == "blackjack" then self.bj:Refresh(light)
     elseif drRefresh then drRefresh(light) end
@@ -984,7 +988,7 @@ TCF.UI.Builders.casino = function(page, win)
   -- the tab or the window closes: finish any spin or deal and pay what it won
   cv:SetScript("OnHide", function()
     cv.slots:Finish(); cv.bj:Finish()
-    TCF:CasinoCollect("slots"); TCF:CasinoCollect("blackjack")
+    TCF:CasinoCollect("slots"); TCF:CasinoCollect("blackjack"); TCF:CasinoCollect("rps")
   end)
   cv:SetScript("OnUpdate", function(_, e)
     cv.clock = (cv.clock or 0) + e
