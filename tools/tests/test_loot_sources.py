@@ -19,6 +19,14 @@ def check(seed, load_addon):
       for _, it in ipairs(T.ITEM_LIST) do if it.source == "loot" and not T.db.owned[it.id] and it.slot == "head" then old = it; break end end
       T.db.owned[old.id] = 1
       ck(tip(old):find("Got before this was tracked", 1, true), "old item: " .. tip(old))
+      -- another copy of it drops: still "before", plus where the latest one came from
+      T:GrantItem(old, "Found in a Heroic Cache", true, "heroic")
+      local ot = tip(old)
+      ck(ot:find("Got before this was tracked", 1, true) and ot:find("Latest one from: Heroic Cache, just now", 1, true)
+        and not ot:find("Got it from", 1, true), "a duplicate of an old item: " .. ot)
+      T:GrantItem(old, "Lucky find while tapping")
+      ot = tip(old)
+      ck(ot:find("Got before this was tracked", 1, true) and ot:find("Latest one from: Lucky find while tapping", 1, true), "and again: " .. ot)
       -- a cosmetic from a chest
       local cos
       for _, it in ipairs(T.ITEM_LIST) do if it.source == "loot" and not T.db.owned[it.id] and it.slot == "back" then cos = it; break end end
@@ -50,6 +58,13 @@ def check(seed, load_addon):
       ck(T:ItemSourceRecord(s4.id).first[1] == "The Deadmines (real dungeon run)", "real dungeon")
       local s5 = nextSkin(); T:GrantSkin(s5.id, "Daily quest reward (Tap a lot)")
       ck(T:ItemSourceRecord(s5.id).first[1] == "Daily quest reward (Tap a lot)", "quest")
+      -- a secret value (a real boss name in combat) is never stored
+      local SECRET = "Dropped by Secret Boss in Somewhere"
+      local isv0 = issecretvalue
+      issecretvalue = function(v) return v == SECRET end
+      local s6 = nextSkin(); T:NoteItemSource(s6.id, SECRET)
+      issecretvalue = isv0
+      ck(T:ItemSourceRecord(s6.id).first[1] == "Found", "secret reason: " .. tostring(T:ItemSourceRecord(s6.id).first[1]))
       -- Daily Wares in the Shop
       T:BuildShop(true)
       local id = T.db.shop.stock[1]
@@ -66,7 +81,7 @@ def check(seed, load_addon):
       end
       -- a brand-new character: its starters say where they came from
       _charName = "Sourcealt"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
-      ck(T:ItemSourceRecord("skin_orange") and T:ItemSourceRecord("skin_orange").first[1] == "Every cat starts with it", "starter skin")
+      ck(T:ItemSourceRecord("skin_orange") and T:ItemSourceRecord("skin_orange").first[1] == "Starter cosmetic", "starter skin")
       ck(T:ItemSourceRecord(cos.id) == nil, "sources are per character")
       -- time words
       local now = 1000000000

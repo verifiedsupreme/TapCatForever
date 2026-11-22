@@ -8,9 +8,10 @@ tooltip carries its set: "Defias Leather (0/5)", the member names, then "(2) Set
 lines. Members are the items whose own tooltip names the set (so ids are exact).
 
 Bonus lines we can model become stats in the addon's keys (the ones TCF:CombatStats adds up:
-str agi sta int spi arm ap rap sp heal crit critr hit hitr def dodger mp5 blk). Anything else
-(procs, class spell tweaks, resistances, later-expansion stats such as resilience or
-expertise) is kept as text and shown greyed as "(no effect on your cat)".
+str agi sta int spi arm ap rap sp heal crit critr hit hitr). Anything else (procs, class
+spell tweaks, resistances, defense, dodge, block value, mana per 5 sec, later-expansion stats
+such as resilience or expertise) is kept as text and shown greyed as "(no effect on your cat)",
+because nothing in the cat's Power or Adventure uses it.
 
 Usage: python3 tools/make_sets.py <data-dir>
   <data-dir> must contain package/data/json/data.json
@@ -40,12 +41,8 @@ STAT_RES = [
     (re.compile(r"^(?:Increases|Improves) (?:your )?hit rating by (\d+)\.?$"), "hitr"),
     (re.compile(r"^Improves your chance to get a critical strike by (\d+)%\.?$"), "crit"),
     (re.compile(r"^Improves your chance to hit by (\d+)%\.?$"), "hit"),
-    (re.compile(r"^Increases (?:your )?defense rating by (\d+)\.?$"), "def"),
-    (re.compile(r"^Increases (?:your )?dodge rating by (\d+)\.?$"), "dodger"),
-    (re.compile(r"^Restores (\d+) mana per 5 sec\.?$"), "mp5"),
     (re.compile(r"^Increases healing done by (?:spells and effects )?by up to (\d+)\.?$"), "heal"),
     (re.compile(r"^Increases healing done by spells and effects by up to (\d+)\.?$"), "heal"),
-    (re.compile(r"^Increases the block value of your shield by (\d+)\.?$"), "blk"),
 ]
 
 def lua_str(s):
@@ -98,7 +95,7 @@ def main():
     out, n_members, n_modeled, n_text = [], 0, 0, 0
     for (name, total), s in sorted(sets.items()):
         # members the addon has as Classic gear
-        ours = sorted(i for i in s["members"] if i in gear and i < CLASSIC_MAX_ID and gear[i][2] <= CLASSIC_MAX_ILVL)
+        ours = sorted(i for i in s["members"] if i in gear and i < CLASSIC_MAX_ID and gear[i][1] <= CLASSIC_MAX_ILVL)
         if len(ours) < 2 or not s["bonuses"]:
             continue
         # every member must be Classic too (a Burning Crusade set with two old pieces is not a Classic set)

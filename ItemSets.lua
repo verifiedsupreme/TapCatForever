@@ -13,6 +13,15 @@ for si, set in ipairs(TCF.ITEM_SETS) do
   for _, id in ipairs(set.items) do TCF.SET_OF[id] = si end
 end
 
+-- the set bonus stats TCF:CombatStats uses; any other stat in the data is shown as having no
+-- effect on the cat (and never counts as an active bonus)
+TCF.SET_STATS = { str = true, agi = true, sta = true, int = true, spi = true, arm = true, ap = true,
+  rap = true, sp = true, heal = true, crit = true, critr = true, hit = true, hitr = true }
+local function modelled(b) return b[3] and TCF.SET_STATS[b[3]] and true or false end
+TCF.SetBonusModelled = modelled
+
+local lastCounts   -- the pieces counted by the latest TCF:CombatStats (see the wrapper below)
+
 -- Counts the set pieces in a list of worn item ids (each item once) and adds the active
 -- bonuses' stats to t (a stat table such as TCF:CombatStats builds). Returns { [set] = pieces }
 -- or nil when no set piece is worn.
@@ -33,11 +42,26 @@ function TCF.SetBonusTotals(ids, t)
     for si, n in pairs(counts) do
       for _, b in ipairs(TCF.ITEM_SETS[si].bonuses) do
         local k, v = b[3], b[4]
-        if k and n >= b[1] and t[k] then t[k] = t[k] + v end
+        if modelled(b) and n >= b[1] and t[k] then t[k] = t[k] + v end
       end
     end
   end
+  lastCounts = counts
   return counts
+end
+
+-- TCF:CombatStats(...).sets: { [set index] = pieces worn }, or nil (for the comparison lines)
+do
+  local base = TCF.CombatStats
+  if base then
+    function TCF:CombatStats(...)
+      lastCounts = nil
+      local r = base(self, ...)
+      if type(r) == "table" then r.sets = lastCounts end
+      lastCounts = nil
+      return r
+    end
+  end
 end
 
 -- the set an item belongs to (and its index), or nil
@@ -46,9 +70,24 @@ function TCF.ItemSetOf(id)
   return si and TCF.ITEM_SETS[si], si
 end
 
--- pieces of a set the class's cat wears now
-function TCF:SetPiecesWorn(si, class)
-  local eq = self:GearEquipped(class or self.db.class)
+-- the gear of the party cat whose profile the tooltip is for (Party.lua: TapCatForeverPartyProfile),
+-- or nil when the tooltip is about your own cat
+local function partyProfileGear(tt)
+  local pp = _G.TapCatForeverPartyProfile
+  local owner = pp and pp.cells and tt and tt.GetOwner and tt:GetOwner()
+  if not owner then return nil end
+  for _, c in ipairs(pp.cells) do
+    if c == owner then
+      local eq = {}
+      for i, cell in ipairs(pp.cells) do if cell.item then eq[cell.key or i] = cell.item.id end end
+      return eq
+    end
+  end
+end
+
+-- pieces of a set the class's cat wears now (eq: another cat's worn gear, slot -> id)
+function TCF:SetPiecesWorn(si, class, eq)
+  eq = eq or self:GearEquipped(class or self.db.class)
   local seen, n = {}, 0
   for _, id in pairs(eq) do
     if TCF.SET_OF[id] == si and not seen[id] then seen[id] = true; n = n + 1 end
@@ -59,7 +98,7 @@ end
 -- how many bonuses of a set are active with n pieces
 function TCF.SetBonusesActive(set, n)
   local a = 0
-  for _, b in ipairs(set.bonuses) do if n >= b[1] then a = a + 1 end end
+  for _, b in ipairs(set.bonuses) do if n >= b[1] and modelled(b) then a = a + 1 end end
   return a
 end
 
@@ -67,7 +106,7 @@ end
 -- the others always grey with "(no effect on your cat)"
 function TCF.SetBonusLine(b, active)
   local text = "(" .. b[1] .. ") Set: " .. b[2]
-  if not b[3] then return text .. " (no effect on your cat)", 0.5, 0.5, 0.5 end
+  if not modelled(b) then return text .. " (no effect on your cat)", 0.5, 0.5, 0.5 end
   if active then return text, 0.12, 1, 0 end
   return text, 0.5, 0.5, 0.5
 end
@@ -78,7 +117,8 @@ function TCF:AddSetTooltip(tt, it, class)
   local set, si = TCF.ItemSetOf(it.id)
   if not set then return end
   class = class or self.db.class
-  local n, worn = self:SetPiecesWorn(si, class)
+  -- a party cat's profile counts the pieces that cat wears, not your own cat's
+  local n, worn = self:SetPiecesWorn(si, class, partyProfileGear(tt))
   tt:AddLine(" ")
   tt:AddLine(string.format("%s (%d/%d)", set.name, n, set.total), 1, 0.82, 0)
   for _, id in ipairs(set.items) do
@@ -172,7 +212,7 @@ function TCF:SetTooltip(tt, set, got)
       if got[id] then have = have + 1 end
     end
   end
-  tt:AddLine(string.format("%d of %d pieces collected. Pieces need level %d or lower.", have, set.total, lv), 1, 1, 1, true)
+  tt:AddLine(string.format("%d of %d pieces collected. The pieces need up to level %d.", have, set.total, lv), 1, 1, 1, true)
   for _, id in ipairs(set.items) do
     local g = TCF.GEAR[id]
     if g then
@@ -185,7 +225,8 @@ function TCF:SetTooltip(tt, set, got)
   for _, id in ipairs(set.items) do if got[id] then n = n + 1 end end
   for _, b in ipairs(set.bonuses) do
     local text, r, g, bl = TCF.SetBonusLine(b, false)
-    tt:AddLine(text, b[3] and 1 or r, b[3] and 1 or g, b[3] and 1 or bl, true)
+    local m = modelled(b)
+    tt:AddLine(text, m and 1 or r, m and 1 or g, m and 1 or bl, true)
   end
   local si = TCF.SET_OF[set.items[1]]
   local worn = si and self:SetPiecesWorn(si) or 0

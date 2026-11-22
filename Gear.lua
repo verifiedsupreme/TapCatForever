@@ -982,8 +982,9 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
       elseif s.key == "RANGED" then wRanged = st end
     end
   end
-  -- set bonuses of the item sets worn (ItemSets.lua), on top of the pieces' own stats
-  local sets = TCF.SetBonusTotals and TCF.SetBonusTotals(wornIds, t)
+  -- set bonuses of the item sets worn (ItemSets.lua), on top of the pieces' own stats; ItemSets.lua
+  -- also puts the pieces counted per set in the result's "sets" field
+  if TCF.SetBonusTotals then TCF.SetBonusTotals(wornIds, t) end
   for _, k in ipairs({ "str", "agi", "sta", "int", "spi" }) do t[k] = t[k] + floor(20 + L * g[k]) end
 
   local hp = 40 + L * 14 + max(0, t.sta - 20) * 10
@@ -1025,7 +1026,6 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
     str = t.str, agi = t.agi, sta = t.sta, int = t.int, spi = t.spi, ap = ap, sp = t.sp, def = t.def,
     ilvl = nItems > 0 and floor(ilvlSum / nItems + 0.5) or 0, items = nItems,
     power = floor(dps * 10 + hp / 4 + armor / 10), -- one number for expeditions and comparisons
-    sets = sets,   -- { [set index] = pieces worn } (ItemSets.lua), or nil
   }
 end
 

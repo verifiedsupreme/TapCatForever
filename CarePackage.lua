@@ -98,8 +98,9 @@ function TCF:CarePackage()
     local parts = {}
     if coins > 0 then parts[#parts + 1] = coins .. " TapCoins" end
     if pieces > 0 then
-      parts[#parts + 1] = string.format("%d plain white piece%s for your cats' empty gear slots (%s), waiting in their gear bags",
-        pieces, pieces == 1 and "" or "s", table.concat(perCat, ", "))
+      local one = #perCat == 1
+      parts[#parts + 1] = string.format("%d plain white piece%s for your %s empty gear slots (%s), waiting in %s",
+        pieces, pieces == 1 and "" or "s", one and "cat's" or "cats'", table.concat(perCat, ", "), one and "its gear bag" or "their gear bags")
     end
     self:Print("A care package for playing before this update: " .. table.concat(parts, ", and ") .. ".", true)
     self:MarkDirty()

@@ -32,13 +32,18 @@ local function store(self)
   return c.itemSources
 end
 
--- Remembers where a cosmetic came from (the first time, and the latest copy).
-function TCF:NoteItemSource(id, reason, when)
+-- Remembers where a cosmetic came from (the first time, and the latest copy). wasOwned: the
+-- character already had it (a duplicate); with no record yet, it was owned before this was
+-- tracked, so only the latest copy is noted.
+function TCF:NoteItemSource(id, reason, when, wasOwned)
   local s = id and store(self)
   if not s then return end
+  -- (a real WoW boss or zone name can be a secret value: never keep one)
+  if TCF.IsSecret and TCF.IsSecret(reason) then reason = nil end
   local e = { TCF.ItemSourceName(reason), floor(when or time()) }
   local rec = s[id]
-  if type(rec) ~= "table" or type(rec.first) ~= "table" then s[id] = { first = e, last = e }
+  if type(rec) ~= "table" or type(rec.first) ~= "table" then
+    s[id] = { first = wasOwned and { "before", 0 } or e, last = e }
   else rec.last = e end
 end
 
@@ -65,7 +70,9 @@ function TCF:ItemSourceLines(id)
   if not (self.db and self.db.owned and self.db.owned[id]) then return {} end
   local rec = self:ItemSourceRecord(id)
   if not rec then return { "Got before this was tracked" } end
-  local out = { string.format("Got it from: %s, %s", rec.first[1], TCF.TimeAgo(rec.first[2])) }
+  local out
+  if rec.first[1] == "before" and rec.first[2] == 0 then out = { "Got before this was tracked" }
+  else out = { string.format("Got it from: %s, %s", rec.first[1], TCF.TimeAgo(rec.first[2])) } end
   local l = rec.last
   if type(l) == "table" and (l[1] ~= rec.first[1] or l[2] ~= rec.first[2]) then
     out[#out + 1] = string.format("Latest one from: %s, %s", l[1], TCF.TimeAgo(l[2]))

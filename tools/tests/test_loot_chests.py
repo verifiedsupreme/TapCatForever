@@ -9,6 +9,15 @@ def check(seed, load_addon):
       TapCatForeverDB = { charsMigrated = true, version = 3, chars = { ["Kittyhawk-Forever"] = {
         class = "MAGE", keys = { pouch = 3, strong = 1, heroic = 0, raid = 2, dungeon = 1 },
         classData = { MAGE = { level = 22, xp = 0 }, WARRIOR = { level = 7, xp = 0 } }, started = true } } }
+      -- (other features may pay chests at login for progress cats already had, such as class
+      -- achievements: mark those as earned so only the moved chests are counted here)
+      if T.CLASS_ACHIEVEMENTS then
+        TapCatForeverDB.classAch = {}
+        for _, cl in ipairs(T.CLASSES) do
+          TapCatForeverDB.classAch[cl.key] = {}
+          for _, a in ipairs(T.CLASS_ACHIEVEMENTS) do TapCatForeverDB.classAch[cl.key][a.id] = 1 end
+        end
+      end
       _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
       local p = {}
       local function ck(c, m) if not c then p[#p + 1] = m end end
@@ -17,6 +26,8 @@ def check(seed, load_addon):
       local st = T:ChestStamps("pouch", "MAGE")
       ck(#st == 1 and st[1].level == 22 and st[1].n == 3, "stamped with the Mage's level")
       ck(T.db.keys.pouch == 3 and T.db.keys.heroic == 0, "db.keys reads the current cat")
+      local cc = T:ChestCounts("MAGE")
+      ck(cc.pouch == 3 and cc.raid == 2 and cc.heroic == nil, "ChestCounts: a plain table")
       -- a second load of the same save moves nothing again
       local char = TapCatForeverDB.chars["Kittyhawk-Forever"]
       local raw = 0
@@ -56,7 +67,13 @@ def check(seed, load_addon):
       -- level-up chests go to the cat that levelled (expedition XP while playing another cat)
       local mage = T:CD("MAGE"); mage.level = 24; mage.xp = 0
       T.db.levelPaid.MAGE = 24
+      local lvLines = {}
+      T.Print = function(_, m) lvLines[#lvLines + 1] = m end
       T:AddClassXP("MAGE", T.XPForLevel(24) + 1)
+      T.Print = print0
+      local lvLine
+      for _, m in ipairs(lvLines) do if m:find("^Level 25:") then lvLine = m end end
+      ck(lvLine and lvLine:find("your Mage cat earned", 1, true) and not lvLine:find("(level", 1, true), "level-up line says the level once: " .. tostring(lvLine))
       local st = T:ChestStamps("strong", "MAGE")
       ck(mage.level == 25 and st[1].level == 25, "level 25 Strongbox for the Mage, stamped 25")
       ck(T:ChestsOf("strong", "WARRIOR") == 0, "not in the Warrior's bag")
@@ -82,8 +99,18 @@ def check(seed, load_addon):
       before = T:ChestsOf(e.chest[1], "WARRIOR")
       T:ClaimExpedition(#st0.active)
       ck(T:ChestsOf(e.chest[1], "WARRIOR") >= before + 1, "expedition chest to the cat you play when it went")
+      -- a chest from anything else during the claim (an achievement, say) goes to the cat you play
+      table.insert(st0.active, { key = e.key, members = { "ROGUE", "MAGE", "PRIEST" }, start = 0, finish = 0, power = 1, chance = 1 })
+      local xp0 = T.AddClassXP
+      T.AddClassXP = function(self, ...) if not self.paidOther then self.paidOther = true; self:AwardChest("raid", "Some achievement") end return xp0(self, ...) end
+      local wRaid, rRaid = T:ChestsOf("raid", "WARRIOR"), T:ChestsOf("raid", "ROGUE")
+      local rogueMain = T:ChestsOf(e.chest[1], "ROGUE")
+      T:ClaimExpedition(#st0.active)
+      T.AddClassXP, T.paidOther = xp0, nil
+      ck(T:ChestsOf("raid", "WARRIOR") == wRaid + 1 and T:ChestsOf("raid", "ROGUE") == rRaid + (e.chest[1] == "raid" and 1 or 0), "other chests during a claim: the cat you play")
+      ck(T:ChestsOf(e.chest[1], "ROGUE") >= rogueMain + 1, "the expedition's own chest still to the Rogue")
       e.chest[2] = saved
-      ck(T.chestOwner == nil, "owner cleared")
+      ck(T.claimChests == nil and T.chestOwner == nil, "owner cleared")
       -- 5. opening uses the stamp: a level 5 pouch opened by a level 60 cat holds low gear
       T:SetClass("WARRIOR")
       for _, ch in ipairs(T.CHESTS) do T.db.keys[ch.key] = 0 end
@@ -109,6 +136,9 @@ def check(seed, load_addon):
       T.lastStamp = nil
       T:OpenChest("strong", true, 10); ck(T.lastChest.stamp == 10, "asked level")
       T:OpenChest("strong", true); ck(T.lastChest.stamp == 30, "highest when the last level is gone")
+      -- a stale Open button: the level asked for has none left, so nothing opens
+      local s0, opened0 = T:ChestsOf("strong"), T.db.stats.chests
+      ck(T:OpenChest("strong", true, 10) == nil and T:ChestsOf("strong") == s0 and T.db.stats.chests == opened0, "no level 10 left: nothing opens")
       -- 6. the Treasure Bag: a row per kind and level, paging, tooltip, other cats
       for _, lv in ipairs({ 5, 10, 15, 20, 25, 30, 35 }) do T:AwardChest("pouch", "T", nil, nil, lv) end
       T:AwardChest("pouch", "T", nil, nil, 20)
@@ -118,10 +148,18 @@ def check(seed, load_addon):
       local shown = 0
       for _, row in ipairs(bag.rows) do if row:IsShown() then shown = shown + 1 end end
       ck(shown == 5 and bag.next:IsShown() and bag.pageText:GetText() == "1/2", "5 rows, 2 pages: " .. shown .. " " .. tostring(bag.pageText:GetText()))
-      local desc = {}
-      for _, row in ipairs(bag.rows) do if row:IsShown() then desc[#desc + 1] = row.desc:GetText() end end
+      local desc, n20 = {}, nil
+      for _, row in ipairs(bag.rows) do
+        if row:IsShown() then
+          desc[#desc + 1] = row.desc:GetText()
+          if row.level == 20 then n20 = row.count:GetText() end
+        end
+      end
       local all = table.concat(desc, " | ")
-      ck(all:find("Lv 35 x1", 1, true) and all:find("Lv 20 x2", 1, true), "Lv rows: " .. all)
+      -- (short enough for the 192 px line: only the level; the count is on the icon)
+      ck(all:find("Lv 35|r", 1, true) and all:find("Lv 20|r", 1, true) and not all:find(" x", 1, true), "Lv rows: " .. all)
+      ck(tostring(n20) == "2", "count on the icon: " .. tostring(n20))
+      for _, d in ipairs(desc) do ck(#(d:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) <= 8, "row text fits: " .. d) end
       bag.scripts.OnMouseWheel(bag, -1)
       ck(bag.page == 2, "the wheel turns the page")
       local tipLines = {}
@@ -129,7 +167,7 @@ def check(seed, load_addon):
       GameTooltip.AddLine = function(_, t) tipLines[#tipLines + 1] = tostring(t) end
       bag.rows[1].scripts.OnEnter(bag.rows[1])
       GameTooltip.AddLine = oAdd
-      ck(table.concat(tipLines, "\n"):find("Holds gear for about level", 1, true), "row tooltip: " .. table.concat(tipLines, " / "))
+      ck(table.concat(tipLines, "\n"):find("Holds gear for about level", 1, true) and table.concat(tipLines, "\n"):find("Comes from: ", 1, true), "row tooltip: " .. table.concat(tipLines, " / "))
       ck(bag.others:GetText():find("Mage", 1, true), "other cats line: " .. tostring(bag.others:GetText()))
       -- Open on a row opens that level
       bag.page = 1; bag:Refresh()

@@ -13,6 +13,15 @@ def check(seed, load_addon):
       TapCatForeverDB = { charsMigrated = true, version = 3, coins = 1000, chars = { ["Kittyhawk-Forever"] = {
         class = "MAGE", started = true,
         classData = { MAGE = { level = 18, xp = 40, gear = {}, bag = {} }, WARRIOR = { level = 1, xp = 0 } } } } }
+      -- (other features may pay TapCoins or chests at login for progress cats already had, such as
+      -- class achievements: mark those as earned so only the care package is counted here)
+      if T.CLASS_ACHIEVEMENTS then
+        TapCatForeverDB.classAch = {}
+        for _, cl in ipairs(T.CLASSES) do
+          TapCatForeverDB.classAch[cl.key] = {}
+          for _, a in ipairs(T.CLASS_ACHIEVEMENTS) do TapCatForeverDB.classAch[cl.key][a.id] = 1 end
+        end
+      end
       local weapon, chest
       for _, it in ipairs(T.WORLD_POOL[3] or {}) do
         if it.q == 2 and not it.crafted and not it.retired and T:GearUsable(it, "MAGE") then
@@ -50,7 +59,8 @@ def check(seed, load_addon):
       ck(wbag == 0, "a cat that was never played gets nothing: " .. wbag)
       local lines = {}
       for i = chat0 + 1, #_chat do if _chat[i]:find("care package", 1, true) then lines[#lines + 1] = _chat[i] end end
-      ck(#lines == 1 and not lines[1]:find("!", 1, true) and lines[1]:find("Mage " .. whites, 1, true) and lines[1]:find("150 TapCoins", 1, true), "one chat line: " .. table.concat(lines, " / "))
+      ck(#lines == 1 and not lines[1]:find("!", 1, true) and lines[1]:find("Mage " .. whites, 1, true) and lines[1]:find("150 TapCoins", 1, true)
+        and lines[1]:find("your cat's empty gear slots", 1, true) and lines[1]:find("in its gear bag", 1, true), "one chat line: " .. table.concat(lines, " / "))
       -- a pop-up never: the loot box stays hidden
       ck(not (TapCatForeverLootReveal and TapCatForeverLootReveal:IsShown()), "no loot box")
       -- logging in again gives nothing

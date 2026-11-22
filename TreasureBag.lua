@@ -1,6 +1,6 @@
 -- TapCatForever: the Treasure Bag (1.5.4). Every class's cat has its own bag of unopened chests,
 -- each stamped with the level of the cat that earned it (Core.lua: TCF:AwardChest, TCF:ChestStamps).
--- One row per kind of chest and level ("Lv 20 x2"), five rows a page. This replaces the one-row-
+-- One row per kind of chest and level ("Lv 20", the count on the icon), five rows a page. This replaces the one-row-
 -- per-kind bag of UI.lua (TCF:CreateBag and TCF:OpenAllChests are defined again here).
 local ADDON, TCF = ...
 local floor, min, max = math.floor, math.min, math.max
@@ -14,6 +14,18 @@ function TCF:BagEntries(class)
     for _, s in ipairs(self:ChestStamps(ch.key, class or self.db.class)) do
       out[#out + 1] = { chest = ch, level = s.level, n = s.n }
     end
+  end
+  return out
+end
+
+-- { [chest key] = count } for one cat's bag (default: the cat you are playing), as a plain table.
+-- db.keys is a stand-in whose counts are read through a metatable, so pairs(db.keys) sees
+-- nothing in Lua 5.1: code that sums every chest uses this or TCF:ChestCount() instead.
+function TCF:ChestCounts(class)
+  local out = {}
+  for _, ch in ipairs(TCF.CHESTS) do
+    local n = self:ChestsOf(ch.key, class or self.db.class)
+    if n > 0 then out[ch.key] = n end
   end
   return out
 end
@@ -70,7 +82,12 @@ function TCF:CreateBag()
       tt:AddLine("Open one", 1, 0.82, 0)
       tt:AddLine("A level " .. (r.level or 1) .. " " .. r.chest.name .. ".", 1, 1, 1, true)
     end)
-    Tip(r, function(tt) if r.chest then TCF:ChestOddsTooltip(tt, r.chest, nil, r.level) end end)
+    Tip(r, function(tt)
+      if not r.chest then return end
+      TCF:ChestOddsTooltip(tt, r.chest, nil, r.level)
+      local from = TCF.CHEST_BAG_TEXT and TCF.CHEST_BAG_TEXT[r.chest.key]
+      if from then tt:AddLine(" "); tt:AddLine("Comes from: " .. from, 0.7, 0.7, 0.7, true) end
+    end)
     r:Hide()
     f.rows[i] = r
   end
@@ -102,8 +119,10 @@ function TCF:CreateBag()
         r.icon:SetTexture(TCF.Icon(ch.icon))
         r.count:SetText(e.n > 1 and e.n or "")
         r.name:SetText(ch.name)
+        -- the level stamp (grey once the cat has outgrown it); the count is on the icon and where
+        -- the chest comes from is in the row's tooltip
         local far = cd and e.level < (cd.level or 1) - 10
-        r.desc:SetText(string.format("|cff%sLv %d x%d|r  %s", far and "999999" or "ffd100", e.level, e.n, TCF.CHEST_BAG_TEXT[ch.key] or ""))
+        r.desc:SetText(string.format("|cff%sLv %d|r", far and "999999" or "ffd100", e.level))
         r.open:SetEnabled(true); r.all:SetEnabled(TCF:ChestsOf(ch.key, class) > 1)
         r:ClearAllPoints(); r:SetPoint("TOP", 0, y); y = y - 62
         r:Show()
@@ -189,10 +208,13 @@ if TCF.ClaimExpedition then
       local m1 = ex.members[1]
       if not owner and type(m1) == "string" and self.db.classData[m1] then owner = m1 end
     end
-    local prev = self.chestOwner
-    self.chestOwner = owner
+    -- only the expedition's own chests (source: its name, see TCF:AwardChest); a level-up or an
+    -- achievement during the claim still goes to its own cat
+    local e = type(ex) == "table" and TCF.EXPEDITION_BY_KEY and TCF.EXPEDITION_BY_KEY[ex.key]
+    local prev = self.claimChests
+    self.claimChests = (owner and e) and { owner = owner, source = e.name } or nil
     local ok, a, b, c = pcall(claim, self, index, ...)
-    self.chestOwner = prev
+    self.claimChests = prev
     if not ok then error(a, 0) end
     return a, b, c
   end

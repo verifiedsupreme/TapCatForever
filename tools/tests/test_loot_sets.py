@@ -20,7 +20,11 @@ def check(seed, load_addon):
         for _, b in ipairs(s.bonuses) do
           ck(b[1] >= 2 and b[1] <= s.total and b[1] >= last, s.name .. ": bonus counts in order")
           last = b[1]
-          if b[3] then modelled = modelled + 1; ck(type(b[4]) == "number" and b[4] > 0, s.name .. ": amount") end
+          if b[3] then
+            modelled = modelled + 1; ck(type(b[4]) == "number" and b[4] > 0, s.name .. ": amount")
+            -- only stats TCF:CombatStats uses (defense, mana per 5, block value would light up and do nothing)
+            ck(T.SET_STATS[b[3]], s.name .. ": stat " .. b[3] .. " is used by CombatStats")
+          end
           ck(not b[2]:find("!", 1, true) or true, "")
         end
       end
@@ -86,6 +90,16 @@ def check(seed, load_addon):
       ck(b2 and b2[3] == 1 and b2[2] < 0.5, "active bonus green")
       ck(b4 and b4[2] == 0.5 and b4[3] == 0.5, "inactive bonus grey")
       ck(b6 and b6[1]:find("(no effect on your cat)", 1, true), "unmodelled bonus: " .. tostring(b6 and b6[1]))
+      -- a party cat's profile counts that cat's pieces, not your own cat's
+      local pp0 = _G.TapCatForeverPartyProfile
+      local cellA = { key = "HEAD", item = T.GEAR[set.items[1]] }
+      _G.TapCatForeverPartyProfile = { cells = { cellA, { key = "CHEST" }, { key = "LEGS" } } }
+      local tt2lines = {}
+      local tt2 = { AddLine = function(_, t) tt2lines[#tt2lines + 1] = tostring(t) end, AddDoubleLine = function() end,
+        GetOwner = function() return cellA end, SetOwner = function() end, Show = function() end }
+      T:AddSetTooltip(tt2, T.GEAR[set.items[1]], "WARRIOR")
+      _G.TapCatForeverPartyProfile = pp0
+      ck(table.concat(tt2lines, "\n"):find("Battlegear of Valor (1/8)", 1, true), "party profile: its own count " .. (tt2lines[2] or ""))
       -- comparison: wearing the 4th piece (empty slot) adds a set bonus
       local gain = find("Battlegear of Valor 4/8: +1 set bonus")
       ck(gain and gain[3] == 1, "compare shows the gained bonus: " .. tostring(gain and gain[1]))
@@ -103,6 +117,22 @@ def check(seed, load_addon):
       ck(loss and loss[2] == 1 and loss[3] < 0.5, "compare shows the lost bonus")
       -- Equip best counts set bonuses: power with the set beats the same pieces without it
       ck(T:GearUpgrade(T.GEAR[set.items[1]]) ~= nil, "upgrade math runs")
+      -- bonuses we can't model never light up: Green Dragon Mail's mana per 5 sec (mail, a Warrior can wear it)
+      local gdm = names["Green Dragon Mail"]
+      ck(gdm and T.SetBonusesActive(gdm, gdm.total) == 0, "Green Dragon Mail: no active bonus")
+      if gdm then
+        for k in pairs(eq) do eq[k] = nil end
+        for i = 1, #gdm.items do local g = T.GEAR[gdm.items[i]]; eq[T:GearTargetSlots(g, "WARRIOR")[1]] = g.id end
+        lines = {}
+        T:GearTooltip(tt, T.GEAR[gdm.items[1]])
+        local m = find("mana per 5 sec")
+        ck(m and m[2] == 0.5 and m[3] == 0.5 and m[1]:find("(no effect on your cat)", 1, true), "mana per 5: grey, no effect: " .. tostring(m and m[1]))
+        local gl = find("Green Dragon Mail " .. #gdm.items .. "/")
+        ck(gl == nil or not gl[1]:find("set bonus", 1, true), "no set bonus gained in the comparison")
+      end
+      local fake = { 2, "Increases defense rating by 5.", "def", 5 }
+      local ft, fr = T.SetBonusLine(fake, true)
+      ck(ft:find("(no effect on your cat)", 1, true) and fr == 0.5, "an unused stat is shown as no effect")
       -- Compendium: the Item Sets list, with progress and a tooltip per set
       if T.compendium then T.compendium:Hide() end
       T.compendium = nil

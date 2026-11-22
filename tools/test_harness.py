@@ -642,7 +642,7 @@ TEST = r'''
       local chestsPaid = {}
       local origAward = TCF.AwardChest
       TCF.AwardChest = function(self, key, src, ...) chestsPaid[#chestsPaid + 1] = key .. ":" .. tostring(src); return origAward(self, key, src, ...) end
-      TapCatForeverDB.chars["Twofam-Forever"] = { class = "MAGE",
+      TapCatForeverDB.chars["Twofam-Forever"] = { class = "MAGE", keys = { strong = 2 },
         classData = { WARRIOR = { level = 12, xp = 5 }, PALADIN = { level = 3, xp = 900 }, MAGE = { level = 20, xp = 0 } },
         trade = { gold = 5000, lifetime = 9e6, renown = 7, renownEver = 7, prestiges = 1, famMoved = true, buy = 10, last = time(),
           ops = { cloth = { { n = 40, p = 0, run = true, mgr = true }, { n = 12, p = 0, run = true, mgr = true } },
@@ -655,7 +655,9 @@ TEST = r'''
           garden = { plots = {}, n = 5, up = { gardener = true } }, fish = { spot = 1, buddy = 1, bp = 0 } } }
       local keys0 = {}
       login("Twofam")
-      for k, v in pairs(TCF.db.keys) do keys0[k] = v end
+      -- (1.5.4: db.keys is a stand-in for the current cat's bag, so pairs() sees nothing; read every kind)
+      for _, ch in ipairs(TCF.CHESTS) do keys0[ch.key] = TCF.db.keys[ch.key] or 0 end
+      check(keys0.strong == 2, "the old chests are in the Mage's bag")
       local m, w = TCF:CD("MAGE").trade, TCF:CD("WARRIOR").trade
       check(TCF.db.trade == nil and TCF.db.tradeSplit and m and w and TCF:ProfState() == m, "split into the Mage's and the Warrior's trade")
       check(TCF:CD("PALADIN").trade == nil and TCF:CD("ROGUE").trade == nil, "nothing for the Paladin or a class that had no progress")

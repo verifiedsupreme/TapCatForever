@@ -199,9 +199,9 @@ function TCF:InitDB()
     db.owned[id] = 1
     if self.NoteItemSource then self:NoteItemSource(id, src) end
   end
-  for _, id in ipairs(TCF.STARTER) do give(id, "Every cat starts with it") end
+  for _, id in ipairs(TCF.STARTER) do give(id, "Starter cosmetic") end
   -- every character owns a basic Orange Tabby skin
-  give("skin_orange", "Every cat starts with it")
+  give("skin_orange", "Starter cosmetic")
   -- Achievements are account-wide but cosmetics are per character: give alts (and a
   -- character after "Reset this character") the rewards of achievements already earned.
   for _, a in ipairs(TCF.ACHIEVEMENTS) do
@@ -612,7 +612,7 @@ function TCF:GrantItem(it, reason, reveal, chestKey)
   local db = self.db
   local salvage = 0
   local isNew = not db.owned[it.id]
-  if self.NoteItemSource then self:NoteItemSource(it.id, reason) end
+  if self.NoteItemSource then self:NoteItemSource(it.id, reason, nil, not isNew) end
   if isNew then
     db.owned[it.id] = 1
   else
@@ -708,7 +708,14 @@ end
 function TCF:TakeChest(key, class, level)
   local t = stampTable(self, self:ChestOwner(class), key)
   if not t then return nil end
-  local pick = level and (t[level] or 0) > 0 and level or nil
+  -- (a level asked for that has none left, such as a stale Open button, opens nothing)
+  if level then
+    if (t[level] or 0) <= 0 then return nil end
+    t[level] = t[level] - 1
+    if t[level] <= 0 then t[level] = nil end
+    return level
+  end
+  local pick
   local last = self.lastStamp and self.lastStamp[key]
   if not pick and last and (t[last] or 0) > 0 then pick = last end
   if not pick then
@@ -757,17 +764,22 @@ end
 -- level: its stamp (default: that cat's level).
 function TCF:AwardChest(key, source, force, class, level)
   local ch = TCF.CHEST_BY_KEY[key]
+  -- an expedition being claimed (TreasureBag.lua): only its own chests go to a cat that went
+  local claim = self.claimChests
+  if not class and claim and source == claim.source then class = claim.owner end
   class = self:ChestOwner(class)
   level = clampLevel(level or self.db.classData[class].level)
   self:AddChests(key, 1, class, level)
+  -- "(level 25)", unless the source already says it ("Level 25")
+  local lvText = (source == "Level " .. level) and "" or string.format(" (level %d)", level)
   local col = TCF.RARITY[TCF.ChestQuality(ch)]
   local hex = ch.color or (col and col.hex) or "ff1eff00"
   local art = ch.name:find("^[AEIOUaeiou]") and "an" or "a"
   if class ~= self.db.class then
     local cl = TCF.CLASS_BY_KEY[class]
-    self:Print(string.format("%s: your %s cat earned %s |c%s%s|r (level %d). It waits in that cat's Treasure Bag.", source or "Reward", cl and cl.name or class, art, hex, ch.name, level), force)
+    self:Print(string.format("%s: your %s cat earned %s |c%s%s|r%s. It waits in that cat's Treasure Bag.", source or "Reward", cl and cl.name or class, art, hex, ch.name, lvText), force)
   else
-    self:Print(string.format("%s: you earned %s |c%s%s|r (level %d). Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name, level), force)
+    self:Print(string.format("%s: you earned %s |c%s%s|r%s. Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name, lvText), force)
   end
   self:PlaySound("loot")
   self:MarkDirty()
