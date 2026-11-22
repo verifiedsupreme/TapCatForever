@@ -933,6 +933,15 @@ TEST = r'''
         eq.MAINHAND, eq.OFFHAND = saveMH, saveOH
       end
     end
+    -- 10e. first zone clear: a few hundred TapCoins, a quarter for later classes
+    do
+      local saved = TCF.db.zonesCleared
+      TCF.db.zonesCleared = nil
+      check(TCF:AdvClearCoins(1) == 200 and TCF:AdvClearCoins(2) == 250 and TCF:AdvClearCoins(#TCF.TIERS) == 200 + 50 * (#TCF.TIERS - 1), "zone clear coins scale by zone")
+      TCF.db.zonesCleared = { [TCF.TIERS[2].key] = true }
+      check(TCF:AdvClearCoins(2) == 62, "another class clearing Westfall gets a quarter")
+      TCF.db.zonesCleared = saved
+    end
     -- 11. What's new strip and Patch notes
     do
       local realVersion = TCF.version

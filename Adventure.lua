@@ -237,6 +237,17 @@ function TCF:AdvUseAbility(run)
 end
 
 ---------------------------------------------------------------- rewards
+-- TapCoins for clearing a zone (beating its last boss) the first time: 200 for Elwynn Forest,
+-- 50 more for each zone after it (1,550 for Naxxramas). The first of your cats to clear a zone
+-- gets the full amount; another class clearing it later gets a quarter.
+TCF.ADV_CLEAR_BASE, TCF.ADV_CLEAR_STEP, TCF.ADV_CLEAR_REPEAT = 200, 50, 0.25
+function TCF:AdvClearCoins(tier)
+  local t = self:AdvTier(tier)
+  local full = TCF.ADV_CLEAR_BASE + TCF.ADV_CLEAR_STEP * (tier - 1)
+  local done = t and self.db.zonesCleared and self.db.zonesCleared[t.key]
+  return done and math.floor(full * TCF.ADV_CLEAR_REPEAT) or full
+end
+
 -- Rewards are mostly chests (opened from the Treasure Bag); no direct gear and
 -- only a one-time TapCoin bonus per zone, so idling doesn't flood you with loot.
 function TCF:AdvMobKilled(m)
@@ -267,10 +278,13 @@ function TCF:AdvMobKilled(m)
       if loot then self:GrantGear(loot, m.name .. " (first kill)", true) end
     end
     if m.final and first then
-      local coins = 10 + adv.tier * 2
+      local coins = self:AdvClearCoins(adv.tier)
+      self.db.zonesCleared = self.db.zonesCleared or {}   -- account-wide: the first cat to clear it gets the full bonus
+      self.db.zonesCleared[t.key] = true
       self:AddCoins(coins)
       self:AwardChest(t.raid and "heroic" or "strong", t.name .. " cleared")
-      self:AdvLog(string.format("|cff20ff20%s cleared for the first time!|r +%d TapCoins and a chest", t.name, coins))
+      self:AdvLog(string.format("|cff20ff20%s cleared for the first time.|r +%s TapCoins and a chest", t.name, TCF.Commas(coins)))
+      if self.cat and self.cat.Toast then self.cat:Toast(string.format("%s cleared: +%s TapCoins", t.name, TCF.Commas(coins)), 1, 0.82, 0.2) end
     else
       local lo, ramp = ADV.CHEST_MIN, ADV.CHEST_RAMP
       if t.raid then lo, ramp = ADV.RAID_CHEST_MIN, ADV.RAID_CHEST_RAMP end
