@@ -814,7 +814,7 @@ TCF.UI.Builders.adventure = function(page, win)
     local nt = TCF.TIERS[adv.tier + 1]
     if not nt then
       tierLabel:SetText("|cffaaaaaaLast zone|r")
-    elseif TCF:AdvCanGoTo(adv.tier + 1, 1) and TCF:CD().level >= nt.min then
+    elseif TCF:AdvCanGoTo(adv.tier + 1, 1) and TCF:CD().level >= TCF:AdvAutoLevel(adv.tier + 1) then
       tierLabel:SetText("|cff20ff20Next: " .. nt.name .. " is open >|r")
     else
       local cleared = adv.best >= TCF.AdvStageCode(adv.tier, TCF:AdvStages(adv.tier))
