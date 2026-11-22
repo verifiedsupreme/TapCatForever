@@ -54,6 +54,12 @@
 - Natural: get a blackjack (25 TapCoins).
 - Three Cats in a Row: line up three cats on the slots (100 TapCoins).
 
+**Quests**
+- Tap quests ask for a lot more: the daily Paws of Fury is now 4,000, 8,000 or 12,000 taps, and the weekly Tireless Tapper is 100,000 taps (it gives a little more too). New quests use the new numbers from the next daily and weekly reset.
+
+**Gear**
+- The Usable only box on the Gear page now also hides gear above your cat's level, so it only lists what your cat can put on now.
+
 **Realm leaderboard**
 - The leaderboard is still under construction. We're working on getting players to show up on each other's leaderboard, and the tab says so for now. Your own row and the opt-in work as before.
 

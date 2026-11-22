@@ -25,7 +25,7 @@ local PER_CHAR = { kills = true, bosses = true, levels = true, stages = true }
 -- name, description (%s = goal), counter, goals, coin reward per goal step, icon
 TCF.QUEST_TEMPLATES = {
   daily = {
-    { "Paws of Fury",        "Tap %s times.",                          "taps",     { 600, 1200, 2000 },  { 25, 45, 70 },  "Ability_Druid_Dash" },
+    { "Paws of Fury",        "Tap %s times.",                          "taps",     { 4000, 8000, 12000 }, { 30, 50, 75 }, "Ability_Druid_Dash" },
     { "Monster Hunter",      "Defeat %s enemies in Adventure.",         "kills",    { 20, 40, 70 },       { 25, 45, 70 },  "Ability_Hunter_Pet_Wolf" },
     { "Boss Bounty",         "Defeat %s Adventure bosses.",             "bosses",   { 6, 12 },            { 50, 90 },      "INV_Misc_Head_Dragon_01" },
     { "Treasure Seeker",     "Open %s chest(s).",                       "chests",   { 1, 2 },             { 30, 55 },      "INV_Box_02" },
@@ -37,7 +37,7 @@ TCF.QUEST_TEMPLATES = {
     { "Into the Unknown",    "Clear %s new Adventure stage(s).",        "stages",   { 3, 6 },             { 30, 55 },      "INV_Misc_Map_01" },
   },
   weekly = {
-    { "Tireless Tapper",     "Tap %s times this week.",                "taps",     { 12000 },            { 350 },         "Ability_Druid_Ravage" },
+    { "Tireless Tapper",     "Tap %s times this week.",                "taps",     { 100000 },           { 400 },         "Ability_Druid_Ravage" },
     { "Dungeon Delver",      "Defeat %s Adventure bosses this week.",   "bosses",   { 100 },              { 400 },         "INV_Misc_Bone_HumanSkull_01" },
     { "Seasoned Adventurer", "Defeat %s enemies this week.",            "kills",    { 300 },              { 350 },         "Ability_Warrior_BattleShout" },
   },
