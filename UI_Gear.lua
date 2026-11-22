@@ -51,11 +51,63 @@ function TCF:GearCompareLines(tt, it, class)
     tt:AddLine("You can equip it at class level " .. it.req .. ".", 1, 0.5, 0.25)
   end
 end
+-- Side-by-side comparison, like WoW's own: next to the main tooltip, a second tooltip shows
+-- the item your cat wears in that slot (both for rings, trinkets and one-handers) with its
+-- stats, so you can read them against each other.
+local compareTips = {}
+local function compareTip(i)
+  local t = compareTips[i]
+  if not t then
+    t = CreateFrame("GameTooltip", "TapCatForeverCompareTip" .. i, UIParent, "GameTooltipTemplate")
+    if t.SetFrameStrata then t:SetFrameStrata("TOOLTIP") end
+    compareTips[i] = t
+  end
+  return t
+end
+local function hideCompare() for _, t in pairs(compareTips) do t:Hide() end end
+if GameTooltip and GameTooltip.HookScript then
+  pcall(GameTooltip.HookScript, GameTooltip, "OnHide", hideCompare)
+  pcall(GameTooltip.HookScript, GameTooltip, "OnTooltipCleared", hideCompare)
+end
+
+function TCF:ShowGearCompare(tt, it, class, baseTooltip)
+  hideCompare()
+  if tt ~= GameTooltip then return end
+  class = class or self.db.class
+  if not self:GearUsable(it, class) then return end
+  local eq = self:GearEquipped(class)
+  local worn, seen = {}, {}
+  for _, slot in ipairs(self:GearTargetSlots(it, class)) do
+    local id = eq[slot]
+    if id and id ~= it.id and not seen[id] and TCF.GEAR[id] then seen[id] = true; worn[#worn + 1] = TCF.GEAR[id] end
+  end
+  -- a two-hander replaces the main hand and the off hand: show both
+  if it.slot == "2H" and eq.OFFHAND and not seen[eq.OFFHAND] and TCF.GEAR[eq.OFFHAND] then worn[#worn + 1] = TCF.GEAR[eq.OFFHAND] end
+  if #worn == 0 then return end
+  -- put the comparison on the side of the screen with more room
+  local owner = tt.GetOwner and tt:GetOwner()
+  local ox = owner and owner.GetCenter and owner:GetCenter()
+  local sw = UIParent.GetWidth and UIParent:GetWidth()
+  local onLeft = not (type(ox) == "number" and type(sw) == "number" and ox < sw * 0.4)
+  local prev = tt
+  for i = 1, math.min(2, #worn) do
+    local c = compareTip(i)
+    c:SetOwner(tt, "ANCHOR_NONE")
+    c:ClearAllPoints()
+    if onLeft then c:SetPoint("TOPRIGHT", prev, "TOPLEFT", -4, 0) else c:SetPoint("TOPLEFT", prev, "TOPRIGHT", 4, 0) end
+    c:AddLine("Your cat is wearing", 0.6, 0.6, 0.6)
+    baseTooltip(self, c, worn[i], class)
+    c:Show()
+    prev = c
+  end
+end
+
 do
   local base = TCF.GearTooltip
   function TCF:GearTooltip(tt, it, class)
     base(self, tt, it, class)
     self:GearCompareLines(tt, it, class)
+    if it then self:ShowGearCompare(tt, it, class, base) end
   end
 end
 
