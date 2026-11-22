@@ -37,6 +37,7 @@ ChestReel.lua
 TreasureBag.lua
 CarePackage.lua
 ItemSets.lua
+ItemSources.lua
 LootToast.lua
 Party.lua
 DevView.lua

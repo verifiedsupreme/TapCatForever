@@ -36,3 +36,10 @@
 - The gear tooltip shows the set: its name with how many pieces your cat wears, every piece (worn in white, the rest in grey) and the bonuses (active in green, not yet in grey).
 - Comparing gear now also says when a swap gains or loses a set bonus.
 - The Compendium has a new Item Sets list: every set with how many pieces you have, a class filter, and Owned for complete sets. Hover a set for its pieces and bonuses.
+
+## Where every cosmetic came from
+- Skins, effects, tap effects and other cosmetics now remember where you got them.
+- Hover one in the Appearance tab or the Compendium: "Got it from: Heroic Cache, 3 days ago".
+- When you got another copy later, a second line says where the latest one came from.
+- Sources include chests, Adventure bosses, real dungeon runs, expeditions, quests, achievements, crafting, the Shop and the Appearance tab.
+- Cosmetics you had before this update say "Got before this was tracked".

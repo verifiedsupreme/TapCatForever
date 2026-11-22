@@ -193,15 +193,21 @@ function TCF:InitDB()
     local cl = TCF.CLASS_BY_KEY[db.class]
     db.look.fur = cl.fur
   end
-  for _, id in ipairs(TCF.STARTER) do db.owned[id] = db.owned[id] or 1 end
+  -- (ItemSources.lua: a cosmetic given here for the first time records where it came from)
+  local function give(id, src)
+    if db.owned[id] then return end
+    db.owned[id] = 1
+    if self.NoteItemSource then self:NoteItemSource(id, src) end
+  end
+  for _, id in ipairs(TCF.STARTER) do give(id, "Every cat starts with it") end
   -- every character owns a basic Orange Tabby skin
-  db.owned.skin_orange = db.owned.skin_orange or 1
+  give("skin_orange", "Every cat starts with it")
   -- Achievements are account-wide but cosmetics are per character: give alts (and a
   -- character after "Reset this character") the rewards of achievements already earned.
   for _, a in ipairs(TCF.ACHIEVEMENTS) do
     if db.achievements[a.id] then
-      if a.item and TCF.ITEMS[a.item] then db.owned[a.item] = db.owned[a.item] or 1 end
-      if a.skin and TCF.ITEMS[a.skin] then db.owned[a.skin] = db.owned[a.skin] or 1 end
+      if a.item and TCF.ITEMS[a.item] then give(a.item, "Achievement: " .. a.name) end
+      if a.skin and TCF.ITEMS[a.skin] then give(a.skin, "Achievement: " .. a.name) end
     end
   end
   -- cosmetic overrides per class (empty = the cat shows its real gear)
@@ -606,6 +612,7 @@ function TCF:GrantItem(it, reason, reveal, chestKey)
   local db = self.db
   local salvage = 0
   local isNew = not db.owned[it.id]
+  if self.NoteItemSource then self:NoteItemSource(it.id, reason) end
   if isNew then
     db.owned[it.id] = 1
   else
@@ -787,6 +794,7 @@ function TCF:BuySkin(id)
   if not it or it.slot ~= "skin" or self.db.owned[id] or not it.skinPrice then return false end
   if not self:SpendCoins(it.skinPrice) then return false end
   self.db.owned[id] = 1
+  if self.NoteItemSource then self:NoteItemSource(id, "Bought in the Appearance tab") end
   self.db.look.skin = id
   self:Print("Your cat is now a " .. TCF.ItemLink(it) .. ".", true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "New skin") end
@@ -805,6 +813,7 @@ function TCF:GrantSkin(id, reason, force)
   if not it or self.db.owned[id] then return false end
   self.db.owned[id] = 1
   reason = reason or "Rare drop"
+  if self.NoteItemSource then self:NoteItemSource(id, reason) end
   self:Print(reason .. ": the " .. TCF.ItemLink(it) .. " cat skin. Wear it from the Appearance tab.", force)
   -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, reason, self.skinChestKey) end
@@ -1374,6 +1383,7 @@ function TCF:BuyItem(id)
   if not it or self.db.owned[id] then return false end
   if not self:SpendCoins(it.price) then return false end
   self.db.owned[id] = 1
+  if self.NoteItemSource then self:NoteItemSource(id, "Daily Wares in the Shop") end
   self.db.shop.bought[id] = true
   self:Print("Purchased " .. TCF.ItemLink(it) .. ".", true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "Purchased") end
@@ -1404,6 +1414,7 @@ function TCF:BuyRaceAccessory()
   if not it or self.db.owned[it.id] then return false end
   if not self:SpendCoins(TCF.RACE_PRICE) then return false end
   self.db.owned[it.id] = 1
+  if self.NoteItemSource then self:NoteItemSource(it.id, "Racial heritage in the Shop") end
   self.db.ui.racial = true
   for _, cl in ipairs(TCF.CLASSES) do
     local lo = self:GetLoadout(cl.key)
@@ -1545,10 +1556,12 @@ function TCF:CheckAchievements()
       local extra = ""
       if a.item and TCF.ITEMS[a.item] and not db.owned[a.item] then
         db.owned[a.item] = 1
+        if self.NoteItemSource then self:NoteItemSource(a.item, "Achievement: " .. a.name) end
         extra = " and " .. TCF.ItemLink(TCF.ITEMS[a.item])
       end
       if a.skin and TCF.ITEMS[a.skin] and not db.owned[a.skin] then
         db.owned[a.skin] = 1
+        if self.NoteItemSource then self:NoteItemSource(a.skin, "Achievement: " .. a.name) end
         extra = extra .. " and the " .. TCF.ItemLink(TCF.ITEMS[a.skin]) .. " cat"
         if self.ShowLootReveal then self:ShowLootReveal(TCF.ITEMS[a.skin], true, 0, a.name) end
       end
