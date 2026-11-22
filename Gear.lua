@@ -12,7 +12,10 @@ TCF.WORLD_POOL = {}  -- [level band (req level // 5)] = { item, ... }
 
 -- Blizzard's placeholder/test items that leaked into the data. They stay known (so old
 -- saves still show them) but never drop.
-local function isPlaceholder(name, ilvl)
+-- also: leftover test/holiday items in the data that are Rare or better at item level 1-5 (such as
+-- "Warbranch of Cenarius", a blue staff with no stats at item level 1), and greens at item level 1-2
+local function isPlaceholder(name, ilvl, q)
+  if q and ((q >= 3 and ilvl <= 5) or (q == 2 and ilvl <= 2)) then return true end
   return ilvl == 0 or name:sub(1, 2) == "zz" or name:find("OLD", 1, true) or name:find("(Extra Effects)", 1, true)
     or name:sub(1, 6) == "Bland "
 end
@@ -65,7 +68,7 @@ function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss,
   if crafted then it.crafted, it.tier, it.boss, it.dc = crafted, 0, 0, 0; return end
   -- placeholders and later-expansion items (TCF.IsClassicItem) are marked retired too, so code that scans
   -- TCF.GEAR_LIST with a "not it.retired" filter skips them as well
-  if isPlaceholder(name, ilvl) or not TCF.IsClassicItem(id, ilvl) then it.retired = true; return end
+  if isPlaceholder(name, ilvl, q) or not TCF.IsClassicItem(id, ilvl) then it.retired = true; return end
   if tier > 0 then
     if boss > 0 then
       TCF.BOSS_LOOT[tier] = TCF.BOSS_LOOT[tier] or {}
@@ -1033,7 +1036,17 @@ end
 
 -- A starter weapon so a fresh cat isn't fighting bare-pawed: the weapon each class is known
 -- for (a bow for hunters, a dagger for rogues, a staff for mages...), the plainest one there is.
+-- Every class gets a different weapon: the classes are served in TCF.CLASSES order, each takes
+-- the plainest weapon of its first kind that no class before it has taken (so mages, priests and
+-- druids each get their own staff). Random-suffix greens are never starters.
 TCF.STARTER_WEAPONS = {
+  WARRIOR = { "sword", "axe" }, PALADIN = { "mace", "sword" }, HUNTER = { "bow", "gun", "xbow" },
+  ROGUE = { "dagger" }, PRIEST = { "staff", "mace" }, SHAMAN = { "axe", "fist", "staff" },
+  MAGE = { "staff" }, WARLOCK = { "dagger", "staff" }, DRUID = { "staff", "mace" },
+}
+-- The 1.5.0 to 1.5.2 lists (several classes shared a weapon then); only used to find the cats
+-- still holding the weapon those versions gave them.
+local OLD_STARTER_WEAPONS = {
   WARRIOR = { "sword", "axe" }, PALADIN = { "mace", "sword" }, HUNTER = { "bow", "gun", "xbow" },
   ROGUE = { "dagger" }, PRIEST = { "mace", "staff" }, SHAMAN = { "mace", "axe" },
   MAGE = { "staff" }, WARLOCK = { "staff", "dagger" }, DRUID = { "staff", "mace" },
@@ -1043,12 +1056,15 @@ local function isStarterCandidate(self, it, class)
   return it.q == 2 and (it.slot == "MH" or it.slot == "1H" or it.slot == "2H" or it.slot == "RANGED")
     and it.req <= STARTER_MAX_REQ and not it.crafted and self:GearUsable(it, class)
 end
-function TCF:StarterWeapon(class)
-  for _, sub in ipairs(TCF.STARTER_WEAPONS[class] or {}) do
+-- The plainest weapon of the first kind in `prefs` that has one (lowest item level, then lowest
+-- id), skipping the items in `taken` and, with `plain`, random-suffix greens.
+local function plainestWeapon(self, class, prefs, taken, plain)
+  for _, sub in ipairs(prefs or {}) do
     local best
     for band = 0, floor(STARTER_MAX_REQ / 5) do
       for _, it in ipairs(TCF.WORLD_POOL[band] or {}) do
-        if it.sub == sub and isStarterCandidate(self, it, class)
+        if it.sub == sub and isStarterCandidate(self, it, class) and not (taken and taken[it.id])
+          and not (plain and it.suffix)
           and (not best or it.ilvl < best.ilvl or (it.ilvl == best.ilvl and it.id < best.id)) then
           best = it
         end
@@ -1056,6 +1072,22 @@ function TCF:StarterWeapon(class)
     end
     if best then return best end
   end
+end
+-- class -> starter item for every class, each a different item
+function TCF:StarterWeapons()
+  local out, taken = {}, {}
+  for _, cl in ipairs(TCF.CLASSES) do
+    local it = plainestWeapon(self, cl.key, TCF.STARTER_WEAPONS[cl.key], taken, true)
+    if it then out[cl.key] = it; taken[it.id] = true end
+  end
+  return out
+end
+function TCF:StarterWeapon(class)
+  return self:StarterWeapons()[class]
+end
+-- The weapon 1.5.0 to 1.5.2 gave a new cat of this class
+local function oldClassStarter(self, class)
+  return plainestWeapon(self, class, OLD_STARTER_WEAPONS[class])
 end
 
 function TCF:StarterGear(class)
@@ -1117,6 +1149,31 @@ function TCF:FixStarterWeapons()
         end
         eq[slot] = new.id
         if new.slot == "2H" then eq.OFFHAND = nil end   -- a two-hander can't share with an off-hand
+      end
+    end
+  end
+  -- 1.5.3: every class has its own starter. A cat still holding exactly the weapon 1.5.0 to
+  -- 1.5.2 gave it (a priest's mace, a shaman's hammer, the staff druids and warlocks shared)
+  -- gets its new class weapon; the old one stays in the bag. Hunters keep the bow rule above.
+  -- Anything the player chose is left alone. Runs once per character and class.
+  local starters = self:StarterWeapons()
+  for _, cl in ipairs(TCF.CLASSES) do
+    local class = cl.key
+    local cd = self:CD(class)
+    if cd and not cd.starterFixed2 then
+      cd.starterFixed2 = true
+      local new, old = starters[class], oldClassStarter(self, class)
+      local eq = self:GearEquipped(class)
+      if new and old and new.id ~= old.id and class ~= "HUNTER" and eq.MAINHAND == old.id then
+        local bag = self:Bag(class)
+        bag[new.id] = (bag[new.id] or 0) + 1
+        if (bag[old.id] or 0) < 1 then bag[old.id] = 1 end
+        if new.slot == "RANGED" then
+          eq.RANGED = new.id
+        else
+          eq.MAINHAND = new.id
+          if new.slot == "2H" then eq.OFFHAND = nil end   -- a two-hander can't share with an off-hand
+        end
       end
     end
   end

@@ -97,18 +97,24 @@ function TCF:ClaimExpedition(index)
   -- every cat that went earns a little XP (5 per minute away; half if it failed)
   local won = random() <= ex.chance
   local xp = floor(e.dur / 60 * 5 * (won and 1 or 0.5))
-  for _, c in ipairs(ex.members) do self:AddClassXP(c, xp) end
+  -- (a cat at the highest level gains no more XP; the line leaves XP out when none of them can)
+  local canLevel = false
+  for _, c in ipairs(ex.members) do
+    if not (self.IsMaxLevel and self:IsMaxLevel(c)) then canLevel = true end
+    self:AddClassXP(c, xp)
+  end
+  local xpText = canLevel and string.format(" and %d XP each", xp) or ""
   if not won then
     local coins = floor(e.coins * 0.1)
     self:AddCoins(coins)
-    self:Print(string.format("|cffff6060%s failed.|r Your cats limped home with %d TapCoins and %d XP each. Stronger gear raises the odds.", e.name, coins, xp), true)
+    self:Print(string.format("|cffff6060%s failed.|r Your cats limped home with %d TapCoins%s. Stronger gear raises the odds.", e.name, coins, xpText), true)
     self:MarkDirty(); self:RefreshAll()
     return false
   end
   self.db.stats.expeditionWins = (self.db.stats.expeditionWins or 0) + 1
   local coins = floor(e.coins * 0.5 * (0.8 + random() * 0.4))
   self:AddCoins(coins)
-  self:Print(string.format("|cff20ff20%s succeeded.|r +%d TapCoins, +%d XP for each cat.", e.name, coins, xp), true)
+  self:Print(string.format("|cff20ff20%s succeeded.|r +%d TapCoins%s.", e.name, coins, canLevel and string.format(", +%d XP for each cat", xp) or ""), true)
   if random() < e.chest[2] then self:AwardChest(e.chest[1], e.name) end
   if e.dchest and random() < e.dchest then self:AwardChest("dungeon", e.name) end
   if e.hoard and random() < e.hoard then self:AwardChest("raid", e.name) end

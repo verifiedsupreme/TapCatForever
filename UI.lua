@@ -402,6 +402,13 @@ end
 
 ---------------------------------------------------------------- HUD (the cat on screen)
 local CAT_SIZE = 120
+-- space between the cat and its level, XP bar and counters, above or below it (db.ui.textGap)
+TCF.TEXT_GAP_DEFAULT, TCF.TEXT_GAP_MIN, TCF.TEXT_GAP_MAX = 4, -10, 40
+function TCF.HudTextGap()
+  local g = TCF.db and TCF.db.ui and tonumber(TCF.db.ui.textGap)
+  if not g then return TCF.TEXT_GAP_DEFAULT end
+  return max(TCF.TEXT_GAP_MIN, min(TCF.TEXT_GAP_MAX, floor(g + 0.5)))
+end
 
 function TCF:CreateHUD()
   local ui = self.db.ui
@@ -515,18 +522,22 @@ function TCF:CreateHUD()
     -- frame so the frame always covers cat + text: no empty click-eating strip, and the
     -- screen clamp keeps the text on screen too. With no text shown the frame shrinks to the cat.
     local showInfo = not ui.catOnly
-    self:SetHeight((showInfo and (ui.showLevel or ui.showXP or ui.showTaps or ui.showCoins)) and CAT_SIZE + 40 or CAT_SIZE)
+    -- the space between the cat and its text (Settings: Text distance; 4 before 1.5.3). The
+    -- frame grows or shrinks with it, so it still covers the cat and the text.
+    local gap = TCF.HudTextGap()
+    local height = (showInfo and (ui.showLevel or ui.showXP or ui.showTaps or ui.showCoins)) and CAT_SIZE + 36 + gap or CAT_SIZE
+    self:SetHeight(height)
     self.info:ClearAllPoints(); cat.frame:ClearAllPoints()
     if ui.textAbove then
       cat.frame:SetPoint("BOTTOM", self, "BOTTOM", 0, 0)
-      self.info:SetPoint("BOTTOM", cat.frame, "TOP", 0, 4)
+      self.info:SetPoint("BOTTOM", cat.frame, "TOP", 0, gap)
     else
       cat.frame:SetPoint("TOP", self, "TOP", 0, 0)
-      self.info:SetPoint("TOP", cat.frame, "BOTTOM", 0, -4)
+      self.info:SetPoint("TOP", cat.frame, "BOTTOM", 0, -gap)
     end
     -- keep the cat's feet where they were when the frame's layout changes (text above/below,
-    -- text hidden, or the first load after 1.3.3, when the frame was 160 tall with the cat on top)
-    local height = (showInfo and (ui.showLevel or ui.showXP or ui.showTaps or ui.showCoins)) and CAT_SIZE + 40 or CAT_SIZE
+    -- text hidden, text distance, or the first load after 1.3.3, when the frame was 160 tall
+    -- with the cat on top)
     local p = ui.point
     local function catBottom(h, above)
       local a = p[1]
@@ -1156,7 +1167,7 @@ function TCF:CreateWindow()
       checks[#checks + 1] = cb
       return cb
     end
-    local function Slider(label, minV, maxV, step, y, get, set, fmt)
+    local function Slider(label, minV, maxV, step, y, get, set, fmt, tip)
       local s = CreateFrame("Slider", nil, st, BT)
       s:SetOrientation("HORIZONTAL"); s:SetSize(COL_W, 16)
       -- the box covers the label above the bar too
@@ -1175,6 +1186,7 @@ function TCF:CreateWindow()
       s:SetScript("OnMouseWheel", function(self, d) self:SetValue(max(minV, min(maxV, self:GetValue() + d * step))) end)
       Tip(s, function(tt)
         tt:AddLine(label, 1, 0.82, 0)
+        if tip then tt:AddLine(tip, 1, 1, 1, true) end
         tt:AddLine("Drag, or scroll the mouse wheel over the bar to change it one step at a time.", 1, 1, 1, true)
       end)
       local t = Text(s, "GameFontHighlight", nil, "LEFT"); t:SetPoint("BOTTOMLEFT", s, "TOPLEFT", 0, 3)
@@ -1192,11 +1204,15 @@ function TCF:CreateWindow()
       return b
     end
 
-    -- Cat and display: sliders on the left, then two columns of checkboxes (rows 23 apart)
+    -- Cat and display: four sliders on the left (42 apart), then two columns of checkboxes (rows 23 apart)
     local gy = Heading("Cat and display", 16, 38, 528)
-    local scaleS = Slider("Cat size", 0.3, 3, 0.05, gy + 4, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx")
-    local alphaS = Slider("Opacity", 0.1, 1, 0.05, gy + 58, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f")
-    local textS = Slider("Text size", 0.5, 2.5, 0.05, gy + 112, function() return ui.textScale or 1 end, function(v) ui.textScale = v end, "%s: %.2fx")
+    local scaleS = Slider("Cat size", 0.3, 3, 0.05, gy + 4, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx",
+      "Ctrl + mouse wheel over the cat changes it too.")
+    local alphaS = Slider("Opacity", 0.1, 1, 0.05, gy + 46, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f",
+      "Shift + mouse wheel over the cat changes it too.")
+    local textS = Slider("Text size", 0.5, 2.5, 0.05, gy + 88, function() return ui.textScale or 1 end, function(v) ui.textScale = v end, "%s: %.2fx")
+    local gapS = Slider("Text distance", TCF.TEXT_GAP_MIN, TCF.TEXT_GAP_MAX, 1, gy + 130, function() return TCF.HudTextGap() end,
+      function(v) ui.textGap = v end, "%s: %d", "The space between the cat and its level, XP bar and counters, above or below it. The cat stays where it is.")
     local CA, CB = COL[2], 352
     local CA_W, CB_W = CB - 8 - CA, 544 - CB
     local function Row(r) return gy + r * 23 end
@@ -1225,9 +1241,19 @@ function TCF:CreateWindow()
       ui.minimap.hide = not ui.minimap.hide; TCF:UpdateMinimapButton()
       win:RefreshSettings()
     end, "Minimap icon", "Show or hide the TapCatForever button on the minimap.")
+    -- opt-in, off by default (DevView.lua). Not in win.settingsChecks: it also joins or leaves
+    -- the hidden channel, and RefreshSettings sets it on its own.
+    local shareCB = Check("Share my cat's progress with the developer", "shareDev", COL[1], gy + 24, 528,
+      "When the developer of TapCatForever asks, your addon answers with these five things: the addon version, " ..
+      "your cat's class, cat level, zones cleared and TapCoins. Nothing else is sent.\n\n" ..
+      "It is only shared with the addon's developer, and only while you are both online. To hear the question your " ..
+      "addon joins a hidden addon channel that never shows in your chat. Off by default.",
+      function() if TCF.DevShareChanged then TCF:DevShareChanged() end end)
+    table.remove(checks)
+    win.settingsShare = shareCB
 
     -- Help and info: four buttons the same size in one row
-    gy = Heading("Help and info", 16, 286, 528)
+    gy = Heading("Help and info", 16, 309, 528)
     PageButton("Welcome tour", COL[1], gy, COL_W, function() TCF:ShowWelcome() end,
       "Welcome tour", "A short tour of what TapCatForever does.")
     PageButton("Patch notes", COL[2], gy, COL_W, function() TCF:ShowPatchNotes() end,
@@ -1237,21 +1263,20 @@ function TCF:CreateWindow()
     PageButton("Compendium", COL[4], gy, COL_W, function() TCF:ToggleCompendium(); TCF:PlaySound("click") end,
       "Compendium", "Every skin, cosmetic, effect and piece of gear, what you have, and how to get the rest. Also /tcf compendium.")
 
-    -- notes between Help and Progress (y 340 to 431): the party note, then the help line, or the
-    -- test mode buttons in its place while test mode is on
-    local INFO_Y, INFO_BOTTOM = 340, 431
+    -- notes between Help and Progress (y 363 to 431): the party note, then the help line, or
+    -- the test mode buttons in place of both while test mode is on
+    local INFO_Y, INFO_BOTTOM = 363, 431
     local partyNote = Text(st, "GameFontHighlightSmall", nil, "LEFT"); partyNote:SetWidth(528)
     Place(partyNote, 16, INFO_Y, 528, INFO_BOTTOM - INFO_Y, "info", "notes")
     local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetWidth(528)
     help:SetPoint("TOPLEFT", partyNote, "BOTTOMLEFT", 0, -6)
-    help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
-      "Slash commands: /tcf show, hide, lock, unlock, reset, scale <n>, stats, compendium, news, feedback\n" ..
+    help:SetText("Slash commands: /tcf show, hide, lock, unlock, reset, scale <n>, stats, compendium, news, feedback\n" ..
       "TapCoins, quests and achievements are shared; gear, cosmetics and cat levels are per character, and each class has its own Trade Gold and professions.")
     win.settingsInfo = { y = INFO_Y, bottom = INFO_BOTTOM, note = partyNote, help = help }
 
-    -- test mode shortcuts (/tcf testmode): 60 tall, in the help line's place
+    -- test mode shortcuts (/tcf testmode): 60 tall, in the party note's and help line's place
     local testBox = CreateFrame("Frame", nil, st)
-    testBox:SetSize(528, 60); testBox:SetPoint("TOPLEFT", partyNote, "BOTTOMLEFT", 0, -6)
+    testBox:SetSize(528, 60); testBox:SetPoint("TOPLEFT", st, "TOPLEFT", 16, -INFO_Y)
     win.settingsInfo.testBox = testBox
     local tt = Text(testBox, "GameFontNormalSmall", "|cffff6060Test mode|r  |cffaaaaaa(/tcf testmode to hide)|r", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
     local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
@@ -1305,10 +1330,12 @@ function TCF:CreateWindow()
       local friends = TCF.PartyCount and TCF:PartyCount() or 0
       if friends > 0 then note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)) end
       partyNote:SetText(note)
+      partyNote:SetShown(not ui.testMode)
       help:SetShown(not ui.testMode)
       mmB:SetText(ui.minimap.hide and "Show minimap icon" or "Hide minimap icon")
       for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
-      scaleS.Sync(); alphaS.Sync(); textS.Sync()
+      shareCB:SetChecked(ui.shareDev and true or false)
+      scaleS.Sync(); alphaS.Sync(); textS.Sync(); gapS.Sync()
     end
   end
 
@@ -1499,6 +1526,8 @@ function TCF:CreateLootReveal()
   f.icon:SetPoint("RIGHT", f.name, "LEFT", 0, 0)
   f.kind = Text(f, "GameFontHighlight"); f.kind:SetPoint("TOP", f.name, "BOTTOM", -12, -4)
   f.status = Text(f, "GameFontNormal"); f.status:SetPoint("TOP", f.kind, "BOTTOM", 0, -6); f.status:SetWidth(430)
+  -- TapCoins that came with a chest (TCF.chestCoins while it opens): one plain line, nothing more
+  f.coins = Text(f, "GameFontNormal"); f.coins:SetPoint("TOP", f.status, "BOTTOM", 0, -4)
   f.ok = Button(f, "OK", 80, 24, function() f:Next() end); f.ok:SetPoint("BOTTOMRIGHT", -18, 16)
   -- drops waiting behind this one
   f.queueLabel = Text(f, "GameFontDisableSmall", nil, "LEFT"); f.queueLabel:SetPoint("BOTTOMLEFT", 22, 76)
@@ -1568,8 +1597,9 @@ function TCF:CreateLootReveal()
   end)
 
   function f:Show1(entry)
-    local it, isNew, salvage, title, chestKey, isGear = unpack(entry)
+    local it, isNew, salvage, title, chestKey, isGear, coins = unpack(entry, 1, 7)
     self.item, self.chestKey, self.isGear = it, chestKey, isGear
+    self.coins:SetText(TCF.ChestCoinsText(coins) or "")
     if isGear then self:ShowGear(it, isNew, title, chestKey); self:UpdateQueue(); return end
     self.pic:Show(); self.gearIcon:Hide()
     self:SetLegendary(false)
@@ -1638,7 +1668,7 @@ function TCF:CreateLootReveal()
   -- Show a fresh chest reward right away in place of the item on show (already in your bags),
   -- keeping anything else that is waiting. Used when you open a chest while the box is up.
   function f:ShowFront(entry)
-    if not self:IsShown() or not revealQueue[1] then return (TCF.ShowLootRevealDirect or TCF.ShowLootReveal)(TCF, unpack(entry)) end
+    if not self:IsShown() or not revealQueue[1] then return (TCF.ShowLootRevealDirect or TCF.ShowLootReveal)(TCF, unpack(entry, 1, 7)) end
     revealQueue[1] = entry
     self:Show1(entry)
   end
@@ -1647,10 +1677,18 @@ function TCF:CreateLootReveal()
   return f
 end
 
-function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
+-- "+12 TapCoins" for TapCoins found in a chest, or nil for none
+function TCF.ChestCoinsText(coins)
+  coins = tonumber(coins)
+  if not coins or coins < 1 then return nil end
+  return "+" .. TCF.Commas(coins) .. " TapCoins"
+end
+
+-- coins: TapCoins that came with this chest (ChestReel.lua passes them on), or nil
+function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear, coins)
   local f = self.lootReveal or self:CreateLootReveal()
   if not f:IsShown() then wipe(revealQueue) end
-  table.insert(revealQueue, { it, isNew, salvage, title, chestKey, isGear })
+  table.insert(revealQueue, { it, isNew, salvage, title, chestKey, isGear, coins })
   if #revealQueue == 1 then f:Show1(revealQueue[1]) else f:UpdateQueue() end
 end
 

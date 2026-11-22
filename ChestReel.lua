@@ -128,7 +128,7 @@ local function createReel()
       -- the item the reel landed on takes over a loot box that is already up, so the box
       -- shows what you just watched (everything else still queues behind it)
       if i == 1 and lr and lr:IsShown() and lr.ShowFront then lr:ShowFront(args)
-      else TCF.ShowLootRevealDirect(TCF, unpack(args)) end
+      else TCF.ShowLootRevealDirect(TCF, unpack(args, 1, 7)) end
     end
   end
   f.queue = {}
@@ -164,10 +164,24 @@ function TCF:PlayChestReel(it, rarity, chestKey, args)
   f:Show()
 end
 
+-- TapCoins a chest gave (Core.lua's OpenChest sets TCF.chestCoins while the chest opens). They go
+-- with the chest's first reward only (a skin found in the same chest doesn't repeat them); a
+-- chest opening is told apart by the chest count, which goes up once per chest.
+local coinsTaken
+local function takeChestCoins(self, chestKey)
+  local c = chestKey and tonumber(self.chestCoins)
+  if not c or c < 1 then return nil end
+  local opening = self.db and self.db.stats and self.db.stats.chests
+  if opening and opening == coinsTaken then return nil end
+  coinsTaken = opening
+  return floor(c)
+end
+
 -- Hook the loot box: chest rewards spin first (unless turned off, or opening many at once).
 TCF.ShowLootRevealDirect = TCF.ShowLootReveal
-function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
-  local args = { it, isNew, salvage, title, chestKey, isGear }
+function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear, coins)
+  coins = coins or takeChestCoins(self, chestKey)
+  local args = { it, isNew, salvage, title, chestKey, isGear, coins }
   -- only chest openings (your own click) can get the reel and the loot box, and only for a
   -- blue (Rare) or better find; everything else goes straight into your bags with at most a
   -- slim line (LootToast.lua). "Open all" still lists everything in the loot window.
@@ -176,7 +190,7 @@ function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   end
   local quality = it and (isGear and it.q or it.rarity) or 1
   if self.ShowLootToast and it and quality < 3 and not self.openingAll then
-    return self:ShowLootToast(it, isNew, salvage, title, isGear, true)
+    return self:ShowLootToast(it, isNew, salvage, title, isGear, true, coins)
   end
   local ch = chestKey and TCF.CHEST_BY_KEY[chestKey]
   if ch and it and self.db.ui.chestAnim ~= false and not self.openingAll then
@@ -188,5 +202,5 @@ function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   if ch and it and not self.openingAll and self.lootReveal and self.lootReveal:IsShown() and self.lootReveal.ShowFront then
     return self.lootReveal:ShowFront(args)
   end
-  return TCF.ShowLootRevealDirect(self, unpack(args))
+  return TCF.ShowLootRevealDirect(self, unpack(args, 1, 7))
 end

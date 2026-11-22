@@ -1,14 +1,16 @@
 -- TapCatForever: Professions. Every cat has one main profession picked by its class, then four
--- more it unlocks with Renown (the prestige reset). Each class's cat has its own trade: its own
+-- more it unlocks as it earns Trade Gold (all the Trade Gold this cat ever earned: s.lifetime, which
+-- selling the business for Renown never resets). Each class's cat has its own trade: its own
 -- Trade Gold, Renown, spots, skills, materials and helpers (db.classData[class].trade).
 --   Main (free)       one of three "families" with identical numbers (idle tycoon + hand tool):
 --                       mining   (Warrior, Paladin)                  Mining    -> Blacksmithing
 --                       skinning (Rogue, Druid, Hunter, Shaman)      Skinning  -> Leatherworking
 --                       cloth    (Mage, Priest, Warlock)             Tailoring -> Tailoring
---   Herbalism  (5 Renown)  garden plots that grow in real time, gardener automates
---   First Aid  (20 Renown) turn cloth into bandages that heal your cat in Adventure
---   Fishing    (60 Renown) bobber mini-game, fishing buddy catches while you're away
---   Cooking    (150 Renown) experiment with ingredients to discover dishes that buff you
+--   Herbalism  (25M Trade Gold earned)  garden plots that grow in real time, gardener automates
+--   First Aid  (2.5B)  turn cloth into bandages that heal your cat in Adventure
+--   Fishing    (250B)  bobber mini-game, fishing buddy catches while you're away
+--   Cooking    (2T)    experiment with ingredients to discover dishes that buff you
+--   (1.5.2 and older: 5/20/60/150 Renown, still honoured so no save loses an unlock)
 --
 -- PUBLIC API (prof = a family key "mining" | "skinning" | "cloth"; nil = the current class's family)
 --   Families and lists
@@ -22,6 +24,8 @@
 --     TCF.PROFESSIONS            ALL rows (3 families + 4 shared); UI should iterate TCF:ProfList() instead
 --     TCF.PROF_BY_KEY[key]       row by key; also has the crafting keys (name, icon, craft = true, family)
 --     TCF:ProfUnlocked(key)      learned? (families are always learned; crafting keys too)
+--     TCF:ProfUnlockProgress(key) Trade Gold earned so far, Trade Gold needed (p.gold), unlocked?
+--     TCF:CheckProfUnlocks()     one chat line per newly unlocked profession of the cat you play (remembered)
 --   State and skill
 --     TCF:ProfState(class)       a cat's trade, default the current class's (gold, lifetime, renown, mats,
 --                                ops[fam][i], tools[fam], upgrades, milestones, skill, garden, aid, fish, cook)
@@ -166,20 +170,28 @@ end
 TCF.MINING_OPS = TCF.FAMILIES.mining.ops
 
 TCF.PROFESSIONS = {
-  { key = "mining",    name = "Mining",    icon = "Trade_Mining",           renown = 0, family = true },
-  { key = "skinning",  name = "Skinning",  icon = "INV_Misc_Pelt_Wolf_01",  renown = 0, family = true },
-  { key = "cloth",     name = "Tailoring", icon = "Trade_Tailoring",        renown = 0, family = true },
-  { key = "herbalism", name = "Herbalism", icon = "Trade_Herbalism",        renown = 5 },
-  { key = "firstaid",  name = "First Aid", icon = "Spell_Holy_SealOfSacrifice", renown = 20 },
-  { key = "fishing",   name = "Fishing",   icon = "Trade_Fishing",          renown = 60 },
-  { key = "cooking",   name = "Cooking",   icon = "INV_Misc_Food_15",       renown = 150 },
+  { key = "mining",    name = "Mining",    icon = "Trade_Mining",           gold = 0, renown = 0, family = true },
+  { key = "skinning",  name = "Skinning",  icon = "INV_Misc_Pelt_Wolf_01",  gold = 0, renown = 0, family = true },
+  { key = "cloth",     name = "Tailoring", icon = "Trade_Tailoring",        gold = 0, renown = 0, family = true },
+  -- gold: the Trade Gold this cat has earned in total (s.lifetime) to learn it. renown: the old
+  -- rule of 1.5.2 and older, kept as a hidden fallback so no save loses an unlock. Renown is at
+  -- most sqrt(earned / 1e8), so a cat that had that Renown had earned more than the new cost anyway.
+  { key = "herbalism", name = "Herbalism", icon = "Trade_Herbalism",        gold = 25e6,   renown = 5 },
+  { key = "firstaid",  name = "First Aid", icon = "Spell_Holy_SealOfSacrifice", gold = 2.5e9, renown = 20 },
+  { key = "fishing",   name = "Fishing",   icon = "Trade_Fishing",          gold = 2.5e11, renown = 60 },
+  { key = "cooking",   name = "Cooking",   icon = "INV_Misc_Food_15",       gold = 2e12,   renown = 150 },
 }
+-- unlocked in a trade table s (either rule)
+local function unlockedIn(s, p)
+  if not p then return false end
+  return (s.lifetime or 0) >= (p.gold or 0) or ((p.renown or 0) > 0 and (s.renownEver or 0) >= p.renown)
+end
 TCF.PROF_BY_KEY = {}
 for i, p in ipairs(TCF.PROFESSIONS) do p.index = i; TCF.PROF_BY_KEY[p.key] = p end
 -- crafting skills are looked up like professions (names for skill text, Compendium, recipes)
 for _, k in ipairs(FAM_KEYS) do
   local f = TCF.FAMILIES[k]
-  TCF.PROF_BY_KEY[f.craft] = { key = f.craft, name = f.craftName, icon = f.craftIcon, renown = 0, craft = true, family = k }
+  TCF.PROF_BY_KEY[f.craft] = { key = f.craft, name = f.craftName, icon = f.craftIcon, gold = 0, renown = 0, craft = true, family = k }
   -- the gathering skill's own label (cloth: "Cloth Scavenging", so it can't be mixed up with Tailoring)
   TCF.PROF_BY_KEY[k].skillName = f.skillName
 end
@@ -266,6 +278,14 @@ local function repair(s, class)
   s.renownEver = max(s.renownEver or 0, s.renown or 0)
   if checked[s] then return s end
   s.gold, s.lifetime, s.renown, s.prestiges = s.gold or 0, s.lifetime or 0, s.renown or 0, s.prestiges or 0
+  -- professions whose unlock this cat was told about. A save from 1.5.2 or older was already
+  -- told about the ones its Renown unlocked ("You can now learn ..." when it sold the business).
+  if type(s.announced) ~= "table" then
+    s.announced = {}
+    for _, p in ipairs(TCF.PROFESSIONS) do
+      if (p.renown or 0) > 0 and s.renownEver >= p.renown then s.announced[p.key] = true end
+    end
+  end
   s.ops = type(s.ops) == "table" and s.ops or {}
   s.upgrades = type(s.upgrades) == "table" and s.upgrades or {}
   s.milestones = type(s.milestones) == "table" and s.milestones or {}
@@ -375,6 +395,7 @@ local function mergeTrade(src, dst)
   dst.gold, dst.lifetime = dst.gold + src.gold, dst.lifetime + src.lifetime
   dst.renown = max(dst.renown, src.renown); dst.renownEver = max(dst.renownEver, src.renownEver)
   dst.prestiges = max(dst.prestiges, src.prestiges)
+  for k, v in pairs(src.announced or {}) do if v then dst.announced = dst.announced or {}; dst.announced[k] = true end end
   for t, v in pairs(src.upgrades) do dst.upgrades[t] = dst.upgrades[t] or v end
   for t, v in pairs(src.milestones) do dst.milestones[t] = dst.milestones[t] or v end
   for k, v in pairs(src.skill) do dst.skill[k] = max(dst.skill[k] or 1, v) end
@@ -421,7 +442,7 @@ local function splitShared(self)
   end
   -- First Aid uses the same cloth as the cloth family: a cat that has First Aid keeps it
   local aidCloth
-  if (old.renownEver or 0) >= TCF.PROF_BY_KEY.firstaid.renown or type(old.aid) == "table" then
+  if unlockedIn(old, TCF.PROF_BY_KEY.firstaid) or type(old.aid) == "table" then
     aidCloth = {}
     for _, c in ipairs(TCF.CLOTH or {}) do aidCloth[c[1]] = true end
   end
@@ -498,8 +519,33 @@ function TCF:TradeTotals()
 end
 
 function TCF:ProfUnlocked(prof)
+  return unlockedIn(S(self), TCF.PROF_BY_KEY[prof])
+end
+
+-- Trade Gold this cat has earned in total, the amount the profession needs, and whether it is learned
+function TCF:ProfUnlockProgress(prof)
   local p = TCF.PROF_BY_KEY[prof]
-  return p and S(self).renownEver >= (p.renown or 0) or false
+  local s = S(self)
+  return s.lifetime, p and p.gold or 0, unlockedIn(s, p)
+end
+
+-- Tells the cat you're playing, once, about each profession it can now learn (a chat line, no
+-- pop-up), and remembers it in the cat's trade (s.announced). The cats you aren't playing stay
+-- quiet: their news waits until you play them (login or switching class).
+function TCF:CheckProfUnlocks()
+  if not self.db or self.tradeQuiet then return end
+  if self.tradeClass and self.tradeClass ~= self.db.class then return end
+  local s = S(self)
+  for _, p in ipairs(TCF.PROFESSIONS) do
+    if not p.family and not s.announced[p.key] and unlockedIn(s, p) then
+      s.announced[p.key] = true
+      local cl = TCF.CLASS_BY_KEY and TCF.CLASS_BY_KEY[self.db.class]
+      local why = s.lifetime >= p.gold and (" has earned " .. TCF.FormatBig(p.gold) .. " Trade Gold and") or ""
+      self:Print(string.format("Your %s cat%s can now learn |cffffd100%s|r in the Professions tab.", cl and cl.name or "", why, p.name), true)
+      self:PlaySound("ach")
+      self:MarkDirty()
+    end
+  end
 end
 
 -- Profession skill 1..300 (WoW style). Chance to improve is higher while easy.
@@ -532,6 +578,12 @@ function TCF:EarnGold(n)
   n = n * (1 + 0.02 * s.renown)
   s.gold = s.gold + n
   s.lifetime = s.lifetime + n
+  -- a new profession to learn? (cheap: only when the next unlock has been passed)
+  if not self.tradeQuiet then
+    for _, p in ipairs(TCF.PROFESSIONS) do
+      if p.gold > 0 and s.lifetime >= p.gold and not s.announced[p.key] then self:CheckProfUnlocks(); break end
+    end
+  end
   return n
 end
 function TCF:SpendGold(n)
@@ -837,6 +889,8 @@ function TCF:ProfessionsTick(login, dt)
     if not cur.last or cur.last > now + 1 then cur.last = now end
     self:ProfCatchUp()   -- every other cat, quietly, from its own last update
     self.profCatchT = 0
+    -- anything this cat unlocked but was never told about (offline, or while you played another cat)
+    self:CheckProfUnlocks()
     return
   end
   self:ProfAdvance(dt or 0.25)
@@ -875,11 +929,7 @@ function TCF:PrestigeTrade()
   local cl = TCF.CLASS_BY_KEY and TCF.CLASS_BY_KEY[self.db.class]
   self:Print(string.format("Your %s sold its business for |cffffd100%d Renown|r (+%d%% profits forever) and %d TapCoins.",
     cl and (cl.name .. " cat") or "cat", gain, gain * 2, coins), true)
-  for _, p in ipairs(TCF.PROFESSIONS) do
-    if p.renown > 0 and s.renownEver >= p.renown and s.renownEver - gain < p.renown then
-      self:Print("You can now learn |cffffd100" .. p.name .. "|r.", true)
-    end
-  end
+  self:CheckProfUnlocks()   -- (the old Renown rule can still unlock something)
   self:PlaySound("ach")
   self:MarkDirty(); self:RefreshAll()
   return true

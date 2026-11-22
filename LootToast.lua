@@ -6,7 +6,8 @@
 --    name, Power change) that fades after a few seconds. Hover it for the item compared with
 --    what your cat wears; click to open Gear.
 -- Opening a chest yourself plays the reel and shows the loot box only for a blue (Rare) or
--- better item; a common or green one gets the same slim line, under the Treasure Bag.
+-- better item; a common or green one gets the same slim line, under the Treasure Bag. TapCoins
+-- that came with that chest show on the same line, in plain text ("+12 TapCoins").
 local ADDON, TCF = ...
 local min, max = math.min, math.max
 
@@ -89,7 +90,8 @@ end
 
 -- it: a gear item (isGear) or a cosmetic/skin/effect from TCF.ITEMS
 -- fromChest: a common or green item from a chest you just opened (always gets its line)
-function TCF:ShowLootToast(it, isNew, salvage, title, isGear, fromChest)
+-- coins: TapCoins that came with that chest, or nil
+function TCF:ShowLootToast(it, isNew, salvage, title, isGear, fromChest, coins)
   if not it then return end
   if not fromChest then
     -- found while playing: cosmetics and skins get no notice; gear only while the window is open
@@ -107,9 +109,11 @@ function TCF:ShowLootToast(it, isNew, salvage, title, isGear, fromChest)
   if last and last.item == it and not last.hover then
     t = last
     t.count = (t.count or 1) + 1
+    t.coins = (t.coins or 0) + (fromChest and tonumber(coins) or 0)
   else
     t = getToast()
     t.count = 1
+    t.coins = fromChest and tonumber(coins) or 0
     toasts[#toasts + 1] = t
     while #toasts > MAX_SHOWN do remove(toasts[1]) end
   end
@@ -131,6 +135,9 @@ function TCF:ShowLootToast(it, isNew, salvage, title, isGear, fromChest)
     elseif d and d < 0 then sub = "|cffff4040" .. d .. "|r"
     else sub = "|cffaaaaaa=|r" end
   end
+  -- TapCoins from the chest, before the Power change
+  local coinText = self.ChestCoinsText and self.ChestCoinsText(t.coins)
+  if coinText then sub = "|cffffd100" .. coinText .. "|r  " .. sub end
   t.title = title
   t.sub:SetText(sub)
   t:Show()

@@ -1272,6 +1272,105 @@ TEST = r'''
       for k in pairs(eq) do eq[k] = nil end
       for k, v in pairs(saveEq) do eq[k] = v end
     end
+    -- ===== Gear section (1.5.3, gear builder): starter weapons differ per class, the one-time
+    -- swap off the 1.5.0-1.5.2 starter, and spare copies of a worn one-hander in Sell junk =====
+    do
+      local starters, seen, wantFirst = TCF:StarterWeapons(), {}, { PRIEST = "staff", SHAMAN = "axe", WARLOCK = "dagger", MAGE = "staff", DRUID = "staff" }
+      for _, cl in ipairs(TCF.CLASSES) do
+        local w = starters[cl.key]
+        check(w and TCF:StarterWeapon(cl.key) == w, cl.key .. " has a starter weapon")
+        check(not seen[w.id], cl.key .. " starter " .. w.name .. " is also " .. tostring(seen[w.id]) .. "'s")
+        seen[w.id] = cl.key
+        check(not w.suffix and w.q == 2 and w.req <= 10 and TCF:GearUsable(w, cl.key), cl.key .. " starter is a plain green it can use: " .. w.name)
+        check(not wantFirst[cl.key] or w.sub == wantFirst[cl.key], cl.key .. " starter kind " .. w.sub)
+      end
+      check(starters.SHAMAN.sub ~= "mace" and starters.PRIEST.sub == "staff", "no hammer for shamans, a staff for priests")
+      check(starters.MAGE.id ~= starters.PRIEST.id and starters.MAGE.id ~= starters.DRUID.id and starters.PRIEST.id ~= starters.DRUID.id, "three different staves")
+      -- what 1.5.0 to 1.5.2 gave each class (read from the 1.5.2 release)
+      local OLD = { WARRIOR = 18957, PALADIN = 3223, HUNTER = 8180, ROGUE = 4947, PRIEST = 3223, SHAMAN = 3223, MAGE = 9514, WARLOCK = 9603, DRUID = 9603 }
+      local saved = {}
+      for _, cl in ipairs(TCF.CLASSES) do
+        local cd, eq, bag = TCF:CD(cl.key), TCF:GearEquipped(cl.key), TCF:Bag(cl.key)
+        local s = { eq = {}, bag = {}, f1 = cd.starterFixed, f2 = cd.starterFixed2, hb = cd.hunterBow }
+        for k, v in pairs(eq) do s.eq[k] = v end
+        for k, v in pairs(bag) do s.bag[k] = v end
+        saved[cl.key] = s
+      end
+      local function offFor(class)
+        for _, g in ipairs(TCF.GEAR_LIST) do
+          if (g.slot == "HOLD" or g.sub == "shield") and not g.crafted and TCF:GearUsable(g, class) then return g end
+        end
+      end
+      -- every cat still wearing its old starter (with an off-hand item beside a one-hander)
+      local swapped = 0
+      for _, cl in ipairs(TCF.CLASSES) do
+        local class = cl.key
+        local cd, eq, bag = TCF:CD(class), TCF:GearEquipped(class), TCF:Bag(class)
+        for k in pairs(eq) do eq[k] = nil end
+        for k in pairs(bag) do bag[k] = nil end
+        local old, off = TCF.GEAR[OLD[class]], offFor(class)
+        bag[old.id] = 1
+        eq[old.slot == "RANGED" and "RANGED" or "MAINHAND"] = old.id
+        if old.slot ~= "2H" and old.slot ~= "RANGED" and off then eq.OFFHAND = off.id; bag[off.id] = 1 end
+        cd.starterFixed, cd.hunterBow, cd.starterFixed2 = true, true, nil
+      end
+      TCF:FixStarterWeapons()
+      for _, cl in ipairs(TCF.CLASSES) do
+        local class = cl.key
+        local cd, eq, bag = TCF:CD(class), TCF:GearEquipped(class), TCF:Bag(class)
+        local old, new = TCF.GEAR[OLD[class]], starters[class]
+        check(cd.starterFixed2, class .. " starter swap flag set")
+        if new.id == old.id then
+          check(eq[new.slot == "RANGED" and "RANGED" or "MAINHAND"] == new.id and bag[new.id] == 1, class .. " keeps its starter, nothing added")
+        else
+          swapped = swapped + 1
+          check(eq.MAINHAND == new.id and bag[new.id] == 1, class .. " gets its new starter " .. new.name .. ", has " .. tostring(eq.MAINHAND))
+          check(bag[old.id] == 1, class .. " keeps " .. old.name .. " in the bag")
+          if new.slot == "2H" then
+            check(eq.OFFHAND == nil, class .. ": a two-handed starter clears the off hand")
+          elseif old.slot ~= "2H" and offFor(class) then
+            check(eq.OFFHAND == offFor(class).id, class .. ": the off-hand item stays beside a one-hander")
+          end
+        end
+      end
+      check(swapped == 4, "priest, shaman, warlock and druid swap: " .. swapped)
+      check(TCF:GearEquipped("HUNTER").RANGED == starters.HUNTER.id and starters.HUNTER.sub == "bow", "the hunter keeps its bow")
+      -- once only: a cat that later puts the old weapon back on keeps it
+      local peq = TCF:GearEquipped("PRIEST")
+      peq.MAINHAND = OLD.PRIEST
+      TCF:FixStarterWeapons()
+      check(peq.MAINHAND == OLD.PRIEST, "the swap runs once")
+      -- a weapon the player chose is left alone
+      local scd, seq, sbag = TCF:CD("SHAMAN"), TCF:GearEquipped("SHAMAN"), TCF:Bag("SHAMAN")
+      local chosen
+      for _, g in ipairs(TCF.GEAR_LIST) do
+        if g.sub == "mace" and g.slot == "1H" and g.id ~= OLD.SHAMAN and not g.crafted and TCF:GearUsable(g, "SHAMAN") then chosen = g; break end
+      end
+      for k in pairs(seq) do seq[k] = nil end
+      for k in pairs(sbag) do sbag[k] = nil end
+      seq.MAINHAND, sbag[chosen.id], sbag[OLD.SHAMAN] = chosen.id, 1, 1
+      scd.starterFixed2 = nil; TCF:FixStarterWeapons()
+      check(seq.MAINHAND == chosen.id and not sbag[starters.SHAMAN.id], "a chosen weapon is left alone")
+      -- Sell junk: a dual-wielder keeps two copies of its worn one-hander, a third is spare
+      local wsw = starters.WARRIOR
+      local wcd, weq2, wbag2 = TCF:CD("WARRIOR"), TCF:GearEquipped("WARRIOR"), TCF:Bag("WARRIOR")
+      for k in pairs(weq2) do weq2[k] = nil end
+      for k in pairs(wbag2) do wbag2[k] = nil end
+      weq2.MAINHAND, wbag2[wsw.id] = wsw.id, 2
+      check(not TCF:JunkGear("WARRIOR")[wsw.id], "two copies of a worn one-hander: none are junk for a dual-wielder")
+      wbag2[wsw.id] = 3
+      check(TCF:JunkGear("WARRIOR")[wsw.id] == 1, "a third copy of a worn one-hander is junk")
+      -- put every class back as it was
+      for _, cl in ipairs(TCF.CLASSES) do
+        local cd, eq, bag, s = TCF:CD(cl.key), TCF:GearEquipped(cl.key), TCF:Bag(cl.key), saved[cl.key]
+        for k in pairs(eq) do eq[k] = nil end
+        for k in pairs(bag) do bag[k] = nil end
+        for k, v in pairs(s.eq) do eq[k] = v end
+        for k, v in pairs(s.bag) do bag[k] = v end
+        cd.starterFixed, cd.starterFixed2, cd.hunterBow = s.f1, s.f2, s.hb
+      end
+    end
+    -- ===== end of Gear section =====
     -- 10d. Sell junk: gear the class can't use is junk; hand items are kept while a two-hander is worn
     do
       local class = TCF.db.class
@@ -1833,7 +1932,9 @@ TEST = r'''
       local sMain = pick(function(it) return it.suffix and it.slot == "1H" and it.sub == "sword" end)
       local sHead = pick(function(it) return it.suffix and it.slot == "HEAD" end)
       local wChest = pick(function(it) return it.q == 1 and inPool[it] and it.slot == "CHEST" and it.sub == "mail" end)
-      for _, it in ipairs({ sMain, sHead, wChest }) do wbag[it.id] = (wbag[it.id] or 0) + 1 end
+      -- exactly one copy of each (the 400 random warrior drops above can hold more, and a third
+      -- copy of the worn one-hander is rightly junk for a dual-wielder: that made 12f flaky)
+      for _, it in ipairs({ sMain, sHead, wChest }) do wbag[it.id] = 1 end
       check(TCF:EquipGear(sMain.id, "MAINHAND", "WARRIOR") and TCF:EquipGear(sHead.id, "HEAD", "WARRIOR") and TCF:EquipGear(wChest.id, "CHEST", "WARRIOR"), "equip suffix and white gear")
       local payload = TCF:PartyPayload("WARRIOR")
       -- suffix gear is sent as its base (it draws the same, and older versions know the base)
@@ -1892,7 +1993,7 @@ TEST = r'''
       weq.CHEST = nil
       _, tip = tipLines(function() TCF:GearCompareLines(GameTooltip, sChest, "WARRIOR") end)
       check(tip:find("empty Chest slot", 1, true) and tip:find("+", 1, true), "compare with an empty slot: " .. tip)
-      wbag[sChest.id] = (wbag[sChest.id] or 0) + 1
+      wbag[sChest.id] = 1   -- one copy, whatever the random drops above gave
       check(TCF:EquipGear(sChest.id, "CHEST", "WARRIOR"), "equip the suffix chest")
       _, tip = tipLines(function() TCF:GearCompareLines(GameTooltip, wChest, "WARRIOR") end)
       check(tip:find("Instead of", 1, true) and tip:find(sChest.name, 1, true) and tip:find("Power", 1, true), "compare a white with a worn suffix piece: " .. tip)
@@ -1910,9 +2011,8 @@ TEST = r'''
       -- junk: unworn whites worse than the worn piece are junk, the worn suffix piece is not
       weq.CHEST = sChest.id
       wbag[wChest.id] = (wbag[wChest.id] or 0) + 2
-      wbag[sChest.id] = (wbag[sChest.id] or 0)
       local junk = TCF:JunkGear("WARRIOR")
-      check((junk[wChest.id] or 0) >= 2 and not junk[sMain.id] and (junk[sChest.id] or 0) < wbag[sChest.id], "junk: whites yes, worn suffix gear no")
+      check((junk[wChest.id] or 0) >= 2 and not junk[sMain.id] and not junk[sChest.id], "junk: whites yes, worn suffix gear no")
       TCF:SellJunk()
       check(not wbag[wChest.id] and weq.CHEST == sChest.id and wbag[sChest.id] and wbag[sChest.id] >= 1, "Sell junk sold the whites and kept what is worn")
       -- the small notice for a found piece: names it, says when it fills an empty slot
@@ -2287,7 +2387,11 @@ TEST = r'''
       TCF.db.ui.chestAnim = true
       TCF.db.keys.dungeon = 1
       TCF.forceReveal = true
+      -- (a Rare: only blue or better finds get the reel, and a Dungeon Chest is Uncommon 1 in 4)
+      local rollRarity = TCF.RollRarity
+      TCF.RollRarity = function() return 3 end
       TCF:OpenChest("dungeon", true)
+      TCF.RollRarity = rollRarity
       TCF.forceReveal = nil
       check(TapCatForeverReel and TapCatForeverReel:IsShown(), "the Dungeon Chest reel plays")
       check(TapCatForeverReel.title:GetText() == "Opening Dungeon Chest...", "reel title: " .. tostring(TapCatForeverReel.title:GetText()))
@@ -2431,6 +2535,629 @@ TEST = r'''
       print(string.format("dungeon chest: %d opened (%d green, %d blue, %d epic), %d of %d from dungeons reached, %d dungeon tiers, %d dungeon trips",
         total, byQ[2] or 0, byQ[3] or 0, byQ[4] or 0, fromDungeon, counted, nDungeons, nTrips))
     end)()
+    ------------------------------------------------------------ progression (1.5.3): level cap 60 and the XP
+    -- curve, level-up rewards once per class and level, the tap coin guard, chest coins and professions
+    -- unlocked by Trade Gold earned. Runs on its own characters (Progcat...) and puts the account back.
+    ;(function()
+      local startChar = _charName
+      -- taps here count exactly one each: no party bonus or Well Fed buff from earlier tests
+      local partyMult, foodBuff = TCF.PartyTapMult, TCF.FoodBuff
+      TCF.PartyTapMult, TCF.FoodBuff = function() return 1 end, nil
+      local function fresh(name) TapCatForeverDB.chars[name .. "-Forever"] = nil; login(name) end
+      local function chatSince(n0, pat)
+        local hits = {}
+        for i = n0 + 1, #_chat do if _chat[i]:find(pat, 1, true) then hits[#hits + 1] = _chat[i] end end
+        return hits
+      end
+      local savedPaid = {}
+      for k, v in pairs(TCF.db.levelPaid or {}) do savedPaid[k] = v end
+      local savedQuests = TCF.db.quests
+      local savedCoins, savedEarned = TCF.db.coins, TCF.db.coinsEarned
+
+      -- 1. the XP curve: fast early, steadily slower, capped at 60
+      check(TCF.MAX_LEVEL == 60, "levels stop at 60")
+      local cum, prevStep = { [1] = 0 }, 0
+      for L = 1, 59 do
+        local need = TCF.XPForLevel(L)
+        check(need > 0 and (L == 1 or need > TCF.XPForLevel(L - 1)), "each level needs more XP: " .. L)
+        if L > 1 then
+          local step = need - TCF.XPForLevel(L - 1)
+          check(step >= prevStep, "the climb gets steadily slower at " .. L)
+          prevStep = step
+        end
+        cum[L + 1] = cum[L] + need
+      end
+      check(TCF.XPForLevel(1) <= 120 and TCF.XPForLevel(59) > 100 * TCF.XPForLevel(1), "first levels fast, last ones slow")
+      -- at about one key press a second while playing 2 hours a day
+      local h = function(L) return cum[L] / 3600 end
+      check(h(10) >= 0.75 and h(10) <= 1.25, "level 10 in about the first hour: " .. h(10))
+      check(h(20) >= 4 and h(20) <= 10, "level 20 within the first few days: " .. h(20) .. " h")
+      check(h(40) / 2 >= 14 and h(40) / 2 <= 42, "level 40 after a few weeks: day " .. h(40) / 2)
+      check(h(60) / 2 >= 60 and h(60) / 2 <= 130, "level 60 after a few months: day " .. h(60) / 2)
+      for _, t in ipairs(TCF.TITLES) do check(t[1] <= TCF.MAX_LEVEL, "every title can be reached: " .. t[2]) end
+      for _, a in ipairs(TCF.ACHIEVEMENTS) do
+        if a.stat == "level" then check(a.goal <= TCF.MAX_LEVEL, "every level achievement can be earned: " .. a.name) end
+      end
+      check(TCF:GetTitle(60) == "Eternal Tapper", "the last title is at 60")
+
+      -- an hour of play at one key press a second, on a new character
+      fresh("Progcat")
+      local class = TCF.db.class
+      local cd = TCF:CD()
+      _clock = _clock + 5
+      for i = 1, 3600 do _clock = _clock + 1; TCF:Tap() end
+      check(cd.level >= 9 and cd.level <= 11, "about level 10 after an hour: " .. cd.level)
+
+      -- 2. the cap: XP stops at 60, nothing breaks
+      cd.level, cd.xp = 59, TCF.XPForLevel(59) - 1
+      _clock = _clock + 5; TCF:Tap()
+      check(cd.level == 60 and cd.xp == TCF.XPForLevel(60) and TCF:IsMaxLevel(), "level 60 with a full XP bar")
+      for i = 1, 50 do _clock = _clock + 1; TCF:Tap() end
+      TCF:AddClassXP(class, 1e7); TCF:LevelUp()
+      check(cd.level == 60 and cd.xp == TCF.XPForLevel(60), "no XP or level past 60")
+      check(TCF:GetStat("level") == 60, "achievements see level 60")
+      check(TCF:CombatStats().power > 0, "combat stats at 60")
+      TCF:AdvReset(); TCF:AdvStart()
+      for i = 1, 40 do TCF:AdvTick(0.5) end
+      TCF:CD().adv.active = false
+      -- expeditions give a cat at 60 no XP and still work
+      TCF:AddClassXP(class, 900)
+      check(cd.level == 60 and cd.xp == TCF.XPForLevel(60), "expedition XP stops at 60")
+      -- a cat above 60 from before the cap becomes 60 and keeps its gear, abilities and title
+      cd.level, cd.xp = 75, 123
+      cd.abilities.progtest = true
+      local gear0 = {}
+      for k, v in pairs(cd.gear) do gear0[k] = v end
+      login("Progcat")
+      cd = TCF:CD()
+      check(cd.level == 60 and cd.xp == TCF.XPForLevel(60), "a level 75 cat became 60")
+      check(cd.abilities.progtest, "abilities kept")
+      for k, v in pairs(gear0) do check(cd.gear[k] == v, "gear kept: " .. tostring(k)) end
+      check(TCF:GetTitle() == "Eternal Tapper", "title at 60")
+      cd.abilities.progtest = nil
+      -- "Growing Up" needs a cat that can still level
+      local function questCounters(n)
+        local seen = {}
+        for i = 1, n do
+          TCF.db.quests = nil
+          TCF:EnsureQuests()
+          for _, q in ipairs(TCF.db.quests.daily) do seen[q.counter] = true end
+        end
+        return seen
+      end
+      check(questCounters(60).levels, "Growing Up is offered while a cat can level")
+      for _, c in pairs(TCF.db.classData) do c.level = 60 end
+      check(not questCounters(60).levels, "no Growing Up when every cat is level 60")
+      TCF.db.quests = savedQuests
+
+      -- 3. level-up TapCoins and chests: once per class and level for the whole account
+      fresh("Progalt")
+      TCF:SetClass("HUNTER")
+      TCF.db.levelPaid.HUNTER = 1
+      check(rawget(TapCatForeverDB, "levelPaid") == TCF.db.levelPaid, "the record is account-wide")
+      local function levelTo(L)
+        local c = TCF:CD("HUNTER")
+        local coins, strong, heroic = TCF.db.coins, TCF.db.keys.strong or 0, TCF.db.keys.heroic or 0
+        while c.level < L do c.xp = 0; TCF:AddClassXP("HUNTER", TCF.XPForLevel(c.level)) end
+        return TCF.db.coins - coins, (TCF.db.keys.strong or 0) - strong, (TCF.db.keys.heroic or 0) - heroic
+      end
+      local want = 0
+      for L = 2, 10 do want = want + TCF.LevelReward(L) end
+      local got, strong = levelTo(10)
+      check(got == want and strong == 2, "the first Hunter to 10 gets the coins and two Strongboxes: " .. got .. ", " .. strong)
+      -- a new alt's Hunter: no coins or chests until it passes level 10
+      fresh("Progalt2")
+      local chat0 = #_chat
+      got, strong = levelTo(10)
+      check(got == 0 and strong == 0, "a new alt's Hunter is not paid again: " .. got .. ", " .. strong)
+      check(#chatSince(chat0, "already got this level's rewards") >= 9, "the chat line says why")
+      got, strong = levelTo(11)
+      check(got == TCF.LevelReward(11) and strong == 0, "level 11 is new for the account")
+      -- "Reset this character" gives a level 1 cat that can't collect them again
+      TCF:ResetProgress("char")
+      login("Progalt2")
+      check(TCF:CD("HUNTER").level == 1, "reset: a level 1 Hunter")
+      got, strong = levelTo(15)
+      local want15 = 0
+      for L = 12, 15 do want15 = want15 + TCF.LevelReward(L) end
+      check(got == want15 and strong == 1, "after a reset only levels 12-15 pay: " .. got .. ", " .. strong)
+      -- another class is paid on its own
+      TCF.db.levelPaid.DRUID = 1
+      local dc = TCF.db.coins
+      TCF:AddClassXP("DRUID", TCF.XPForLevel(1))
+      check(TCF.db.coins - dc == TCF.LevelReward(2), "a Druid's level 2 still pays")
+      -- an old save (no record yet) starts from the highest level any character's cat reached
+      TapCatForeverDB.chars["Progold-Forever"] = { class = "ROGUE", classData = { ROGUE = { level = 33, xp = 0 }, MAGE = { level = 70, xp = 0 } } }
+      rawset(TapCatForeverDB, "levelPaid", nil)
+      login("Progalt2")
+      check(TCF.db.levelPaid.ROGUE >= 33 and TCF.db.levelPaid.MAGE == 60 and TCF.db.levelPaid.HUNTER >= 15, "the record starts from every character's cats")
+      TapCatForeverDB.chars["Progold-Forever"] = nil
+
+      -- 4. taps beyond 10 a second earn no TapCoins (all 20 still count as taps and XP)
+      _group = nil
+      TCF:CD().level = 5
+      local function value() return TCF.db.coins + TCF.db.coinFrac end
+      _clock = _clock + 5
+      local v0, taps0, xp0 = value(), TCF.db.taps, TCF:CD().xp
+      for i = 1, 30 do TCF:Tap() end
+      check(TCF.db.taps - taps0 == 20, "20 taps count in one second")
+      check(math.abs(value() - v0 - 10 * 0.02) < 1e-9, "only 10 of them earn TapCoins: " .. (value() - v0))
+      _clock = _clock + 5
+      v0 = value()
+      for s = 1, 5 do for i = 1, 8 do TCF:Tap(); _clock = _clock + 0.125 end end
+      check(math.abs(value() - v0 - 40 * 0.02) < 1e-9, "8 taps a second all earn: " .. (value() - v0))
+      check(TCF.TAP_COIN_CAP == 10, "the TapCoin cap")
+
+      -- 5. chest coins: mostly none, often tiny, rarely a big handful
+      local SPEC = { pouch = { { 2, 5 }, { 40, 80 } }, strong = { { 3, 8 }, { 80, 150 } }, dungeon = { { 3, 8 }, { 80, 150 } },
+        heroic = { { 5, 15 }, { 150, 300 } }, raid = { { 5, 15 }, { 150, 300 } } }
+      local avgCoins = {}
+      for _, ch in ipairs(TCF.CHESTS) do
+        local sp = SPEC[ch.key]
+        check(sp and ch.coins and ch.coins.tiny[1] == sp[1][1] and ch.coins.tiny[2] == sp[1][2]
+          and ch.coins.big[1] == sp[2][1] and ch.coins.big[2] == sp[2][2], "chest coins for " .. ch.key)
+        local none, tiny, big, sum, N = 0, 0, 0, 0, 20000
+        for i = 1, N do
+          local n = TCF:RollChestCoins(ch)
+          if n == 0 then none = none + 1
+          elseif n >= sp[1][1] and n <= sp[1][2] then tiny = tiny + 1
+          elseif n >= sp[2][1] and n <= sp[2][2] then big = big + 1
+          else check(false, "coins out of range: " .. n) end
+          sum = sum + n
+        end
+        check(math.abs(none / N - 0.60) < 0.02 and math.abs(tiny / N - 0.35) < 0.02 and math.abs(big / N - 0.05) < 0.01,
+          string.format("%s coin odds: %.3f / %.3f / %.3f", ch.key, none / N, tiny / N, big / N))
+        avgCoins[ch.key] = sum / N
+      end
+      -- a typical day of a 2 hours a day player (a 30-day TapCoin pace simulation of the real addon:
+      -- about 11 chests a day, mostly Pouches) next to the about 750 TapCoins a day from everything
+      -- that repeats. In that simulation chest coins came to 47-57 a day in days 8-30 (5-7%).
+      local DAY = { pouch = 7.9, strong = 2.0, dungeon = 0.9, heroic = 0.45, raid = 0.1 }
+      local perDay = 0
+      for k, n in pairs(DAY) do perDay = perDay + n * avgCoins[k] end
+      check(perDay < 0.1 * 750, string.format("chest coins add under 10%% of a day's TapCoins: %.0f a day", perDay))
+      -- the opening: the loot box can see the coins while it opens, then TCF.lastChest.coins
+      local roll, grant = TCF.RollChestCoins, TCF.GrantGear
+      local during
+      TCF.GrantGear = function(self, ...) during = TCF.chestCoins; return grant(self, ...) end
+      TCF.RollChestCoins = function() return 33 end
+      TCF.db.keys.dungeon = (TCF.db.keys.dungeon or 0) + 2   -- (always gear)
+      local c0 = TCF.db.coins
+      TCF:OpenChest("dungeon", true)
+      check(TCF.lastChest and TCF.lastChest.coins == 33 and TCF.db.coins >= c0 + 33, "TCF.lastChest.coins")
+      check(during == 33 and TCF.chestCoins == nil, "TCF.chestCoins only while opening")
+      TCF.RollChestCoins = function() return 0 end
+      TCF:OpenChest("dungeon", true)
+      check(TCF.lastChest and TCF.lastChest.coins == nil, "no coins: nil")
+      TCF.RollChestCoins, TCF.GrantGear = roll, grant
+
+      -- 6. professions unlock with the Trade Gold this cat earned (Renown is only a fallback)
+      local GOLD = { herbalism = 25e6, firstaid = 2.5e9, fishing = 2.5e11, cooking = 2e12 }
+      local RENOWN = { herbalism = 5, firstaid = 20, fishing = 60, cooking = 150 }
+      for k, g in pairs(GOLD) do
+        check(TCF.PROF_BY_KEY[k].gold == g and TCF.PROF_BY_KEY[k].renown == RENOWN[k], "unlock cost of " .. k)
+      end
+      fresh("Progprof")
+      TCF:SetClass("MAGE")
+      local s = TCF:ProfState()
+      local have, need, done = TCF:ProfUnlockProgress("herbalism")
+      check(have == 0 and need == 25e6 and not done and not TCF:ProfUnlocked("herbalism"), "Herbalism starts locked")
+      local c1 = #_chat
+      TCF:EarnGold(25e6 - 1)
+      check(not TCF:ProfUnlocked("herbalism") and #chatSince(c1, "Herbalism") == 0, "not yet")
+      TCF:EarnGold(1)
+      check(TCF:ProfUnlocked("herbalism") and s.announced.herbalism, "Herbalism unlocked at 25M earned")
+      local lines = chatSince(c1, "can now learn")
+      check(#lines == 1 and lines[1]:find("Herbalism", 1, true) and lines[1]:find("Mage", 1, true), "one chat line: " .. tostring(lines[1]))
+      TCF:EarnGold(1000); login("Progprof"); TCF:SetClass("WARRIOR"); TCF:SetClass("MAGE")
+      check(#chatSince(c1, "can now learn") == 1, "it never repeats")
+      -- selling the business never takes an unlock away (and never lowers the gold earned)
+      s.lifetime = 3e9; TCF:EarnGold(0)
+      check(TCF:ProfUnlocked("firstaid") and #chatSince(c1, "First Aid") == 1, "First Aid at 2.5B")
+      s.lifetime = 1e14
+      check(TCF:PrestigeTrade() and s.lifetime == 1e14 and s.gold == 0 and TCF:ProfUnlocked("cooking"), "selling keeps Trade Gold earned and unlocks")
+      check(#chatSince(c1, "Cooking") == 1 and #chatSince(c1, "Fishing") == 1, "every unlock announced once")
+      -- the old Renown rule still counts
+      TCF:SetClass("PRIEST")
+      local p = TCF:ProfState()
+      p.renown, p.renownEver = 20, 20
+      check(TCF:ProfUnlocked("herbalism") and TCF:ProfUnlocked("firstaid") and not TCF:ProfUnlocked("fishing"), "Renown fallback")
+      -- a cat you aren't playing hears nothing until you play it
+      local c2 = #_chat
+      TCF:WithTradeClass("WARLOCK", TCF.EarnGold, 3e9)
+      local wl = TCF:CD("WARLOCK").trade
+      check(wl.lifetime >= 3e9 and not wl.announced.herbalism and #chatSince(c2, "can now learn") == 0, "quiet for another cat")
+      TCF:SetClass("WARLOCK")
+      lines = chatSince(c2, "can now learn")
+      check(#lines == 2 and wl.announced.herbalism and wl.announced.firstaid, "announced when you play it: " .. #lines)
+      -- unlocked but never announced (offline): told at login, once
+      TCF:SetClass("MAGE")
+      s = TCF:ProfState()
+      s.announced = {}
+      local c3 = #_chat
+      login("Progprof")
+      check(#chatSince(c3, "can now learn") == 4, "told at login")
+      login("Progprof")
+      check(#chatSince(c3, "can now learn") == 4, "only once")
+      -- a 1.5.2 save already heard about what its Renown unlocked: no chat line for those
+      TapCatForeverDB.chars["Progren-Forever"] = { class = "MAGE", classData = { MAGE = { level = 30, xp = 0,
+        trade = { gold = 0, lifetime = 3e9, renown = 25, renownEver = 25, famMoved = true, last = time() } } } }
+      local c4 = #_chat
+      login("Progren")
+      check(TCF:ProfUnlocked("firstaid") and #chatSince(c4, "can now learn") == 0, "old Renown unlocks are not announced again")
+      TapCatForeverDB.chars["Progren-Forever"] = nil
+      -- the 1.5.1 split: a cat whose earned Trade Gold unlocked First Aid keeps First Aid's cloth
+      TapCatForeverDB.chars["Progaid-Forever"] = { class = "WARRIOR", classData = { MAGE = { level = 10, xp = 0 }, WARRIOR = { level = 20, xp = 0 } },
+        trade = { gold = 10, lifetime = 3e9, renown = 0, renownEver = 0, famMoved = true, last = time(),
+          ops = { cloth = { { n = 2, p = 0, run = false, mgr = false } }, mining = { { n = 4, p = 0, run = false, mgr = false } } },
+          mats = { linen = 5000, copper = 5 } } }
+      login("Progaid")
+      check(TCF:CD("WARRIOR").trade.mats.linen == 5000 and TCF:ProfUnlocked("firstaid"), "First Aid by Trade Gold keeps the cloth in the split")
+      TapCatForeverDB.chars["Progaid-Forever"] = nil
+      -- the page: the locked view shows the gold needed and the progress, tooltips and the guide say so too
+      fresh("Progprof2")
+      TCF:SetClass("MAGE")
+      TCF:EarnGold(5e6)
+      local page = CreateFrame("Frame")
+      local first = #_frames + 1
+      local pw = { profSel = "fishing", profView = "main", Refresh = function() end }
+      local refreshPage = TCF.UI.Builders.professions(page, pw)
+      local function has(sub)
+        for i = first, #_frames do local f = _frames[i]; if f.kind == "FontString" and type(f.text) == "string" and f.text:find(sub, 1, true) then return f.text end end
+      end
+      refreshPage()
+      local lock = has("unlocks when your Mage cat has earned")
+      check(lock and lock:find(TCF.GoldStr(2.5e11), 1, true) and lock:find("So far: " .. TCF.GoldStr(5e6) .. " (0%)", 1, true), "locked view: " .. tostring(lock))
+      pw.profSel = "herbalism"; refreshPage()
+      check(has("So far: " .. TCF.GoldStr(5e6) .. " (20%)"), "progress in percent")
+      pw.profView = "renown"; refreshPage()
+      check(has("Herbalism at 25.00M") and not has("unlocks new professions"), "the Renown view lists the gold")
+      TCF.ShowProfessionGuide(TCF, "cloth")
+      check(has("As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking") and not has("Renown unlocks"), "the guide's Grow paragraph")
+      local tip = tipText(function()
+        for i = first, #_frames do local f = _frames[i]
+          if f.prof and f.prof.key == "cooking" and f.scripts.OnEnter then f.scripts.OnEnter(f) end
+        end
+      end)
+      check(tip:find("Unlocks when this cat has earned", 1, true) and tip:find("So far:", 1, true), "tab tooltip: " .. tip)
+
+      -- put the account back
+      TCF.PartyTapMult, TCF.FoodBuff = partyMult, foodBuff
+      TCF.db.levelPaid = savedPaid
+      for k, v in pairs(savedPaid) do TCF.db.levelPaid[k] = v end
+      for _, n in ipairs({ "Progcat", "Progalt", "Progalt2", "Progprof", "Progprof2" }) do TapCatForeverDB.chars[n .. "-Forever"] = nil end
+      TCF.db.coins, TCF.db.coinsEarned = savedCoins, savedEarned
+      login(startChar)
+      TCF.db.quests = savedQuests
+      print(string.format("progression: level 10 at %.1f h, 20 at %.1f h, 40 on day %d, 60 on day %d (2 h a day, taps only); " ..
+        "chest coins avg %.1f/%.1f/%.1f (pouch/strongbox/heroic), about %.0f a day", h(10), h(20), math.floor(h(40) / 2 + 0.5),
+        math.floor(h(60) / 2 + 0.5), avgCoins.pouch, avgCoins.strong, avgCoins.heroic, perDay))
+    end)()
+    -- ===== UI section (1.5.3, UI builder): Text distance slider, chest TapCoins line, opt-in developer view =====
+    do
+      local ui = TCF.db.ui
+      local win = TCF.window
+      local KEYS = { "textGap", "textAbove", "catOnly", "showLevel", "chestAnim", "shareDev", "testMode" }
+      local saved = { point = { unpack(ui.point) }, hudLayout = ui.hudLayout and { unpack(ui.hudLayout) } }
+      for _, k in ipairs(KEYS) do saved[k] = ui[k] end
+      local function fromFrames(first, sub)
+        for i = first, #_frames do
+          local f = _frames[i]
+          if type(f.text) == "string" and f.text:find(sub, 1, true) then return f end
+        end
+      end
+      local function layoutItem(label)
+        for _, a in ipairs(win.settingsLayout) do if a.label == label then return a end end
+      end
+
+      -- U1. Text distance: a slider in "Cat and display", saved in db.ui.textGap (default 4, the old gap)
+      local gapA = layoutItem("Text distance")
+      check(gapA and gapA.kind == "slider" and gapA.x == 16 and gapA.y + gapA.h < 231, "Text distance slider in Cat and display")
+      local nSliders = 0
+      for _, a in ipairs(win.settingsLayout) do if a.kind == "slider" then nSliders = nSliders + 1 end end
+      check(nSliders == 4, "four sliders: " .. nSliders)
+      ui.textGap = nil
+      check(TCF.HudTextGap() == 4 and TCF.TEXT_GAP_DEFAULT == 4, "the gap is 4 until changed")
+      ui.textGap = 999; check(TCF.HudTextGap() == TCF.TEXT_GAP_MAX, "kept in range (high)")
+      ui.textGap = -999; check(TCF.HudTextGap() == TCF.TEXT_GAP_MIN, "kept in range (low)")
+      ui.textGap = "x"; check(TCF.HudTextGap() == 4, "junk saved value: the default")
+      -- the text block's anchor follows the gap, above and below; the cat's feet stay put
+      local hud, info = TCF.hud, TCF.hud.info
+      local infoPt, height
+      info.SetPoint = function(_, ...) infoPt = { ... } end
+      hud.SetHeight = function(_, h) height = h end
+      ui.catOnly = false; ui.showLevel = true
+      local function feet()
+        local p = ui.point
+        local h = height
+        local frameBottom = p[1]:find("BOTTOM") and 0 or p[1]:find("TOP") and -h or -h / 2
+        return p[4] + frameBottom + (ui.textAbove and 0 or h - 120)
+      end
+      for _, anchor in ipairs({ "BOTTOM", "TOPLEFT", "CENTER" }) do
+        for _, above in ipairs({ true, false }) do
+          ui.point = { anchor, anchor, 10, 200 }
+          ui.textAbove = above; ui.textGap = 4; hud:ApplySettings()
+          check(height == 160, "default height 160: " .. tostring(height))
+          check(infoPt[4] == 0 and infoPt[5] == (above and 4 or -4), "default gap 4: " .. tostring(infoPt[5]))
+          local f0 = feet()
+          for _, g in ipairs({ 20, -10, 40, 0 }) do
+            ui.textGap = g; hud:ApplySettings()
+            check(infoPt[1] == (above and "BOTTOM" or "TOP") and infoPt[5] == (above and g or -g), "gap " .. g .. " applied " .. (above and "above" or "below"))
+            check(height == 156 + g, "frame covers cat and text at gap " .. g .. ": " .. tostring(height))
+            check(math.abs(feet() - f0) < 1e-9, anchor .. ": the cat's feet stay put at gap " .. g .. (above and " (text above)" or " (text below)"))
+          end
+        end
+      end
+      -- hiding the text: the frame shrinks to the cat whatever the gap
+      ui.textGap = 30; ui.catOnly = true; hud:ApplySettings()
+      check(height == 120, "cat only: the cat alone")
+      ui.catOnly = false; hud:ApplySettings()
+      info.SetPoint, hud.SetHeight = nil, nil
+      -- the slider sets and shows the value
+      local gs = gapA.frame
+      gs:SetValue(12.3)
+      check(ui.textGap == 12, "slider sets db.ui.textGap: " .. tostring(ui.textGap))
+      ui.textGap = 7; win:RefreshSettings()
+      check(gs:GetValue() == 7, "Settings shows the saved gap")
+      local tip = tipText(function() gs.scripts.OnEnter(gs) end)
+      check(tip:find("between the cat and its level", 1, true) and not tip:find("!", 1, true), "Text distance tooltip: " .. tip)
+      -- the slider tooltips carry the old Ctrl/Shift help line
+      tip = tipText(function() local s = layoutItem("Cat size").frame; s.scripts.OnEnter(s) end)
+      check(tip:find("Ctrl + mouse wheel", 1, true), "Cat size tooltip names Ctrl + wheel")
+      check(not win.settingsInfo.help:GetText():find("Ctrl", 1, true), "help line without the wheel line (it is in the slider tooltips)")
+      -- test mode: the shortcuts take the place of the party note and the help line
+      ui.testMode = true; win:RefreshSettings()
+      check(not win.settingsInfo.note:IsShown() and win.settingsInfo.testBox:IsShown(), "test mode: shortcuts instead of the notes")
+      ui.testMode = saved.testMode; win:RefreshSettings()
+      check(win.settingsInfo.note:IsShown(), "party note back")
+
+      -- U2. chest TapCoins: one plain line in the loot box after the reel, and on the slim line
+      local roll, rollCoins = TCF.RollRarity, TCF.RollChestCoins
+      local lr = TCF.lootReveal or TCF:CreateLootReveal()
+      if TapCatForeverReel and TapCatForeverReel:IsShown() then TapCatForeverReel:Finish() end
+      lr:Hide()
+      ui.chestAnim = true
+      TCF.RollRarity = function() return 3 end
+      TCF.RollChestCoins = function() return 7 end
+      TCF.db.keys.dungeon = (TCF.db.keys.dungeon or 0) + 1
+      TCF.forceReveal = true; TCF:OpenChest("dungeon", true); TCF.forceReveal = nil
+      check(TapCatForeverReel:IsShown(), "reel for a Rare")
+      for i = 1, 40 do _update(0.1) end
+      check(lr:IsShown() and lr.coins:GetText() == "+7 TapCoins", "loot box coin line: " .. tostring(lr.coins:GetText()))
+      check(not lr.status:GetText():find("TapCoins", 1, true), "the coins are their own line, nothing else")
+      -- no coins: no line
+      lr:Hide()
+      TCF.RollChestCoins = function() return 0 end
+      TCF.db.keys.dungeon = TCF.db.keys.dungeon + 1
+      TCF.forceReveal = true; TCF:OpenChest("dungeon", true); TCF.forceReveal = nil
+      for i = 1, 40 do _update(0.1) end
+      check(lr:IsShown() and lr.coins:GetText() == "", "no coins, no line: " .. tostring(lr.coins:GetText()))
+      lr:Hide()
+      -- animation off: straight to the box, still with the line
+      ui.chestAnim = false
+      TCF.RollChestCoins = function() return 1234 end
+      TCF.db.keys.dungeon = TCF.db.keys.dungeon + 1
+      TCF.forceReveal = true; TCF:OpenChest("dungeon", true); TCF.forceReveal = nil
+      check(lr:IsShown() and lr.coins:GetText() == "+" .. TCF.Commas(1234) .. " TapCoins", "no reel: coin line " .. tostring(lr.coins:GetText()))
+      lr:Hide()
+      -- a green from a chest: the slim line carries the coins
+      TCF.RollRarity = function() return 2 end
+      TCF.RollChestCoins = function() return 5 end
+      local first = #_frames + 1
+      local toastCoins
+      local toast = TCF.ShowLootToast
+      TCF.ShowLootToast = function(self, it, isNew, salvage, title, isGear, fromChest, coins) toastCoins = coins; return toast(self, it, isNew, salvage, title, isGear, fromChest, coins) end
+      TCF.db.keys.dungeon = TCF.db.keys.dungeon + 1
+      TCF.forceReveal = true; TCF:OpenChest("dungeon", true); TCF.forceReveal = nil
+      check(toastCoins == 5 and not lr:IsShown(), "a green: slim line with the coins")
+      local line
+      for _, f in ipairs(_frames) do if type(f.text) == "string" and f.text:find("+5 TapCoins", 1, true) then line = f end end
+      check(line and line.text:find("|cffffd100+5 TapCoins|r", 1, true), "slim line text: " .. tostring(line and line.text))
+      TCF.ShowLootToast = toast
+      -- a second reward from the same chest (a skin) doesn't repeat the coins; the next chest has its own
+      ui.chestAnim = false
+      local gear
+      for _, g in ipairs(TCF.GEAR_LIST) do if g.q == 3 and not g.crafted then gear = g; break end end
+      local got = {}
+      local direct = TCF.ShowLootRevealDirect
+      TCF.ShowLootRevealDirect = function(self, ...) got[#got + 1] = select(7, ...) or false; return direct(self, ...) end
+      local function show() lr:Hide(); TCF:ShowLootReveal(gear, true, 0, "test", "heroic", true); return lr.coins:GetText() end
+      TCF.db.stats.chests = TCF.db.stats.chests + 1
+      TCF.chestCoins = 9
+      check(show() == "+9 TapCoins", "the chest's reward shows its coins")
+      check(show() == "", "a second reward from the same chest doesn't repeat them")
+      TCF.db.stats.chests = TCF.db.stats.chests + 1
+      check(show() == "+9 TapCoins", "the next chest has its own")
+      TCF.chestCoins = nil
+      check(show() == "", "no coins after the opening")
+      check(got[1] == 9 and got[2] == false and got[3] == 9 and got[4] == false, "coins passed on with the reward")
+      -- a reward taking over a loot box that is already up brings its own line (or none)
+      lr:Hide()
+      TCF:ShowLootReveal(gear, true, 0, "test", "heroic", true, 3)
+      lr:ShowFront({ gear, true, 0, "test", "heroic", true, nil })
+      check(lr:IsShown() and lr.coins:GetText() == "", "ShowFront replaces the line")
+      lr:ShowFront({ gear, true, 0, "test", "heroic", true, 4 })
+      check(lr.coins:GetText() == "+4 TapCoins", "ShowFront shows its coins")
+      lr:Hide()
+      TCF.ShowLootRevealDirect = direct
+      TCF.RollRarity, TCF.RollChestCoins = roll, rollCoins
+      ui.chestAnim = saved.chestAnim
+
+      -- U3. opt-in developer view
+      local DT = TCF.DevTest
+      DT.reset()
+      local joined, left, removed, guild, channelId = {}, 0, {}, true, 0
+      JoinTemporaryChannel = function(name) joined[#joined + 1] = name; channelId = 7 end
+      LeaveChannelByName = function(name) if name == TCF.DEV_CHANNEL then left = left + 1; channelId = 0 end end
+      GetChannelName = function(name) if name == TCF.DEV_CHANNEL and channelId > 0 then return channelId, name end return 0 end
+      IsInGuild = function() return guild end
+      ChatFrame1 = CreateFrame("Frame", "ChatFrame1")
+      ChatFrame_RemoveChannel = function(cf, name) removed[#removed + 1] = name end
+      local sent = {}
+      local api = C_ChatInfo.SendAddonMessage
+      C_ChatInfo.SendAddonMessage = function(p, msg, ch, target)
+        if p == TCF.DEV_PREFIX and type(msg) == "string" and (msg:find("^Q1;") or msg:find("^A1;")) then
+          sent[#sent + 1] = { msg = msg, ch = ch, target = target }
+        end
+        return api(p, msg, ch, target)
+      end
+      local function addon(text, ch, sender) _fire("CHAT_MSG_ADDON", TCF.DEV_PREFIX, text, ch, sender) end
+      local function tick(sec) for i = 1, math.ceil(sec) do _update(1) end end
+      local function answers() local n = 0 for _, s in ipairs(sent) do if s.ch == "WHISPER" then n = n + 1 end end return n end
+      -- the checkbox: off by default, the tooltip says exactly what is shared, and with whom
+      local cb = win.settingsShare
+      ui.shareDev = nil; win:RefreshSettings()
+      check(cb and not cb:GetChecked(), "sharing is off by default")
+      local shareA = layoutItem("Share my cat's progress with the developer")
+      check(shareA and shareA.kind == "check" and shareA.frame == cb, "the sharing checkbox is on the Settings page")
+      tip = tipText(function() cb.scripts.OnEnter(cb) end)
+      for _, words in ipairs({ "addon version", "class", "cat level", "zones cleared", "TapCoins",
+                               "only shared with the addon's developer", "while you are both online", "Off by default" }) do
+        check(tip:find(words, 1, true), "sharing tooltip says: " .. words)
+      end
+      check(not tip:find("!", 1, true), "no exclamation marks in the sharing tooltip")
+      -- opted out: never joins, never answers, even the developer
+      login(_charName)
+      ui = TCF.db.ui
+      tick(30)
+      check(#joined == 0, "opted out: no channel joined")
+      addon("Q1;111111", "GUILD", "Ziggu-Forever"); tick(5)
+      check(answers() == 0, "opted out: no answer")
+      -- opting in joins the hidden channel and takes it out of every chat window
+      cb:SetChecked(true); cb.scripts.OnClick(cb)
+      check(ui.shareDev == true, "the checkbox turns sharing on")
+      tick(2)
+      check(#joined == 1 and joined[1] == TCF.DEV_CHANNEL and removed[1] == TCF.DEV_CHANNEL, "joined the hidden channel and hid it")
+      tick(3)
+      check(#removed >= 2, "hidden again after the join came through")
+      -- its notices never reach chat
+      local filter = TCF.DevChatFilter
+      check(filter(nil, "CHAT_MSG_CHANNEL_NOTICE", "YOU_JOINED", "", "", "7. " .. TCF.DEV_CHANNEL, "", "", 0, 7, TCF.DEV_CHANNEL) == true, "join notice filtered")
+      check(filter(nil, "CHAT_MSG_CHANNEL_NOTICE", "YOU_JOINED", "", "", "1. General", "", "", 0, 1, "General") == false, "other channels untouched")
+      check(filter(nil, "CHAT_MSG_CHANNEL", "hi", "Bob", "", _SECRET, "", "", 0, 1, _SECRET) == false, "secret channel names are left alone")
+      -- only the developer gets an answer, only by whisper, at most once a minute
+      addon("Q1;222222", "GUILD", "Bob-Forever"); tick(5)
+      check(answers() == 0, "someone else asking: no answer")
+      addon("Q1;222222", "WHISPER", "Ziggu-Forever"); tick(5)
+      check(answers() == 0, "a whispered question is ignored")
+      addon("Q1;333333", "GUILD", "Ziggu-Forever")
+      addon("Q1;333333", "CHANNEL", "Ziggu-Forever")
+      tick(5)
+      check(answers() == 1, "one answer for a question heard twice: " .. answers())
+      local a = sent[#sent]
+      check(a.ch == "WHISPER" and a.target == "Ziggu-Forever", "answer whispered to the developer: " .. tostring(a.target))
+      local nonce, rec = TCF.DevParseAnswer(a.msg)
+      local mine = TCF:DevSummary()
+      check(nonce == "333333" and rec and rec.class == TCF.db.class and rec.level == TCF:CD().level and rec.coins == math.floor(TCF.db.coins)
+        and rec.zones == mine.zones and rec.version == mine.version, "the answer holds the five things: " .. a.msg)
+      check(select(2, a.msg:gsub(";", "")) == 6, "and nothing else")
+      addon("Q1;444444", "GUILD", "Ziggutrip-Forever"); tick(5)
+      check(answers() == 1, "a new question within a minute: no second answer")
+      tick(60)
+      addon("Q1;444444", "PARTY", "Ziggutrip-Otherrealm"); tick(5)
+      check(answers() == 2 and sent[#sent].target == "Ziggutrip-Otherrealm", "after a minute: answered (other realm)")
+      -- anything odd or secret is ignored without errors
+      tick(61)
+      for _, bad in ipairs({ { _SECRET, "GUILD", "Ziggu-Forever" }, { "Q1;555555", _SECRET, "Ziggu-Forever" }, { "Q1;555555", "GUILD", _SECRET },
+                              { "Q1;", "GUILD", "Ziggu-Forever" }, { "Q1;55;55", "GUILD", "Ziggu-Forever" }, { "Q1;" .. string.rep("9", 40), "GUILD", "Ziggu-Forever" },
+                              { "Q2;555555", "GUILD", "Ziggu-Forever" }, { "Q1;555555", "SAY", "Ziggu-Forever" }, { "Q1;555555", "GUILD", "" } }) do
+        addon(bad[1], bad[2], bad[3])
+      end
+      _fire("CHAT_MSG_ADDON", _SECRET, "Q1;555555", "GUILD", "Ziggu-Forever")
+      tick(5)
+      check(answers() == 2, "odd or secret questions: no answer")
+      -- turning it off leaves the channel and stops answering
+      cb:SetChecked(false); cb.scripts.OnClick(cb)
+      check(not ui.shareDev and left == 1 and channelId == 0, "off: left the hidden channel")
+      addon("Q1;666666", "GUILD", "Ziggu-Forever"); tick(5)
+      check(answers() == 2, "off: no answer")
+      -- a join still on its way when sharing was turned off: left as soon as it comes through
+      ui.shareDev = true; TCF:DevShareChanged(); tick(2)
+      ui.shareDev = false; TCF:DevShareChanged()
+      left = 0; channelId = 7
+      DT.event("CHAT_MSG_CHANNEL_NOTICE", "YOU_JOINED", "", "", "7. " .. TCF.DEV_CHANNEL, "", "", 0, 7, TCF.DEV_CHANNEL)
+      check(left == 1 and channelId == 0, "late join left again")
+      channelId = 0
+      -- the developer's side: /tcf players is only for the developer (or test mode)
+      DT.reset(); sent = {}
+      local c0 = #_chat
+      SlashCmdList.TAPCATFOREVER("players")
+      check(not (TCF.devView and TCF.devView:IsShown()) and #sent == 0, "not the developer: /tcf players does nothing")
+      check(#_chat > c0 and _chat[#_chat]:find("/tapcat", 1, true), "and gets the usual help line")
+      ui.testMode = true
+      _group = { party1 = { "Alice", nil } }
+      SlashCmdList.TAPCATFOREVER("players")
+      local view = TCF.devView
+      check(view and view:IsShown(), "test mode: /tcf players opens the window")
+      local q = {}
+      for _, s in ipairs(sent) do q[s.ch] = s.msg end
+      check(q.GUILD and q.GUILD:match("^Q1;%d+$") and q.PARTY == q.GUILD, "asked over guild and group: " .. tostring(q.GUILD))
+      check(not q.CHANNEL and joined[#joined] == TCF.DEV_CHANNEL, "joined the hidden channel to ask there")
+      tick(2)
+      check(sent[#sent].ch == "CHANNEL" and sent[#sent].target == 7 and sent[#sent].msg == q.GUILD, "asked over the hidden channel once joined")
+      local askNonce = q.GUILD:match("^Q1;(%d+)$")
+      -- asking again within 30 seconds sends nothing
+      local n0 = #sent
+      SlashCmdList.TAPCATFOREVER("players")
+      check(#sent == n0 and _chat[#_chat]:find("ask again in", 1, true), "asking again too soon: " .. tostring(_chat[#_chat]))
+      -- answers by whisper with this question's number are listed; anything else is not
+      local function answer(sender, text, ch) addon(text, ch or "WHISPER", sender) end
+      answer("Alice-Forever", "A1;" .. askNonce .. ";1.5.3;WARRIOR;42;7;12345")
+      answer("Bob-Otherrealm", "A1;" .. askNonce .. ";1.5.2;PRIEST;12;1;99")
+      answer("Carl-Forever", "A1;000000;1.5.3;WARRIOR;42;7;12345")             -- an old question
+      answer("Dana-Forever", "A1;" .. askNonce .. ";1.5.3;WARRIOR;42;7;12345", "GUILD")   -- not a whisper
+      answer("Eve-Forever", "A1;" .. askNonce .. ";1.5.3;DRAGON;42;7;12345")   -- no such class
+      answer("Finn-Forever", "A1;" .. askNonce .. ";1.5.3;MAGE;0;7;12345")     -- level 0
+      answer("Gus-Forever", "A1;" .. askNonce .. ";1.5.3;MAGE;5;7;99999999999999999999")
+      answer("Hal-Forever", "A1;" .. askNonce .. ";1.5.3;MAGE;5;7;12;extra")
+      answer(_SECRET, "A1;" .. askNonce .. ";1.5.3;MAGE;5;7;12")
+      answer("Ivy-Forever", _SECRET)
+      local rows = TCF:DevViewRows()
+      check(#rows == 2 and rows[1].name == "Alice-Forever" and rows[1].level == 42 and rows[1].zones == 7 and rows[1].coins == 12345
+        and rows[2].name == "Bob-Otherrealm" and rows[2].version == "1.5.2", "two good answers listed, highest level first: " .. #rows)
+      tick(1)
+      check(view.title:GetText() == "Players sharing their progress (2)", "window title: " .. tostring(view.title:GetText()))
+      check(view.rows[1][1]:GetText() == "Alice-Forever" and view.rows[1][2]:GetText() == "Warrior" and view.rows[1][5]:GetText() == TCF.Commas(12345),
+        "first row: " .. tostring(view.rows[1][1]:GetText()))
+      check(view.status:GetText():find("guild, group, hidden channel", 1, true), "status line: " .. tostring(view.status:GetText()))
+      -- the same player answering again replaces their row; at most 200 kept
+      answer("Alice-Forever", "A1;" .. askNonce .. ";1.5.3;WARRIOR;43;7;12400")
+      for i = 1, 250 do answer("Cat" .. i .. "-Forever", "A1;" .. askNonce .. ";1.5.3;ROGUE;3;0;10") end
+      rows = TCF:DevViewRows()
+      check(#rows == 200 and rows[1].level == 43, "at most 200 kept, one row per player: " .. #rows)
+      -- you are listed too when you share (so the window can be tried alone)
+      ui.shareDev = true
+      rows = TCF:DevViewRows()
+      local you
+      for _, r in ipairs(rows) do if r.self then you = r end end
+      check(you and you.name:find("(you)", 1, true) and you.class == TCF.db.class, "you are listed when you share")
+      view.scripts.OnMouseWheel(view, -1); view:Refresh()
+      check(view.scroll == 1, "the list scrolls")
+      -- a real developer character can ask without test mode
+      ui.testMode = nil
+      tick(31)
+      _charName = "Ziggu"
+      check(TCF:IsDeveloper(), "Ziggu is the developer")
+      n0 = #sent
+      SlashCmdList.TAPCATFOREVER("players")
+      check(#sent > n0 and sent[n0 + 1].msg:match("^Q1;%d+$"), "the developer asks")
+      _charName = "Ziggutrip"; check(TCF:IsDeveloper(), "Ziggutrip too")
+      _charName = "Zigguu"; check(not TCF:IsDeveloper(), "other names are not")
+      _charName = mainChar
+      check(TCF:DevViewRows()[1] and #TCF:DevViewRows() == 1, "a new question starts a fresh list (only you)")
+      -- put everything back
+      view:Hide()
+      _group = nil
+      DT.reset()
+      C_ChatInfo.SendAddonMessage = api
+      JoinTemporaryChannel, LeaveChannelByName, GetChannelName, IsInGuild, ChatFrame_RemoveChannel = nil, nil, nil, nil, nil
+      for _, k in ipairs(KEYS) do ui[k] = saved[k] end
+      ui.point, ui.hudLayout = saved.point, saved.hudLayout
+      TCF.hud:ApplySettings()
+      if win:IsShown() then win:RefreshSettings() end
+      print("UI section (text distance, chest coin line, developer view): all checks passed")
+    end
+    -- ===== end of UI section =====
     print("class professions, crafted gear, party cats and loot notices: all checks passed")
     end
     -- every referenced art file must exist
@@ -2453,6 +3180,28 @@ TEST = r'''
     for i = 1, 6 do print("  " .. _chat[i]) end
     for i = #_chat - 3, #_chat do print("  " .. _chat[i]) end
     '''
+
+# ---- capes art (1.5.3, side drapes): gear cloaks and the cosmetic cape hang down both sides of the cat
+# and tuck in behind its body; nothing may run across the bottom under the paws
+def check_capes_art():
+    import re as _re, json
+    V = {}
+    for m in _re.finditer(r'V\["([^"]+)"\]=\{"([^"]+)",(\d+),(\d+),(\d+),(\d+),[\d.]+,[\d.]+,"(\w+)"\}', open(os.path.join(ROOT, "VectorData.lua")).read()):
+        k, t, x, y, w, h, kind = m.groups(); V[k] = (t, int(x), int(y), int(w), int(h), kind)
+    specs = [l.strip() for l in open(os.path.join(ROOT, "tools", "item_specs", "back.txt")) if l.strip() and not l.startswith("#")]
+    keys = json.load(open(os.path.join(ROOT, "tools", "item_specs", "groups.json")))["back"]
+    capes = [k for k, sp in zip(keys, sorted(specs, key=lambda s: int(s.split(":")[0]))) if sp.split(":", 1)[1].split()[0] == "cloak"]
+    capes += ["cos:back_cape:a", "cos:back_cape:b", "cos:back_cape:f"]
+    assert len(capes) >= 20, "capes art: too few cloak drawings found (%d)" % len(capes)
+    for k in capes:
+        assert k in V, "capes art: no drawing for " + k
+        t, x, y, w, h, kind = V[k]
+        assert kind == "back", "capes art: %s is not a back drawing" % k
+        assert os.path.exists(os.path.join(ROOT, "Art", "v", t + ".tga")), "capes art: missing texture " + t
+        # the old capes ended at 494 with a band under the paws; the drapes stop at the paws (460)
+        assert y + h <= 470, "capes art: %s reaches %d, below the paws" % (k, y + h)
+        assert w >= 340, "capes art: %s is too narrow to show on both sides (%d)" % (k, w)
+    print("capes art (side drapes, %d drawings): all checks passed" % len(capes))
 
 def load_addon(login=True):
     """Loads every file in the TOC into a sandboxed Lua 5.1 with the mocked WoW API."""
@@ -2478,6 +3227,7 @@ def main():
     lua.execute("_seed = %d; math.randomseed(_seed); math.random(); math.random()" % seed)
     lua.execute("_artcheck = {}")
     lua.execute(TEST)
+    check_capes_art()  # capes art section (see check_capes_art)
     art = os.path.join(ROOT, "Art")
     missing = sorted(set(f for f in lua.globals()._artcheck.values() if not os.path.exists(os.path.join(art, f.replace("\\", "/") + ".tga"))))
     print("referenced textures:", len(list(lua.globals()._artcheck.values())), "missing:", missing)

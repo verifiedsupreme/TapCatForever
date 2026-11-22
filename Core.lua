@@ -232,6 +232,26 @@ function TCF:InitDB()
     adv.bossKills = adv.bossKills or 0
     adv.cleared = adv.cleared or {}
     adv.newStages = adv.newStages or 0
+    -- 1.5.3: levels stop at 60. A cat above it becomes 60 and keeps everything else.
+    if cd.level >= TCF.MAX_LEVEL then cd.level, cd.xp = TCF.MAX_LEVEL, TCF.XPForLevel(TCF.MAX_LEVEL) end
+  end
+  -- 1.5.3: level-up rewards are paid once per class and level for the whole account. Every
+  -- level any character's cat already reached was paid, so it starts from the highest of them.
+  if type(db.levelPaid) ~= "table" then
+    local paid = {}
+    local chars = rawget(TapCatForeverDB, "chars")
+    for _, ch in pairs(type(chars) == "table" and chars or {}) do
+      if type(ch) == "table" and type(ch.classData) == "table" then
+        for cl, cd in pairs(ch.classData) do
+          local lv = type(cd) == "table" and tonumber(cd.level)
+          if lv then paid[cl] = min(TCF.MAX_LEVEL, max(paid[cl] or 1, floor(lv))) end
+        end
+      end
+    end
+    db.levelPaid = paid
+  end
+  for cl, cd in pairs(db.classData) do
+    if (db.levelPaid[cl] or 1) < cd.level then db.levelPaid[cl] = cd.level end
   end
   -- v2 -> v3: real gear. Every class starts with a simple weapon (also for new characters).
   if ((db.version or 0) < 3 or (char.fresh and not char.started)) and self.StarterGear then
@@ -306,12 +326,42 @@ function TCF:SetClass(key)
   if self.ProfCatchUp and key ~= self.db.class then self:ProfCatchUp() end
   self.db.class = key
   self.db.stats.classesPlayed[key] = true
+  -- professions this cat unlocked while you played another one are announced now
+  if self.CheckProfUnlocks then self:CheckProfUnlocks() end
   self:MarkDirty()
   self:RefreshAll()
 end
 
 ---------------------------------------------------------------- progression
-function TCF.XPForLevel(level) return floor(120 * level ^ 1.25) end
+-- Cat levels stop at 60, like Classic. The XP (key presses and expedition XP) from one level to
+-- the next grows like WoW's: a new cat levels every minute or two, then each level takes a little
+-- longer than the last. Playing about 2 hours a day at about one key press a second, a cat reaches
+-- level 10 in about an hour, 20 in a few days, 40 in a few weeks and 60 in a few months
+-- (tools/test_harness.py prints the timeline). 1.5.2 and older: 120 * level^1.25, with no cap.
+TCF.MAX_LEVEL = 60
+TCF.XP_CURVE = { base = 25, perLevel = 45, k = 1.66, exp = 2.45 }
+function TCF.XPForLevel(level)
+  local c = TCF.XP_CURVE
+  level = max(1, min(TCF.MAX_LEVEL, level or 1))
+  return floor(c.base + c.perLevel * level + c.k * level ^ c.exp)
+end
+
+function TCF:IsMaxLevel(class)
+  local cd = self:CD(class)
+  return cd ~= nil and cd.level >= TCF.MAX_LEVEL
+end
+
+-- Levels a class's cat up while it has enough XP. A cat at the cap keeps a full XP bar and
+-- gains no more XP (its level, gear, abilities and titles stay as they are).
+function TCF:SettleXP(class)
+  local cd = self:CD(class)
+  if not cd then return end
+  while cd.level < TCF.MAX_LEVEL and cd.xp >= TCF.XPForLevel(cd.level) do
+    cd.xp = cd.xp - TCF.XPForLevel(cd.level)
+    self:LevelUp(class)
+  end
+  if cd.level >= TCF.MAX_LEVEL then cd.level, cd.xp = TCF.MAX_LEVEL, TCF.XPForLevel(TCF.MAX_LEVEL) end
+end
 
 function TCF:GetTitle(level)
   level = level or self:CD().level
@@ -335,17 +385,45 @@ function TCF:SpendCoins(n)
   return true
 end
 
+-- The highest level each class's cat has been paid for on this account (db.levelPaid, shared by
+-- every character). Level-up TapCoins and level chests are paid once per class and level for the
+-- whole account, so a new alt or "Reset this character" can't collect them again.
+function TCF:LevelPaid(class)
+  local paid = self.db.levelPaid
+  if type(paid) ~= "table" then paid = {}; self.db.levelPaid = paid end
+  return paid[class] or 1, paid
+end
+
+-- The level-up rewards: TapCoins, and a chest every 5 levels (a Heroic Cache every 20)
+function TCF.LevelReward(level)
+  local chest
+  if level % 20 == 0 then chest = "heroic" elseif level % 5 == 0 then chest = "strong" end
+  return 10 + 2 * level, chest
+end
+
 function TCF:LevelUp(class)
   local db = self.db
   class = class or db.class
   local cd = self:CD(class)
+  if cd.level >= TCF.MAX_LEVEL then return end
   cd.level = cd.level + 1
-  local reward = 10 + 2 * cd.level
-  self:AddCoins(reward)
-  local extra, chest = "", nil
-  if cd.level % 20 == 0 then chest = "heroic" elseif cd.level % 5 == 0 then chest = "strong" end
+  local reward, chest = TCF.LevelReward(cd.level)
+  local best, paid = self:LevelPaid(class)
   local cl = TCF.CLASS_BY_KEY[class]
-  self:Print(string.format("Your %s cat reached |cffffd100level %d|r: +%d TapCoins%s.", cl.name, cd.level, reward, extra))
+  local top = ""
+  if cd.level >= TCF.MAX_LEVEL then
+    cd.xp = TCF.XPForLevel(TCF.MAX_LEVEL)   -- the cap: a full XP bar, no more XP
+    top = " That is the highest level."
+  end
+  if cd.level > best then
+    paid[class] = cd.level
+    self:AddCoins(reward)
+    self:Print(string.format("Your %s cat reached |cffffd100level %d|r: +%d TapCoins.%s", cl.name, cd.level, reward, top))
+  else
+    -- this account already had a cat of this class at this level: no coins or chest this time
+    chest = nil
+    self:Print(string.format("Your %s cat reached |cffffd100level %d|r.%s |cff999999(Your account already got this level's rewards for a %s.)|r", cl.name, cd.level, top, cl.name))
+  end
   if self.cat and class == db.class then self.cat:Celebrate("Level " .. cd.level, 1, 0.82, 0.1) end
   self:PlaySound("level")
   if chest then self:AwardChest(chest, "Level " .. cd.level) end
@@ -354,12 +432,9 @@ end
 -- XP for any class cat (expeditions level up the cats that went, not just the current one)
 function TCF:AddClassXP(class, n)
   local cd = self:CD(class)
-  if not cd or n <= 0 then return end
+  if not cd or n <= 0 or cd.level >= TCF.MAX_LEVEL then return end
   cd.xp = (cd.xp or 0) + n
-  while cd.xp >= TCF.XPForLevel(cd.level) do
-    cd.xp = cd.xp - TCF.XPForLevel(cd.level)
-    self:LevelUp(class)
-  end
+  self:SettleXP(class)
   self:MarkDirty()
 end
 
@@ -368,6 +443,7 @@ local TAP_CAP = 20          -- max counted taps per second (anti-macro)
 local FRENZY_TPS = 7        -- taps/second to trigger frenzy face
 local DROP_CHANCE = 1 / 3000
 local COINS_PER_TAP = 0.02  -- 1 TapCoin per 50 taps (quests and Adventure are the main income)
+TCF.TAP_COIN_CAP = 10       -- taps beyond this many in one second still count (up to TAP_CAP) but earn no TapCoins
 
 local recent, recentHead = {}, 0     -- ring buffer of tap times
 for i = 1, 32 do recent[i] = 0 end
@@ -399,16 +475,17 @@ function TCF:Tap(side)
   self.tapCarry = self.tapCarry - credit
   db.taps = db.taps + credit
   local cd = self:CD()
-  cd.xp = cd.xp + (self.FoodBuff and self:FoodBuff("xp") or 1) * mult
-  db.coinFrac = db.coinFrac + COINS_PER_TAP * mult
-  if db.coinFrac >= 1 then
-    local whole = floor(db.coinFrac)
-    db.coinFrac = db.coinFrac - whole
-    self:AddCoins(whole)
+  if cd.level < TCF.MAX_LEVEL then
+    cd.xp = cd.xp + (self.FoodBuff and self:FoodBuff("xp") or 1) * mult
+    self:SettleXP()
   end
-  while cd.xp >= TCF.XPForLevel(cd.level) do
-    cd.xp = cd.xp - TCF.XPForLevel(cd.level)
-    self:LevelUp()
+  if tps <= TCF.TAP_COIN_CAP then
+    db.coinFrac = db.coinFrac + COINS_PER_TAP * mult
+    if db.coinFrac >= 1 then
+      local whole = floor(db.coinFrac)
+      db.coinFrac = db.coinFrac - whole
+      self:AddCoins(whole)
+    end
   end
   if self.AdvTapStrike then self:AdvTapStrike() end
   if self.ProfTap then self:ProfTap() end
@@ -610,6 +687,19 @@ end
 -- chests hold gear this often, otherwise a cosmetic (also used by the chest reel and the Shop text)
 TCF.CHEST_GEAR_CHANCE = 0.9
 
+-- A few TapCoins on top of what a chest holds, now and then: most chests hold none, about a
+-- third hold a tiny amount and about 1 in 20 a big handful (amounts per chest: ch.coins in Data.lua).
+-- On average that is a few TapCoins per chest, a small part of a day's TapCoins.
+TCF.CHEST_COIN_ODDS = { tiny = 0.35, big = 0.05 }
+function TCF:RollChestCoins(ch)
+  local c = ch and ch.coins
+  if not c then return 0 end
+  local r = random()
+  local span = (r < TCF.CHEST_COIN_ODDS.big and c.big) or (r < TCF.CHEST_COIN_ODDS.big + TCF.CHEST_COIN_ODDS.tiny and c.tiny) or nil
+  if not span then return 0 end
+  return random(span[1], span[2])
+end
+
 function TCF:OpenChest(key, useKey)
   local ch = TCF.CHEST_BY_KEY[key]
   if not ch then return end
@@ -623,6 +713,10 @@ function TCF:OpenChest(key, useKey)
   if ch.raidLoot then self.db.stats.hoards = (self.db.stats.hoards or 0) + 1 end
   if ch.dungeonLoot then self.db.stats.dungeonChests = (self.db.stats.dungeonChests or 0) + 1 end
   self.skinChestKey = key   -- a skin found in this chest shows in the chest's loot box
+  -- now and then a few TapCoins too. Rolled first so the loot box can show them while it opens
+  -- (TCF.chestCoins, only during the opening); afterwards on TCF.lastChest.coins (nil when none).
+  local coins = self:RollChestCoins(ch)
+  self.chestCoins = coins > 0 and coins or nil
   local ok, a, b, c = pcall(function()
     local a, b, c = self:OpenChestContents(ch, key)
     -- a few skins are only found in one kind of chest (rolled on top of the chest's
@@ -630,9 +724,15 @@ function TCF:OpenChest(key, useKey)
     if not (self.lastChest and self.lastChest.skin) then
       self:RollSkinSource("chest", function(g) return g.chest == key end, "Found in a " .. ch.name, true)
     end
+    if coins > 0 then
+      self.lastChest = self.lastChest or {}
+      self.lastChest.coins = coins
+      self:AddCoins(coins)
+      self:Print(string.format("Also in the %s: %d TapCoins.", ch.name, coins))
+    end
     return a, b, c
   end)
-  self.skinChestKey = nil   -- always cleared, even if something above failed
+  self.skinChestKey, self.chestCoins = nil, nil   -- always cleared, even if something above failed
   if not ok then error(a, 0) end
   return a, b, c
 end
@@ -1312,12 +1412,15 @@ function TCF:TestCheat(kind)
   if kind == "coins" then self:AddCoins(5000)
   elseif kind == "gold" then local s = self:ProfState(); s.gold = s.gold + 1e7; s.lifetime = s.lifetime + 1e7
   elseif kind == "renown" then
-    local s = self:ProfState(); s.renown = s.renown + 150; s.renownEver = math.max(s.renownEver or 0, s.renown)
+    -- professions unlock with the Trade Gold a cat has earned in total
+    local s = self:ProfState(); s.lifetime = math.max(s.lifetime, 2e12)
     self:Print("All professions unlocked.", true)
+    self:CheckProfUnlocks()
   elseif kind == "chests" then for _, ch in ipairs(TCF.CHESTS) do db.keys[ch.key] = (db.keys[ch.key] or 0) + 5 end
   elseif kind == "levels" then
     local cd = self:CD()
-    for _ = 1, 10 do if cd.level < (TCF.MAX_LEVEL or 60) then cd.xp = 0; self:LevelUp() end end
+    for _ = 1, 10 do if cd.level < TCF.MAX_LEVEL then cd.xp = 0; self:LevelUp() end end
+    self:SettleXP()
   elseif kind == "hour" then
     for _ = 1, 360 do
       if self.AdvTick then self:AdvTick(10) end

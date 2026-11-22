@@ -35,6 +35,7 @@ UI.lua
 ChestReel.lua
 LootToast.lua
 Party.lua
+DevView.lua
 Welcome.lua
 UI_Gear.lua
 UI_Adventure.lua

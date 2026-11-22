@@ -781,8 +781,16 @@ def qpts(p0, p1, p2, n):
     """n+1 points along a quadratic curve"""
     return [((1 - u) ** 2 * p0[0] + 2 * (1 - u) * u * p1[0] + u * u * p2[0], (1 - u) ** 2 * p0[1] + 2 * (1 - u) * u * p1[1] + u * u * p2[1]) for u in (k / n for k in range(n + 1))]
 
+# side drapes (user choice "A", 1.5.3): the cape hangs down both sides of the body from the shoulders and its
+# rounded hem tucks in behind the body, so nothing runs across the bottom under the paws
+DRAPE_OUT = ("M 74 108 Q 30 150 30 196 Q 40 214 62 210 Q 60 170 96 120 Z",
+             "M 182 108 Q 226 150 226 196 Q 216 214 194 210 Q 196 170 160 120 Z")
+DRAPE_IN = ("M 76 116 Q 40 154 40 194 Q 48 204 60 202 Q 60 168 92 124 Z",
+            "M 180 116 Q 216 154 216 194 Q 208 204 196 202 Q 196 168 164 124 Z")
+DRAPE_EDGE = (((74, 108), (30, 150), (30, 196)), ((182, 108), (226, 150), (226, 196)))  # outer edges, for fur and studs
+
 def cloak(o):
-    """Gear cloaks (real item icons): a cape hanging behind the body, seen around its sides and below it.
+    """Gear cloaks (real item icons): a cape hanging behind the body, seen as two drapes down its sides.
     m = cloth, t = edge trim, g = hood lining / fur. Flags: hood (a hood resting behind the head),
     fur (fluffy fur edge), studs (studded leather edge)."""
     m, t, g = C(o.get("m"), "red"), C(o.get("t"), "gold"), o.get("g")
@@ -791,22 +799,19 @@ def cloak(o):
         # the hood lies behind the head and shoulders: only its rim shows around them
         hood = "M 40 138 Q 26 74 70 46 Q 128 18 186 46 Q 230 74 216 138 Z"
         s += P(hood, m, 5) + LN("M 50 128 Q 40 80 78 56 Q 128 32 178 56 Q 216 80 206 128", C(g, darker(m, .55)), 6)
-    outer = "M 66 110 Q 22 172 26 228 L 230 228 Q 234 172 190 110 Z"
-    inner = "M 74 116 Q 38 172 40 216 L 216 216 Q 218 172 182 116 Z"
-    s += P(outer, t, 5) + P(inner, m, 3)
-    for x0, x1 in ((54, 44), (202, 212)):  # cloth folds on the visible flaps
-        s += LN("M %d 150 Q %d 186 %d 212" % (x0, (x0 + x1) // 2 - 2, x1), darker(m, .72), 3)
-    if "studs" in f:
-        for side in (((66, 110), (22, 172), (26, 228)), ((190, 110), (234, 172), (230, 228))):
-            for x, y in qpts(*side, n=6)[1:]:
-                s += CI(x + (6 if x < 128 else -6), y, 3.2, C(o.get("e"), "brass"), 2)
-        for x in range(44, 220, 22): s += CI(x, 222, 3.2, C(o.get("e"), "brass"), 2)
+    for pth in DRAPE_OUT: s += P(pth, t, 5)
+    for pth in DRAPE_IN: s += P(pth, m, 3)
+    # cloth folds on the drapes
+    s += LN("M 56 150 Q 46 172 48 194", darker(m, .72), 3) + LN("M 200 150 Q 210 172 208 194", darker(m, .72), 3)
     if "fur" in f:
         fur = C(g, "cream")
-        for side in (((66, 110), (22, 172), (26, 228)), ((190, 110), (234, 172), (230, 228))):
-            for x, y in qpts(*side, n=7)[1:]:
-                s += CI(x + (4 if x < 128 else -4), y, 9, fur, 3)
-        for x in range(36, 228, 16): s += CI(x, 224, 9, fur, 3)
+        for side in DRAPE_EDGE:
+            for x, y in qpts(*side, n=6)[1:]:
+                s += CI(x + (4 if x < 128 else -4), y, 8, fur, 3)
+    if "studs" in f:
+        for side in DRAPE_EDGE:
+            for x, y in qpts(*side, n=5)[1:]:
+                s += CI(x + (6 if x < 128 else -6), y, 3.2, C(o.get("e"), "brass"), 2)
     return s
 
 def back(o):
@@ -814,7 +819,8 @@ def back(o):
     m, t = C(o.get("m"), "red"), C(o.get("t"), "gold")
     if v == "cloak": return cloak(o)
     if v == "cape":
-        return P("M 68 112 Q 26 172 30 226 L 226 226 Q 230 172 188 112 Z", m, 5) + P("M 80 116 Q 48 172 52 226 L 204 226 Q 208 172 176 116 Z", t, 3)
+        # cosmetic capes use the same side drapes as gear cloaks: main = cloth, trim = lining
+        return "".join(P(pth, m, 5) for pth in DRAPE_OUT) + "".join(P(pth, t, 3) for pth in DRAPE_IN)
     if v in ("angelwings", "batwings"):
         if v == "angelwings":
             w = P("M 84 140 Q 40 86 4 64 Q 8 96 20 106 Q 0 116 4 138 Q 22 140 30 146 Q 12 162 22 180 Q 48 172 86 172 Z", m, 4)

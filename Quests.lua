@@ -119,7 +119,12 @@ function TCF:EnsureQuests()
     q.day = today
     q.daily = {}
     local pool = {}
-    for i = 1, #TCF.QUEST_TEMPLATES.daily do pool[i] = i end
+    -- "Growing Up" needs a cat that can still gain a level (levels stop at TCF.MAX_LEVEL)
+    local canLevel = false
+    for _, cd in pairs(db.classData) do if cd.level < (TCF.MAX_LEVEL or math.huge) then canLevel = true end end
+    for i, tpl in ipairs(TCF.QUEST_TEMPLATES.daily) do
+      if tpl[3] ~= "levels" or canLevel then pool[#pool + 1] = i end
+    end
     for n = 1, 3 do
       local pick = table.remove(pool, random(#pool))
       local tpl = TCF.QUEST_TEMPLATES.daily[pick]

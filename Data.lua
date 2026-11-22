@@ -675,24 +675,26 @@ for _, cl in ipairs(TCF.CLASSES) do
 end
 
 ---------------------------------------------------------------- chests
+-- coins: TapCoins a chest sometimes holds on top of its contents (TCF:RollChestCoins in Core.lua):
+-- about 60% of chests none, 35% a tiny amount, 5% a big handful
 TCF.CHESTS = {
   { key = "pouch",  name = "Cat Treat Pouch",        plural = "Cat Treat Pouches",        cost = 100,  icon = "INV_Misc_Bag_10",
-    weights = { 62, 28, 9, 1, 0 },  desc = "Mostly Uncommon. Sometimes Rare, rarely Epic." },
+    weights = { 62, 28, 9, 1, 0 },  coins = { tiny = { 2, 5 }, big = { 40, 80 } }, desc = "Mostly Uncommon. Sometimes Rare, rarely Epic." },
   { key = "strong", name = "Adventurer's Strongbox", plural = "Adventurer's Strongboxes", cost = 450,  icon = "INV_Box_02",
-    weights = { 0, 55, 33, 10, 2 }, desc = "Uncommon or better, with some Epics." },
+    weights = { 0, 55, 33, 10, 2 }, coins = { tiny = { 3, 8 }, big = { 80, 150 } }, desc = "Uncommon or better, with some Epics." },
   { key = "heroic", name = "Heroic Cache",           plural = "Heroic Caches",            cost = 1400, icon = "INV_Box_04",
-    weights = { 0, 0, 58, 34, 8 },  legendary = 0.002, desc = "Rare or Epic. A tiny chance of a real Legendary." },
+    weights = { 0, 0, 58, 34, 8 },  legendary = 0.002, coins = { tiny = { 5, 15 }, big = { 150, 300 } }, desc = "Rare or Epic. A tiny chance of a real Legendary." },
   -- dungeon-only: never sold (no cost), always gear (gearOnly): boss loot from the Adventure
   -- dungeons the cat has reached, close to its level (dungeonLoot). Mostly Rare, some Uncommon,
   -- a little Epic, never a Legendary. Comes from finishing dungeons (Adventure and real WoW)
   -- and from dungeon expeditions.
   { key = "dungeon", name = "Dungeon Chest",       plural = "Dungeon Chests",                        icon = "INV_Box_01",
-    weights = { 0, 25, 67, 8, 0 },  gearOnly = true, dungeonLoot = true,
+    weights = { 0, 25, 67, 8, 0 },  gearOnly = true, dungeonLoot = true, coins = { tiny = { 3, 8 }, big = { 80, 150 } },
     desc = "Dungeon boss gear near your level. Mostly Rare, some Uncommon, a little Epic." },
   -- raid-only: never sold (no cost), always gear (gearOnly): Epic boss loot from the raids the
   -- cat has reached in Adventure (raidLoot), and now and then a real Legendary
   { key = "raid",   name = "Raider's Hoard",         plural = "Raider's Hoards",                       icon = "INV_Box_03",
-    weights = { 0, 0, 0, 1, 0 },    legendary = 0.01, gearOnly = true, raidLoot = true,
+    weights = { 0, 0, 0, 1, 0 },    legendary = 0.01, gearOnly = true, raidLoot = true, coins = { tiny = { 5, 15 }, big = { 150, 300 } },
     desc = "Epic raid boss gear. A small chance of a real Legendary." },
 }
 TCF.CHEST_BY_KEY = {}
@@ -701,8 +703,8 @@ for _, ch in ipairs(TCF.CHESTS) do TCF.CHEST_BY_KEY[ch.key] = ch end
 ---------------------------------------------------------------- level titles
 TCF.TITLES = {
   { 1, "Kitten" }, { 5, "Tabby Trainee" }, { 10, "Paw Adept" }, { 20, "Whisker Knight" },
-  { 30, "Claw Champion" }, { 40, "Grand Mouser" }, { 50, "Purrlord" }, { 75, "Legendary Lap Cat" },
-  { 100, "Eternal Tapper" },
+  { 30, "Claw Champion" }, { 40, "Grand Mouser" }, { 50, "Purrlord" }, { 55, "Legendary Lap Cat" },
+  { 60, "Eternal Tapper" },   -- 60 is the highest level (1.5.2 and older: 75 and 100)
 }
 
 ---------------------------------------------------------------- achievements
@@ -722,8 +724,8 @@ TCF.ACHIEVEMENTS = {
   { id = "lvl10",     name = "Paw Adept",           stat = "level",    goal = 10,        coins = 250,   icon = "Spell_Holy_SealOfMight", item = "ach_party" },
   { id = "lvl25",     name = "Seasoned Whiskers",   stat = "level",    goal = 25,        coins = 750,   icon = "Spell_Holy_SealOfWisdom" },
   { id = "lvl50",     name = "Purrlord",            stat = "level",    goal = 50,        coins = 2500,  icon = "Spell_Holy_SealOfWisdom", item = "ach_fur" },
-  { id = "lvl75",     name = "Legendary Lap Cat",   stat = "level",    goal = 75,        coins = 5000,  icon = "Spell_Holy_SealOfSalvation" },
-  { id = "lvl100",    name = "Eternal Tapper",      stat = "level",    goal = 100,       coins = 10000, icon = "Spell_Holy_DivineIntervention", item = "ach_wings" },
+  { id = "lvl75",     name = "Legendary Lap Cat",   stat = "level",    goal = 55,        coins = 5000,  icon = "Spell_Holy_SealOfSalvation" },
+  { id = "lvl100",    name = "Eternal Tapper",      stat = "level",    goal = 60,        coins = 10000, icon = "Spell_Holy_DivineIntervention", item = "ach_wings" },
 
   { id = "own25",     name = "Wardrobe Started",    stat = "owned",    goal = 25,        coins = 100,   icon = "INV_Chest_Cloth_17" },
   { id = "own50",     name = "Fashionista",         stat = "owned",    goal = 50,        coins = 250,   icon = "INV_Chest_Cloth_17" },
