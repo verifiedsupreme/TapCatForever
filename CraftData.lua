@@ -5,20 +5,29 @@ local _, TCF = ...
 -- New items, in GearData.lua's format plus the crafting key:
 -- id, name, icon, quality(1-5), itemLevel, reqLevel, slot, type, stats, tier, boss, dropChance, classes, craft
 local G, C = TCF.AddGear, TCF.MarkCrafted
+G(2852,"Copper Chain Pants","inv_pants_03",1,9,4,"LEGS","mail","arm=83",0,0,0,nil,"blacksmithing")
+G(2853,"Copper Bracers","inv_bracer_03",1,7,2,"WRIST","mail","arm=35",0,0,0,nil,"blacksmithing")
 G(10421,"Rough Copper Vest","inv_chest_chain",1,7,2,"CHEST","mail","arm=81",0,0,0,nil,"blacksmithing")
 G(2844,"Copper Mace","inv_mace_01",1,9,4,"MH","mace","min=6,max=11,spd=2.2,dps=3.86",0,0,0,nil,"blacksmithing")
+G(2845,"Copper Axe","inv_axe_23",1,9,4,"MH","axe","min=5,max=10,spd=1.9,dps=3.95",0,0,0,nil,"blacksmithing")
+G(3469,"Copper Chain Boots","inv_boots_01",1,9,4,"FEET","mail","arm=65",0,0,0,nil,"blacksmithing")
 G(2847,"Copper Shortsword","inv_sword_26",1,9,4,"MH","sword","min=5,max=11,spd=2.1,dps=3.81",0,0,0,nil,"blacksmithing")
 G(7955,"Copper Claymore","inv_sword_21",1,11,6,"2H","sword","min=15,max=23,spd=3,dps=6.33",0,0,0,nil,"blacksmithing")
+G(2851,"Copper Chain Belt","inv_belt_02",1,11,6,"WAIST","mail","arm=61",0,0,0,nil,"blacksmithing")
 G(2302,"Handstitched Leather Boots","inv_boots_04",1,8,3,"FEET","leather","arm=31",0,0,0,nil,"leatherworking")
 G(5957,"Handstitched Leather Vest","inv_chest_wolf",1,8,3,"CHEST","leather","arm=45",0,0,0,nil,"leatherworking")
+G(7276,"Handstitched Leather Cloak","inv_helmet_48",1,9,4,"BACK","cloth","arm=8",0,0,0,nil,"leatherworking")
+G(7277,"Handstitched Leather Bracers","inv_bracer_08",1,9,4,"WRIST","leather","arm=21",0,0,0,nil,"leatherworking")
 G(2303,"Handstitched Leather Pants","inv_pants_wolf",1,10,5,"LEGS","leather","arm=46",0,0,0,nil,"leatherworking")
 G(4237,"Handstitched Leather Belt","inv_belt_04",1,10,5,"WAIST","leather","arm=29",0,0,0,nil,"leatherworking")
+G(2570,"Linen Cloak","inv_misc_cape_14",1,6,1,"BACK","cloth","arm=6",0,0,0,nil,"tailoring")
 G(10045,"Simple Linen Pants","inv_pants_11",1,7,2,"LEGS","cloth","arm=12",0,0,0,nil,"tailoring")
 G(2568,"Brown Linen Vest","inv_shirt_05",1,8,3,"CHEST","cloth","arm=15",0,0,0,nil,"tailoring")
 G(7026,"Linen Belt","inv_belt_05",1,9,4,"WAIST","cloth","arm=9",0,0,0,nil,"tailoring")
 G(10046,"Simple Linen Boots","inv_boots_05",1,9,4,"FEET","cloth","arm=11",0,0,0,nil,"tailoring")
 
 -- Items GearData.lua already has: crafted from now on, never loot.
+C(2403,"blacksmithing") -- Light Chain Gloves
 C(3471,"blacksmithing") -- Copper Chain Vest
 C(3488,"blacksmithing") -- Copper Battle Axe
 C(3472,"blacksmithing") -- Runed Copper Gauntlets
@@ -60,6 +69,7 @@ C(12422,"blacksmithing") -- Imperial Plate Chest
 C(12640,"blacksmithing") -- Lionheart Helm
 C(12784,"blacksmithing") -- Arcanite Reaper
 C(22198,"blacksmithing") -- Jagged Obsidian Shield
+C(797,"leatherworking") -- Rough Leather Gloves
 C(7280,"leatherworking") -- Rugged Leather Pants
 C(2300,"leatherworking") -- Embossed Leather Vest
 C(2309,"leatherworking") -- Embossed Leather Boots
@@ -101,6 +111,8 @@ C(15063,"leatherworking") -- Devilsaur Gauntlets
 C(15080,"leatherworking") -- Heavy Scorpid Helm
 C(15062,"leatherworking") -- Devilsaur Leggings
 C(18509,"leatherworking") -- Chromatic Cloak
+C(793,"tailoring") -- Knitted Gloves
+C(3603,"tailoring") -- Knitted Bracers
 C(6238,"tailoring") -- Brown Linen Robe
 C(4307,"tailoring") -- Heavy Linen Gloves
 C(2572,"tailoring") -- Red Linen Robe
@@ -146,146 +158,165 @@ C(18405,"tailoring") -- Belt of the Archmage
 -- { gear = itemId, skill = required crafting skill, mats = { matKey = amount } }, easiest first
 TCF.CRAFT_RECIPES = {
   blacksmithing = {
-    { gear = 10421, skill = 1, mats = { copper = 7 } }, -- Rough Copper Vest
-    { gear = 2844, skill = 15, mats = { copper = 10 } }, -- Copper Mace
-    { gear = 2847, skill = 25, mats = { copper = 10 } }, -- Copper Shortsword
-    { gear = 7955, skill = 30, mats = { copper = 14 } }, -- Copper Claymore
-    { gear = 3471, skill = 35, mats = { copper = 10 } }, -- Copper Chain Vest
-    { gear = 3488, skill = 35, mats = { copper = 21 } }, -- Copper Battle Axe
-    { gear = 3472, skill = 40, mats = { copper = 10 } }, -- Runed Copper Gauntlets
-    { gear = 3474, skill = 60, mats = { copper = 11 } }, -- Gemmed Copper Gauntlets
-    { gear = 6214, skill = 65, mats = { copper = 17 } }, -- Heavy Copper Maul
-    { gear = 2857, skill = 70, mats = { copper = 11 } }, -- Runed Copper Belt
-    { gear = 2864, skill = 80, mats = { tin = 280 } }, -- Runed Copper Breastplate
-    { gear = 3487, skill = 95, mats = { tin = 380 } }, -- Heavy Copper Broadsword
-    { gear = 6731, skill = 100, mats = { tin = 390 } }, -- Ironforge Breastplate
-    { gear = 2866, skill = 105, mats = { tin = 150 } }, -- Rough Bronze Cuirass
-    { gear = 5540, skill = 110, mats = { tin = 190 } }, -- Pearl-handled Dagger
-    { gear = 2849, skill = 115, mats = { tin = 200 } }, -- Bronze Axe
-    { gear = 2850, skill = 120, mats = { tin = 180 } }, -- Bronze Shortsword
-    { gear = 7956, skill = 125, mats = { iron = 1800 } }, -- Bronze Warhammer
-    { gear = 2870, skill = 145, mats = { iron = 5600 } }, -- Shining Silver Breastplate
-    { gear = 3851, skill = 155, mats = { iron = 2850 } }, -- Solid Iron Maul
-    { gear = 3849, skill = 160, mats = { iron = 2300 } }, -- Hardened Iron Shortsword
-    { gear = 3836, skill = 170, mats = { iron = 2500 } }, -- Green Iron Helm
-    { gear = 3850, skill = 175, mats = { mithril = 14500 } }, -- Jade Serpentblade
-    { gear = 3853, skill = 180, mats = { mithril = 15500 } }, -- Moonsteel Broadsword
-    { gear = 3837, skill = 190, mats = { mithril = 10700 } }, -- Golden Scale Coif
-    { gear = 3845, skill = 195, mats = { mithril = 15500 } }, -- Golden Scale Cuirass
-    { gear = 3854, skill = 200, mats = { mithril = 15500 } }, -- Frost Tiger Blade
-    { gear = 7919, skill = 205, mats = { mithril = 9700 } }, -- Heavy Mithril Gauntlet
-    { gear = 7921, skill = 210, mats = { mithril = 9700 } }, -- Heavy Mithril Pants
-    { gear = 7922, skill = 215, mats = { mithril = 15000 } }, -- Steel Plate Helm
-    { gear = 7943, skill = 225, mats = { mithril = 19900 } }, -- Wicked Mithril Blade
-    { gear = 7930, skill = 230, mats = { thorium = 12200 } }, -- Heavy Mithril Breastplate
-    { gear = 7935, skill = 240, mats = { thorium = 18000 } }, -- Ornate Mithril Breastplate
-    { gear = 7937, skill = 245, mats = { thorium = 14100 } }, -- Ornate Mithril Helm
-    { gear = 12405, skill = 250, mats = { thorium = 13000 } }, -- Thorium Armor
-    { gear = 7960, skill = 260, mats = { thorium = 40000 } }, -- Truesilver Champion
-    { gear = 12424, skill = 265, mats = { thorium = 12200 } }, -- Imperial Plate Belt
-    { gear = 12410, skill = 280, mats = { thorium = 12000, arcane = 1200 } }, -- Thorium Helm
-    { gear = 11604, skill = 285, mats = { thorium = 16500, arcane = 1650 } }, -- Dark Iron Plate
-    { gear = 19051, skill = 290, mats = { thorium = 12000, arcane = 1200 } }, -- Girdle of the Dawn
-    { gear = 12427, skill = 295, mats = { thorium = 12000, arcane = 1200 } }, -- Imperial Plate Helm
-    { gear = 12422, skill = 300, mats = { thorium = 12000, arcane = 1200 } }, -- Imperial Plate Chest
-    { gear = 12640, skill = 300, mats = { thorium = 40000, arcane = 4000 } }, -- Lionheart Helm
-    { gear = 12784, skill = 300, mats = { thorium = 15900, arcane = 1600 } }, -- Arcanite Reaper
-    { gear = 22198, skill = 300, mats = { thorium = 25900, arcane = 2600 } }, -- Jagged Obsidian Shield
+    { gear = 2852, skill = 1, mats = { copper = 5 }, starter = true }, -- Copper Chain Pants
+    { gear = 2853, skill = 1, mats = { copper = 5 }, starter = true }, -- Copper Bracers
+    { gear = 10421, skill = 1, mats = { copper = 5 }, starter = true }, -- Rough Copper Vest
+    { gear = 2403, skill = 5, mats = { copper = 5 }, starter = true }, -- Light Chain Gloves
+    { gear = 2844, skill = 15, mats = { copper = 8 }, starter = true }, -- Copper Mace
+    { gear = 2845, skill = 20, mats = { copper = 8 }, starter = true }, -- Copper Axe
+    { gear = 3469, skill = 20, mats = { copper = 7 }, starter = true }, -- Copper Chain Boots
+    { gear = 2847, skill = 25, mats = { copper = 8 }, starter = true }, -- Copper Shortsword
+    { gear = 7955, skill = 30, mats = { copper = 11 }, starter = true }, -- Copper Claymore
+    { gear = 2851, skill = 35, mats = { copper = 5 }, starter = true }, -- Copper Chain Belt
+    { gear = 3471, skill = 35, mats = { copper = 8 } }, -- Copper Chain Vest
+    { gear = 3488, skill = 35, mats = { copper = 16 } }, -- Copper Battle Axe
+    { gear = 3472, skill = 40, mats = { copper = 8 } }, -- Runed Copper Gauntlets
+    { gear = 3474, skill = 60, mats = { copper = 9 } }, -- Gemmed Copper Gauntlets
+    { gear = 6214, skill = 65, mats = { copper = 14 } }, -- Heavy Copper Maul
+    { gear = 2857, skill = 70, mats = { copper = 9 } }, -- Runed Copper Belt
+    { gear = 2864, skill = 80, mats = { tin = 135 } }, -- Runed Copper Breastplate
+    { gear = 3487, skill = 95, mats = { tin = 180 } }, -- Heavy Copper Broadsword
+    { gear = 6731, skill = 100, mats = { tin = 185 } }, -- Ironforge Breastplate
+    { gear = 2866, skill = 105, mats = { tin = 70 } }, -- Rough Bronze Cuirass
+    { gear = 5540, skill = 110, mats = { tin = 90 } }, -- Pearl-handled Dagger
+    { gear = 2849, skill = 115, mats = { tin = 95 } }, -- Bronze Axe
+    { gear = 2850, skill = 120, mats = { tin = 85 } }, -- Bronze Shortsword
+    { gear = 7956, skill = 125, mats = { iron = 780 } }, -- Bronze Warhammer
+    { gear = 2870, skill = 145, mats = { iron = 2400 } }, -- Shining Silver Breastplate
+    { gear = 3851, skill = 155, mats = { iron = 1250 } }, -- Solid Iron Maul
+    { gear = 3849, skill = 160, mats = { iron = 1000 } }, -- Hardened Iron Shortsword
+    { gear = 3836, skill = 170, mats = { iron = 1100 } }, -- Green Iron Helm
+    { gear = 3850, skill = 175, mats = { mithril = 6200 } }, -- Jade Serpentblade
+    { gear = 3853, skill = 180, mats = { mithril = 6600 } }, -- Moonsteel Broadsword
+    { gear = 3837, skill = 190, mats = { mithril = 4550 } }, -- Golden Scale Coif
+    { gear = 3845, skill = 195, mats = { mithril = 6600 } }, -- Golden Scale Cuirass
+    { gear = 3854, skill = 200, mats = { mithril = 6600 } }, -- Frost Tiger Blade
+    { gear = 7919, skill = 205, mats = { mithril = 4150 } }, -- Heavy Mithril Gauntlet
+    { gear = 7921, skill = 210, mats = { mithril = 4150 } }, -- Heavy Mithril Pants
+    { gear = 7922, skill = 215, mats = { mithril = 6400 } }, -- Steel Plate Helm
+    { gear = 7943, skill = 225, mats = { mithril = 8500 } }, -- Wicked Mithril Blade
+    { gear = 7930, skill = 230, mats = { thorium = 5200 } }, -- Heavy Mithril Breastplate
+    { gear = 7935, skill = 240, mats = { thorium = 7600 } }, -- Ornate Mithril Breastplate
+    { gear = 7937, skill = 245, mats = { thorium = 6000 } }, -- Ornate Mithril Helm
+    { gear = 12405, skill = 250, mats = { thorium = 5500 } }, -- Thorium Armor
+    { gear = 7960, skill = 260, mats = { thorium = 17000 } }, -- Truesilver Champion
+    { gear = 12424, skill = 265, mats = { thorium = 5200 } }, -- Imperial Plate Belt
+    { gear = 12410, skill = 280, mats = { thorium = 5100, arcane = 510 } }, -- Thorium Helm
+    { gear = 11604, skill = 285, mats = { thorium = 7000, arcane = 700 } }, -- Dark Iron Plate
+    { gear = 19051, skill = 290, mats = { thorium = 5100, arcane = 510 } }, -- Girdle of the Dawn
+    { gear = 12427, skill = 295, mats = { thorium = 5100, arcane = 510 } }, -- Imperial Plate Helm
+    { gear = 12422, skill = 300, mats = { thorium = 5100, arcane = 510 } }, -- Imperial Plate Chest
+    { gear = 12640, skill = 300, mats = { thorium = 17000, arcane = 1700 } }, -- Lionheart Helm
+    { gear = 12784, skill = 300, mats = { thorium = 6800, arcane = 680 } }, -- Arcanite Reaper
+    { gear = 22198, skill = 300, mats = { thorium = 11000, arcane = 1100 } }, -- Jagged Obsidian Shield
   },
   leatherworking = {
-    { gear = 2302, skill = 1, mats = { lightleather = 7 } }, -- Handstitched Leather Boots
-    { gear = 5957, skill = 1, mats = { lightleather = 7 } }, -- Handstitched Leather Vest
-    { gear = 2303, skill = 15, mats = { lightleather = 8 } }, -- Handstitched Leather Pants
-    { gear = 4237, skill = 25, mats = { lightleather = 11 } }, -- Handstitched Leather Belt
-    { gear = 7280, skill = 35, mats = { lightleather = 13 } }, -- Rugged Leather Pants
-    { gear = 2300, skill = 40, mats = { lightleather = 17 } }, -- Embossed Leather Vest
-    { gear = 2309, skill = 55, mats = { lightleather = 18 } }, -- Embossed Leather Boots
-    { gear = 2311, skill = 60, mats = { lightleather = 16 } }, -- White Leather Jerkin
-    { gear = 7281, skill = 70, mats = { lightleather = 14 } }, -- Light Leather Bracers
-    { gear = 4242, skill = 75, mats = { mediumleather = 185 } }, -- Embossed Leather Pants
-    { gear = 4243, skill = 85, mats = { mediumleather = 250 } }, -- Fine Leather Tunic
-    { gear = 2307, skill = 90, mats = { mediumleather = 185 } }, -- Fine Leather Boots
-    { gear = 5781, skill = 95, mats = { mediumleather = 490 } }, -- Murloc Scale Breastplate
-    { gear = 2317, skill = 100, mats = { mediumleather = 160 } }, -- Dark Leather Tunic
-    { gear = 6467, skill = 105, mats = { mediumleather = 150 } }, -- Deviate Scale Gloves
-    { gear = 2316, skill = 110, mats = { mediumleather = 210 } }, -- Dark Leather Cloak
-    { gear = 6468, skill = 115, mats = { mediumleather = 250 } }, -- Deviate Scale Belt
-    { gear = 2314, skill = 120, mats = { mediumleather = 390 } }, -- Toughened Leather Armor
-    { gear = 4252, skill = 140, mats = { heavyleather = 3750 } }, -- Dark Leather Shoulders
-    { gear = 4254, skill = 150, mats = { heavyleather = 2200 } }, -- Barbaric Gloves
-    { gear = 4255, skill = 155, mats = { heavyleather = 3100 } }, -- Green Leather Armor
-    { gear = 4455, skill = 165, mats = { heavyleather = 2850 } }, -- Raptor Hide Harness
-    { gear = 5963, skill = 170, mats = { heavyleather = 3100 } }, -- Barbaric Leggings
-    { gear = 7374, skill = 175, mats = { thickleather = 9800 } }, -- Dusky Leather Armor
-    { gear = 4262, skill = 185, mats = { thickleather = 8400 } }, -- Gem-studded Leather Belt
-    { gear = 5739, skill = 190, mats = { thickleather = 12700 } }, -- Barbaric Harness
-    { gear = 8174, skill = 200, mats = { thickleather = 12300 } }, -- Comfortable Leather Hat
-    { gear = 8175, skill = 205, mats = { thickleather = 8400 } }, -- Nightscape Tunic
-    { gear = 8189, skill = 210, mats = { thickleather = 15100 } }, -- Turtle Scale Breastplate
-    { gear = 8203, skill = 220, mats = { thickleather = 21300 } }, -- Tough Scorpid Breastplate
-    { gear = 8345, skill = 225, mats = { thickleather = 28000 } }, -- Wolfshead Helm
-    { gear = 8193, skill = 230, mats = { ruggedleather = 12000 } }, -- Nightscape Pants
-    { gear = 8207, skill = 240, mats = { ruggedleather = 20200 } }, -- Tough Scorpid Shoulders
-    { gear = 8348, skill = 250, mats = { ruggedleather = 29300 } }, -- Helm of Fire
-    { gear = 8367, skill = 255, mats = { ruggedleather = 40000 } }, -- Dragonscale Breastplate
-    { gear = 15083, skill = 260, mats = { ruggedleather = 12000 } }, -- Wicked Leather Gauntlets
-    { gear = 15076, skill = 265, mats = { ruggedleather = 12000 } }, -- Heavy Scorpid Vest
-    { gear = 15061, skill = 270, mats = { ruggedleather = 12000 } }, -- Living Shoulders
-    { gear = 15064, skill = 275, mats = { ruggedleather = 24300, devilsaur = 2450 } }, -- Warbear Harness
-    { gear = 15086, skill = 280, mats = { ruggedleather = 12000, devilsaur = 1200 } }, -- Wicked Leather Headband
-    { gear = 15056, skill = 285, mats = { ruggedleather = 12300, devilsaur = 1250 } }, -- Stormshroud Armor
-    { gear = 15063, skill = 290, mats = { ruggedleather = 23100, devilsaur = 2300 } }, -- Devilsaur Gauntlets
-    { gear = 15080, skill = 295, mats = { ruggedleather = 12900, devilsaur = 1300 } }, -- Heavy Scorpid Helm
-    { gear = 15062, skill = 300, mats = { ruggedleather = 27300, devilsaur = 2750 } }, -- Devilsaur Leggings
-    { gear = 18509, skill = 300, mats = { ruggedleather = 32400, devilsaur = 3250 } }, -- Chromatic Cloak
+    { gear = 2302, skill = 1, mats = { lightleather = 5 }, starter = true }, -- Handstitched Leather Boots
+    { gear = 5957, skill = 1, mats = { lightleather = 5 }, starter = true }, -- Handstitched Leather Vest
+    { gear = 7276, skill = 1, mats = { lightleather = 5 }, starter = true }, -- Handstitched Leather Cloak
+    { gear = 7277, skill = 1, mats = { lightleather = 5 }, starter = true }, -- Handstitched Leather Bracers
+    { gear = 797, skill = 5, mats = { lightleather = 5 }, starter = true }, -- Rough Leather Gloves
+    { gear = 2303, skill = 15, mats = { lightleather = 6 }, starter = true }, -- Handstitched Leather Pants
+    { gear = 4237, skill = 25, mats = { lightleather = 8 }, starter = true }, -- Handstitched Leather Belt
+    { gear = 7280, skill = 35, mats = { lightleather = 10 } }, -- Rugged Leather Pants
+    { gear = 2300, skill = 40, mats = { lightleather = 13 } }, -- Embossed Leather Vest
+    { gear = 2309, skill = 55, mats = { lightleather = 13 } }, -- Embossed Leather Boots
+    { gear = 2311, skill = 60, mats = { lightleather = 12 } }, -- White Leather Jerkin
+    { gear = 7281, skill = 70, mats = { lightleather = 10 } }, -- Light Leather Bracers
+    { gear = 4242, skill = 75, mats = { mediumleather = 90 } }, -- Embossed Leather Pants
+    { gear = 4243, skill = 85, mats = { mediumleather = 120 } }, -- Fine Leather Tunic
+    { gear = 2307, skill = 90, mats = { mediumleather = 90 } }, -- Fine Leather Boots
+    { gear = 5781, skill = 95, mats = { mediumleather = 240 } }, -- Murloc Scale Breastplate
+    { gear = 2317, skill = 100, mats = { mediumleather = 75 } }, -- Dark Leather Tunic
+    { gear = 6467, skill = 105, mats = { mediumleather = 70 } }, -- Deviate Scale Gloves
+    { gear = 2316, skill = 110, mats = { mediumleather = 100 } }, -- Dark Leather Cloak
+    { gear = 6468, skill = 115, mats = { mediumleather = 120 } }, -- Deviate Scale Belt
+    { gear = 2314, skill = 120, mats = { mediumleather = 185 } }, -- Toughened Leather Armor
+    { gear = 4252, skill = 140, mats = { heavyleather = 1600 } }, -- Dark Leather Shoulders
+    { gear = 4254, skill = 150, mats = { heavyleather = 950 } }, -- Barbaric Gloves
+    { gear = 4255, skill = 155, mats = { heavyleather = 1350 } }, -- Green Leather Armor
+    { gear = 4455, skill = 165, mats = { heavyleather = 1250 } }, -- Raptor Hide Harness
+    { gear = 5963, skill = 170, mats = { heavyleather = 1350 } }, -- Barbaric Leggings
+    { gear = 7374, skill = 175, mats = { thickleather = 4200 } }, -- Dusky Leather Armor
+    { gear = 4262, skill = 185, mats = { thickleather = 3600 } }, -- Gem-studded Leather Belt
+    { gear = 5739, skill = 190, mats = { thickleather = 5400 } }, -- Barbaric Harness
+    { gear = 8174, skill = 200, mats = { thickleather = 5300 } }, -- Comfortable Leather Hat
+    { gear = 8175, skill = 205, mats = { thickleather = 3600 } }, -- Nightscape Tunic
+    { gear = 8189, skill = 210, mats = { thickleather = 6500 } }, -- Turtle Scale Breastplate
+    { gear = 8203, skill = 220, mats = { thickleather = 9100 } }, -- Tough Scorpid Breastplate
+    { gear = 8345, skill = 225, mats = { thickleather = 12000 } }, -- Wolfshead Helm
+    { gear = 8193, skill = 230, mats = { ruggedleather = 5100 } }, -- Nightscape Pants
+    { gear = 8207, skill = 240, mats = { ruggedleather = 8600 } }, -- Tough Scorpid Shoulders
+    { gear = 8348, skill = 250, mats = { ruggedleather = 12400 } }, -- Helm of Fire
+    { gear = 8367, skill = 255, mats = { ruggedleather = 17000 } }, -- Dragonscale Breastplate
+    { gear = 15083, skill = 260, mats = { ruggedleather = 5100 } }, -- Wicked Leather Gauntlets
+    { gear = 15076, skill = 265, mats = { ruggedleather = 5100 } }, -- Heavy Scorpid Vest
+    { gear = 15061, skill = 270, mats = { ruggedleather = 5100 } }, -- Living Shoulders
+    { gear = 15064, skill = 275, mats = { ruggedleather = 10300, devilsaur = 1050 } }, -- Warbear Harness
+    { gear = 15086, skill = 280, mats = { ruggedleather = 5100, devilsaur = 510 } }, -- Wicked Leather Headband
+    { gear = 15056, skill = 285, mats = { ruggedleather = 5200, devilsaur = 520 } }, -- Stormshroud Armor
+    { gear = 15063, skill = 290, mats = { ruggedleather = 9800, devilsaur = 980 } }, -- Devilsaur Gauntlets
+    { gear = 15080, skill = 295, mats = { ruggedleather = 5500, devilsaur = 550 } }, -- Heavy Scorpid Helm
+    { gear = 15062, skill = 300, mats = { ruggedleather = 11600, devilsaur = 1150 } }, -- Devilsaur Leggings
+    { gear = 18509, skill = 300, mats = { ruggedleather = 13800, devilsaur = 1400 } }, -- Chromatic Cloak
   },
   tailoring = {
-    { gear = 10045, skill = 1, mats = { linen = 7 } }, -- Simple Linen Pants
-    { gear = 2568, skill = 10, mats = { linen = 7 } }, -- Brown Linen Vest
-    { gear = 7026, skill = 15, mats = { linen = 7 } }, -- Linen Belt
-    { gear = 10046, skill = 20, mats = { linen = 13 } }, -- Simple Linen Boots
-    { gear = 6238, skill = 30, mats = { linen = 13 } }, -- Brown Linen Robe
-    { gear = 4307, skill = 35, mats = { linen = 9 } }, -- Heavy Linen Gloves
-    { gear = 2572, skill = 40, mats = { linen = 19 } }, -- Red Linen Robe
-    { gear = 2580, skill = 60, mats = { linen = 13 } }, -- Reinforced Linen Cape
-    { gear = 2569, skill = 65, mats = { linen = 17 } }, -- Linen Boots
-    { gear = 4309, skill = 70, mats = { linen = 19 } }, -- Handstitched Linen Britches
-    { gear = 2582, skill = 85, mats = { wool = 155 } }, -- Green Woolen Vest
-    { gear = 5542, skill = 90, mats = { wool = 220 } }, -- Pearl-clasped Cloak
-    { gear = 2583, skill = 95, mats = { wool = 310 } }, -- Woolen Boots
-    { gear = 6263, skill = 100, mats = { wool = 270 } }, -- Blue Overalls
-    { gear = 2585, skill = 105, mats = { wool = 270 } }, -- Gray Woolen Robe
-    { gear = 4314, skill = 110, mats = { wool = 175 } }, -- Double-stitched Woolen Shoulders
-    { gear = 6264, skill = 115, mats = { wool = 350 } }, -- Greater Adept's Robe
-    { gear = 4317, skill = 125, mats = { silk = 4450 } }, -- Phoenix Pants
-    { gear = 5766, skill = 135, mats = { silk = 2600 } }, -- Lesser Wizard's Robe
-    { gear = 7048, skill = 145, mats = { silk = 1850 } }, -- Azure Silk Hood
-    { gear = 5770, skill = 150, mats = { silk = 3650 } }, -- Robes of Arcana
-    { gear = 7050, skill = 160, mats = { silk = 2100 } }, -- Silk Headband
-    { gear = 7065, skill = 165, mats = { silk = 3400 } }, -- Green Silk Armor
-    { gear = 4323, skill = 170, mats = { silk = 2900 } }, -- Shadow Hood
-    { gear = 7055, skill = 175, mats = { mageweave = 10900 } }, -- Crimson Silk Belt
-    { gear = 7058, skill = 185, mats = { mageweave = 10900 } }, -- Crimson Silk Vest
-    { gear = 7054, skill = 190, mats = { mageweave = 20000 } }, -- Robe of Power
-    { gear = 4327, skill = 200, mats = { mageweave = 12700 } }, -- Icy Cloak
-    { gear = 9998, skill = 205, mats = { mageweave = 8400 } }, -- Black Mageweave Vest
-    { gear = 10004, skill = 215, mats = { mageweave = 10000 } }, -- Shadoweave Robe
-    { gear = 10021, skill = 225, mats = { mageweave = 27200 } }, -- Dreamweave Vest
-    { gear = 10024, skill = 230, mats = { runecloth = 12000 } }, -- Black Mageweave Headband
-    { gear = 10025, skill = 245, mats = { runecloth = 25100 } }, -- Shadoweave Mask
-    { gear = 10041, skill = 250, mats = { runecloth = 40000 } }, -- Dreamweave Circlet
-    { gear = 13868, skill = 255, mats = { runecloth = 17100 } }, -- Frostweave Robe
-    { gear = 14042, skill = 260, mats = { runecloth = 17100 } }, -- Cindercloth Vest
-    { gear = 13860, skill = 265, mats = { runecloth = 12000 } }, -- Runecloth Cloak
-    { gear = 14107, skill = 275, mats = { runecloth = 12000, felcloth = 1200 } }, -- Felcloth Pants
-    { gear = 13864, skill = 280, mats = { runecloth = 12000, felcloth = 1200 } }, -- Runecloth Boots
-    { gear = 14136, skill = 285, mats = { runecloth = 26600, felcloth = 2650 } }, -- Robe of Winter Night
-    { gear = 14111, skill = 290, mats = { runecloth = 12000, felcloth = 1200 } }, -- Felcloth Hood
-    { gear = 13866, skill = 295, mats = { runecloth = 12000, felcloth = 1200 } }, -- Runecloth Headband
-    { gear = 14138, skill = 300, mats = { runecloth = 12000, felcloth = 1200 } }, -- Mooncloth Vest
-    { gear = 14152, skill = 300, mats = { runecloth = 40000, felcloth = 4000 } }, -- Robe of the Archmage
-    { gear = 18405, skill = 300, mats = { runecloth = 40000, felcloth = 4000 } }, -- Belt of the Archmage
+    { gear = 2570, skill = 1, mats = { linen = 5 }, starter = true }, -- Linen Cloak
+    { gear = 10045, skill = 1, mats = { linen = 5 }, starter = true }, -- Simple Linen Pants
+    { gear = 793, skill = 5, mats = { linen = 5 }, starter = true }, -- Knitted Gloves
+    { gear = 2568, skill = 10, mats = { linen = 5 }, starter = true }, -- Brown Linen Vest
+    { gear = 3603, skill = 10, mats = { linen = 5 }, starter = true }, -- Knitted Bracers
+    { gear = 7026, skill = 15, mats = { linen = 5 }, starter = true }, -- Linen Belt
+    { gear = 10046, skill = 20, mats = { linen = 9 }, starter = true }, -- Simple Linen Boots
+    { gear = 6238, skill = 30, mats = { linen = 9 } }, -- Brown Linen Robe
+    { gear = 4307, skill = 35, mats = { linen = 7 } }, -- Heavy Linen Gloves
+    { gear = 2572, skill = 40, mats = { linen = 13 } }, -- Red Linen Robe
+    { gear = 2580, skill = 60, mats = { linen = 9 } }, -- Reinforced Linen Cape
+    { gear = 2569, skill = 65, mats = { linen = 12 } }, -- Linen Boots
+    { gear = 4309, skill = 70, mats = { linen = 13 } }, -- Handstitched Linen Britches
+    { gear = 2582, skill = 85, mats = { wool = 75 } }, -- Green Woolen Vest
+    { gear = 5542, skill = 90, mats = { wool = 105 } }, -- Pearl-clasped Cloak
+    { gear = 2583, skill = 95, mats = { wool = 150 } }, -- Woolen Boots
+    { gear = 6263, skill = 100, mats = { wool = 130 } }, -- Blue Overalls
+    { gear = 2585, skill = 105, mats = { wool = 130 } }, -- Gray Woolen Robe
+    { gear = 4314, skill = 110, mats = { wool = 85 } }, -- Double-stitched Woolen Shoulders
+    { gear = 6264, skill = 115, mats = { wool = 170 } }, -- Greater Adept's Robe
+    { gear = 4317, skill = 125, mats = { silk = 1950 } }, -- Phoenix Pants
+    { gear = 5766, skill = 135, mats = { silk = 1150 } }, -- Lesser Wizard's Robe
+    { gear = 7048, skill = 145, mats = { silk = 800 } }, -- Azure Silk Hood
+    { gear = 5770, skill = 150, mats = { silk = 1600 } }, -- Robes of Arcana
+    { gear = 7050, skill = 160, mats = { silk = 910 } }, -- Silk Headband
+    { gear = 7065, skill = 165, mats = { silk = 1500 } }, -- Green Silk Armor
+    { gear = 4323, skill = 170, mats = { silk = 1250 } }, -- Shadow Hood
+    { gear = 7055, skill = 175, mats = { mageweave = 4650 } }, -- Crimson Silk Belt
+    { gear = 7058, skill = 185, mats = { mageweave = 4650 } }, -- Crimson Silk Vest
+    { gear = 7054, skill = 190, mats = { mageweave = 8600 } }, -- Robe of Power
+    { gear = 4327, skill = 200, mats = { mageweave = 5400 } }, -- Icy Cloak
+    { gear = 9998, skill = 205, mats = { mageweave = 3600 } }, -- Black Mageweave Vest
+    { gear = 10004, skill = 215, mats = { mageweave = 4300 } }, -- Shadoweave Robe
+    { gear = 10021, skill = 225, mats = { mageweave = 11700 } }, -- Dreamweave Vest
+    { gear = 10024, skill = 230, mats = { runecloth = 5100 } }, -- Black Mageweave Headband
+    { gear = 10025, skill = 245, mats = { runecloth = 10700 } }, -- Shadoweave Mask
+    { gear = 10041, skill = 250, mats = { runecloth = 17000 } }, -- Dreamweave Circlet
+    { gear = 13868, skill = 255, mats = { runecloth = 7300 } }, -- Frostweave Robe
+    { gear = 14042, skill = 260, mats = { runecloth = 7300 } }, -- Cindercloth Vest
+    { gear = 13860, skill = 265, mats = { runecloth = 5100 } }, -- Runecloth Cloak
+    { gear = 14107, skill = 275, mats = { runecloth = 5100, felcloth = 510 } }, -- Felcloth Pants
+    { gear = 13864, skill = 280, mats = { runecloth = 5100, felcloth = 510 } }, -- Runecloth Boots
+    { gear = 14136, skill = 285, mats = { runecloth = 11300, felcloth = 1150 } }, -- Robe of Winter Night
+    { gear = 14111, skill = 290, mats = { runecloth = 5100, felcloth = 510 } }, -- Felcloth Hood
+    { gear = 13866, skill = 295, mats = { runecloth = 5100, felcloth = 510 } }, -- Runecloth Headband
+    { gear = 14138, skill = 300, mats = { runecloth = 5100, felcloth = 510 } }, -- Mooncloth Vest
+    { gear = 14152, skill = 300, mats = { runecloth = 17000, felcloth = 1700 } }, -- Robe of the Archmage
+    { gear = 18405, skill = 300, mats = { runecloth = 17000, felcloth = 1700 } }, -- Belt of the Archmage
   },
+}
+
+-- 1.6 starter sets: white pieces a new cat can wear, one list per slot (any item of it counts)
+TCF.CRAFT_STARTER = {
+  blacksmithing = { { 2853 }, { 2852 }, { 10421 }, { 2403 }, { 3469 }, { 2851 }, { 2844, 2845, 2847, 7955 } },
+  leatherworking = { { 7277 }, { 2302 }, { 5957 }, { 7276 }, { 797 }, { 2303 }, { 4237 } },
+  tailoring = { { 10045 }, { 2570 }, { 793 }, { 2568 }, { 3603 }, { 7026 }, { 10046 } },
 }
 
 -- material tier (1-6) of every family material, for crafted gear's Trade Gold value

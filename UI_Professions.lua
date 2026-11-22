@@ -60,16 +60,62 @@ end
 local TOOL_ICON = { mining = "INV_Pick_02", skinning = "INV_Weapon_ShortBlade_05", cloth = "Trade_Tailoring" }
 local function toolIcon(fam) local f = TCF.FAMILIES[fam]; return (f and f.toolIcon) or TOOL_ICON[fam] or "INV_Pick_02" end
 
--- skill-up colour of a crafting recipe, WoW style (matches TCF:ProfSkillUp's chances)
-local function skillColor(cur, need)
-  local gap = cur - (need or 1)
-  if gap < 25 then return "|cffff8040" elseif gap < 50 then return "|cffffff00" elseif gap < 75 then return "|cff40c040" end
-  return "|cff808080"
+-- skill-up colour of a recipe, spot, seed or bandage, WoW style (TCF:ProfSkillUp's own bands)
+local function skillColor(cur, need) return (TCF.SkillUpColor(cur, need)) end
+-- one tooltip line: "Still teaches you: often", in its colour
+local function addTeachLine(tt, cur, need)
+  local line, col = TCF.SkillUpLine(cur, need)
+  tt:AddLine(col .. line .. "|r")
 end
+TCF.UI.AddTeachLine = addTeachLine
 
 -- where the pole tip of the cartoon fishing pole sits on the cat's 512-unit canvas
 -- (Art/v/k_wpn_fishpole_f, main hand, resting paw lifted by 44 units)
 local POLE_TIP_X, POLE_TIP_Y, PAW_LIFT = 470, 108, 44
+
+-- 1.6: the round Professions button in the main window's header, next to the Casino (coin) and
+-- Settings (cog) icons. It shows the cat's own profession (Mining, Skinning or Tailoring) and opens
+-- the Professions tab. A glitched spot (the patch secret) makes it flicker purple.
+function TCF.UI.ProfQuickButton(win, after, open)
+  local b = CreateFrame("Button", nil, win)
+  b:SetSize(26, 26)
+  b:SetPoint("LEFT", after, "RIGHT", 6, 0)
+  b.ic = b:CreateTexture(nil, "ARTWORK"); b.ic:SetAllPoints(); b.ic:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetPoint("TOPLEFT", -3, 3); b.sel:SetPoint("BOTTOMRIGHT", 3, -3)
+  b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD"); b.sel:Hide()
+  local function update()
+    local f = TCF.db and TCF.FAMILIES[TCF:MainProf()]
+    local icon = f and f.icon or "Trade_Mining"
+    if b.icon ~= icon then b.icon = icon; b.ic:SetTexture(TCF.Icon(icon)) end
+    local onTab = win.tab and win.tabNames and win.tabNames[win.tab] == "Professions"
+    if (b.sel:IsShown() and true or false) ~= (onTab and true or false) then b.sel:SetShown(onTab) end
+    local g = TCF.Glitch and TCF:Glitch()
+    b.ic:SetVertexColor(1, g and (0.5 + 0.5 * math.sin(GetTime() * 10)) or 1, 1)
+  end
+  local acc = 0
+  b:SetScript("OnUpdate", function(_, e) acc = acc + e; if acc > 0.1 then acc = 0; update() end end)
+  b:SetScript("OnShow", update)
+  b:SetScript("OnClick", function() open(); TCF:PlaySound("click"); update() end)
+  TCF.UI.Tip(b, function(tt)
+    local f = TCF.FAMILIES[TCF:MainProf()]
+    tt:AddLine("Professions", 1, 0.82, 0)
+    -- only what this cat has learned (the gathering skill's own name, so cloth cats don't read "Tailoring" twice)
+    local have, later = { f.skillName or f.name }, {}
+    if f.craftName and f.craftName ~= have[1] then have[#have + 1] = f.craftName end
+    for _, p in ipairs(TCF.PROFESSIONS) do
+      if not p.family then
+        local list = TCF:ProfUnlocked(p.key) and have or later
+        list[#list + 1] = p.name
+      end
+    end
+    local function join(t) return #t > 1 and (table.concat(t, ", ", 1, #t - 1) .. " and " .. t[#t]) or (t[1] or "") end
+    tt:AddLine("Your " .. join(have) .. ".", 1, 1, 1, true)
+    if #later > 0 then tt:AddLine("Learned later: " .. join(later) .. ".", 0.7, 0.7, 0.7, true) end
+  end)
+  update()
+  return b
+end
 
 TCF.UI.Builders.professions = function(page, win)
   local U = TCF.UI
@@ -148,6 +194,33 @@ TCF.UI.Builders.professions = function(page, win)
     tt:AddLine("Click to switch between buying 1, 10, 100 or as many as you can afford with each Buy button.", 1, 1, 1, true)
   end)
 
+  -- a label that would run past its button (or set width) switches to the small font; measured in
+  -- the client's own font, so nothing changes where it already fits
+  -- the text's full width on one line (GetUnboundedStringWidth where the client has it)
+  local function textWidth(fs)
+    if not fs then return nil end
+    local w = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+    if type(w) ~= "number" then w = fs.GetStringWidth and fs:GetStringWidth() end
+    return w
+  end
+  local function fitText(obj)
+    local btn = obj.GetFontString and true or false
+    local fs = btn and obj:GetFontString() or obj
+    local w = textWidth(fs)
+    local room = obj.GetWidth and obj:GetWidth()
+    if type(w) ~= "number" or type(room) ~= "number" or room <= 0 then return end
+    if obj.fitSmall then w = w * 1.2 end   -- the normal font is about 12/10 of the small one
+    local small = w > room - (btn and 14 or 2)
+    if small == (obj.fitSmall or false) then return end
+    obj.fitSmall = small
+    if btn then
+      obj:SetNormalFontObject(small and "GameFontNormalSmall" or "GameFontNormal")
+      obj:SetHighlightFontObject(small and "GameFontHighlightSmall" or "GameFontHighlight")
+      obj:SetDisabledFontObject(small and "GameFontDisableSmall" or "GameFontDisable")
+    else
+      obj:SetFontObject(small and "GameFontNormalSmall" or "GameFontNormal")
+    end
+  end
   local function View() local f = CreateFrame("Frame", nil, page); f:SetPoint("TOPLEFT", 0, -76); f:SetPoint("BOTTOMRIGHT"); f:Hide(); return f end
 
   ------------------------------------------------ locked
@@ -156,18 +229,22 @@ TCF.UI.Builders.professions = function(page, win)
 
   ------------------------------------------------ main profession: gathering spots
   -- Veins (ore icon), Hunting Grounds and Cloth Spots (the creature's 3D model in its box)
+  -- 1.6: up to 9 spots per family in 6 rows; the mouse wheel (or the arrows below) scrolls them.
+  -- Each row shows spot r.spot (set in refreshSpots from win.spotScroll).
   local spotView = View()
   local rows = {}
   local BOX_W, BOX_H = 92, 54
-  for i = 1, 6 do
+  local SPOT_ROWS = 6
+  for i = 1, SPOT_ROWS do
     local r = Panel(spotView, 532, 58, 0.85); r:SetPoint("TOP", 0, -(i - 1) * 61)
+    r.spot = i
     -- the picture box: click it to run one cycle
     r.box = CreateFrame("Button", nil, r, U.BT); r.box:SetSize(BOX_W, BOX_H); r.box:SetPoint("LEFT", 2, 0)
     if r.box.SetBackdrop then
       r.box:SetBackdrop(U.BACKDROP_PANEL); r.box:SetBackdropColor(0.10, 0.12, 0.16, 1); r.box:SetBackdropBorderColor(0.45, 0.40, 0.55, 1)
     end
     r.box:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    r.box:SetScript("OnClick", function() TCF:RunOp(FAM(), i); TCF:PlaySound("click"); win:Refresh() end)
+    r.box:SetScript("OnClick", function() TCF:RunOp(FAM(), r.spot); TCF:PlaySound("click"); win:Refresh() end)
     r.icon = r.box:CreateTexture(nil, "ARTWORK"); r.icon:SetSize(44, 44); r.icon:SetPoint("CENTER")
     -- the model fills the box (inside its border) and is pulled back so the whole creature fits:
     -- WoW cuts a model off at its frame's edges
@@ -184,16 +261,25 @@ TCF.UI.Builders.professions = function(page, win)
     r.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); r.sel:SetBlendMode("ADD"); r.sel:Hide()
     Tip(r.box, function(tt)
       local f = FT()
+      local i = r.spot
       local o, st = f.ops[i], TCF:ProfState().ops[FAM()][i]
       tt:AddLine(o[1], 1, 0.82, 0)
+      local open, why = TCF:SpotUnlocked(FAM(), i)
+      if not open then tt:AddLine(why, 1, 0.5, 0.3, true); tt:AddLine("Gives " .. o[3] .. ".", 0.8, 0.8, 0.8); return end
+      local g = TCF:Glitch()
+      if g and g.fam == FAM() and g.i == i then
+        tt:AddLine(string.format("Something is wrong with it. Work it by hand while it lasts (%ds).", TCF:GlitchLeft()), 0.8, 0.4, 1, true)
+      end
       tt:AddLine(string.format("Gives %s. You own %d.", o[3], st.n), 1, 1, 1)
+      if TCF.MatUsedInRecipe and not TCF.MatUsedInRecipe(o[2]) then tt:AddLine(o[3] .. " is not used in any recipe yet.", 0.7, 0.7, 0.7, true) end
+      addTeachLine(tt, TCF:ProfSkill(FAM()), TCF.SpotDifficulty(i))
       if st.n > 0 and not st.mgr then tt:AddLine(string.format("Click to %s one cycle.", f.verb:lower()), 0, 1, 0) end
       if st.mgr then tt:AddLine(string.format("Your %s works it on its own.", f.hire:lower()), 0.6, 1, 0.6) end
     end)
     r.name = Text(r, "GameFontNormal", nil, "LEFT"); r.name:SetPoint("TOPLEFT", r.box, "TOPRIGHT", 8, -2); r.name:SetWidth(258)
     if r.name.SetWordWrap then r.name:SetWordWrap(false) end
     r.bar = Bar(r, 258, 16, 0.25, 0.75, 0.3); r.bar:SetPoint("LEFT", r.box, "RIGHT", 8, 0)
-    r.bar:EnableMouse(true); r.bar:SetScript("OnMouseUp", function() TCF:RunOp(FAM(), i); win:Refresh() end)
+    r.bar:EnableMouse(true); r.bar:SetScript("OnMouseUp", function() TCF:RunOp(FAM(), r.spot); win:Refresh() end)
     r.info = Text(r, "GameFontDisableSmall", nil, "LEFT"); r.info:SetPoint("BOTTOMLEFT", r.box, "BOTTOMRIGHT", 8, 2); r.info:SetWidth(258)
     if r.info.SetWordWrap then r.info:SetWordWrap(false) end
     -- the hand tool: click to gather by hand
@@ -212,7 +298,7 @@ TCF.UI.Builders.professions = function(page, win)
     end)
     r.pick.cd = CreateFrame("Cooldown", nil, r.pick, "CooldownFrameTemplate"); r.pick.cd:SetAllPoints()
     r.pick:SetScript("OnClick", function()
-      local fam = FAM()
+      local fam, i = FAM(), r.spot
       if TCF:GatherClick(fam, i) then
         -- one tool per family: every spot's button shows the same cooldown
         for _, row in ipairs(rows) do if row.pick.cd.SetCooldown then row.pick.cd:SetCooldown(GetTime(), TCF:ToolCooldown(fam)) end end
@@ -225,7 +311,7 @@ TCF.UI.Builders.professions = function(page, win)
       end
     end)
     Tip(r.pick, function(tt)
-      local fam, f = FAM(), FT()
+      local fam, f, i = FAM(), FT(), r.spot
       tt:AddLine(TCF:ToolName(fam), 1, 0.82, 0)
       -- show what a click really pays against a full cycle (the first spot's starter floor can beat the share)
       local cycle = TCF:OpRevenue(fam, i)
@@ -236,16 +322,19 @@ TCF.UI.Builders.professions = function(page, win)
         f.verb:lower(), f.ops[i][1], TCF.GoldStr(gold), floor(share * 100 + 0.5), f.spotNounPlural, TCF.PICK_ORE_CHANCE * 100,
         f.matNoun, rolls > 1 and (" (x" .. rolls .. " rolls)") or ""), 1, 1, 1, true)
       tt:AddLine(string.format("One click every %.2fs.", TCF:ToolCooldown(fam)), 0.7, 0.7, 0.7)
+      addTeachLine(tt, TCF:ProfSkill(fam), TCF.SpotDifficulty(i))
       tt:AddLine(string.format("Upgrade your %s with the button below the %s.", f.toolNoun:lower(), f.spotNounPlural), 0.7, 0.7, 0.7, true)
     end)
-    r.buy = Button(r, "Buy", 112, 22, function() TCF:BuyOp(FAM(), i, TCF:ProfState().buy); win:Refresh() end)
+    r.buy = Button(r, "Buy", 112, 22, function() TCF:BuyOp(FAM(), r.spot, TCF:ProfState().buy); win:Refresh() end)
     r.buy:SetPoint("TOPRIGHT", -6, -6)
     Tip(r.buy, function(tt)
       local f = FT()
-      tt:AddLine("Buy " .. f.ops[i][1], 1, 0.82, 0)
+      tt:AddLine("Buy " .. f.ops[r.spot][1], 1, 0.82, 0)
+      local open, why = TCF:SpotUnlocked(FAM(), r.spot)
+      if not open then tt:AddLine(why, 1, 0.5, 0.3, true) end
       tt:AddLine("Each one you own adds to the gold of every cycle here. Owning 25, 50, 100 and more makes the cycle twice as fast each time.", 1, 1, 1, true)
     end)
-    r.mgr = Button(r, "", 112, 20, function() TCF:HireForeman(FAM(), i); win:Refresh() end)
+    r.mgr = Button(r, "", 112, 20, function() TCF:HireForeman(FAM(), r.spot); win:Refresh() end)
     r.mgr:SetPoint("BOTTOMRIGHT", -6, 6)
     Tip(r.mgr, function(tt)
       local f = FT()
@@ -255,18 +344,33 @@ TCF.UI.Builders.professions = function(page, win)
     rows[i] = r
   end
   -- one hand tool for every spot of the family, upgraded forever
-  local toolBtn = Button(spotView, "", 262, 24, function() TCF:UpgradeTool(FAM()); win:Refresh() end)
+  local toolBtn = Button(spotView, "", 196, 24, function() TCF:UpgradeTool(FAM()); win:Refresh() end)
   toolBtn:SetPoint("TOPLEFT", 14, -6 * 61 - 2)
+  -- 1.6 Hand speed: its own upgrade, kept when the business is sold
+  local speedBtn = Button(spotView, "", 180, 24, function() if TCF:UpgradeSpeed(FAM()) then TCF:PlaySound("buy") end; win:Refresh() end)
+  speedBtn:SetPoint("LEFT", toolBtn, "RIGHT", 6, 0)
+  Tip(speedBtn, function(tt)
+    local fam, f = FAM(), FT()
+    local lvl = TCF:SpeedLevel(fam)
+    tt:AddLine(string.format("Hand speed (level %d of %d)", lvl, TCF.SPEED_MAX), 1, 0.82, 0)
+    tt:AddLine(string.format("You work faster by hand on every %s: one click every %.2fs (%.1f a second).",
+      f.spotNoun, TCF:ToolCooldown(fam), TCF:ClicksPerSecond(fam)), 1, 1, 1, true)
+    local cost = TCF:SpeedCost(fam)
+    if cost then
+      tt:AddLine(string.format("Next level: one click every %.2fs (%.1f a second) for %s.", TCF:ToolCooldown(fam, nil, lvl + 1),
+        TCF:ClicksPerSecond(fam, nil, lvl + 1), TCF.GoldStr(cost)), 0.2, 1, 0.2, true)
+    else tt:AddLine("Fully upgraded.", 0.2, 1, 0.2) end
+    tt:AddLine(string.format("Each level costs a lot more than the last. Upgrading your %s also shortens the click a little. With a well upgraded %s, clicks can get down to 0.25s.", f.toolNoun:lower(), f.toolNoun:lower()), 0.7, 0.7, 0.7, true)
+    tt:AddLine("Kept when you sell the business.", 1, 0.82, 0, true)
+  end)
   local spotHint = Text(spotView, "GameFontDisableSmall", nil, "LEFT")
-  spotHint:SetPoint("TOPLEFT", toolBtn, "TOPRIGHT", 10, 2); spotHint:SetWidth(250)
-  local perClass = Text(spotView, "GameFontDisableSmall", PER_CLASS, "LEFT")
-  perClass:SetPoint("TOPLEFT", toolBtn, "BOTTOMLEFT", 2, -4); perClass:SetWidth(262)
+  spotHint:SetPoint("TOPLEFT", toolBtn, "BOTTOMLEFT", 2, -4); spotHint:SetWidth(520)
   Tip(toolBtn, function(tt)
     local fam, f = FAM(), FT()
     tt:AddLine("Upgrade your " .. f.toolNoun:lower(), 1, 0.82, 0)
     tt:AddLine(string.format("%s -> Lv %d: each click is worth 15%% more of a %s's cycle, on every %s.", TCF:ToolName(fam), TCF:ToolLevel(fam) + 1,
       f.spotNoun, f.spotNoun), 1, 1, 1, true)
-    tt:AddLine(string.format("Every 15 levels also adds another roll for %s. Click cooldown: %.2fs (shortens a little each level).", f.matNoun,
+    tt:AddLine(string.format("Every 15 levels also adds another roll for %s. Click cooldown: %.2fs (shortens a little each level, down to 0.75s; Hand speed shortens it more).", f.matNoun,
       TCF:ToolCooldown(fam)), 0.7, 0.7, 0.7, true)
   end)
 
@@ -310,29 +414,97 @@ TCF.UI.Builders.professions = function(page, win)
       end
     end
   end)
+  -- which spots the rows show: rows start at spot win.spotScroll + 1
+  local function spotTotal() return TCF:SpotCount() end
+  local function placeRows(fam, force)
+    local f = TCF.FAMILIES[fam]
+    local off = min(max(0, win.spotScroll or 0), max(0, spotTotal() - SPOT_ROWS))
+    win.spotScroll = off
+    for k, r in ipairs(rows) do
+      local i = off + k
+      if force or r.spot ~= i or r.spotFam ~= fam then
+        r.spot, r.spotFam = i, fam
+        setSpotPicture(r, f.ops[i]); r.pick.tex:SetTexture(TCF.Icon(toolIcon(fam)))
+        r.popT = nil; r.pop:Hide()
+      end
+    end
+  end
+  local spotPage = Text(spotView, "GameFontHighlightSmall", nil, "CENTER")
+  local spotUp = Button(spotView, "<", 26, 22, function() win.spotScroll = (win.spotScroll or 0) - 3; TCF:PlaySound("click"); win:Refresh() end)
+  local spotDown = Button(spotView, ">", 26, 22, function() win.spotScroll = (win.spotScroll or 0) + 3; TCF:PlaySound("click"); win:Refresh() end)
+  spotDown:SetPoint("TOPRIGHT", spotView, "TOPRIGHT", -14, -6 * 61 - 2)
+  spotPage:SetPoint("RIGHT", spotDown, "LEFT", -4, 0); spotPage:SetWidth(64)
+  spotUp:SetPoint("RIGHT", spotPage, "LEFT", -4, 0)
+  for _, b in ipairs({ spotUp, spotDown }) do
+    Tip(b, function(tt)
+      tt:AddLine("More " .. FT().spotNounPlural, 1, 0.82, 0)
+      tt:AddLine("Scroll with the mouse wheel too. The later ones open up as your business grows.", 1, 1, 1, true)
+    end)
+  end
+  spotView:EnableMouseWheel(true)
+  spotView:SetScript("OnMouseWheel", function(_, d) win.spotScroll = (win.spotScroll or 0) - d; win:Refresh() end)
   local function enterSpots(fam)
     local f = TCF.FAMILIES[fam]
-    for i, r in ipairs(rows) do setSpotPicture(r, f.ops[i]); r.pick.tex:SetTexture(TCF.Icon(toolIcon(fam))) end
-    spotHint:SetText(f.clickHint or "")
+    -- open on the newest spot this cat owns
+    local s, top = TCF:ProfState(), 1
+    for i = 1, spotTotal() do if s.ops[fam][i] and s.ops[fam][i].n > 0 then top = i end end
+    if top < spotTotal() and TCF:SpotUnlocked(fam, top + 1) then top = top + 1 end
+    win.spotScroll = max(0, top - SPOT_ROWS)
+    placeRows(fam, true)
+    spotView.clickHint = f.clickHint or ""
   end
 
   local function refreshSpots(fam)
     local f = TCF.FAMILIES[fam]
     local s = TCF:ProfState()
     local cost = TCF:ToolCost(fam)
-    toolBtn:SetText(string.format("Upgrade %s  %s", f.toolNoun, TCF.GoldStr(cost, 10)))
+    -- the last word of the tool ("Knife" for the Skinning Knife) keeps the label inside the button
+    toolBtn:SetText(string.format("Upgrade %s  %s", f.toolNoun:match("(%S+)$") or f.toolNoun, TCF.GoldStr(cost, 10)))
+    fitText(toolBtn)
     toolBtn:SetEnabled(s.gold >= cost)
+    local slvl, scost = TCF:SpeedLevel(fam), TCF:SpeedCost(fam)
+    if scost then speedBtn:SetText(string.format("Hand speed %d  %s", slvl + 1, TCF.GoldStr(scost, 10))); speedBtn:SetEnabled(s.gold >= scost)
+    else speedBtn:SetText("|cff20ff20Hand speed max|r"); speedBtn:SetEnabled(false) end
+    fitText(speedBtn)
+    -- a new cat sees how spots work; after that, how fast it clicks by hand
+    local owned = false
+    for i = 1, #s.ops[fam] do if s.ops[fam][i].n > 0 then owned = true; break end end
+    if not owned then spotHint:SetText(spotView.clickHint or "")
+    else
+      local nextTxt = scost and string.format(" (%.1f with the next Hand speed level)", TCF:ClicksPerSecond(fam, nil, slvl + 1)) or ""
+      spotHint:SetText(string.format("By hand: %.1f clicks a second%s. Hand speed is kept when you sell the business.", TCF:ClicksPerSecond(fam), nextTxt))
+    end
     local lvl = TCF:ToolLevel(fam)
-    for i, r in ipairs(rows) do
+    local gskill = TCF:ProfSkill(fam)
+    placeRows(fam)
+    local total = spotTotal()
+    vis(spotPage, total > SPOT_ROWS); vis(spotUp, total > SPOT_ROWS); vis(spotDown, total > SPOT_ROWS)
+    spotPage:SetText(string.format("%d-%d of %d", win.spotScroll + 1, win.spotScroll + SPOT_ROWS, total))
+    spotUp:SetEnabled(win.spotScroll > 0); spotDown:SetEnabled(win.spotScroll < total - SPOT_ROWS)
+    local glitch = TCF:Glitch()
+    for _, r in ipairs(rows) do
+      local i = r.spot
       local o, st = f.ops[i], s.ops[fam][i]
+      local open, why = TCF:SpotUnlocked(fam, i)
+      local glitched = glitch and glitch.fam == fam and glitch.i == i
       if r.icon:IsShown() then r.icon:SetDesaturated(st.n == 0) end
       if r.model:IsShown() and r.model.SetAlpha then r.model:SetAlpha(st.n == 0 and 0.5 or 1) end
       r.count:SetText(st.n > 0 and st.n or "")
-      r.name:SetText(o[1])
+      if glitched then
+        -- the patch secret: the row's name flickers while the spot is glitched
+        r.name:SetText((math.sin(GetTime() * 18) > 0 and "|cffcc66ff" or "|cff66ffee") .. o[1] .. "?|r")
+      elseif not open then r.name:SetText("|cff777777" .. o[1] .. "|r")
+      else r.name:SetText(skillColor(gskill, TCF.SpotDifficulty(i)) .. o[1] .. "|r") end
       local ct = TCF:OpCycleTime(fam, i)
       r.bar:SetMinMaxValues(0, 1)
       local idle = false
-      if st.n > 0 then
+      if glitched then
+        r.bar:SetValue(TCF:GlitchLeft() / TCF.GLITCH_SECONDS)
+        r.bar.text:SetText(string.format("|cffcc66ffWork it by hand: %ds|r", TCF:GlitchLeft()))
+      elseif not open then
+        r.bar:SetValue(0)
+        r.bar.text:SetText("|cff999999Opens later (hover for how)|r")
+      elseif st.n > 0 then
         r.bar:SetValue(st.mgr and (ct < 0.3 and 1 or st.p) or (st.run and st.p or 0))
         idle = not st.mgr and not st.run
         if idle then
@@ -356,7 +528,8 @@ TCF.UI.Builders.professions = function(page, win)
       r.pick.count:SetText(lvl > 0 and lvl or "")
       local count = s.buy == "max" and max(1, TCF:OpMaxBuy(fam, i)) or s.buy
       local bcost = TCF:OpCost(fam, i, count)
-      r.buy:SetText("x" .. count .. "  " .. TCF.GoldStr(bcost, 10)); r.buy:SetEnabled(s.gold >= bcost)
+      if open then r.buy:SetText("x" .. count .. "  " .. TCF.GoldStr(bcost, 10)); r.buy:SetEnabled(s.gold >= bcost)
+      else r.buy:SetText("|cff888888Locked|r"); r.buy:SetEnabled(false) end
       local fcost = TCF.PROF_OPS[i].foreman
       if st.mgr then r.mgr:SetText("|cff20ff20Automated|r"); r.mgr:SetEnabled(false)
       else r.mgr:SetText(f.hire .. " " .. TCF.GoldStr(fcost, 10)); r.mgr:SetEnabled(st.n > 0 and s.gold >= fcost) end
@@ -380,7 +553,7 @@ TCF.UI.Builders.professions = function(page, win)
     local list, total = {}, 0
     for _, u in ipairs(TCF.UPGRADES[fam] or {}) do
       total = total + 1
-      if not s.upgrades[u.id] then list[#list + 1] = u end
+      if not s.upgrades[u.id] and (u.op == 0 or TCF:SpotUnlocked(fam, u.op)) then list[#list + 1] = u end
     end
     for i, r in ipairs(urows) do
       local u = list[i]; r.u = u
@@ -390,8 +563,10 @@ TCF.UI.Builders.professions = function(page, win)
         r.buy:SetText(TCF.GoldStr(u.cost, 10)); r.buy:SetEnabled(s.gold >= u.cost)
       end
     end
-    upgNote:SetText(#list == 0 and "|cff20ff20Every upgrade bought.|r"
-      or string.format("%d of %d upgrades bought.", total - #list, total))
+    local bought = 0
+    for _, u in ipairs(TCF.UPGRADES[fam] or {}) do if s.upgrades[u.id] then bought = bought + 1 end end
+    upgNote:SetText(bought >= total and "|cff20ff20Every upgrade bought.|r"
+      or string.format("%d of %d upgrades bought.%s", bought, total, #list + bought < total and " More come with the later spots." or ""))
   end
 
   ------------------------------------------------ Herbalism: garden
@@ -410,7 +585,8 @@ TCF.UI.Builders.professions = function(page, win)
     Tip(b, function(tt)
       tt:AddLine(sd[2] .. " seeds", 1, 0.82, 0)
       tt:AddLine(string.format("Grows in %s. Seed: %s. Sells for %s per herb.", TCF.FormatDuration(sd[4]), TCF.GoldStr(sd[5]), TCF.GoldStr(sd[6])), 1, 1, 1, true)
-      if TCF:ProfSkill("herbalism") < sd[7] then tt:AddLine("Needs Herbalism " .. sd[7], 1, 0.3, 0.3) end
+      if TCF:ProfSkill("herbalism") < sd[7] then tt:AddLine("Needs Herbalism " .. sd[7], 1, 0.3, 0.3)
+      else addTeachLine(tt, TCF:ProfSkill("herbalism"), sd.teach or sd[7]) end
     end)
     b.seed = sd
     seedBtns[i] = b
@@ -509,6 +685,12 @@ TCF.UI.Builders.professions = function(page, win)
     r.m5 = Button(r, "Make 5", 66, 20, function() TCF:QueueBandages(bd[1], 5); win:Refresh() end); r.m5:SetPoint("RIGHT", -76, 0)
     r.m20 = Button(r, "Make 20", 68, 20, function() TCF:QueueBandages(bd[1], 20); win:Refresh() end); r.m20:SetPoint("RIGHT", -4, 0)
     r.bd = bd
+    r:EnableMouse(true)
+    Tip(r, function(tt)
+      tt:AddLine(bd[2], 1, 0.82, 0)
+      local sk = TCF:ProfSkill("firstaid")
+      if sk < bd[7] then tt:AddLine("Needs First Aid " .. bd[7], 1, 0.3, 0.3) else addTeachLine(tt, sk, bd.teach or bd[7]) end
+    end)
     brows[i] = r
   end
   local aUps = {}
@@ -543,7 +725,7 @@ TCF.UI.Builders.professions = function(page, win)
       local bd = r.bd
       local can = skill >= bd[7]
       r.icon:SetDesaturated(not can)
-      r.name:SetText(string.format("%s%s|r  |cff999999heals %d%%, %d %s%s|r", can and "|cffffffff" or "|cff777777", bd[2], bd[8] * 100, bd[5],
+      r.name:SetText(string.format("%s%s|r  |cff999999heals %d%%, %d %s%s|r", can and skillColor(skill, bd.teach or bd[7]) or "|cff777777", bd[2], bd[8] * 100, bd[5],
         TCF.MAT_BY_KEY[bd[4]].name, can and "" or (", skill " .. bd[7])))
       r.stock:SetText((s.mats[bd[1]] or 0) > 0 and ("x" .. (s.mats[bd[1]] or 0)) or "")
       r.m5:SetEnabled(can); r.m20:SetEnabled(can)
@@ -643,7 +825,8 @@ TCF.UI.Builders.professions = function(page, win)
       local names = {}
       for _, k in ipairs(sp.fish) do names[#names + 1] = TCF.MAT_BY_KEY[k].name end
       tt:AddLine(table.concat(names, ", "), 1, 1, 1, true)
-      if TCF:ProfSkill("fishing") < sp.skill then tt:AddLine("Needs Fishing " .. sp.skill, 1, 0.3, 0.3) end
+      if TCF:ProfSkill("fishing") < sp.skill then tt:AddLine("Needs Fishing " .. sp.skill, 1, 0.3, 0.3)
+      else addTeachLine(tt, TCF:ProfSkill("fishing"), sp.teach or sp.skill) end
     end)
     b.spot = sp
     spotBtns[i] = b
@@ -823,6 +1006,12 @@ TCF.UI.Builders.professions = function(page, win)
     row.chef = Button(row, "Chef", 64, 18, function() TCF:CookState().chefRecipe = r[1]; win:Refresh() end); row.chef:SetPoint("RIGHT", -4, 0)
     Tip(row.chef, function(tt) tt:AddLine("Sous-chef recipe", 1, 0.82, 0); tt:AddLine("Your sous-chef keeps cooking this one (needs the Sous-Chef upgrade).", 1, 1, 1, true) end)
     row.r = r
+    row:EnableMouse(true)
+    Tip(row, function(tt)
+      local sk = TCF:ProfSkill("cooking")
+      tt:AddLine(TCF:CookState().known[r[1]] and r[2] or "Unknown recipe", 1, 0.82, 0)
+      if sk < r[5] then tt:AddLine("Needs Cooking " .. r[5], 1, 0.3, 0.3) else addTeachLine(tt, sk, r.teach or r[5]) end
+    end)
     crows[i] = row
   end
   local cUps = {}
@@ -861,7 +1050,7 @@ TCF.UI.Builders.professions = function(page, win)
       local known = c.known[r[1]]
       row.icon:SetTexture(TCF.Icon(known and r[3] or "INV_Misc_QuestionMark")); row.icon:SetDesaturated(not known)
       if known then
-        row.name:SetText(string.format("|cffffffff%s|r  |cff999999+%d%% %s, %dm|r", r[2], r[7] * 100, TCF.BUFF_TEXT[r[6]], r[8]))
+        row.name:SetText(string.format("%s%s|r  |cff999999+%d%% %s, %dm|r", skill >= r[5] and skillColor(skill, r.teach or r[5]) or "|cff888888", r[2], r[7] * 100, TCF.BUFF_TEXT[r[6]], r[8]))
       else
         row.name:SetText(string.format("|cff888888??? (%d ingredients, skill %d): %s|r", #r[4], r[5], r[9]))
       end
@@ -881,8 +1070,10 @@ TCF.UI.Builders.professions = function(page, win)
   -- Scroll with the mouse wheel or the arrow buttons.
   local craftView = View()
   local CROWS = 7
-  local craftHead = Text(craftView, "GameFontNormal", nil, "LEFT"); craftHead:SetPoint("TOPLEFT", 14, -2); craftHead:SetWidth(300)
+  local craftHead = Text(craftView, "GameFontNormal", nil, "LEFT"); craftHead:SetPoint("TOPLEFT", 14, -2); craftHead:SetWidth(282)
+  if craftHead.SetWordWrap then craftHead:SetWordWrap(false) end
   local craftLegend = Text(craftView, "GameFontDisableSmall", nil, "RIGHT"); craftLegend:SetPoint("TOPRIGHT", -14, -4); craftLegend:SetWidth(240)
+  if craftLegend.SetWordWrap then craftLegend:SetWordWrap(false) end
   local crafts = {}
   local craftList = {}
   local powerCache = {}
@@ -919,6 +1110,10 @@ TCF.UI.Builders.professions = function(page, win)
         1, 1, 1, have >= need and 0.2 or 1, have >= need and 1 or 0.3, have >= need and 0.2 or 0.3)
     end
     if rec.gear then GameTooltip:AddLine("Crafted gear goes straight into your bag.", 0.7, 0.7, 0.7, true) end
+    if rec.starter then
+      local done, total = TCF:StarterProgress(rec.prof)
+      GameTooltip:AddLine(string.format("Starter set (%d/%d made): a cheap white piece for each slot, so a new cat can wear a full crafted set.", done, total), 0.88, 0.75, 0.5, true)
+    end
     GameTooltip:Show()
   end
   local function recipeLeave()
@@ -965,12 +1160,7 @@ TCF.UI.Builders.professions = function(page, win)
       if why then tt:AddLine(why, 1, 0.3, 0.3, true)
       elseif not TCF:CanCraft(rec) then tt:AddLine("You don't have enough materials yet.", 1, 0.3, 0.3, true)
       else tt:AddLine(rec.gear and "Uses the materials and puts the item in your bag." or "Uses the materials and adds it to your collection.", 1, 1, 1, true) end
-      if TCF.CRAFT_FAMILY[rec.prof] then
-        local cur = TCF:ProfSkill(rec.prof)
-        local gap = cur - (rec.skill or 1)
-        local chance = cur >= 300 and "no more (skill is maxed)" or gap < 25 and "always" or gap < 50 and "often" or gap < 75 and "sometimes" or "rarely"
-        tt:AddLine("Raises your skill: " .. chance .. ".", 0.7, 0.7, 0.7)
-      end
+      if TCF.CRAFT_FAMILY[rec.prof] then addTeachLine(tt, TCF:ProfSkill(rec.prof), rec.skill or 1) end
     end)
     crafts[i] = r
   end
@@ -985,6 +1175,8 @@ TCF.UI.Builders.professions = function(page, win)
   local function recipeLocked(rec)
     return rec.skill and TCF:ProfSkill(rec.prof) < rec.skill and true or false
   end
+  -- the starter set sits at the top while the crafting skill is low
+  local function starterFirst(key) return TCF.CRAFT_FAMILY[key] and TCF:ProfSkill(key) < TCF.STARTER_SET_SKILL end
   -- the sorted list: makeable first (by skill), then locked (by skill)
   local lastCraftSig
   local function buildCraftList(key)
@@ -1000,7 +1192,9 @@ TCF.UI.Builders.professions = function(page, win)
     for idx, rec in ipairs(TCF.RECIPES[key] or {}) do
       if TCF:RecipeItem(rec) then craftList[#craftList + 1] = { rec = rec, idx = idx, locked = recipeLocked(rec) } end
     end
+    local first = starterFirst(key)
     table.sort(craftList, function(a, b)
+      if first and (a.rec.starter and true or false) ~= (b.rec.starter and true or false) then return a.rec.starter and true or false end
       if a.locked ~= b.locked then return not a.locked end
       local sa, sb = a.rec.skill or 0, b.rec.skill or 0
       if sa ~= sb then return sa < sb end
@@ -1013,7 +1207,7 @@ TCF.UI.Builders.professions = function(page, win)
   -- opening the list scrolls to your newest recipes and the next ones to unlock
   local function enterCraft(key)
     local open = buildCraftList(key)
-    win.craftScroll = max(0, open - (CROWS - 2))
+    win.craftScroll = starterFirst(key) and 0 or max(0, open - (CROWS - 2))
   end
 
   local function refreshCraft(key)
@@ -1025,12 +1219,22 @@ TCF.UI.Builders.professions = function(page, win)
     if isCraft then
       local fam = TCF.CRAFT_FAMILY[key]
       local f = TCF.FAMILIES[fam]
-      craftHead:SetText(string.format("%s |cffffffff%d / 300|r    |cffaaaaaa%s %d / 300|r", f.craftName, skill, f.skillName or f.tab, TCF:ProfSkill(fam)))
-      craftLegend:SetText("Skill-up chance: |cffff8040sure|r  |cffffff00likely|r  |cff40c040low|r  |cff808080rare|r")
+      if starterFirst(key) then
+        local done, total = TCF:StarterProgress(key)
+        craftHead:SetText(string.format("%s |cffffffff%d / 300|r   %sStarter set %d/%d made|r", f.craftName, skill,
+          done >= total and "|cff20ff20" or "|cffffd100", done, total))
+      else
+        craftHead:SetText(string.format("%s |cffffffff%d / 300|r    |cffaaaaaa%s %d / 300|r", f.craftName, skill, f.skillName or f.tab, TCF:ProfSkill(fam)))
+      end
+      local legend = "|cffff8040always|r  |cffffff00often|r  |cff40c040sometimes|r  |cff70a070rarely|r  |cff808080no longer|r"
+      craftLegend:SetText("Teaches: " .. legend)
+      local lw = textWidth(craftLegend)
+      if type(lw) == "number" and lw > 238 then craftLegend:SetText(legend) end
     else
       craftHead:SetText(string.format("%s crafting  |cffffffff(skill %d / 300)|r", p and p.name or key, skill))
       craftLegend:SetText("Cosmetics change your cat's look only.")
     end
+    fitText(craftHead)
     local maxScroll = max(0, #craftList - CROWS)
     win.craftScroll = min(max(0, win.craftScroll or 0), maxScroll)
     local off = win.craftScroll
@@ -1059,7 +1263,7 @@ TCF.UI.Builders.professions = function(page, win)
           elseif n > 0 then note = "  |cff20ff20(you have " .. n .. ")|r" end
           r.name:SetText(col .. it.name .. "|r" .. skillTxt .. note)
           local summary = TCF.GearSummary and TCF.GearSummary(it) or ""
-          r.info:SetText(string.format("|cffffd100%d|r  %s %s%s  |cff999999%s|r", it.ilvl, TCF.ITEM_TYPE_NAMES[it.sub] or "",
+          r.info:SetText(string.format("%s|cffffd100%d|r  %s %s%s  |cff999999%s|r", rec.starter and "|cffe0c080Starter set|r  " or "", it.ilvl, TCF.ITEM_TYPE_NAMES[it.sub] or "",
             TCF.ITEM_SLOT_NAMES[it.slot] or "", (it.req or 0) > level and ("  |cffff9933level " .. it.req .. "|r") or "", summary))
           local d = (not lockedRow) and powerDelta(it) or nil
           if d then r.delta:SetText(d > 0 and ("|cff20ff20+" .. d .. "|r") or d < 0 and ("|cffff4040" .. d .. "|r") or "|cff999999=|r")
@@ -1119,7 +1323,7 @@ TCF.UI.Builders.professions = function(page, win)
       "|cffffd100Renown|r is permanent: each point adds +2%% to this cat's Trade Gold, so it earns faster.\n\n" ..
       "Current Renown: |cffffffff%d|r (highest ever %d)\nTrade Gold earned in total: |cffffffff%s|r\nRenown you'd gain by selling now: |cff20ff20%d|r  (+%d TapCoins)\n\n" ..
       "New professions unlock at Trade Gold earned in total (selling never lowers it): %s\n\nSelling resets this cat's Trade Gold, %s, %s, garden plots, %s, helpers and upgrades. " ..
-      "You keep skills, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
+      "You keep skills, Hand speed, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
       PER_CLASS, className(), s.renown, s.renownEver, TCF.GoldStr(s.lifetime, 12), gain, min(1000, gain * 3), table.concat(unlocks, ", "),
       FT().spotsTitle:lower(), FT().toolNoun:lower(), FT().hirePlural:lower()))
     renBtn:SetEnabled(gain >= 5)

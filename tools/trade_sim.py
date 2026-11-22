@@ -20,11 +20,24 @@
       --attentive: buys every 5 s and clicks the tool whenever it is ready (the best case).
       Crafting: always the gear recipe with the best skill-up chance, and among those the cheapest in
       hours of production; it also crafts after each idle stretch. Crafted gear is sold once a day
-      (Trade Gold). It never crafts grey recipes (75+ below its skill): a normal player stops making
-      those. --grinder also crafts grey recipes when they are cheaper per expected skill point, using
-      the grey chance measured from the real TCF:ProfSkillUp, to show what grinding greys is worth.
+      (Trade Gold). The skill-up chances are the real ones (TCF.SkillUpChance): grey recipes (50+
+      below its skill) never give a point since 1.6. --grinder also crafts grey recipes when they are
+      cheaper per expected skill point, using the grey chance measured from the real TCF:ProfSkillUp
+      (0 since 1.6, so it changes nothing now).
       No prestige is modelled (a prestige resets the spots, so a player who sells the business
       levels more slowly) and nothing else spends the materials (cosmetics, First Aid, Cooking).
+
+  python3 tools/trade_sim.py --speed [hours_online_per_day] [days] [--nospots] [--clicker] [--nospeed]
+      The long game with selling (1.6): one cat online N hours a day (default 2) for D days (default
+      42), idle the rest, buying greedily every 5 s, and selling the business at the end of a day
+      whenever the sale would at least double its Renown. Hand speed levels are bought when one
+      costs at most a quarter of the Trade Gold in hand. Prints, per week, Trade Gold earned in
+      total, Renown, sales, hand speed and the spots owned, and the day each hand speed level, each
+      later spot (7-9), each profession unlock and the materials for each Tailoring and First Aid
+      cosmetic (all gathered cloth kept, nothing else spends it) was reached. --nospots plays without spots 7-9
+      (the 1.5 economy) to compare. --clicker clicks the tool as fast as its cooldown allows for the
+      whole online time (an upper bound: nobody clicks for 2 hours straight). --nospeed never buys
+      hand speed.
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -91,7 +104,8 @@ function P.start(class, seed)
 end
 
 local function allAutomated()
-  for i = 1, 6 do local o = P.ops[i]; if o.n > 0 and not o.mgr then return false end end
+  if P.clicker then return false end   -- a clicker plays second by second
+  for i = 1, #P.ops do local o = P.ops[i]; if o.n > 0 and not o.mgr then return false end end
   return P.ops[1].n > 0
 end
 
@@ -99,8 +113,8 @@ end
 local function buy()
   local s, fam = P.s, P.fam
   for _, u in ipairs(TCF.UPGRADES[fam]) do if not s.upgrades[u.id] and u.cost <= s.gold then TCF:BuyUpgrade(u.id) end end
-  for i = 1, 6 do if not P.ops[i].mgr and P.ops[i].n > 0 then TCF:HireForeman(fam, i) end end
-  for i = 6, 1, -1 do TCF:BuyOp(fam, i, "max") end
+  for i = 1, #P.ops do if not P.ops[i].mgr and P.ops[i].n > 0 then TCF:HireForeman(fam, i) end end
+  for i = #P.ops, 1, -1 do TCF:BuyOp(fam, i, "max") end
 end
 
 -- online play for `sec` seconds. every = how often (seconds) the player looks at the Professions
@@ -116,12 +130,17 @@ function P.play(sec, onCheck, every, click)
     if click >= 1 or (done % 100) < click * 100 then
       -- the tool on the best spot owned (the first spot works from the start)
       local best = 1
-      for i = 6, 2, -1 do if P.ops[i].n > 0 then best = i; break end end
+      for i = #P.ops, 2, -1 do if P.ops[i].n > 0 then best = i; break end end
       TCF:GatherClick(fam, best)
+      -- P.clicker: clicks as fast as the cooldown allows (several clicks in one step)
+      if P.clicker then
+        local extra = math.floor(dt / TCF:ToolCooldown(fam)) - 1
+        for _ = 1, extra do TCF.toolNext[fam] = 0; TCF:GatherClick(fam, best) end
+      end
     end
     local check = done >= nextCheck
     if check or every <= 5 then
-      for i = 1, 6 do local o = P.ops[i]; if o.n > 0 and not o.mgr and not o.run then TCF:RunOp(fam, i) end end
+      for i = 1, #P.ops do local o = P.ops[i]; if o.n > 0 and not o.mgr and not o.run then TCF:RunOp(fam, i) end end
     end
     TCF:ProfAdvance(dt)
     done = done + dt; P.t = P.t + dt; P.online = P.online + dt
@@ -173,9 +192,9 @@ for _, r in ipairs(TCF.RECIPES[craft]) do if r.gear then recipes[#recipes + 1] =
 local tierOf = {}
 for i, o in ipairs(TCF.FAMILIES[P.fam].ops) do tierOf[o[2]] = i end
 local function chance(skill, need)
-  local gap = skill - need
-  if gap < 25 then return 1 elseif gap < 50 then return 0.5 elseif gap < 75 then return 0.25 end
-  return grinder and grey or 0
+  local c = TCF.SkillUpChance(skill, need)   -- the real curve (Professions.lua)
+  if c == 0 and grinder then return grey end
+  return c
 end
 local function matRate(tier)   -- materials a second from that spot (helper or not)
   local i = tier
@@ -241,6 +260,61 @@ out[#out + 1] = string.format("  %d crafts, skill %d after %d days; grey skill-u
 return table.concat(out, "\n"), marks[300] and marks[300][1] or -1
 '''
 
+SPEED = r'''
+local P = _SIMP
+local TCF = TapCatForever
+local online, days, nospots, clicker, nospeed = ...
+P.start("MAGE", 777)
+P.clicker = clicker
+local s, fam = P.s, P.fam
+if nospots then TCF.PROF_SPOTS_CAP = 6 end
+local hit, out = {}, {}
+local function mark(k) if not hit[k] then hit[k] = P.t / 86400 end end
+local function speedBuy()
+  while not nospeed do
+    local c = TCF:SpeedCost(fam)
+    if not c or c > s.gold * 0.25 then return end
+    TCF:UpgradeSpeed(fam)
+    mark("hand speed " .. TCF:SpeedLevel(fam))
+  end
+end
+local function spotsLine()
+  local n = {}
+  for i = 1, #P.ops do n[#n + 1] = P.ops[i].n end
+  return table.concat(n, "/")
+end
+local sales = 0
+for d = 1, days do
+  P.play(online * 3600, speedBuy, 5, 1)
+  speedBuy()
+  for i = 7, #P.ops do if P.ops[i].n > 0 then mark("spot " .. i) end end
+  -- when the materials gathered so far (nothing else spends them here) would pay for a cosmetic
+  for _, key in ipairs({ P.craft, "firstaid" }) do
+    for _, r in ipairs(TCF.RECIPES[key]) do
+      if r.cosmetic then
+        local ok = true
+        for m, n in pairs(r.mats) do if (s.mats[m] or 0) < n then ok = false end end
+        if ok then mark("materials for " .. TCF.ITEMS[r.item].name .. " (" .. key .. ")") end
+      end
+    end
+  end
+  for _, p in ipairs(TCF.PROFESSIONS) do if p.gold > 0 and s.lifetime >= p.gold then mark(p.name) end end
+  -- sell when it at least doubles the Renown
+  local gain = TCF:RenownOnReset()
+  if gain >= 5 and gain >= s.renown then TCF:PrestigeTrade(); sales = sales + 1 end
+  P.idle((24 - online) * 3600)
+  if d % 7 == 0 then
+    out[#out + 1] = string.format("  week %d: earned %s, Renown %d, %d sales, hand speed %d (%.2fs, %.1f clicks/s), spots %s",
+      d / 7, TCF.FormatBig(s.lifetime), s.renown, sales, TCF:SpeedLevel(fam), TCF:ToolCooldown(fam), TCF:ClicksPerSecond(fam), spotsLine())
+  end
+end
+local keys = {}
+for k, v in pairs(hit) do keys[#keys + 1] = k end
+table.sort(keys, function(a, b) return hit[a] < hit[b] end)
+for _, k in ipairs(keys) do out[#out + 1] = string.format("  day %5.1f  %s", hit[k], k) end
+return table.concat(out, "\n")
+'''
+
 CLASS_OF = {"blacksmithing": "WARRIOR", "leatherworking": "ROGUE", "tailoring": "MAGE"}
 
 
@@ -293,8 +367,24 @@ def run_craft(argv):
     return 0
 
 
+def run_speed(argv):
+    nums = [float(a) for a in argv if not a.startswith("--")]
+    online = nums[0] if nums else 2.0
+    days = int(nums[1]) if len(nums) > 1 else 42
+    nospots = "--nospots" in argv
+    lua = H.load_addon()
+    lua.execute(PLAYER)
+    f = lua.execute("return function(...) local f = assert(loadstring([==[" + SPEED + "]==])); return f(...) end")
+    print("One cat, %.1f h online a day for %d days, selling when it doubles its Renown%s%s%s:" % (online, days,
+          ", spots 1-6 only" if nospots else "", ", clicking nonstop" if "--clicker" in argv else "", ", no hand speed" if "--nospeed" in argv else ""))
+    print(f(online, days, nospots, "--clicker" in argv, "--nospeed" in argv))
+    return 0
+
+
 def main():
     argv = sys.argv[1:]
+    if "--speed" in argv:
+        return run_speed([a for a in argv if a != "--speed"])
     if "--parity" in argv:
         return run_parity([a for a in argv if a != "--parity"])
     if "--craft" in argv:

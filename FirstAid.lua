@@ -36,6 +36,8 @@ for _, b in ipairs(TCF.BANDAGES) do
   TCF.BANDAGE_BY_KEY[b[1]] = b
   TCF.AddMat(b[1], b[2], b[3], b[5], "firstaid")  -- worth the cloth it took
 end
+-- 1.6: skill-ups use each bandage's teach level (Professions.lua TCF.SetTeachLevels)
+TCF.SetTeachLevels(TCF.BANDAGES, function(b) return b[7] end, function(b, t) b.teach = t end)
 TCF.BANDAGE_COOLDOWN = 20
 
 TCF.AID_UPGRADES = {
@@ -100,7 +102,7 @@ TCF.MEDIC_STOCK = 100
 local function ownsClothSpots(s)
   local ops = s.ops and s.ops.cloth
   if not ops then return false end
-  for i = 1, 6 do if ops[i] and (ops[i].n or 0) > 0 then return true end end
+  for i = 1, #ops do if ops[i] and (ops[i].n or 0) > 0 then return true end end
   return false
 end
 local function stocked(self, s, b)
@@ -148,7 +150,7 @@ local function advance(self, dt, offline)
         s.mats[b[1]] = (s.mats[b[1]] or 0) + 1
         a.queue.p = 0
         a.queue.left = a.queue.left - 1
-        self:ProfSkillUp("firstaid", b[7])
+        self:ProfSkillUp("firstaid", b.teach or b[7])
       end
     end
   end

@@ -769,6 +769,9 @@ function TCF:CreateWindow()
     local p = CreateFrame("Frame", nil, right); p:SetAllPoints(); p:Hide()
     pages[i] = p
   end
+  -- 1.6: a round Professions button after the Casino and Settings icons (its icon is the cat's
+  -- own profession; built in UI_Professions.lua)
+  if TCF.UI.ProfQuickButton then win.profQuick = TCF.UI.ProfQuickButton(win, iconPrev, function() SelectTab(TAB_PROFESSIONS) end) end
   -- every label has to fit its tab ("Achievements" is the longest), clear of the button's rounded
   -- ends (5 px each side): if one doesn't in this client's font, all the tabs use the small font
   -- so they still match
