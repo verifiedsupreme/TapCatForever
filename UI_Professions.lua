@@ -1127,6 +1127,52 @@ TCF.UI.Builders.professions = function(page, win)
     return sel
   end
 
+  ------------------------------------------------ "How it works" guide (opens by itself the first time)
+  local GUIDE_OTHER = {
+    herbalism = "|cffffd100Grow|r: plant seeds in your garden plots. Herbs grow in real time, even while you're offline, and a gardener can replant for you.\n\n|cffffd100Use|r: sell herbs for Trade Gold, cook with them, or craft herbal cosmetics in Crafting (cosmetic only: they change your cat's look, no stats).",
+    firstaid = "|cffffd100Make bandages|r: turn cloth into bandages. Cloth drops from enemies in Adventure and can be bought from the cloth merchant.\n\n|cffffd100Use|r: in Adventure your cat uses its best bandage when it gets hurt. Crafting has First Aid cosmetics (cosmetic only, no stats).",
+    fishing = "|cffffd100Fish|r: cast and click when the bobber dips. A fishing buddy sits on the dock and catches fish for you, even while you're offline.\n\n|cffffd100Use|r: fish go into Cooking, sell for Trade Gold, and rare catches unlock fishing cosmetics in Crafting (cosmetic only, no stats).",
+    cooking = "|cffffd100Cook|r: combine ingredients (meat, fish, herbs, spices) to discover recipes. Dishes give your cat a Well Fed buff, such as more Adventure damage or more cat XP.\n\n|cffffd100Use|r: eat dishes for buffs, or craft chef cosmetics in Crafting (cosmetic only, no stats).",
+  }
+  local guide = CreateFrame("Frame", nil, page, U.BT)
+  guide:SetPoint("TOPLEFT", 10, -74); guide:SetPoint("BOTTOMRIGHT", -10, 10)
+  if guide.SetFrameLevel and page.GetFrameLevel and page:GetFrameLevel() then guide:SetFrameLevel(page:GetFrameLevel() + 30) end
+  if guide.SetBackdrop then guide:SetBackdrop(U.BACKDROP_DIALOG) end
+  guide:EnableMouse(true)
+  guide.title = Text(guide, "GameFontNormalLarge", nil, "LEFT"); guide.title:SetPoint("TOPLEFT", 22, -20)
+  guide.body = Text(guide, "GameFontHighlight", nil, "LEFT"); guide.body:SetPoint("TOPLEFT", 22, -48); guide.body:SetWidth(490)
+  if guide.body.SetSpacing then guide.body:SetSpacing(3) end
+  if guide.body.SetJustifyV then guide.body:SetJustifyV("TOP") end
+  local gotIt = Button(guide, "Got it", 100, 24, function() guide:Hide() end); gotIt:SetPoint("BOTTOMRIGHT", -18, 16)
+  guide:Hide()
+  local function showGuide(prof)
+    guide.prof = prof
+    local fam = TCF.FAMILIES[prof]
+    local p = TCF.PROF_BY_KEY[prof]
+    if fam then
+      guide.title:SetText("How " .. fam.tab .. " works")
+      guide.body:SetText(string.format(
+        "|cffffd100Gather|r: buy %s, then hire %s so they keep working on their own, even while you're offline. Click a %s to %s by hand with your %s. Every cycle earns Trade Gold and %s.\n\n" ..
+        "|cffffd100Craft|r: open %s to turn your %s into |cff20ff20real gear with stats|r for this class (it goes to your Gear tab) or |cffcc88ffcosmetics|r that only change your cat's look (marked Cosmetic only; they go to Appearance). Crafting raises your skill and unlocks new recipes up to 300. Locked recipes show the skill they need.\n\n" ..
+        "|cffffd100Grow|r: spend Trade Gold on Upgrades. When your business is big, sell it for Renown: each point adds 2%% Trade Gold, and Renown unlocks Herbalism, First Aid, Fishing and Cooking.\n\n" ..
+        "|cff999999Each class has its own Trade Gold and professions.|r",
+        fam.spotNounPlural, fam.hirePlural:lower(), fam.spotNoun, fam.verb:lower(), fam.toolNoun:lower(), fam.matNoun,
+        fam.craftName, fam.matNoun))
+    else
+      guide.title:SetText("How " .. (p and p.name or "this profession") .. " works")
+      guide.body:SetText((GUIDE_OTHER[prof] or "") .. "\n\n|cff999999Each class has its own Trade Gold and professions.|r")
+    end
+    guide:Show()
+  end
+  -- a small Help button right after the profession's name (the header has no room for more)
+  local helpBtn = Button(page, "Help", 54, 20, function() showGuide(win.profSel or TCF:MainProf()) end)
+  helpBtn:SetPoint("LEFT", profName, "RIGHT", 8, 0)
+  Tip(helpBtn, function(tt)
+    tt:AddLine("How it works", 1, 0.82, 0)
+    tt:AddLine("What this profession does and how it gets you gear and cosmetics.", 1, 1, 1, true)
+  end)
+  TCF.ShowProfessionGuide = function(_, prof) showGuide(prof or win.profSel or TCF:MainProf()) end
+
   local shownKey
   refresh = function()
     local s = TCF:ProfState()
@@ -1143,6 +1189,11 @@ TCF.UI.Builders.professions = function(page, win)
     if win.profView == "upg" and not fam then win.profView = "main" end
     local view = win.profView
     local unlocked = TCF:ProfUnlocked(prof)
+    -- the first time each profession is opened, its guide explains it (remembered per account)
+    TCF.db.profGuides = TCF.db.profGuides or {}
+    local gkey = fam and "family" or prof
+    if unlocked and not TCF.db.profGuides[gkey] then TCF.db.profGuides[gkey] = true; showGuide(prof)
+    elseif guide:IsShown() and guide.prof ~= prof then guide:Hide() end
     -- header
     profName:SetText(p.name)
     local skillKey = (fam and view == "craft") and fam.craft or prof

@@ -6,7 +6,7 @@ local TILES = {
   { "INV_Helmet_08",        "Real gear",   "Every WoW item, drawn for your cat" },
   { "INV_Sword_04",         "Adventure",   "Fight through dungeons and raids" },
   { "INV_Misc_Map_01",      "Expeditions", "Send three cats out for loot" },
-  { "Trade_Mining",         "Professions", "Each class gathers, crafts gear and runs its own business" },
+  { "Trade_Mining",         "Professions", "Gather materials and craft real gear or cosmetics" },
   { "INV_Box_02",           "Collect",     "Open chests for gear, skins and hats" },
   { "INV_Misc_GroupNeedMore", "Play with friends", "Friends with the addon in your group: taps count up to 50% more" },
 }
@@ -74,4 +74,36 @@ function TCF:ShowWelcome()
   end
   f:Page(1)
   f:Show()
+end
+
+-- Make sure new players see the welcome. Core.lua shows it at the end of its login code, but if
+-- anything earlier in that code failed (with Lua errors hidden, nobody would notice) the welcome
+-- would be skipped. So it is also checked here on its own, a few seconds after entering the
+-- world, and again the first time the main window opens.
+do
+  local function maybeShow()
+    local db = TCF.db
+    if not db or db.welcomed or not TCF.ShowWelcome then return end
+    if TCF.welcome and TCF.welcome:IsShown() then return end
+    TCF:ShowWelcome()
+  end
+  local ev = CreateFrame("Frame")
+  ev:RegisterEvent("PLAYER_ENTERING_WORLD")
+  ev:SetScript("OnEvent", function(self)
+    self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    if C_Timer and C_Timer.After then C_Timer.After(3, maybeShow) else maybeShow() end
+  end)
+  -- first time the window opens without the welcome having been seen
+  local create = TCF.CreateWindow
+  if create then
+    function TCF:CreateWindow(...)
+      local r = create(self, ...)
+      local win = self.window
+      if win and not win.welcomeWatch then
+        win.welcomeWatch = CreateFrame("Frame", nil, win)
+        win.welcomeWatch:SetScript("OnShow", maybeShow)
+      end
+      return r
+    end
+  end
 end
