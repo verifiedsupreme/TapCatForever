@@ -2,7 +2,7 @@
 
 ## Summary (under 256 characters)
 
-A cartoon cat taps along with every key you press. Level a cat for each class to 60, dress it in real WoW gear, fight through dungeons and raids for chests and legendaries, craft gear, collect 64 cat skins and try the cat Casino. Made for WoW: Forever.
+A cartoon cat taps along with every key you press. Level a cat for each class to 60, dress it in real WoW gear and animated dungeon sets, fight through dungeons and raids, craft gear, send party expeditions and try the cat Casino. Made for WoW: Forever.
 
 ## Description
 
@@ -21,10 +21,15 @@ Features
 --------
 
 **What's new in 1.6.0**
-- A Casino tab: Lucky Paws slots, blackjack, death roll in a cosy cartoon tavern and rock paper scissors on a snowy mountaintop, against a house cat or a friend in your party. Bets are 10 to 500 TapCoins (at most a quarter of what you have), and every game keeps a small house edge, so it is for fun, not for getting rich.
-- Death roll with a friend uses real /roll rolls. Your friend gets a small Accept or Decline box just above their cat, and the winner gets the loser's whole bet.
-- Rock paper scissors with a friend locks both picks in before either is shown, so neither addon can peek. A tie plays again, and the winner gets the whole bet.
-- Two new achievements: Natural (get a blackjack) and Three Cats in a Row (three cats on the slots).
+- A Casino: Lucky Paws slots, blackjack, death roll in a cosy cartoon tavern and rock paper scissors on a snowy mountaintop, against a house cat or a friend in your party. Bets are 10 to 500 TapCoins (at most a quarter of what you have), and every game against the house keeps a small edge, so it is for fun, not for getting rich.
+- A main window your way: drag the corner grip to make it bigger or smaller, fold the character column away with the cat button, or switch to a compact, phone-shaped layout with big round tab buttons. Casino, Settings and Professions are round buttons by the title.
+- Animated cosmetics: flames that flicker, lava that flows, drifting stars, embers, snow and wisps. Every Epic and Legendary skin has its own effect (the Diamond Cat sparkles, the Galaxy Cat has stars inside its fur), and you can turn them off.
+- Eleven animated cosmetic sets, one for Molten Core and one for each later dungeon in Adventure, six pieces each with a new Shoulders slot. Real shoulder gear now shows on your cat too, with 43 drawings, and the racial accessory has its own slot.
+- Adventure: a faster start, a Help guide, first kills that give more in bigger zones, and bosses you can farm for their real loot. Some rewards come from killing real WoW bosses, like Hogger, and six boss effects unlock from big kills.
+- Adventure fights look better: hunters shoot arrows, bullets and bolts from the weapon in their paw, wands fire bolts in their school's colour, and abilities play the game's real spell effects on the enemies.
+- Professions level like WoW (orange, yellow, green, grey), with a cheap white starter set for each craft, a Hand speed upgrade for clicking by hand and three more spots per gathering profession.
+- Every class's cat has its own Treasure Bag, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.
+- Party expeditions: send your cats out together with group members who have the addon, on Normal, Hard or Heroic. Every class's cat also has its own 23 class achievements.
 - The realm leaderboard is still under construction: we're working on getting players to show up on each other's leaderboard. Your own row and the opt-in work as before.
 
 **New in 1.5.3**
@@ -61,14 +66,19 @@ Features
 - Real bosses and real creature models. Your cat casts its abilities with visible spell effects, and an ability bar shows every cooldown.
 - Regular enemies now and then drop a small find for your level, aimed at your empty slots first, so a new cat gears up quickly.
 - Bosses drop gear, chests and rare cat skins. Dungeons give Dungeon Chests and raids give Raider's Hoards. The first time you clear a zone you also get a few hundred TapCoins (more for later zones).
+- The first kill of every boss gives a reward that grows with the zone. After that, press Farm in Bosses and loot and your cat fights one boss again and again for a chance at a piece of its real loot.
+- Hunters shoot from the weapon in their paw, wands fire bolts, and abilities play the game's real spell effects on the enemies, including lasting ones like Corruption.
+- Some rewards come from killing real WoW bosses with the addon on (Hogger, Archmage Arugal, Edwin VanCleef and more), and while you are inside a real dungeon the window shows what finishing it gives.
 
 **Expeditions**
 - Send a party of three cats away for 15 minutes to 24 hours. They come back with TapCoins, chests and XP. Dungeon trips can bring home a Dungeon Chest and raid trips a Raider's Hoard.
+- Party expeditions: in a group with friends who have TapCatForever, invite them to send their cats along. Everyone's Power adds up, and everyone claims their own rewards, with a bonus for every other player.
 
 **Professions**
 - Your cat's class picks its main profession: Mining with Blacksmithing (Warrior, Paladin), Skinning with Leatherworking (Rogue, Druid, Hunter, Shaman) or Tailoring (Mage, Priest, Warlock).
-- Each is an idle gathering business: veins, hunting grounds with real beasts, or cloth spots at humanoid camps, with hired helpers and an endless tool upgrade.
-- Craft real Classic gear with stats, 45 recipes per craft from skill 1 to 300. Cosmetic-only recipes are clearly marked.
+- Each is an idle gathering business of nine spots: veins, hunting grounds with real beasts, or cloth spots at humanoid camps, with hired helpers, an endless tool upgrade and a Hand speed upgrade for clicking by hand.
+- Craft real Classic gear with stats, 45 recipes per craft from skill 1 to 300, plus a cheap white starter set for each craft. Cosmetic-only recipes are clearly marked.
+- Skill-ups work like WoW: recipes and spots are orange, yellow, green or grey, so you move on to new ones to keep learning.
 - Herbalism, First Aid, Fishing and Cooking unlock as your cat earns Trade Gold (the later ones take a few rounds of selling your business for Renown): a garden that grows in real time, bandages that heal your cat in fights, a fishing dock with a fishing buddy, and recipes you discover by experimenting.
 - Sell your business for Renown to make your Trade Gold come faster.
 - Every class's cat runs its own business with its own Trade Gold and Renown, and the helpers of all your cats keep working while you play another.
@@ -87,6 +97,11 @@ Features
 - Bets are at least 10 TapCoins and at most a quarter of your TapCoins, up to 500, shared between all the games. The Casino keeps a small edge on every game and there are no free spins, so TapCoins stay precious. The stats line shows games played, total bet, paid back, net and your biggest win.
 - Everything happens inside the window: nothing shows over your cat during play, except a small Accept or Decline box when a friend challenges you to a death roll or rock paper scissors.
 
+**A window your way**
+- Drag the corner grip to make the main window bigger or smaller (double-click it to reset), or use Window size in Settings.
+- Fold the character column away with the cat button for a narrower window; hovering an item still shows it on a small cat beside the window.
+- Switch to the compact layout for a narrow, tall window with big round tab buttons, about the shape of a phone screen.
+
 **Realm leaderboard**
 - A Leaderboard tab with the cats of players on your realm who joined, in three sections: Total taps (sort by taps, cat level, achievements or Adventure zones cleared), Per class (each class's cats by cat level) and Professions (Trade Gold earned, and the best Blacksmithing, Leatherworking, Tailoring, Herbalism, First Aid, Fishing and Cooking skill). Your own row is highlighted. Also /tcf top.
 - It is off by default. Until you join, the tab explains exactly what is shared and with whom, with a Join the leaderboard button (the same as Share my cat's progress in Settings > Help and info). A Leave button turns it off again. Only players who joined are listed and can see it. The first time you join, you get a Heroic Cache, once per account.
@@ -97,9 +112,11 @@ Features
 - The Raider's Hoard can't be bought: you earn it from raids, in Adventure, on raid expeditions and in real WoW. It always holds epic raid boss loot and is the best place to find a legendary.
 - The Dungeon Chest can't be bought either: you earn it from dungeons, in Adventure, on dungeon expeditions and in real WoW. It always holds gear close to your cat's level, mostly from dungeon bosses.
 - Gear you find outside chests goes straight into your bags, with a slim line under the window you can hover.
-- Daily shop wares, daily and weekly quests, and 81 achievements.
+- Every class's cat has its own Treasure Bag, and each chest is stamped with the level of the cat that earned it, so it holds gear for that level.
+- 171 real Classic item sets with their set bonuses, shown in the gear tooltip and in the Compendium's Item Sets list.
+- Daily shop wares, daily and weekly quests, 83 achievements, and 23 more for every class's cat.
 - 64 cat skins: tabbies and tuxedos, Bengals and Maine Coons, a Galaxy Cat, Frostsabers, the Spectral Tiger, boss-drop cats, chest-only cats, quest and expedition cats, crafted cats, and achievement cats like Mr. Bigglesworth.
-- Hats, capes, wings, fur patterns, effects and racial heritage items for your character's race.
+- Hats, capes, wings, shoulders, fur patterns, effects and racial heritage items for your character's race, many of them animated, and eleven animated sets from Adventure's dungeons and Molten Core.
 - The Compendium lists every skin, cosmetic, effect and piece of gear, what you own, and how to get the rest.
 
 **Account and character**
@@ -142,7 +159,7 @@ Yes, all of them are in Settings (right-click the cat, then the Settings tab). S
 In Settings > Patch notes, or type /tcf news.
 
 **Does it send anything about me?**
-Only if you turn on Share my cat's progress in Settings > Help and info, which is off by default. Then your character's name and realm, cat class, cat level, the level of each of your class cats, total taps, achievements earned, Adventure zones cleared, Trade Gold earned, your best profession skills and addon version are sent to other TapCatForever players who turned it on when you are in a party, raid or guild with them (and on an addon channel where the game allows it), and they see them on the leaderboard, passed between players inside the game. Other addons in your group or guild could read what is shared. The option is for your whole account, and since taps and achievements are shared between your characters, other players may be able to tell your characters on the same realm belong together. When you play death roll or rock paper scissors with a friend, your addon sends the challenge, the bet, the rolls or the locked-in picks to your party or raid. When the developer asks, it also answers with your addon version, cat class, cat level, zones cleared and TapCoins. Nothing else is sent, and nothing goes over the internet.
+Only if you turn on Share my cat's progress in Settings > Help and info, which is off by default. Then your character's name and realm, cat class, cat level, the level of each of your class cats, total taps, achievements earned, Adventure zones cleared, Trade Gold earned, your best profession skills and addon version are sent to other TapCatForever players who turned it on when you are in a party, raid or guild with them (and on an addon channel where the game allows it), and they see them on the leaderboard, passed between players inside the game. Other addons in your group or guild could read what is shared. The option is for your whole account, and since taps and achievements are shared between your characters, other players may be able to tell your characters on the same realm belong together. When you play death roll or rock paper scissors with a friend, your addon sends the challenge, the bet, the rolls or the locked-in picks to your party or raid. When you invite your group on a party expedition or answer an invite, it sends the invite or your answer, the cats you picked and their Power to your party or raid. When the developer asks, it also answers with your addon version, cat class, cat level, zones cleared and TapCoins. Nothing else is sent, and nothing goes over the internet.
 
 **Can I start over?**
 Settings has "Reset this character" and "Reset ALL progress".

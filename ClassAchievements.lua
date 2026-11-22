@@ -261,6 +261,7 @@ function TCF:CheckClassAchievements(quiet)
         local extra = ""
         if it and not self.db.owned[it.id] then
           self.db.owned[it.id] = 1
+          if self.NoteItemSource then self:NoteItemSource(it.id, cl.name .. " achievement " .. a.name) end
           extra = " and " .. TCF.ItemLink(it) .. " (Cosmetic only)"
         end
         if not quiet then
@@ -285,7 +286,10 @@ local function grantOwned(self)
     for id in pairs(earned[cl.key] or {}) do
       local a = TCF.CLASS_ACH_BY_ID[id]
       local it = a and self:ClassAchItem(a, cl.key)
-      if it then self.db.owned[it.id] = self.db.owned[it.id] or 1 end
+      if it and not self.db.owned[it.id] then
+        self.db.owned[it.id] = 1
+        if self.NoteItemSource then self:NoteItemSource(it.id, cl.name .. " achievement " .. a.name) end
+      end
     end
   end
 end
