@@ -296,7 +296,12 @@ TEST = r'''
     TCF:OpenChest("pouch", true)
     assert(TapCatForeverLootReveal:IsShown(), "loot reveal should show")
     -- loot queue: several drops at once, then OK to all
+    -- (with the reel each chest spins in turn and its box takes the front; without it they queue)
+    local anim = TCF.db.ui.chestAnim
+    TCF.db.ui.chestAnim = false
     for k = 1, 5 do TCF:OpenChest("strong") end
+    TCF.db.ui.chestAnim = anim
+    for k = 1, 60 do _update(0.1) end   -- the pouch's reel above finishes; the five boxes queue behind it
     TapCatForeverLootReveal:UpdateQueue()
     assert(TapCatForeverLootReveal.okAll:IsShown(), "OK to all shows when more drops are waiting")
     TapCatForeverLootReveal.okAll.scripts.OnClick(TapCatForeverLootReveal.okAll)
@@ -388,6 +393,7 @@ TEST = r'''
     assert(not TCF:ProfUnlocked("herbalism"), "herbalism needs renown")
     -- unlock everything for testing
     ps.renown, ps.renownEver, ps.gold = 200, 200, 1e12
+    ps.lifetime = math.max(ps.lifetime, 1e17)   -- 1.5.3.4: Trade Gold earned unlocks (Renown alone doesn't)
     for _, p in ipairs(TCF.PROFESSIONS) do assert(TCF:ProfUnlocked(p.key), p.key .. " unlocked") end
     -- Herbalism: plant, water, harvest; gardener works offline
     assert(TCF:Plant(1, "peacebloom")); assert(not TCF:Plant(1, "peacebloom"), "plot busy")
@@ -437,7 +443,7 @@ TEST = r'''
       win.profSel = p.key
       for _, v in ipairs({ "main", "upg", "craft", "renown" }) do win.profView = v; win:SelectTab(5); _update(0.2) end
     end
-    ps.lifetime = 1e14
+    ps.lifetime = 1e17
     assert(TCF:PrestigeTrade(), "sell the business")
     assert(ps.gold == 0 and ps.ops.mining[1].n == 0 and ps.ops.cloth[1].n == 0 and ps.ops.skinning[1].n == 0 and TCF:ProfUnlocked("cooking"), "reset keeps unlocks")
     print("renown after selling:", ps.renown)
@@ -724,7 +730,7 @@ TEST = r'''
       check(m.last >= time() - 1 and w.last >= time() - 1, "both cats are up to date")
       -- 4e. online: the cat you aren't playing keeps working, quietly, into its own trade
       TCF:SetClass("MAGE")
-      w.renownEver = 60; w.fish = { spot = 1, buddy = 1, bp = 0 }
+      w.renownEver = 60; w.lifetime = math.max(w.lifetime, 1e15); w.fish = { spot = 1, buddy = 1, bp = 0 }   -- Fishing learned (1.5.3.4: by Trade Gold earned)
       local odds = TCF.FISH_ODDS.buddyTreasure
       TCF.FISH_ODDS.buddyTreasure = 1
       local chat0, pouch0, toasts0 = #_chat, TCF.db.keys.pouch or 0, (TapCatForeverLootToasts and TapCatForeverLootToasts:IsShown())
@@ -1050,7 +1056,7 @@ TEST = r'''
       check(eq[w.slot == "RANGED" and "RANGED" or "MAINHAND"] == w.id and (TCF:Bag(cl.key)[w.id] or 0) >= 1, cl.key .. " starts holding " .. w.name)
     end
     -- 9. fishing view: the dock builds with and without the Fishing Buddy
-    ps.renownEver = math.max(ps.renownEver, 200)
+    ps.renownEver = math.max(ps.renownEver, 200); ps.lifetime = math.max(ps.lifetime, 1e17)   -- everything learned (1.5.3.4: by Trade Gold earned)
     local fs = TCF:FishState()
     local function buddyLabelShown(from, name)
       for i = from, #_frames do local f = _frames[i]; if f.kind == "FontString" and f.text == name and f.shown then return true end end
@@ -1091,7 +1097,7 @@ TEST = r'''
       mf.bp = 40; step(10)
       check(not popShown(), "the pop goes away")
       TCF:SetClass("PRIEST")
-      local ps2 = TCF:ProfState(); ps2.renownEver = math.max(ps2.renownEver, 200)
+      local ps2 = TCF:ProfState(); ps2.renownEver = math.max(ps2.renownEver, 200); ps2.lifetime = math.max(ps2.lifetime, 1e17)
       local pf = TCF:FishState(); pf.buddy, pf.bp = 1, 5
       check(pf ~= mf, "the Priest has its own fishing buddy")
       refresh(); step(1)
@@ -2909,7 +2915,7 @@ TEST = r'''
       TCF.RollChestCoins, TCF.GrantGear = roll, grant
 
       -- 6. professions unlock with the Trade Gold this cat earned (Renown is only a fallback)
-      local GOLD = { herbalism = 25e6, firstaid = 2.5e9, fishing = 2.5e11, cooking = 2e12 }
+      local GOLD = { herbalism = 1e9, firstaid = 5e13, fishing = 1e15, cooking = 5e16 }   -- 1.5.3.4
       local RENOWN = { herbalism = 5, firstaid = 20, fishing = 60, cooking = 150 }
       for k, g in pairs(GOLD) do
         check(TCF.PROF_BY_KEY[k].gold == g and TCF.PROF_BY_KEY[k].renown == RENOWN[k], "unlock cost of " .. k)
@@ -2918,32 +2924,32 @@ TEST = r'''
       TCF:SetClass("MAGE")
       local s = TCF:ProfState()
       local have, need, done = TCF:ProfUnlockProgress("herbalism")
-      check(have == 0 and need == 25e6 and not done and not TCF:ProfUnlocked("herbalism"), "Herbalism starts locked")
+      check(have == 0 and need == 1e9 and not done and not TCF:ProfUnlocked("herbalism"), "Herbalism starts locked")
       local c1 = #_chat
-      TCF:EarnGold(25e6 - 1)
+      TCF:EarnGold(1e9 - 1)
       check(not TCF:ProfUnlocked("herbalism") and #chatSince(c1, "Herbalism") == 0, "not yet")
       TCF:EarnGold(1)
-      check(TCF:ProfUnlocked("herbalism") and s.announced.herbalism, "Herbalism unlocked at 25M earned")
+      check(TCF:ProfUnlocked("herbalism") and s.announced.herbalism, "Herbalism unlocked at 1B earned")
       local lines = chatSince(c1, "can now learn")
       check(#lines == 1 and lines[1]:find("Herbalism", 1, true) and lines[1]:find("Mage", 1, true), "one chat line: " .. tostring(lines[1]))
       TCF:EarnGold(1000); login("Progprof"); TCF:SetClass("WARRIOR"); TCF:SetClass("MAGE")
       check(#chatSince(c1, "can now learn") == 1, "it never repeats")
       -- selling the business never takes an unlock away (and never lowers the gold earned)
-      s.lifetime = 3e9; TCF:EarnGold(0)
-      check(TCF:ProfUnlocked("firstaid") and #chatSince(c1, "First Aid") == 1, "First Aid at 2.5B")
-      s.lifetime = 1e14
-      check(TCF:PrestigeTrade() and s.lifetime == 1e14 and s.gold == 0 and TCF:ProfUnlocked("cooking"), "selling keeps Trade Gold earned and unlocks")
+      s.lifetime = 6e13; TCF:EarnGold(0)
+      check(TCF:ProfUnlocked("firstaid") and #chatSince(c1, "First Aid") == 1, "First Aid at 50T")
+      s.lifetime = 1e17
+      check(TCF:PrestigeTrade() and s.lifetime == 1e17 and s.gold == 0 and TCF:ProfUnlocked("cooking"), "selling keeps Trade Gold earned and unlocks")
       check(#chatSince(c1, "Cooking") == 1 and #chatSince(c1, "Fishing") == 1, "every unlock announced once")
-      -- the old Renown rule still counts
+      -- 1.5.3.4: Renown alone no longer unlocks anything new (only Trade Gold earned)
       TCF:SetClass("PRIEST")
       local p = TCF:ProfState()
       p.renown, p.renownEver = 20, 20
-      check(TCF:ProfUnlocked("herbalism") and TCF:ProfUnlocked("firstaid") and not TCF:ProfUnlocked("fishing"), "Renown fallback")
+      check(not TCF:ProfUnlocked("herbalism") and not TCF:ProfUnlocked("firstaid"), "Renown alone unlocks nothing")
       -- a cat you aren't playing hears nothing until you play it
       local c2 = #_chat
-      TCF:WithTradeClass("WARLOCK", TCF.EarnGold, 3e9)
+      TCF:WithTradeClass("WARLOCK", TCF.EarnGold, 6e13)
       local wl = TCF:CD("WARLOCK").trade
-      check(wl.lifetime >= 3e9 and not wl.announced.herbalism and #chatSince(c2, "can now learn") == 0, "quiet for another cat")
+      check(wl.lifetime >= 6e13 and not wl.announced.herbalism and #chatSince(c2, "can now learn") == 0, "quiet for another cat")
       TCF:SetClass("WARLOCK")
       lines = chatSince(c2, "can now learn")
       check(#lines == 2 and wl.announced.herbalism and wl.announced.firstaid, "announced when you play it: " .. #lines)
@@ -2965,7 +2971,7 @@ TEST = r'''
       TapCatForeverDB.chars["Progren-Forever"] = nil
       -- the 1.5.1 split: a cat whose earned Trade Gold unlocked First Aid keeps First Aid's cloth
       TapCatForeverDB.chars["Progaid-Forever"] = { class = "WARRIOR", classData = { MAGE = { level = 10, xp = 0 }, WARRIOR = { level = 20, xp = 0 } },
-        trade = { gold = 10, lifetime = 3e9, renown = 0, renownEver = 0, famMoved = true, last = time(),
+        trade = { gold = 10, lifetime = 6e13, renown = 0, renownEver = 0, famMoved = true, last = time(),
           ops = { cloth = { { n = 2, p = 0, run = false, mgr = false } }, mining = { { n = 4, p = 0, run = false, mgr = false } } },
           mats = { linen = 5000, copper = 5 } } }
       login("Progaid")
@@ -2984,11 +2990,11 @@ TEST = r'''
       end
       refreshPage()
       local lock = has("unlocks when your Mage cat has earned")
-      check(lock and lock:find(TCF.GoldStr(2.5e11), 1, true) and lock:find("So far: " .. TCF.GoldStr(5e6) .. " (0%)", 1, true), "locked view: " .. tostring(lock))
+      check(lock and lock:find(TCF.GoldStr(1e15), 1, true) and lock:find("So far: " .. TCF.GoldStr(5e6) .. " (0%)", 1, true), "locked view: " .. tostring(lock))
       pw.profSel = "herbalism"; refreshPage()
-      check(has("So far: " .. TCF.GoldStr(5e6) .. " (20%)"), "progress in percent")
+      check(has("So far: " .. TCF.GoldStr(5e6) .. " (0%)"), "progress in percent")
       pw.profView = "renown"; refreshPage()
-      check(has("Herbalism at 25.00M") and not has("unlocks new professions"), "the Renown view lists the gold")
+      check(has("Herbalism at 1.00B") and not has("unlocks new professions"), "the Renown view lists the gold")
       TCF.ShowProfessionGuide(TCF, "cloth")
       check(has("As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking") and not has("Renown unlocks"), "the guide's Grow paragraph")
       local tip = tipText(function()
@@ -3091,6 +3097,7 @@ TEST = r'''
       -- U2. chest TapCoins: one plain line in the loot box after the reel, and on the slim line
       local roll, rollCoins = TCF.RollRarity, TCF.RollChestCoins
       local lr = TCF.lootReveal or TCF:CreateLootReveal()
+      if TapCatForeverReel then TapCatForeverReel.pending = {} end   -- spins still waiting from earlier checks
       if TapCatForeverReel and TapCatForeverReel:IsShown() then TapCatForeverReel:Finish() end
       lr:Hide()
       ui.chestAnim = true

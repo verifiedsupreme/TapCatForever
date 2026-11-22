@@ -57,13 +57,13 @@ def check(seed, load_addon):
       T.ShowLootToast = function(self, ...) toast = toast + 1 end
       T.ShowLootRevealDirect = function(self, ...) box = box + 1 end
       T.db.ui.chestAnim = true
-      if T.reel then T.reel:Hide(); T.reel.queue = {} end
+      if T.reel then T.reel:Hide(); T.reel.queue = {}; T.reel.pending = {} end
       local green
       for _, list in pairs(T.WORLD_POOL) do for _, g in ipairs(list) do if g.q == 2 then green = g; break end end if green then break end end
       T:ShowLootReveal(green, true, 0, "Cat Treat Pouch", "pouch", true)
       if T.reel and T.reel.Finish then T.reel:Finish() end
       local r1, t1, b1 = reel, toast, box
-      if T.reel then T.reel:Hide(); T.reel.queue = {} end
+      if T.reel then T.reel:Hide(); T.reel.queue = {}; T.reel.pending = {} end
       reel, toast, box = r1, t1, b1
       local blue
       for _, list in pairs(T.WORLD_POOL) do for _, g in ipairs(list) do if g.q == 3 then blue = g; break end end if blue then break end end
@@ -76,5 +76,27 @@ def check(seed, load_addon):
     # 1.5.3.3: every chest opened by hand spins the reel and then shows the loot box
     if not (r[0] == 1 and r[1] == 0 and r[2] == 1 and r[3] == 2 and r[4] == 0 and r[5] == 2):
         raise AssertionError("hotfix reel: green/blue reel,toast,box counts %r" % (r,))
+    # 1.5.3.4: a second chest opened while the reel spins gets its own spin afterwards
+    r2 = lua.execute(r'''
+      local T = TapCatForever
+      T.db.ui.chestAnim = true
+      if T.reel then T.reel:Hide(); T.reel.queue = {}; T.reel.pending = {} end
+      local spins = 0
+      local o = T.PlayChestReel
+      T.PlayChestReel = function(self, ...) spins = spins + 1; return o(self, ...) end
+      local g
+      for _, list in pairs(T.WORLD_POOL) do for _, x in ipairs(list) do if x.q == 2 then g = x; break end end if g then break end end
+      T:ShowLootReveal(g, true, 0, "Cat Treat Pouch", "pouch", true)
+      T:ShowLootReveal(g, false, 0, "Cat Treat Pouch", "pouch", true)
+      local during = spins
+      T.reel:Finish()
+      local after, shown = spins, T.reel:IsShown()
+      T.reel:Finish()
+      T.PlayChestReel = o
+      return during, after, shown
+    ''')
+    r2 = tuple(r2)
+    if r2 != (2, 3, True):
+        raise AssertionError("hotfix reel: second chest spins after the first %r" % (r2,))
     print(table_)
     print("hotfix loot section (chest gear near level, rare world epics, legendaries at 60, reel for every chest): all checks passed")

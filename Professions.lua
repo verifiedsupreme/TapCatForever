@@ -6,10 +6,11 @@
 --                       mining   (Warrior, Paladin)                  Mining    -> Blacksmithing
 --                       skinning (Rogue, Druid, Hunter, Shaman)      Skinning  -> Leatherworking
 --                       cloth    (Mage, Priest, Warlock)             Tailoring -> Tailoring
---   Herbalism  (25M Trade Gold earned)  garden plots that grow in real time, gardener automates
---   First Aid  (2.5B)  turn cloth into bandages that heal your cat in Adventure
---   Fishing    (250B)  bobber mini-game, fishing buddy catches while you're away
---   Cooking    (2T)    experiment with ingredients to discover dishes that buff you
+--   Herbalism  (1B Trade Gold earned)  garden plots that grow in real time, gardener automates
+--   First Aid  (50T)   turn cloth into bandages that heal your cat in Adventure
+--   Fishing    (1Qa)   bobber mini-game, fishing buddy catches while you're away
+--   Cooking    (50Qa)  experiment with ingredients to discover dishes that buff you
+--   (the later ones need a few rounds of selling the business for Renown, which makes gold come faster)
 --   (1.5.2 and older: 5/20/60/150 Renown, still honoured so no save loses an unlock)
 --
 -- PUBLIC API (prof = a family key "mining" | "skinning" | "cloth"; nil = the current class's family)
@@ -176,15 +177,23 @@ TCF.PROFESSIONS = {
   -- gold: the Trade Gold this cat has earned in total (s.lifetime) to learn it. renown: the old
   -- rule of 1.5.2 and older, kept as a hidden fallback so no save loses an unlock. Renown is at
   -- most sqrt(earned / 1e8), so a cat that had that Renown had earned more than the new cost anyway.
-  { key = "herbalism", name = "Herbalism", icon = "Trade_Herbalism",        gold = 25e6,   renown = 5 },
-  { key = "firstaid",  name = "First Aid", icon = "Spell_Holy_SealOfSacrifice", gold = 2.5e9, renown = 20 },
-  { key = "fishing",   name = "Fishing",   icon = "Trade_Fishing",          gold = 2.5e11, renown = 60 },
-  { key = "cooking",   name = "Cooking",   icon = "INV_Misc_Food_15",       gold = 2e12,   renown = 150 },
+  -- 1.5.3.4: much higher, so the later ones need a few rounds of selling for Renown. Measured at
+  -- about 2 hours a day (scratchpad prestige sim): a cat that never sells levels off at about 1.5T
+  -- a day; one that sells whenever it would double its Renown reaches about 50T in 3 weeks, 1Qa
+  -- in about 4 and 50Qa in about 5 to 6.
+  { key = "herbalism", name = "Herbalism", icon = "Trade_Herbalism",        gold = 1e9,    renown = 5 },
+  { key = "firstaid",  name = "First Aid", icon = "Spell_Holy_SealOfSacrifice", gold = 5e13, renown = 20 },
+  { key = "fishing",   name = "Fishing",   icon = "Trade_Fishing",          gold = 1e15,   renown = 60 },
+  { key = "cooking",   name = "Cooking",   icon = "INV_Misc_Food_15",       gold = 5e16,   renown = 150 },
 }
 -- unlocked in a trade table s (either rule)
 local function unlockedIn(s, p)
   if not p then return false end
-  return (s.lifetime or 0) >= (p.gold or 0) or ((p.renown or 0) > 0 and (s.renownEver or 0) >= p.renown)
+  if not p then return false end
+  -- learned before (this cat was told): kept, so no save loses an unlock when the amounts change.
+  -- (1.5.3.4: Renown alone no longer unlocks anything; 1.5.2 saves were marked told at load.)
+  if type(s.announced) == "table" and s.announced[p.key] then return true end
+  return (s.lifetime or 0) >= (p.gold or 0)
 end
 TCF.PROF_BY_KEY = {}
 for i, p in ipairs(TCF.PROFESSIONS) do p.index = i; TCF.PROF_BY_KEY[p.key] = p end

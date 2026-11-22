@@ -1175,7 +1175,7 @@ TCF.UI.Builders.professions = function(page, win)
       guide.body:SetText(string.format(
         "|cffffd100Gather|r: buy %s, then hire %s so they keep working on their own, even while you're offline. Click a %s to %s by hand with your %s. Every cycle earns Trade Gold and %s.\n\n" ..
         "|cffffd100Craft|r: open %s to turn your %s into |cff20ff20real gear with stats|r for this class (it goes to your Gear tab) or |cffcc88ffcosmetics|r that only change your cat's look (marked Cosmetic only; they go to Appearance). Crafting raises your skill and unlocks new recipes up to 300. Locked recipes show the skill they need.\n\n" ..
-        "|cffffd100Grow|r: spend Trade Gold on Upgrades. As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking. When your business is big, sell it for Renown: each point adds 2%% Trade Gold, so the gold comes faster. Selling never lowers the Trade Gold earned that unlocks professions.\n\n" ..
+        "|cffffd100Grow|r: spend Trade Gold on Upgrades. As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking. When your business is big, sell it for Renown: each point adds 2%% Trade Gold, so the gold comes faster. Selling never lowers the Trade Gold earned that unlocks professions, and you need a few rounds of selling to reach the later ones.\n\n" ..
         "|cff999999Each class has its own Trade Gold and professions.|r",
         fam.spotNounPlural, fam.hirePlural:lower(), fam.spotNoun, fam.verb:lower(), fam.toolNoun:lower(), fam.matNoun,
         fam.craftName, fam.matNoun))
@@ -1251,7 +1251,7 @@ TCF.UI.Builders.professions = function(page, win)
     if target == locked then
       local have, need = TCF:ProfUnlockProgress(prof)
       lockText:SetText(string.format("%s unlocks when your %s cat has earned |cffffd100%s|r Trade Gold in total.\n\nSo far: %s (%d%%)\n\n" ..
-        "Every bit of Trade Gold your professions earn counts, and selling your business for Renown never lowers it. Renown makes the gold come faster.\n\n|cffaaaaaa%s|r",
+        "Every bit of Trade Gold your professions earn counts, and selling your business for Renown never lowers it. It takes a few rounds of selling: each sale's Renown makes the gold come faster.\n\n|cffaaaaaa%s|r",
         p.name, className(), TCF.GoldStr(need), TCF.GoldStr(have), min(99, floor(100 * have / max(1, need))), PER_CLASS))
     elseif target == spotView then refreshSpots(prof)
     elseif target == upgView then refreshUpgrades(prof)

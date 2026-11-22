@@ -136,8 +136,11 @@ local function createReel()
       if i == 1 and lr and lr:IsShown() and lr.ShowFront then lr:ShowFront(args)
       else TCF.ShowLootRevealDirect(TCF, unpack(args, 1, 7)) end
     end
+    -- the next chest waiting for its spin
+    local nxt = table.remove(self.pending, 1)
+    if nxt then TCF:PlayChestReel(nxt[1], nxt[2], nxt[3], nxt[4]) end
   end
-  f.queue = {}
+  f.queue, f.pending = {}, {}
   f:Hide()
   return f
 end
@@ -145,7 +148,9 @@ end
 -- Play the reel for a chest reward, then show the usual loot box.
 function TCF:PlayChestReel(it, rarity, chestKey, args)
   local f = self.reel or createReel(); self.reel = f
-  if f:IsShown() then table.insert(f.queue, args); return end
+  -- 1.5.3.4: a chest opened while the reel is still spinning gets its own spin right after this
+  -- one (it used to skip its spin and only queue its loot box)
+  if f:IsShown() then table.insert(f.pending, { it, rarity, chestKey, args }); return end
   local ch = TCF.CHEST_BY_KEY[chestKey]
   f.title:SetText("Opening " .. (ch and ch.name or "chest") .. "...")
   local seen = { [it] = true }
