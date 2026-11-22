@@ -6,6 +6,11 @@ TCF.UI.Builders.expeditions = function(page, win)
   local U = TCF.UI
   local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel
   local title = Text(page, "GameFontNormalLarge", "Expeditions", "LEFT"); title:SetPoint("TOPLEFT", 16, -12)
+  -- two views: Solo (three of your own cats, two slots) and Party (with group members, its own slot;
+  -- built by TCF.UI.BuildPartyExpeditions below)
+  local soloPage = CreateFrame("Frame", nil, page); soloPage:SetAllPoints()
+  local root = page
+  page = soloPage
   local sub = Text(page, "GameFontDisableSmall", "Send three of your class cats away. They return with TapCoins, XP and chests, even while you're offline.", "LEFT")
   sub:SetPoint("TOPLEFT", 16, -30); sub:SetWidth(530)
 
@@ -166,5 +171,35 @@ TCF.UI.Builders.expeditions = function(page, win)
     acc = 0
     if TCF.db and TCF.db.expeditions and #TCF.db.expeditions.active > 0 then refresh() end
   end)
-  return refresh
+
+  -- Solo / Party switch, top right
+  local partyPage = CreateFrame("Frame", nil, root); partyPage:SetAllPoints(); partyPage:Hide()
+  local partyRefresh = TCF.UI.BuildPartyExpeditions(partyPage, win)
+  win.expView = win.expView or "solo"
+  local bSolo, bParty
+  local function refreshAll()
+    local party = win.expView == "party"
+    soloPage:SetShown(not party); partyPage:SetShown(party)
+    bSolo:SetEnabled(party); bParty:SetEnabled(not party)
+    local inv = TCF.GX and TCF.GX.inv
+    local waiting = (inv and inv.state == "invited") or (TCF.GroupExpReady and TCF:GroupExpReady())
+    bParty:SetText(waiting and "Party |cff20ff20(1)|r" or "Party")
+    if party then partyRefresh() else refresh() end
+  end
+  local function setView(v) win.expView = v; TCF:PlaySound("click"); refreshAll() end
+  bParty = Button(root, "Party", 74, 20, function() setView("party") end)
+  bParty:SetPoint("TOPRIGHT", -16, -10)
+  bSolo = Button(root, "Solo", 64, 20, function() setView("solo") end)
+  bSolo:SetPoint("RIGHT", bParty, "LEFT", -4, 0)
+  Tip(bSolo, function(tt) tt:AddLine("Solo expeditions", 1, 0.82, 0); tt:AddLine("Send three of your own cats. Two at a time.", 1, 1, 1, true) end)
+  Tip(bParty, function(tt)
+    tt:AddLine("Party expeditions", 1, 0.82, 0)
+    tt:AddLine("Send cats out together with group members who have TapCatForever. They have their own slot, so your solo slots stay free.", 1, 1, 1, true)
+  end)
+  win.expSwitch = { solo = bSolo, party = bParty, soloPage = soloPage, partyPage = partyPage }
+  -- an invite or a party back home refreshes the page (PartyExpeditions.lua calls this)
+  TCF.GX.OnChange = function()
+    if root:IsVisible() then refreshAll() end
+  end
+  return refreshAll
 end

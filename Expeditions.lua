@@ -40,10 +40,16 @@ local function state(self)
   return self.db.expeditions
 end
 
-function TCF:IsOnExpedition(class)
+-- a cat on a solo expedition (its expedition), or nil
+function TCF:SoloExpeditionOf(class)
   for _, ex in ipairs(state(self).active) do
     for _, m in ipairs(ex.members) do if m == class then return ex end end
   end
+end
+
+-- away on a solo expedition or a party expedition (PartyExpeditions.lua), or about to go on one
+function TCF:IsOnExpedition(class)
+  return self:SoloExpeditionOf(class) or (self.GroupExpBusy and self:GroupExpBusy(class)) or nil
 end
 
 function TCF:PartyPower(members)
