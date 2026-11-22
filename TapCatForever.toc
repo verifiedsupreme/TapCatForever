@@ -18,6 +18,7 @@ GearData.lua
 WorldGearData.lua
 ModelBoundsData.lua
 CraftData.lua
+SetData.lua
 Cat.lua
 VectorData.lua
 CatVector.lua
@@ -35,6 +36,7 @@ UI.lua
 ChestReel.lua
 TreasureBag.lua
 CarePackage.lua
+ItemSets.lua
 LootToast.lua
 Party.lua
 DevView.lua
