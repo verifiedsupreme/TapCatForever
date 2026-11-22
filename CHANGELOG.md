@@ -31,7 +31,7 @@
 
 **Death roll**
 - Two cats take turns rolling. The first roll is 1 to 1,000 (or 100, or 10,000: pick where the rolls start). Each next roll is 1 to the last number rolled. Whoever rolls a 1 loses.
-- It plays out in a cartoon colosseum: your cat on the left in its real look, the other cat on the right. Each roll pops up over the roller's head and the range in the middle shrinks. Numbers of 10 and below turn red and shake.
+- It plays out in a cosy cartoon cat tavern, by the fire: your cat on the left in its real look, the other cat on the right. Each roll pops up over the roller's head and the range in the middle shrinks. Numbers of 10 and below turn red and shake.
 - On a 1 the loser spins and flops onto its back with X eyes, a little ghost cat floats up, and a few seconds later it pops back up, fine. The winner jumps around in confetti.
 
 **Death roll against the house cat**

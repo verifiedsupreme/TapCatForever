@@ -1,5 +1,5 @@
 -- TapCatForever: the death roll scene (Casino tab > Death roll; the rules and money are in DeathRoll.lua).
--- A cartoon colosseum: your cat on the left in its real look, the house cat or your friend's cat on
+-- A cartoon cat tavern: your cat on the left in its real look, the house cat or your friend's cat on
 -- the right. Each roll pops up over the roller's head and the range in the middle shrinks; numbers
 -- of 10 and below turn red and shake. On a 1 the loser spins and flops onto its back with X eyes, a
 -- little ghost cat floats up, and a few seconds later it pops back up fine; the winner jumps in a
@@ -200,9 +200,11 @@ function TCF.UI.CasinoDeathRoll(container, win)
   local scene = CreateFrame("Frame", nil, container)
   scene:SetAllPoints(container)
   v.scene = scene
-  -- background: the colosseum (2:1), cropped to the container's shape
+  -- background: the tavern (2:1), cropped to the container's shape (colosseum.tga is kept for a
+  -- future duel mode)
   local bg = scene:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints(scene); bg:SetTexture(ART .. "colosseum")
+  bg:SetAllPoints(scene); bg:SetTexture(ART .. "tavern")
+  v.bg = bg
   local aspect = cw / ch
   if aspect < 2 then
     local cut = (1 - aspect / 2) / 2
@@ -211,7 +213,7 @@ function TCF.UI.CasinoDeathRoll(container, win)
     local cut = (1 - 2 / aspect) / 2
     bg:SetTexCoord(0, 1, cut, 1 - cut)
   end
-  -- a soft dark strip along the sand so the names and text stay readable
+  -- a soft dark strip along the floor so the names and text stay readable
   local strip = scene:CreateTexture(nil, "BORDER")
   strip:SetPoint("BOTTOMLEFT", 0, 0); strip:SetPoint("BOTTOMRIGHT", 0, 0); strip:SetHeight(floor(ch * 0.17) + 4)
   strip:SetColorTexture(0.12, 0.07, 0.04, 0.6)
@@ -280,7 +282,7 @@ function TCF.UI.CasinoDeathRoll(container, win)
     v.rangeBtns[r] = b
   end
 
-  -- middle: the current range, on a dark plate so it reads over the arches and torches
+  -- middle: the current range, on a dark plate so it reads over the bar and its shelves
   v.plate = scene:CreateTexture(nil, "ARTWORK")
   v.plate:SetTexture(ART .. "dr_plate"); v.plate:SetSize(200, 100); v.plate:SetPoint("CENTER", scene, "CENTER", 0, 18)
   v.rangeCap = U.Text(scene, "GameFontNormal"); v.rangeCap:SetPoint("CENTER", scene, "CENTER", 0, 34)

@@ -2,6 +2,9 @@
 backgrounds (tools/make_backgrounds.py): flat colours, soft shapes far away, thick ink outlines up close.
 usage: python3 tools/make_duel_art.py [work_dir] [preview.png]   -> Art/casino/*.tga
   colosseum.tga      512x256 arena: sand floor, stone arches, banners, a crowd of cat silhouettes, warm light
+                     (kept for a future duel mode)
+  tavern.tga         512x256 the death roll tavern: plank floor and wall, a stone hearth with a fire, the bar
+                     with mugs and bottles, barrels, a dartboard, two lanterns and a cat-head sign
   dr_flop_fur.tga    256x256 a cat lying on its back, fur parts only (white, tinted to the cat's fur in game)
   dr_flop_line.tga   256x256 the same cat's outlines, belly, pads and nose (fixed colours, drawn on top)
   dr_xeyes.tga       256x256 the X eyes for that cat (same canvas, so all three turn together)
@@ -110,6 +113,156 @@ def colosseum():
             '<radialGradient id="vg" cx="50%" cy="55%" r="70%"><stop offset=".65" stop-color="#000" stop-opacity="0"/>'
             '<stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient></defs>')
     s += '<rect width="%d" height="%d" fill="url(#warm)"/><rect width="%d" height="%d" fill="url(#vg)"/>' % (W, H, W, H)
+    return defs + s
+
+# ---------------------------------------------------------------- the tavern (512x256, floor at 192)
+# Death roll is played here: a cosy cat tavern with a wooden floor and back wall, a stone hearth on
+# the left, the bar with mugs in the middle (between the two cats), barrels and a dartboard on the
+# right, two lanterns hanging from the beam and a cat-head sign over the bar. The cats stand on the
+# floor in the lower third (about x 118 and x 394), in front of plain planks so they read well.
+def mug(x, y, s=1.0, foam=True, body="#e2a94f"):
+    """a little tankard standing on (x, y): body, handle, hoops and a foam top"""
+    w, h = 12 * s, 15 * s
+    out = line("M %.1f %.1f Q %.1f %.1f %.1f %.1f" % (x + w / 2, y - h * 0.75, x + w / 2 + 7 * s, y - h * 0.55, x + w / 2, y - h * 0.2), INK, 2.2 * s)
+    out += rect(x - w / 2, y - h, w, h, body, sw=2.2 * s)
+    out += rect(x - w / 2, y - h * 0.78, w, 2 * s, "#8a5a2e") + rect(x - w / 2, y - h * 0.32, w, 2 * s, "#8a5a2e")
+    if foam:
+        out += path("M %.1f %.1f Q %.1f %.1f %.1f %.1f Q %.1f %.1f %.1f %.1f Q %.1f %.1f %.1f %.1f Z"
+                    % (x - w / 2 - 1, y - h, x - w / 4, y - h - 6 * s, x, y - h - 2 * s, x + w / 4, y - h - 7 * s, x + w / 2 + 1, y - h,
+                       x, y - h + 2 * s, x - w / 2 - 1, y - h), "#fff8e6", 1.8 * s)
+    return out
+
+def bottle(x, y, c, h=18):
+    """a bottle standing on (x, y)"""
+    return (path("M %.1f %.1f L %.1f %.1f Q %.1f %.1f %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f Q %.1f %.1f %.1f %.1f L %.1f %.1f Z"
+                 % (x - 5, y, x - 5, y - h * 0.55, x - 5, y - h * 0.7, x - 2, y - h * 0.72, x - 2, y - h, x + 2, y - h,
+                    x + 2, y - h * 0.72, x + 5, y - h * 0.7, x + 5, y - h * 0.55, x + 5, y), c, 2)
+            + rect(x - 3.5, y - h * 0.45, 7, 5, "#f3e2b8") + rect(x - 2, y - h - 2, 4, 3, "#8a5a2e"))
+
+def barrel_end(x, y, r):
+    """a barrel lying down, seen from its end: wood rings and a dark hoop"""
+    return (circ(x, y, r, "#a8683a", 2.5) + circ(x, y, r * 0.78, "#c2834e") + circ(x, y, r * 0.78, "none", 0).replace('fill="none"', 'fill="none" stroke="#6e4026" stroke-width="2.5"')
+            + circ(x, y, r * 0.5, "#b47643") + circ(x, y, r * 0.22, "#9c5f35")
+            + line("M %.1f %.1f L %.1f %.1f" % (x - r * 0.75, y, x + r * 0.75, y), "#8a5432", 1.5, 0.7)
+            + circ(x, y, r, "none", 0).replace('fill="none"', 'fill="none" stroke="#4a3a34" stroke-width="3.5"'))
+
+def lantern(x, top, y):
+    """a lantern hanging from the beam at (x, top) down to y, with a warm glow"""
+    out = circ(x, y + 12, 34, "#ffcf6a", op=0.18) + circ(x, y + 12, 20, "#ffe08a", op=0.25)
+    out += line("M %.1f %.1f L %.1f %.1f" % (x, top, x, y), INK, 2)
+    out += path("M %.1f %.1f L %.1f %.1f L %.1f %.1f Z" % (x - 8, y + 4, x + 8, y + 4, x, y - 3), "#4a3a34", 2)
+    out += rect(x - 7, y + 4, 14, 18, "#ffd86a", sw=2.5)
+    out += rect(x - 4, y + 7, 8, 12, "#fff3b0")
+    out += line("M %.1f %.1f L %.1f %.1f" % (x, y + 4, x, y + 22), INK, 1.8)
+    out += rect(x - 9, y + 21, 18, 4, "#4a3a34", sw=2)
+    return out
+
+def tavern():
+    rnd = random.Random(11)
+    s = ""
+    # back wall: vertical planks, warm brown, with seams and a few knots
+    s += rect(0, 0, W, FLOOR, "#b9794a")
+    x, k = 0, 0
+    while x < W:
+        pw = 22 + (k % 3) * 2
+        s += rect(x, 14, pw, FLOOR - 14, ("#b47446", "#bf8150", "#b97a4b")[k % 3])
+        s += line("M %.1f 14 L %.1f %d" % (x, x, FLOOR), "#8a5232", 2, 0.8)
+        if k % 4 == 1: s += ell(x + pw / 2, 60 + (k * 37) % 70, 2.5, 4, "#91583a", op=0.7)
+        x += pw; k += 1
+    # ceiling beam with rafter ends
+    s += rect(-4, -4, W + 8, 20, "#6e4026", sw=3)
+    for x in range(20, W, 64):
+        s += circ(x, 10, 8, "#a8683a", 2.5) + circ(x, 10, 4.5, "none", 0).replace('fill="none"', 'fill="none" stroke="#7a4728" stroke-width="1.5"')
+    # wainscot: a rail and darker panels along the lower wall
+    s += rect(-4, 150, W + 8, FLOOR - 150, "#8f5733", sw=3)
+    s += rect(-4, 147, W + 8, 7, "#d39a5e", sw=2.5)
+    for x in range(6, W, 40):
+        s += rect(x, 160, 30, 26, "#7f4b2b", op=0.75)
+    # a round window with the night sky (upper left, between the hearth and the left lantern)
+    s += circ(130, 74, 20, "#2d3a66", 3) + circ(124, 69, 6, "#fff2b8") + circ(127, 67, 5, "#2d3a66")
+    for sx, sy in ((140, 64), (138, 84), (118, 82), (146, 76)):
+        s += circ(sx, sy, 1.4, "#fff6cc")
+    s += line("M 110 74 L 150 74 M 130 54 L 130 94", "#6e4026", 3) + circ(130, 74, 20, "none", 0).replace('fill="none"', 'fill="none" stroke="#6e4026" stroke-width="4"')
+    s += circ(130, 74, 22, "none", 0).replace('fill="none"', 'fill="none" stroke="%s" stroke-width="3"' % INK)
+    # shelves behind the bar with bottles and mugs
+    for y in (72, 104):
+        s += rect(176, y, 160, 6, "#7a4728", sw=2.5)
+        s += path("M 186 %d L 192 %d L 186 %d Z" % (y + 6, y + 6, y + 14), "#6e4026", 1.5) + path("M 326 %d L 320 %d L 326 %d Z" % (y + 6, y + 6, y + 14), "#6e4026", 1.5)
+    for i, (bx, c) in enumerate(((186, "#4f9a5c"), (198, "#c0473c"), (210, "#e0a21b"), (224, "#4a7cc0"), (288, "#9a5cc0"), (300, "#4f9a5c"), (314, "#c0473c"), (326, "#e0a21b"))):
+        s += bottle(bx, 72, c, 16 + (i % 3) * 3)
+    for bx in (190, 206, 222, 292, 308, 324):
+        s += mug(bx, 104, 0.8, foam=False, body="#d9a35a")
+    # the sign over the bar: a cat head on a hanging board
+    s += line("M 236 14 L 240 34 M 276 14 L 272 34", INK, 2)
+    s += rect(226, 32, 60, 30, "#d8a868", sw=3) + rect(230, 36, 52, 22, "#c99556")
+    cx, cy = 256, 50
+    s += path("M %d %d L %d %d L %d %d Z" % (cx - 11, cy - 3, cx - 9, cy - 14, cx - 3, cy - 8), "#3b2620")
+    s += path("M %d %d L %d %d L %d %d Z" % (cx + 11, cy - 3, cx + 9, cy - 14, cx + 3, cy - 8), "#3b2620")
+    s += ell(cx, cy, 11, 8.5, "#3b2620") + circ(cx - 4, cy - 1, 1.6, "#ffd86a") + circ(cx + 4, cy - 1, 1.6, "#ffd86a")
+    s += mug(cx - 20, 56, 0.55, body="#e2a94f") + mug(cx + 20, 56, 0.55, body="#e2a94f")
+    # the stone hearth (left) with a fire: warm rounded stones on dark mortar
+    s += rect(6, 14, 78, FLOOR - 14, "#6a4a3a", sw=3)
+    for row, y in enumerate(range(17, FLOOR - 4, 13)):
+        x = 8 - (row % 2) * 12
+        while x < 82:
+            w = rnd.choice((20, 24, 26))
+            x0, x1 = max(9, x + 1), min(81, x + w - 1)
+            if x1 - x0 > 5:
+                s += '<rect x="%.1f" y="%.1f" width="%.1f" height="11" rx="3" fill="%s" stroke="#4a3a34" stroke-width="1.2"/>' % (
+                    x0, y, x1 - x0, rnd.choice(("#d0a882", "#c49a74", "#d9b48c", "#bf9470")))
+            x += w
+    s += rect(6, 14, 78, FLOOR - 14, "none").replace('fill="none"', 'fill="none" stroke="%s" stroke-width="3"' % INK)
+    s += rect(0, 104, 90, 10, "#7a4728", sw=3)    # mantel
+    s += mug(22, 104, 0.7, foam=False, body="#c9a06a") + bottle(68, 104, "#4f9a5c", 15)
+    s += path("M 20 %d L 20 140 Q 20 122 45 122 Q 70 122 70 140 L 70 %d Z" % (FLOOR, FLOOR), "#2e1c18", 3)
+    s += ell(45, 180, 40, 22, "#ff8a2a", op=0.35) + ell(45, 198, 60, 10, "#ffb04a", op=0.35)
+    s += rect(26, 178, 38, 7, "#6e4026", sw=2) + rect(30, 172, 30, 7, "#7f4b2b", sw=2)
+    s += path("M 30 176 Q 28 160 36 150 Q 36 160 42 162 Q 40 146 48 136 Q 50 150 56 154 Q 60 146 58 140 Q 66 154 60 176 Z", "#ff7a26", 2.5)
+    s += path("M 37 176 Q 36 166 42 158 Q 44 166 48 166 Q 48 156 53 150 Q 58 164 54 176 Z", "#ffc23a")
+    s += path("M 42 176 Q 42 170 46 164 Q 50 170 50 176 Z", "#fff1a8")
+    # a dartboard on the right wall
+    s += circ(448, 76, 20, "#2e2a2a", 3)
+    for r, c in ((16, "#f1e2c0"), (12, "#c8362f"), (8.5, "#f1e2c0"), (5, "#3f8a4e"), (2.2, "#c8362f")):
+        s += circ(448, 76, r, c)
+    for a in range(0, 360, 45):
+        s += line("M 448 76 L %.1f %.1f" % (448 + 16 * math.cos(math.radians(a)), 76 + 16 * math.sin(math.radians(a))), "#2e2a2a", 1, 0.6)
+    for dx, dy, a in ((-4, -3, -30), (5, 2, -20)):
+        x0, y0 = 448 + dx, 76 + dy
+        s += line("M %.1f %.1f L %.1f %.1f" % (x0, y0, x0 + 12 * math.cos(math.radians(a)), y0 + 12 * math.sin(math.radians(a))), INK, 2)
+        s += path("M %.1f %.1f l 5 -4 l 1 6 Z" % (x0 + 12 * math.cos(math.radians(a)), y0 + 12 * math.sin(math.radians(a))), "#e0473c", 1.2)
+    # lanterns on the beam, above the two cats
+    s += lantern(150, 16, 36) + lantern(362, 16, 36)
+    # the bar counter between the cats
+    s += rect(168, 146, 176, FLOOR - 146, "#8a4f2c", sw=3)
+    for x in range(176, 340, 34):
+        s += rect(x, 154, 26, 32, "#9d5d34", sw=2)
+    s += rect(162, 136, 188, 11, "#d9a066", sw=3) + rect(166, 138, 180, 3, "#f0c48a")
+    s += mug(182, 136) + mug(198, 136, 0.9) + mug(316, 136, 0.9) + mug(332, 136)
+    # barrels (right), seen from their ends, one with a tap
+    s += barrel_end(452, 172, 19) + barrel_end(492, 172, 19) + barrel_end(472, 137, 19)
+    s += rect(468, 133, 8, 6, "#8a8a8a", sw=1.8) + rect(470, 139, 4, 6, "#8a8a8a", sw=1.5)
+    # floor: warm planks with staggered joints, a lighter edge under the wall
+    s += rect(0, FLOOR, W, H - FLOOR, "#c98b52")
+    for i, y in enumerate(range(FLOOR + 6, H, 12)):
+        s += line("M 0 %d L %d %d" % (y, W, y), "#a96d3c", 2, 0.9)
+        for x in range((i * 53) % 90, W, 90):
+            s += line("M %d %d L %d %d" % (x, y - 12 if y - 12 > FLOOR else FLOOR, x, y), "#a96d3c", 2, 0.8)
+    s += rect(0, FLOOR, W, 5, "#e0a86c")
+    s += line("M 0 %d L %d %d" % (FLOOR, W, FLOOR), INK, 3)
+    # a round rug where the cats stand
+    s += ell(256, 226, 214, 24, "#b8423a", 3) + ell(256, 226, 200, 18, "none").replace('fill="none"', 'fill="none" stroke="#f2c14e" stroke-width="3" stroke-dasharray="9 7"')
+    s += ell(256, 226, 180, 13, "#c9564a", op=0.6)
+    for x, y, a in ((150, 236, -20), (176, 226, -10), (330, 238, 15), (356, 228, 5)):
+        g = circ(x, y, 3.8, "#e7b65c") + "".join(circ(x + dx, y + dy, 1.6, "#e7b65c") for dx, dy in ((-5, -4), (-2, -7), (2, -7), (5, -4)))
+        s += '<g transform="rotate(%d %d %d)" opacity=".8">%s</g>' % (a, x, y, g)
+    # warm light from the hearth and the lanterns, and a soft vignette
+    defs = ('<defs><radialGradient id="fire" cx="9%" cy="70%" r="45%"><stop offset="0" stop-color="#ffb04a" stop-opacity=".45"/>'
+            '<stop offset="1" stop-color="#ffb04a" stop-opacity="0"/></radialGradient>'
+            '<radialGradient id="warm" cx="50%" cy="30%" r="65%"><stop offset="0" stop-color="#ffd98a" stop-opacity=".28"/>'
+            '<stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient>'
+            '<radialGradient id="vg" cx="50%" cy="55%" r="70%"><stop offset=".62" stop-color="#1a0c06" stop-opacity="0"/>'
+            '<stop offset="1" stop-color="#1a0c06" stop-opacity=".42"/></radialGradient></defs>')
+    s += '<rect width="%d" height="%d" fill="url(#fire)"/><rect width="%d" height="%d" fill="url(#warm)"/><rect width="%d" height="%d" fill="url(#vg)"/>' % (W, H, W, H, W, H)
     return defs + s
 
 # ---------------------------------------------------------------- the flopped cat (256x256, on its back)
@@ -247,7 +400,7 @@ def main():
     work = sys.argv[1] if len(sys.argv) > 1 else tempfile.mkdtemp(prefix="duelart")
     os.makedirs(OUT, exist_ok=True)
     out = {}
-    out.update(render({"colosseum": colosseum()}, 512, 256, work))
+    out.update(render({"colosseum": colosseum(), "tavern": tavern()}, 512, 256, work))
     flop = render({"dr_flop_fur": flop_svg("fur"), "dr_flop_line": flop_svg("line"), "dr_xeyes": flop_svg("xeyes")}, 256, 256, work)
     out.update({k: pixelize(v) for k, v in flop.items()})
     out["dr_xeyes"] = xeyes_pixels()
@@ -257,8 +410,8 @@ def main():
     for name, im in out.items():
         write_tga(im, os.path.join(OUT, name + ".tga"))
     if len(sys.argv) > 2:
-        # preview: the arena with a tinted flopped cat, the ghost, a pop and confetti
-        bg = out["colosseum"].resize((1024, 512), Image.LANCZOS)
+        # preview: the tavern with a tinted flopped cat, the ghost, a pop and confetti
+        bg = out["tavern"].resize((1024, 512), Image.LANCZOS)
         fur = out["dr_flop_fur"]
         r, g, b, a = fur.split()
         tinted = Image.merge("RGBA", (r.point(lambda p: p), g.point(lambda p: p * 184 // 255), b.point(lambda p: p * 107 // 255), a))
