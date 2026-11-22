@@ -11,7 +11,7 @@ LOGO = "https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/med
 ISSUES = "https://github.com/verifiedsupreme/TapCatForever/issues"
 
 SUMMARY = ("A cartoon cat taps along with every key you press. Level a cat for each class to 60, dress it in real "
-           "WoW gear, fight through dungeons and raids for chests and legendaries, craft gear, collect 64 cat skins and play with friends. "
+           "WoW gear, fight through dungeons and raids for chests and legendaries, craft gear, collect 64 cat skins and try the cat Casino. "
            "Made for WoW: Forever.")
 
 TITLE = "TapCatForever"
@@ -25,7 +25,13 @@ PERSONAL = ("This is my first addon, and I'm so glad you're here. I update it of
 INTRO2 = "It never touches your gameplay. It just watches your key presses and makes them a little more fun."
 
 FEATURES = [
-    ("What's new in 1.5.3", [
+    ("What's new in 1.6.0", [
+        "A Casino tab: Lucky Paws slots, blackjack, and death roll against a house cat or a friend in your party, in a cartoon colosseum. Bets are 10 to 500 TapCoins (at most a quarter of what you have), and every game keeps a small house edge, so it is for fun, not for getting rich.",
+        "Death roll with a friend uses real /roll rolls. Your friend gets a small Accept or Decline box just above their cat, and the winner gets the loser's bet, less a 5% table fee.",
+        "Two new achievements: Natural (get a blackjack) and Three Cats in a Row (three cats on the slots).",
+        "The realm leaderboard is still under construction: we're working on getting players to show up on each other's leaderboard. Your own row and the opt-in work as before.",
+    ]),
+    ("New in 1.5.3", [
         "A realm leaderboard tab, opt-in and off by default: see the cats of other players on your realm who joined, by total taps, per class and by professions. It all stays inside the game, and the first time you join you get a Heroic Cache. Open the Leaderboard tab, or type /tcf top.",
         "Cat levels now stop at 60, like Classic. Early levels come faster: about 2 hours a day gets a new cat to level 10 in about an hour, and to 60 in a few months. Existing cats keep their share of the current level.",
         "New Dungeon Chest, full of dungeon boss gear near your cat's level, mostly blue. The first clear of each dungeon in Adventure gives one, repeat clears give one about every 2 to 3 hours of dungeon fighting, and real WoW dungeons give one (up to 2 a day).",
@@ -77,6 +83,13 @@ FEATURES = [
         "Your taps count 20% more with one of them and 10% more for each one after that, up to +50% with a full party: more tap progress, cat XP and TapCoins from tapping. It works in parties, raids and dungeon groups.",
         "The addons find each other on their own, so there is nothing to set up. Invite a friend and play together.",
     ]),
+    ("Casino", [
+        "Lucky Paws: a cartoon cat slot machine with three reels and a lever. Three of a kind wins, every cat on the middle line pays something, and three cats pay 100 times your bet. About 3 spins in 10 win, and a big win gets a coin shower and a cheer from your cat.",
+        "Blackjack with six decks: blackjack pays 3 to 2, double on any first two cards, split a pair once, and the dealer stands on every 17. A hand you leave waits for you, even after a reload.",
+        "Death roll in a cartoon colosseum: two cats take turns rolling 1 to the last number rolled, and whoever rolls a 1 loses. Play the house cat (a different fun name and look each game) or challenge a friend in your party or raid with real /roll rolls. The loser flops over with X eyes and a little ghost floats up, then it pops back up, fine.",
+        "Bets are at least 10 TapCoins and at most a quarter of your TapCoins, up to 500, shared between all three games. The Casino keeps a small edge on every game and there are no free spins, so TapCoins stay precious. The stats line shows games played, total bet, paid back, net and your biggest win.",
+        "Everything happens inside the window: nothing shows over your cat during play, except a small Accept or Decline box when a friend challenges you to a death roll.",
+    ]),
     ("Realm leaderboard", [
         "A Leaderboard tab with the cats of players on your realm who joined, in three sections: Total taps (sort by taps, cat level, achievements or Adventure zones cleared), Per class (each class's cats by cat level) and Professions (Trade Gold earned, and the best Blacksmithing, Leatherworking, Tailoring, Herbalism, First Aid, Fishing and Cooking skill). Your own row is highlighted. Also /tcf top.",
         "It is off by default. Until you join, the tab explains exactly what is shared and with whom, with a Join the leaderboard button (the same as Share my cat's progress in Settings > Help and info). A Leave button turns it off again. Only players who joined are listed and can see it. The first time you join, you get a Heroic Cache, once per account.",
@@ -121,7 +134,7 @@ FAQ = [
     ("What counts as a tap?", "Every key press (movement, abilities, everything except typing in chat), every mouse click, and your spell casts."),
     ("Can I turn off the sounds, chat messages or chest animation?", "Yes, all of them are in Settings (right-click the cat, then the Settings tab). Sounds and chat messages start off."),
     ("Where are the patch notes?", "In Settings > Patch notes, or type /tcf news."),
-    ("Does it send anything about me?", "Only if you turn on Share my cat's progress in Settings > Help and info, which is off by default. Then your character's name and realm, cat class, cat level, the level of each of your class cats, total taps, achievements earned, Adventure zones cleared, Trade Gold earned, your best profession skills and addon version are sent to other TapCatForever players who turned it on when you are in a party, raid or guild with them (and on an addon channel where the game allows it), and they see them on the leaderboard, passed between players inside the game. Other addons in your group or guild could read what is shared. The option is for your whole account, and since taps and achievements are shared between your characters, other players may be able to tell your characters on the same realm belong together. When the developer asks, it also answers with your addon version, cat class, cat level, zones cleared and TapCoins. Nothing else is sent, and nothing goes over the internet."),
+    ("Does it send anything about me?", "Only if you turn on Share my cat's progress in Settings > Help and info, which is off by default. Then your character's name and realm, cat class, cat level, the level of each of your class cats, total taps, achievements earned, Adventure zones cleared, Trade Gold earned, your best profession skills and addon version are sent to other TapCatForever players who turned it on when you are in a party, raid or guild with them (and on an addon channel where the game allows it), and they see them on the leaderboard, passed between players inside the game. Other addons in your group or guild could read what is shared. The option is for your whole account, and since taps and achievements are shared between your characters, other players may be able to tell your characters on the same realm belong together. When you play death roll with a friend, your addon sends the challenge, the bet and the rolls to your party or raid. When the developer asks, it also answers with your addon version, cat class, cat level, zones cleared and TapCoins. Nothing else is sent, and nothing goes over the internet."),
     ("Can I start over?", "Settings has \"Reset this character\" and \"Reset ALL progress\"."),
 ]
 

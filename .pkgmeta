@@ -3,6 +3,7 @@ package-as: TapCatForever
 ignore:
   - tools
   - media
+  - notes
   - README.md
   - CURSEFORGE.md
   - CURSEFORGE.html
