@@ -34,3 +34,23 @@
 ## Achievements
 - Natural: get a blackjack (25 TapCoins).
 - Three Cats in a Row: line up three cats on the slots (100 TapCoins).
+
+## Death roll
+- Two cats take turns rolling. The first roll is 1 to 1,000 (or 100, or 10,000: pick where the rolls start). Each next roll is 1 to the last number rolled. Whoever rolls a 1 loses.
+- It plays out in a cartoon colosseum: your cat on the left in its real look, the other cat on the right. Each roll pops up over the roller's head and the range in the middle shrinks. Numbers of 10 and below turn red and shake.
+- On a 1 the loser spins and flops onto its back with X eyes, a little ghost cat floats up, and a few seconds later it pops back up, fine. The winner jumps around in confetti.
+
+## Death roll against the house cat
+- Press House cat, choose your bet and where the rolls start, and press Start. The house cat has a fun name and look each game (Lucky Paws is a tuxedo cat).
+- A coin flip decides who rolls first, so you win half the games.
+- A win gives you 1.9 times your bet back. Over many games the house keeps about 5% of what is bet.
+- A game you leave halfway waits for you, even after a reload.
+
+## Death roll with a friend
+- Group up (party or raid) with a friend who has TapCatForever. Press Friend, pick them with the arrows, choose a bet and press Challenge.
+- Your friend gets a small Accept or Decline box just above their cat on the screen, and in the Casino tab. It goes away after 60 seconds.
+- You both need enough TapCoins for the bet (each player's own limits count). Your bet is held while the duel runs and comes back if it is called off.
+- The rolls are real /roll rolls: the Roll button rolls for you, and they also show in chat for your group like a normal /roll. You can type /roll yourself too, as long as it is your turn and the right range.
+- Whoever rolls the 1 loses their bet. The winner gets it, less a 5% table fee.
+- Each turn has 60 seconds. If time runs out, someone reloads or leaves the group, or the game hides the roll results (this can happen in combat), the duel is called off and no TapCoins move.
+- If you decline or don't answer, that friend can challenge you again after 20 seconds.

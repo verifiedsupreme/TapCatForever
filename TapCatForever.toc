@@ -38,6 +38,8 @@ Party.lua
 DevView.lua
 Leaderboard.lua
 Casino.lua
+DeathRoll.lua
+UI_DeathRoll.lua
 Welcome.lua
 UI_Gear.lua
 UI_Adventure.lua

@@ -1,0 +1,762 @@
+-- TapCatForever: death roll (Casino tab, "Death roll" view; the scene is UI_DeathRoll.lua).
+-- Two players take turns rolling 1 to N. The first roll is 1 to the start range (1000 by default),
+-- each next roll is 1 to the previous result, and whoever rolls a 1 loses.
+--
+-- Against the house cat (solo): the stake goes through Casino.lua's TCF:CasinoBet, and a win pays
+-- 1.9 times the stake through TCF:CasinoPay (rounded to the nearest TapCoin). Who rolls first is a
+-- coin flip, so you win exactly half the games; the house keeps 5% of every stake on average
+-- (between 3.3% and 5.3% for stakes that aren't a multiple of 10, because of the rounding).
+-- tools/tests/test_deathroll.py measures it.
+--
+-- Against a party member who has the addon: the rolls are real /roll results. The Roll button calls
+-- the game's RandomRoll, and both players' addons read the result from the system chat line (the
+-- game's own localized RANDOM_ROLL_RESULT text, so it works in every language). Each addon checks
+-- its own side: enough TapCoins, turn order, range. The stake is held (taken out of your TapCoins)
+-- while the duel runs, and given back if the duel is called off, so nobody can spend it mid-duel.
+-- When both addons have seen the 1, each settles its own side with TCF:CasinoSettleDuel: the loser
+-- pays the bet, the winner gets it less a 5% table fee (DR.DUEL_FEE), so duels can't make TapCoins.
+--
+-- Protocol (prefix "TapCatFvr", party/raid/instance channel, every field checked; v = 1):
+--   D1;v;id;target;bet;range     challenge (target = the challenged player's name)
+--   D2;v;id;answer;first         y accept (first: c challenger or t target rolls first),
+--                                n decline, b busy, c can't bet that much
+--   D3;v;id;reason               called off: x withdrawn, t timeout, s hidden roll text, r reload,
+--                                c not enough TapCoins, g left the group, m results didn't match
+--   D4;v;id;loser;rolls          I saw the 1 (loser: c or t; rolls: how many rolls in the duel)
+-- Fair rules: a turn has 60 seconds; when it runs out the duel is called off and no coins move.
+-- A /reload or logout mid-duel calls it off the same way (the held stake comes back at login).
+local ADDON, TCF = ...
+local floor, min, max, random = math.floor, math.min, math.max, math.random
+
+local PREFIX = "TapCatFvr"
+local VER = "1"
+local GAME = "deathroll"
+TCF.DR = TCF.DR or {}
+local DR = TCF.DR
+DR.GAME = GAME
+DR.RANGES = { 100, 1000, 10000 }
+DR.DEFAULT_RANGE = 1000
+DR.PAY_NUM, DR.PAY_DEN = 19, 10      -- solo: a win pays 1.9x the stake (rounded to the nearest TapCoin)
+DR.DUEL_FEE = 5                      -- duels: the table keeps 5% of the loser's bet (at least 1), so duels are a small coin sink too
+DR.HOUSE_DELAY = 1.2                 -- the house cat rolls this long after your roll
+DR.INVITE_TIME = 60                  -- a challenge waits this long for an answer
+DR.TURN_TIME = 60                    -- each turn of a duel
+DR.DONE_WAIT = 90                    -- after the 1: wait this long for the other addon to agree
+local RESEND_DONE = 5                -- resend "I saw the 1" this often while waiting
+local IN_WINDOW, IN_MAX = 10, 24     -- at most IN_MAX messages per sender in IN_WINDOW seconds
+local CHALLENGE_GAP = 3              -- one challenge per sender per this many seconds
+local MUTE_AFTER_NO = 20             -- after you decline (or let it run out), that player's challenges wait this long
+local OUT_RETRY, OUT_TRIES, OUT_MAX = 2, 15, 8
+
+local HOUSE_NAMES = { "Lucky Paws", "Sir Whiskers", "Madame Mittens", "Dice Kitty", "Captain Purrbeard",
+  "Duchess Fluff", "Old Tom", "Velvet Snoop", "Biscuit Boss", "Lady Luck", "Professor Pounce", "Mister Marbles" }
+
+local function isSecret(v) return TCF.IsSecret and TCF.IsSecret(v) end
+local function now() return GetTime and GetTime() or 0 end
+
+---------------------------------------------------------------- money (Casino.lua, see the contract)
+function DR.Limits()
+  if TCF.CasinoLimits then
+    local lo, hi = TCF:CasinoLimits()
+    if type(lo) == "number" and type(hi) == "number" then return lo, hi end
+  end
+  local coins = TCF.db and TCF.db.coins or 0
+  return 10, min(500, floor(coins / 4))
+end
+
+local function validBet(bet)
+  bet = tonumber(bet)
+  if not bet or bet ~= floor(bet) then return false end
+  local lo, hi = DR.Limits()
+  return bet >= lo and bet <= hi and (TCF.db.coins or 0) >= bet
+end
+
+local function validRange(r)
+  for _, v in ipairs(DR.RANGES) do if v == r then return true end end
+  return false
+end
+
+function DR.Payout(bet) return floor(bet * DR.PAY_NUM / DR.PAY_DEN + 0.5) end
+-- what the winner of a duel gets: the loser's bet less the table's fee
+function DR.DuelWin(bet) return bet - max(1, math.ceil(bet * DR.DUEL_FEE / 100)) end
+
+-- the duel stake is held: out of your TapCoins while the duel runs, back when it's called off.
+-- The hold is saved, so a /reload or a crash gives it back at the next login.
+local function store()
+  local db = TCF.db
+  if type(db.deathRoll) ~= "table" then db.deathRoll = {} end
+  return db.deathRoll
+end
+
+local function hold(id, bet)
+  local st = store()
+  if st.hold then return false end
+  if (TCF.db.coins or 0) < bet then return false end
+  TCF.db.coins = TCF.db.coins - bet
+  st.hold = { id = id, bet = bet }
+  if TCF.MarkDirty then TCF:MarkDirty() end
+  return true
+end
+
+local function release(id)
+  local st = store()
+  local h = st.hold
+  if not h or (id and h.id ~= id) then return 0 end
+  st.hold = nil
+  TCF.db.coins = (TCF.db.coins or 0) + (tonumber(h.bet) or 0)
+  if TCF.MarkDirty then TCF:MarkDirty() end
+  return h.bet
+end
+
+local function settleDuel(delta, opponent)
+  if TCF.CasinoSettleDuel then return TCF:CasinoSettleDuel(delta, opponent) end
+  if delta > 0 then TCF:AddCoins(delta) else TCF:SpendCoins(-delta) end
+  return true
+end
+
+---------------------------------------------------------------- listeners (the scene)
+local function notify(ev, ...)
+  local fn = DR.OnChange
+  if fn then fn(ev, ...) end
+  if TCF.MarkDirty then TCF:MarkDirty() end
+end
+
+---------------------------------------------------------------- names
+local function base(name)
+  if type(name) ~= "string" or isSecret(name) or name == "" then return nil end
+  local b = name:match("^([^%-]+)")
+  return b and b:gsub("%s", ""):lower() or nil
+end
+
+local function myBase()
+  local n = UnitName and UnitName("player")
+  if type(n) ~= "string" or isSecret(n) then return nil end
+  return base(n)
+end
+
+local function isMe(sender)
+  if TCF.PartyIsMe then return TCF.PartyIsMe(sender) end
+  local b = base(sender)
+  return b ~= nil and b == myBase()
+end
+
+local function inGroup()
+  if not IsInGroup then return false end
+  local ok, g = pcall(IsInGroup)
+  return ok and g and not isSecret(g) and true or false
+end
+
+local function chatType()
+  local home = LE_PARTY_CATEGORY_HOME and IsInGroup and IsInGroup(LE_PARTY_CATEGORY_HOME)
+  local inst = LE_PARTY_CATEGORY_INSTANCE and IsInGroup and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+  if inst and not home then return "INSTANCE_CHAT" end
+  if IsInRaid and IsInRaid() then return "RAID" end
+  return "PARTY"
+end
+
+-- the party member (TCF:PartyMembers) with this name, or nil
+local function member(name)
+  local b = base(name)
+  if not b or not TCF.PartyMembers then return nil end
+  for _, m in ipairs(TCF:PartyMembers()) do
+    if not m.fake and base(m.name) == b then return m end
+  end
+end
+DR.Member = member
+
+---------------------------------------------------------------- the /roll line
+-- RANDOM_ROLL_RESULT ("%s rolls %d (%d-%d)" in English) turned into a pattern; positional forms
+-- ("%1$s", "%2$d") are supported for languages that reorder them. Returns name, roll, low, high.
+local rollPat, rollOrder, rollFmt
+function DR.RollPattern(fmt)
+  local pat, order, argn, i = { "^" }, {}, 0, 1
+  while i <= #fmt do
+    local c = fmt:sub(i, i)
+    if c == "%" then
+      local pos, conv, len = fmt:match("^%%(%d)%$([sd])()", i)
+      if pos then
+        len = len - i
+      else
+        conv = fmt:match("^%%([sd])", i); len = 2
+        if conv then argn = argn + 1; pos = argn end
+      end
+      if conv then
+        order[#order + 1] = tonumber(pos)
+        pat[#pat + 1] = conv == "s" and "(.+)" or "(%d+)"
+        i = i + len
+      elseif fmt:sub(i + 1, i + 1) == "%" then
+        pat[#pat + 1] = "%%"; i = i + 2
+      else
+        pat[#pat + 1] = "%%"; i = i + 1
+      end
+    else
+      pat[#pat + 1] = c:find("[%^%$%(%)%%%.%[%]%*%+%-%?]") and ("%" .. c) or c
+      i = i + 1
+    end
+  end
+  pat[#pat + 1] = "$"
+  return table.concat(pat), order
+end
+
+function DR.ParseRoll(text)
+  if type(text) ~= "string" or isSecret(text) or #text > 200 then return nil end
+  local fmt = RANDOM_ROLL_RESULT
+  if type(fmt) ~= "string" or isSecret(fmt) or not fmt:find("%", 1, true) then fmt = "%s rolls %d (%d-%d)" end
+  if fmt ~= rollFmt then rollFmt = fmt; rollPat, rollOrder = DR.RollPattern(fmt) end
+  local caps = { text:match(rollPat) }
+  if #caps ~= 4 or #rollOrder ~= 4 then return nil end
+  local args = {}
+  for k, pos in ipairs(rollOrder) do args[pos] = caps[k] end
+  local name, roll, lo, hi = args[1], tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+  if not (name and roll and lo and hi) then return nil end
+  return name, roll, lo, hi
+end
+
+-- the game's /roll; the result comes back as a system chat line (read in onSystem)
+local function doRandomRoll(n)
+  local fns = {}
+  if C_RandomRoll then fns[#fns + 1] = C_RandomRoll.RandomRoll; fns[#fns + 1] = C_RandomRoll.Roll end
+  fns[#fns + 1] = RandomRoll
+  for _, fn in ipairs(fns) do
+    if type(fn) == "function" then
+      local ok = pcall(fn, 1, n)
+      if ok then return true end
+    end
+  end
+  local slash = SlashCmdList and SlashCmdList.RANDOM
+  if type(slash) == "function" and pcall(slash, tostring(n)) then return true end
+  return false
+end
+
+---------------------------------------------------------------- solo game against the house cat
+local solo           -- the running solo game (also saved in db.deathRoll.solo)
+local lastSolo       -- the finished one, for the scene
+
+local function pickHouse()
+  local furs, skins, hats = {}, {}, {}
+  for _, it in ipairs(TCF.ITEM_LIST or {}) do
+    if it.slot == "fur" then furs[#furs + 1] = it.id
+    elseif it.slot == "skin" and not it.rainbow then skins[#skins + 1] = it.id
+    elseif it.slot == "head" and not it.class then hats[#hats + 1] = it.id end
+  end
+  local h = { name = HOUSE_NAMES[random(#HOUSE_NAMES)] }
+  if h.name == "Lucky Paws" and TCF.ITEMS and TCF.ITEMS.skin_tuxedo then h.skin = "skin_tuxedo"   -- the classic tuxedo
+  elseif #skins > 0 and random() < 0.6 then h.skin = skins[random(#skins)]
+  elseif #furs > 0 then h.fur = furs[random(#furs)] end
+  if #hats > 0 and random() < 0.5 then h.head = hats[random(#hats)] end
+  return h
+end
+
+-- a look table (like TCF:GetAppearance) for the house cat
+function DR.HouseLook(h)
+  local items = TCF.ITEMS or {}
+  local look = { fur = items[h and h.fur or ""] or items.fur_ginger }
+  if h then
+    look.skin = items[h.skin or ""]
+    look.head = items[h.head or ""]
+  end
+  return look
+end
+
+local function soloSave()
+  store().solo = solo
+end
+
+local function soloRoll(who, v)
+  local g = solo
+  g.rolls[#g.rolls + 1] = { who = who, v = v, hi = g.cur }
+  while #g.rolls > 40 do table.remove(g.rolls, 1) end
+  local hi = g.cur
+  g.cur = v
+  g.n = (g.n or 0) + 1
+  if v == 1 then
+    g.over, g.loser = true, who
+    local paid = 0
+    if who == "house" then
+      paid = DR.Payout(g.bet)
+      if TCF.CasinoPay then TCF:CasinoPay(paid, GAME) else TCF:AddCoins(paid) end
+    end
+    g.paid = paid
+    local st = store()
+    st.soloPlayed = (st.soloPlayed or 0) + 1
+    if who == "house" then st.soloWon = (st.soloWon or 0) + 1 end
+    lastSolo, solo = g, nil
+    st.solo = nil
+    notify("roll", "solo", who, v, hi)
+    notify("end", "solo", who == "house" and "me" or "house", paid)
+    return
+  end
+  g.turn = who == "me" and "house" or "me"
+  g.houseAt = g.turn == "house" and (now() + DR.HOUSE_DELAY) or nil
+  soloSave()
+  notify("roll", "solo", who, v, hi)
+end
+
+function TCF:DeathRollSoloStart(bet, range)
+  if not self.db then return false end
+  bet, range = tonumber(bet), tonumber(range) or DR.DEFAULT_RANGE
+  if solo then return false, "Finish this death roll first." end
+  local d = DR.duel
+  if d and d.state ~= "over" then return false, "Finish your death roll with your friend first." end
+  if not validRange(range) then return false, "Pick a roll range." end
+  if not bet or not validBet(bet) then
+    local lo, hi = DR.Limits()
+    if hi < lo then return false, string.format("You need at least %d TapCoins to play.", lo * 4) end
+    return false, string.format("Bets go from %d to %d TapCoins right now.", lo, hi)
+  end
+  local ok = self.CasinoBet and self:CasinoBet(bet, GAME) or (not self.CasinoBet and self:SpendCoins(bet))
+  if not ok then return false, "That bet can't be placed right now." end
+  solo = { bet = bet, range = range, cur = range, rolls = {}, n = 0, house = pickHouse(),
+           turn = random(2) == 1 and "me" or "house" }
+  if solo.turn == "house" then solo.houseAt = now() + DR.HOUSE_DELAY end
+  lastSolo = nil
+  soloSave()
+  notify("start", "solo")
+  return true
+end
+
+function TCF:DeathRollSoloRoll()
+  local g = solo
+  if not g or g.over or g.turn ~= "me" then return false end
+  soloRoll("me", random(1, g.cur))
+  return true
+end
+
+function TCF:DeathRollSolo() return solo or lastSolo, solo ~= nil end
+
+---------------------------------------------------------------- sending (party/raid channel)
+local outQ = {}
+local function rawSend(text)
+  if not inGroup() then return false end
+  local api = C_ChatInfo and C_ChatInfo.SendAddonMessage
+  if not api then return false end
+  local ok, res = pcall(api, PREFIX, text, chatType())
+  -- 12.x returns a result code (0 = sent); older clients return nothing or a boolean
+  return ok and (res == nil or res == true or res == 0 or
+    (Enum and Enum.SendAddonMessageResult and res == Enum.SendAddonMessageResult.Success)) and true or false
+end
+
+local function send(kind, ...)
+  local parts = { kind, VER, ... }
+  local text = table.concat(parts, ";")
+  if rawSend(text) then return true end
+  -- refused (combat in an instance, throttled): try again a few times
+  if #outQ < OUT_MAX then outQ[#outQ + 1] = { text = text, at = now() + OUT_RETRY, tries = 1 } end
+  return false
+end
+DR.Send = send
+
+local function flushQueue()
+  if #outQ == 0 then return end
+  local t = now()
+  local q = outQ[1]
+  if t < q.at then return end
+  if rawSend(q.text) then table.remove(outQ, 1); return end
+  q.tries = q.tries + 1
+  q.at = t + OUT_RETRY
+  if q.tries > OUT_TRIES or not inGroup() then table.remove(outQ, 1) end
+end
+
+---------------------------------------------------------------- the multiplayer duel
+-- DR.duel = { id, role = "out" (you challenged) or "in", opp (their name), oppBase, bet, range,
+--   cur, state = "asking" / "invited" / "rolling" / "done" / "over", turn = "me" / "opp",
+--   turnAt, expires, rolls = { { who, v, hi } }, n, loser = "me" / "opp", result, reason }
+local muted = {}  -- name -> time their challenges are heard again (after you said no)
+local function roleOf(who, d) -- who = "me"/"opp" -> "c" (challenger) / "t" (target)
+  if who == "me" then return d.role == "out" and "c" or "t" end
+  return d.role == "out" and "t" or "c"
+end
+local function whoOf(r, d)    -- "c"/"t" -> "me"/"opp"
+  if r == "c" then return d.role == "out" and "me" or "opp" end
+  return d.role == "out" and "opp" or "me"
+end
+
+local REASONS = {
+  x = "%s called it off.",
+  t = "Time ran out, so the death roll was called off.",
+  s = "The game hid the roll results just now (this can happen in combat), so the death roll was called off.",
+  r = "%s reloaded or logged out, so the death roll was called off.",
+  c = "%s doesn't have enough TapCoins for that bet any more.",
+  g = "%s is no longer in your group.",
+  m = "The two addons saw different results, so the death roll was called off.",
+  e = "The roll couldn't be made, so the death roll was called off.",
+}
+DR.REASONS = REASONS
+-- the same when it was your side
+DR.REASONS_ME = {
+  x = "You called it off.",
+  r = "You reloaded or logged out, so the death roll was called off.",
+  c = "You don't have enough TapCoins for that bet any more.",
+  g = "You left the group, so the death roll was called off.",
+}
+
+local function saveDuel(d)
+  local st = store()
+  if d and (d.state == "rolling" or d.state == "done") then
+    st.duel = { id = d.id, role = d.role, opp = d.opp, bet = d.bet, range = d.range, state = d.state,
+                loser = d.loser, n = d.n, look = nil }
+  else
+    st.duel = nil
+  end
+end
+
+local function finish(d, result, reason, by)
+  d.state, d.result, d.reason, d.by = "over", result, reason, by
+  d.endedAt = now()
+  if result ~= "win" and result ~= "lose" then release(d.id) end
+  saveDuel(nil)
+  notify("end", "duel", result, reason)
+end
+
+-- call the duel off: nobody's TapCoins move (the held stake comes back)
+local function callOff(reason, tell, by)
+  local d = DR.duel
+  if not d or d.state == "over" then return end
+  if tell then send("D3", d.id, reason) end
+  finish(d, "cancel", reason, by or "me")
+end
+DR.CallOff = callOff
+
+local function settle(d)
+  if d.state ~= "done" or d.settled then return end
+  d.settled = true
+  local won = d.loser == "opp"
+  release(d.id)            -- the stake comes back first, then the result moves it for real
+  settleDuel(won and DR.DuelWin(d.bet) or -d.bet, d.opp)
+  local st = store()
+  st.duelsPlayed = (st.duelsPlayed or 0) + 1
+  if won then st.duelsWon = (st.duelsWon or 0) + 1 end
+  d.replies = 0
+  finish(d, won and "win" or "lose")
+end
+
+local function newId()
+  return string.format("%06x", random(0, 0xffffff))
+end
+
+local function busy()
+  local d = DR.duel
+  return d and d.state ~= "over"
+end
+
+-- challenge a party member (name from TCF:PartyMembers) for bet TapCoins, rolls from range
+function TCF:DeathRollChallenge(name, bet, range)
+  if not self.db then return false end
+  bet, range = tonumber(bet), tonumber(range) or DR.DEFAULT_RANGE
+  if busy() then return false, "You already have a death roll going." end
+  if solo then return false, "Finish your death roll with the house cat first." end
+  if not inGroup() then return false, "Join a party or raid with a friend who has TapCatForever." end
+  if InCombatLockdown and InCombatLockdown() then return false, "Death rolls can't start in combat." end
+  local m = member(name)
+  if not m or isMe(m.name) then return false, "Pick a friend in your group who has TapCatForever." end
+  if not validRange(range) then return false, "Pick a roll range." end
+  if not bet or not validBet(bet) then
+    local lo, hi = DR.Limits()
+    return false, string.format("Bets go from %d to %d TapCoins right now.", lo, max(lo, hi))
+  end
+  local d = { id = newId(), role = "out", opp = m.name, oppBase = base(m.name), bet = bet, range = range,
+              cur = range, state = "asking", expires = now() + DR.INVITE_TIME, rolls = {}, n = 0 }
+  DR.duel = d
+  send("D1", d.id, m.name, bet, range)
+  notify("state", "duel")
+  return true
+end
+
+-- answer the challenge you were sent (accept = true / false)
+function TCF:DeathRollAnswer(accept)
+  local d = DR.duel
+  if not d or d.state ~= "invited" then return false end
+  if not accept then
+    send("D2", d.id, "n", "-")
+    muted[d.oppBase or ""] = now() + MUTE_AFTER_NO
+    finish(d, "declined", nil, "me")
+    return true
+  end
+  if solo then return false, "Finish your death roll with the house cat first." end
+  if not validBet(d.bet) or not hold(d.id, d.bet) then
+    send("D2", d.id, "c", "-")
+    finish(d, "cancel", "c", "me")
+    return false, "You don't have enough TapCoins for that bet any more."
+  end
+  local first = random(2) == 1 and "c" or "t"
+  d.state, d.turn, d.turnAt = "rolling", whoOf(first, d), now()
+  d.first = d.turn
+  send("D2", d.id, "y", first)
+  saveDuel(d)
+  notify("state", "duel")
+  return true
+end
+
+-- withdraw your challenge before it's answered
+function TCF:DeathRollWithdraw()
+  local d = DR.duel
+  if not d or d.state ~= "asking" then return false end
+  callOff("x", true)
+  return true
+end
+
+-- your roll in a duel: the game's /roll 1-N; the result arrives as a system chat line
+function TCF:DeathRollRoll()
+  local d = DR.duel
+  if not d or d.state ~= "rolling" or d.turn ~= "me" then return false end
+  if d.rolledAt and now() - d.rolledAt < 2 and d.rolledHi == d.cur then return false end  -- no double clicks
+  d.rolledAt, d.rolledHi = now(), d.cur
+  if not doRandomRoll(d.cur) then
+    callOff("e", true)
+    return false
+  end
+  return true
+end
+
+function TCF:DeathRollDuel() return DR.duel end
+
+---------------------------------------------------------------- incoming addon messages
+local seen = {}   -- sender -> { t, n, lastChallenge }
+local function allow(sender)
+  local t = now()
+  local s = seen[sender]
+  if not s then
+    local count = 0
+    for k, v in pairs(seen) do
+      if t - v.t > IN_WINDOW then seen[k] = nil else count = count + 1 end
+    end
+    if count >= 60 then return false end
+    s = { t = t, n = 0 }
+    seen[sender] = s
+  end
+  if t - s.t > IN_WINDOW then s.t, s.n = t, 0 end
+  s.n = s.n + 1
+  return s.n <= IN_MAX, s
+end
+
+local function fromOpp(d, sender) return d and base(sender) == d.oppBase end
+
+local function onChallenge(sender, id, target, bet, range, s)
+  if not isMe(target) then return end
+  bet, range = tonumber(bet), tonumber(range)
+  if not bet or bet ~= floor(bet) or bet < 1 or bet > 100000 or not validRange(range) then return end
+  local t = now()
+  if s.lastChallenge and t - s.lastChallenge < CHALLENGE_GAP then return end
+  s.lastChallenge = t
+  local b = base(sender)
+  if muted[b] and t < muted[b] then return end
+  muted[b] = nil
+  local m = member(sender)
+  if not m then return end      -- only group members whose cat we know (they said hello)
+  local d = DR.duel
+  if d and d.state ~= "over" then
+    if d.id ~= id then send("D2", id, "b", "-") end
+    return
+  end
+  if solo or (InCombatLockdown and InCombatLockdown()) then send("D2", id, "b", "-"); return end
+  if not validBet(bet) then
+    send("D2", id, "c", "-")
+    DR.duel = { id = id, role = "in", opp = m.name, oppBase = base(m.name), bet = bet, range = range, cur = range,
+                state = "over", result = "toohigh", rolls = {}, n = 0, endedAt = t }
+    notify("end", "duel", "toohigh")
+    return
+  end
+  DR.duel = { id = id, role = "in", opp = m.name, oppBase = base(m.name), bet = bet, range = range, cur = range,
+              state = "invited", expires = t + DR.INVITE_TIME, rolls = {}, n = 0 }
+  if TCF.PlaySound then TCF:PlaySound("click") end
+  notify("invite", "duel")
+end
+
+local function onAnswer(d, answer, first)
+  if d.state ~= "asking" then
+    -- an accept after we gave up waiting: tell them again it's off, so their stake comes back
+    if answer == "y" and d.state == "over" then send("D3", d.id, d.reason or "t") end
+    return
+  end
+  if answer == "y" then
+    if first ~= "c" and first ~= "t" then return end
+    if not validBet(d.bet) or not hold(d.id, d.bet) then
+      send("D3", d.id, "c")
+      finish(d, "cancel", "c", "me")
+      return
+    end
+    d.state, d.turn, d.turnAt = "rolling", whoOf(first, d), now()
+    d.first = d.turn
+    saveDuel(d)
+    if TCF.PlaySound then TCF:PlaySound("click") end
+    notify("state", "duel")
+  elseif answer == "n" then finish(d, "declined", nil, "opp")
+  elseif answer == "b" then finish(d, "busy", nil, "opp")
+  elseif answer == "c" then finish(d, "toohigh", nil, "opp") end
+end
+
+local function onDone(d, loser, n)
+  local who = whoOf(loser, d)
+  n = tonumber(n)
+  if not n then return end
+  if d.state == "rolling" then
+    d.peerDone = { who = who, n = n }      -- they saw the 1 first; wait for our own chat line
+    d.doneAt = d.doneAt or now()
+  elseif d.state == "done" then
+    if who ~= d.loser or n ~= d.n then callOff("m", true); return end
+    settle(d)
+  elseif d.state == "over" and (d.result == "win" or d.result == "lose") then
+    -- they missed our message (a /reload while waiting): say it once more
+    d.replies = (d.replies or 0) + 1
+    if d.replies <= 3 then send("D4", d.id, roleOf(d.loser, d), d.n) end
+  end
+end
+
+local function onAddon(prefix, text, channel, sender)
+  if isSecret(prefix) or prefix ~= PREFIX then return end
+  if isSecret(text) or type(text) ~= "string" or text:sub(1, 1) ~= "D" or #text > 200 then return end
+  if isSecret(channel) or (channel ~= "PARTY" and channel ~= "RAID" and channel ~= "INSTANCE_CHAT") then return end
+  if isSecret(sender) or type(sender) ~= "string" or sender == "" or isMe(sender) then return end
+  local kind, ver, id, a, b, c = text:match("^(D%d);(%d+);(%x%x%x%x%x%x);([^;]*);?([^;]*);?([^;]*)$")
+  if not kind or ver ~= VER then return end
+  local ok, s = allow(sender)
+  if not ok then return end
+  local d = DR.duel
+  if kind == "D1" then
+    if a ~= "" and b ~= "" and c ~= "" then onChallenge(sender, id, a, b, c, s) end
+    return
+  end
+  if not d or d.id ~= id or not fromOpp(d, sender) then return end
+  if kind == "D2" then
+    if d.role == "out" then onAnswer(d, a, b) end
+  elseif kind == "D3" then
+    if REASONS[a] and d.state ~= "over" then
+      if d.state == "invited" and a == "t" then muted[d.oppBase or ""] = now() + MUTE_AFTER_NO end
+      finish(d, "cancel", a, "opp")
+    end
+  elseif kind == "D4" then
+    if (a == "c" or a == "t") and (d.state == "rolling" or d.state == "done" or d.state == "over") then onDone(d, a, b) end
+  end
+end
+DR.OnAddon = onAddon
+
+---------------------------------------------------------------- the /roll lines
+local function onSystem(text)
+  local d = DR.duel
+  if not d or d.state ~= "rolling" then return end
+  if isSecret(text) then callOff("s", true); return end
+  local name, v, lo, hi = DR.ParseRoll(text)
+  if not name then return end
+  local b = base(name)
+  local who = (b == myBase()) and "me" or (b == d.oppBase and "opp") or nil
+  if not who or who ~= d.turn then return end          -- not this player's turn: not part of the duel
+  if lo ~= 1 or hi ~= d.cur or v < 1 or v > hi then return end   -- a different /roll
+  d.rolls[#d.rolls + 1] = { who = who, v = v, hi = hi }
+  while #d.rolls > 40 do table.remove(d.rolls, 1) end
+  d.n = d.n + 1
+  d.cur = v
+  if v == 1 then
+    d.state, d.loser, d.doneAt, d.sentDoneAt = "done", who, now(), now()
+    saveDuel(d)
+    send("D4", d.id, roleOf(who, d), d.n)
+    notify("roll", "duel", who, v, hi)
+    local p = d.peerDone
+    if p then
+      if p.who ~= d.loser or p.n ~= d.n then callOff("m", true) else settle(d) end
+    end
+    return
+  end
+  d.turn = who == "me" and "opp" or "me"
+  d.turnAt = now()
+  saveDuel(d)
+  notify("roll", "duel", who, v, hi)
+end
+DR.OnSystem = onSystem
+
+---------------------------------------------------------------- timers
+local function tick()
+  local t = now()
+  flushQueue()
+  local g = solo
+  if g and not g.over and g.turn == "house" and g.houseAt and t >= g.houseAt then
+    g.houseAt = nil
+    soloRoll("house", random(1, g.cur))
+  end
+  local d = DR.duel
+  if not d or d.state == "over" then return end
+  if d.state == "asking" and t >= d.expires then
+    callOff("t", true)
+  elseif d.state == "invited" and t >= d.expires then
+    send("D2", d.id, "n", "-")
+    muted[d.oppBase or ""] = t + MUTE_AFTER_NO
+    finish(d, "expired", nil, "me")
+  elseif d.state == "rolling" then
+    if not inGroup() then callOff("g", false)
+    elseif t - d.turnAt >= DR.TURN_TIME then callOff("t", true) end
+  elseif d.state == "done" then
+    if t - d.doneAt >= DR.DONE_WAIT then callOff("t", true)
+    elseif t - (d.sentDoneAt or 0) >= RESEND_DONE then
+      d.sentDoneAt = t
+      send("D4", d.id, roleOf(d.loser, d), d.n)
+    end
+  end
+end
+DR.Tick = tick
+
+---------------------------------------------------------------- login: finish what a /reload interrupted
+local function restore()
+  local st = store()
+  -- a solo game goes on where it stopped
+  if type(st.solo) == "table" and not solo then
+    local g = st.solo
+    if tonumber(g.bet) and tonumber(g.cur) and g.cur >= 1 and type(g.rolls) == "table" and type(g.house) == "table" then
+      solo = g
+      if g.turn == "house" then g.houseAt = now() + DR.HOUSE_DELAY end
+    else
+      st.solo = nil
+    end
+  end
+  -- a duel: if we had already seen the 1, keep waiting for the other addon to agree;
+  -- anything else is called off and the held stake comes back
+  local sd = st.duel
+  if type(sd) == "table" and sd.state == "done" and st.hold and st.hold.id == sd.id
+     and (sd.loser == "me" or sd.loser == "opp") and tonumber(sd.n) then
+    DR.duel = { id = sd.id, role = sd.role, opp = sd.opp, oppBase = base(sd.opp), bet = sd.bet, range = sd.range,
+                cur = 1, state = "done", loser = sd.loser, n = sd.n, rolls = {}, doneAt = now(), sentDoneAt = now() - RESEND_DONE,
+                restored = true }
+    return
+  end
+  if type(sd) == "table" and type(sd.id) == "string" then
+    DR.reloadCancel = { id = sd.id, opp = sd.opp }   -- told once we're back in the group
+  end
+  st.duel = nil
+  if st.hold then
+    local back = release()
+    if back > 0 then DR.refunded = back end
+  end
+end
+
+---------------------------------------------------------------- events
+local ev = CreateFrame("Frame")
+DR.frame = ev
+for _, e in ipairs({ "CHAT_MSG_ADDON", "CHAT_MSG_SYSTEM", "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE" }) do
+  pcall(ev.RegisterEvent, ev, e)
+end
+if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix, PREFIX) end
+
+local restored = false
+ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
+  if not TCF.db then return end
+  if not restored then restored = true; restore() end
+  if event == "CHAT_MSG_ADDON" then onAddon(a1, a2, a3, a4)
+  elseif event == "CHAT_MSG_SYSTEM" then onSystem(a1)
+  elseif event == "GROUP_ROSTER_UPDATE" then
+    local d = DR.duel
+    if d and d.state ~= "over" and not inGroup() then callOff("g", false) end
+  end
+end)
+
+local acc = 0
+ev:SetScript("OnUpdate", function(_, elapsed)
+  acc = acc + elapsed
+  if acc < 0.2 then return end
+  acc = 0
+  if not TCF.db then return end
+  if not restored then restored = true; restore() end
+  local rc = DR.reloadCancel
+  if rc and inGroup() then
+    DR.reloadCancel = nil
+    send("D3", rc.id, "r")   -- retried by the queue if the game refuses it right now
+  end
+  tick()
+end)
