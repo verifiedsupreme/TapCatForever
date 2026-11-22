@@ -129,14 +129,25 @@ def check(seed, load_addon):
     ck(not ev("T:CasinoBet(9, 'slots')"), "under the limit: refused")
     ck(not ev("T:CasinoBet(10.5, 'slots')"), "not a whole number: refused")
     ck(not ev("T:CasinoBet(10, 'roulette')"), "unknown game: refused")
+    for key in ("bj", "shoe", "bet", "total", "pending", "view"):
+        ck(not ev("T:CasinoBet(10, '%s')" % key), "a saved key is not a game: %s" % key)
+    ck(ev("T.db.coins") == 1000, "no coins taken by odd game names")
     ck(not ev("T:CasinoBet(_SECRET, 'slots')"), "secret amount: refused")
     ck(ev("T:CasinoBet(100, 'slots')") and ev("T.db.coins") == 900, "bet 100 takes 100")
     ck(ev("C.slots.played") == 1 and ev("C.slots.wagered") == 100 and ev("C.total.wagered") == 100, "bet counted in the stats")
     ck(ev("T:CasinoPay(250, 'slots')") == 250 and ev("T.db.coins") == 1150, "pay 250")
     ck(ev("C.slots.won") == 250 and ev("C.slots.biggest") == 250 and ev("C.total.won") == 250, "win counted in the stats")
     ck(ev("T.db.coinsEarned == _e and T.db.coinsSpent == _s"), "casino money is not TapCoins earned or spent")
+    # "Biggest win" is the profit: a push or a small line doesn't count as a big win
+    ex("C.blackjack.biggest = 0; C.total.biggest = 0; T:CasinoPay(500, 'blackjack', 500)")
+    ck(ev("C.blackjack.biggest") == 0 and ev("C.total.biggest") == 0, "a push is not a win (biggest %s)" % ev("C.blackjack.biggest"))
+    ex("T:CasinoHold(20, 'slots', nil, 10); T:CasinoCollect('slots')")
+    ck(ev("C.slots.biggest") == 250, "a one-cat line on 10 doesn't beat 250")
+    ex("C.slots.biggest = 0; T:CasinoHold(20, 'slots', nil, 10); T:CasinoCollect('slots')")
+    ck(ev("C.slots.biggest") == 10, "a one-cat line on 10 is a 10 TapCoin win (%s)" % ev("C.slots.biggest"))
+    ex("T.db.coins = T.db.coins - 540")
     ck(ev("T:CasinoPay(-5, 'slots')") == 0 and ev("T.db.coins") == 1150, "no negative pay")
-    ck(ev("T:CasinoStatsLine('slots')").find("Played 1") >= 0, "stats line")
+    ck(ev("T:CasinoStatsLine('slots')").find("Played 1") >= 0 and "Paid back" in ev("T:CasinoStatsLine('slots')"), "stats line")
     # held winnings are paid when collected (and at login)
     ex("T:CasinoHold(40, 'slots')")
     ck(ev("T.db.coins") == 1150, "held winnings wait")
@@ -151,9 +162,16 @@ def check(seed, load_addon):
     ck(ev("T:CasinoSettleDuel(99999, 'Bob')") == 500, "at most the top bet")
     ck(ev("T:CasinoSettleDuel(_SECRET, 'Bob')") == 0, "secret delta ignored")
     ck(ev("#C.duels") == 4 and ev("C.duels[3].opp") == "another player", "duels logged")
+    # duel stats with the stake: a win of 95 on a bet of 100 counts as bet 100, paid back 195
+    ex("C.deathroll = nil; C.total = nil; C = T:CasinoData(); T.db.coins = 1000")
+    ex("T:CasinoSettleDuel(95, 'Bob', 100)")
+    ck(ev("C.deathroll.wagered") == 100 and ev("C.deathroll.won") == 195 and ev("C.deathroll.biggest") == 95, "duel win stats")
+    ex("T:CasinoSettleDuel(-100, 'Bob', 100)")
+    ck(ev("C.deathroll.wagered") == 200 and ev("C.deathroll.won") == 195, "duel loss stats")
+    ck("Net |cffff6060-5" in ev("T:CasinoStatsLine('deathroll')"), "duel net -5: " + ev("T:CasinoStatsLine('deathroll')"))
 
     # ---- slots: every line pays what the table says
-    pays = {"cat": 100, "gem": 40, "bell": 25, "coin": 15, "fish": 10, "yarn": 6, "paw": 3}
+    pays = {"cat": 100, "gem": 40, "bell": 25, "coin": 15, "fish": 10, "yarn": 5, "paw": 3}
     for s, m in pays.items():
         ck(ex("return T.SlotsPay('%s', '%s', '%s')" % (s, s, s)) == (m, "three"), "three %s pays %d" % (s, m))
     ck(ex("return T.SlotsPay('cat', 'cat', 'paw')") == (5, "twocats"), "two cats pay 5")
@@ -178,12 +196,16 @@ def check(seed, load_addon):
     ck(abs(mean - lmean) < 1e-12 and abs(hit - lhit) < 1e-12, "RTP agrees: %s %s" % (mean, lmean))
     ck(0.92 <= mean <= 0.95, "slots RTP in 92-95%%: %.4f" % mean)
     ck(all(len(r) == 20 for r in reels), "20 stops per reel")
+    # the rarer a line, the more it pays
+    odds = {s: reels[0].count(s) * reels[1].count(s) * reels[2].count(s) for s in pays}
+    order = sorted(pays, key=lambda s: -pays[s])
+    ck(all(odds[order[i]] < odds[order[i + 1]] for i in range(len(order) - 1)), "rarer lines pay more: %r" % odds)
     sim, simhit = ex("return _slotSim(20000, 10)")
     ck(0.80 < sim < 1.10 and abs(simhit - hit) < 0.02, "slots simulation near the exact RTP: %.4f" % sim)
 
     # ---- blackjack rules. Cards: code = (suit - 1) * 13 + rank (1 ace, 11-13 J Q K)
     def deal(cards, bet=100, coins=10000):
-        ex("T:CasinoCollect(); T.db.coins = %d; C.bj = nil" % coins)
+        ex("T:CasinoCollect(); T.db.coins = %d; C.bj = nil; C.shoe = nil" % coins)   # a fresh shoe: stacked cards are there
         return ev("T:BJDeal(%d, { %s })" % (bet, ", ".join(map(str, cards))))
 
     def dealer_draws(*codes):
@@ -264,9 +286,10 @@ def check(seed, load_addon):
     ck("Hand 1: win, hand 2: win" in st.text and "You win 200" in st.text, "split text: " + st.text)
     # split aces: one card each, 21 after a split is not a blackjack
     st = deal([1, 9, 1 + 26, 7])
-    dealer_draws(13, 5)
+    dealer_draws(13, 5, 10)   # hand 1 gets a K (21), hand 2 a 5; the dealer's 16 draws a 10 and busts
     ex("T:BJSplit()"); undraw()
     ck(st.phase == "done" and st.hands[1].result == "win" and st.hands[1].pay == 200, "split aces: one card each, 21 pays 1 to 1")
+    ck(len(list(st.hands[1].cards.values())) == 2 and len(list(st.hands[2].cards.values())) == 2, "split aces: exactly one card each")
     # no split of two different cards
     st = deal([9, 6, 8, 10])
     ck(not ev("T:BJCanSplit()") and not ev("T:BJSplit()"), "9 and 8 don't split")
@@ -351,6 +374,40 @@ def check(seed, load_addon):
         ex("for k = 1, 80 do _update(0.05) end")
         ck(ev("next(C.pending)") is None, "the reels landed and the win (if any) is paid")
         ck(ev("T.db.coins") == 1950 + ev("C.slotsLast.win"), "coins after the spin")
+        # the reels: at most about half a row a frame at 60 fps, never running backwards more than
+        # the small landing bounce, stopping left to right
+        motion = ex(r'''
+          local S = T.casinoView.slots
+          T.db.coins = 2000; T:CasinoCollect()
+          local worstStep, worstBack, frames = 0, 0, 0
+          for spin = 1, 12 do
+            S:Spin()
+            local prev, low = {}, {}
+            for r = 1, 3 do prev[r] = S.pos[r]; low[r] = S.pos[r] end
+            assert(S.stopAt[1] < S.stopAt[2] and S.stopAt[2] < S.stopAt[3], "reels stop left to right")
+            for k = 1, 400 do
+              _update(1 / 60); frames = frames + 1
+              if not S.spinning then break end
+              for r = 1, 3 do
+                worstStep = math.max(worstStep, prev[r] - S.pos[r])
+                low[r] = math.min(low[r], S.pos[r])
+                worstBack = math.max(worstBack, S.pos[r] - low[r])
+                prev[r] = S.pos[r]
+              end
+            end
+            assert(not S.spinning, "the reels stop")
+            for r = 1, 3 do assert(S.pos[r] == C.slotsLast.stops[r], "reel lands on the result") end
+          end
+          T.db.coins = 2000; T:CasinoCollect()
+          return worstStep, worstBack, frames / 12
+        ''')
+        ck(motion[0] <= 0.5 and motion[1] <= 0.25, "reel motion: step %.3f rows a frame, back %.3f rows" % motion[:2])
+        ck(motion[2] / 60 <= 3.8, "a spin lasts %.2f s" % (motion[2] / 60))
+        # Stop lands every reel at once, with one click
+        ex("_clicks = 0; local ps = T.PlaySound; T.PlaySound = function(self, k) if k == 'click' then _clicks = _clicks + 1 end end; "
+           "T.casinoView.slots:Spin(); _clicks = 0; _update(0.1); T.casinoView.slots:Spin(); _update(0.02); T.PlaySound = ps")
+        ck(not ev("T.casinoView.slots.spinning") and ev("_clicks") == 1, "Stop: one click (%s)" % ev("_clicks"))
+        ex("T.db.coins = 1950 + 0; T:CasinoCollect(); T.db.coins = 1950")
         # a spin, then the window closes before the reels stop: paid anyway
         ex("T.casinoView.slots:Spin(); _w = C.slotsLast.win; _c = T.db.coins; T.window:Hide(); T.casinoView:GetScript('OnHide')(T.casinoView)")
         ck(ev("T.db.coins") == ev("_c + _w"), "closing mid-spin pays the win")
@@ -363,6 +420,18 @@ def check(seed, load_addon):
             ex("T.casinoView.bj:Action('stand'); for k = 1, 60 do _update(0.05) end"); guard += 1
         ck(not ev("T:BJInPlay()") and ev("next(C.pending)") is None, "hand played out and paid through the buttons")
         ck(ev("T.casinoView.bj.result:GetText()") == ev("T:BJState().text"), "result text shown")
+        # a blackjack: the banner takes the result line's place, and the line comes back after it
+        ex("T.db.coins = 2000; T.bjTestStack = { 1, 9, 13, 7 }; T.casinoView.bj:Deal(); T.bjTestStack = nil")
+        ex("for k = 1, 45 do _update(0.05) end")
+        ck(ev("T:BJState().natural") == "player", "stacked blackjack")
+        ck(not ev("T.casinoView.bj.result:IsShown()"), "the banner replaces the result line")
+        ex("for k = 1, 40 do _update(0.1) end")
+        ck(ev("T.casinoView.bj.result:IsShown()") and "Blackjack" in ev("T.casinoView.bj.result:GetText()"), "the result line comes back")
+        # a fresh shoe is announced
+        ex("for i = 1, 52 do C.shoe.counts[i] = (i <= 12) and 6 or 0 end; C.shoe.left = 72; T.bjTestStack = { 9, 6, 8, 10 }")
+        ex("T.casinoView.bj:Deal(); T.bjTestStack = nil")
+        ck(ev("T.casinoView.bj.result:GetText()") == "A fresh shoe.", "a fresh shoe: %r" % ev("T.casinoView.bj.result:GetText()"))
+        ex("for k = 1, 30 do _update(0.05) end; T.casinoView.bj:Action('stand'); for k = 1, 60 do _update(0.05) end")
         # too few TapCoins: the page says so
         ex("T.db.coins = 20; T.casinoView:Refresh()")
         ck("40 TapCoins" in (ev("T.casinoView.limits:GetText()") or ""), "fewer than 40 coins: told why")

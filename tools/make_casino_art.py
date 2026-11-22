@@ -157,8 +157,14 @@ def machine():
     o = ""
     o += R(26, 96, 368, 318, 34, RED, 7)                       # body
     o += R(40, 108, 340, 294, 26, RED2, 0, .55)
+    o += R(33, 103, 354, 304, 29, "none", 3, .9, stroke=GOLD)  # gold trim line around the body
     o += R(48, 106, 324, 240, 20, "#ffd65a", 7)               # gold frame around the reels
+    o += R(54, 112, 312, 228, 16, "none", 2.5, .6, stroke="#fff3b0")
     o += R(60, 118, 300, 216, 12, "#fff8ea", 7)               # reel window
+    # darker bands at the top and bottom of the window, so the middle row reads as the line
+    o += '<rect x="63" y="121" width="294" height="52" rx="9" fill="#e9d9c0" opacity=".85"/>'
+    o += '<rect x="63" y="279" width="294" height="52" rx="9" fill="#e9d9c0" opacity=".85"/>'
+    o += R(60, 118, 300, 216, 12, "none", 7)
     # the cat head on top (ears, face) holding the marquee
     o += P("M 92 70 L 96 8 L 156 44 Z", FUR, 7) + P("M 328 70 L 324 8 L 264 44 Z", FUR, 7)
     o += P("M 104 56 L 106 24 L 140 44 Z", PINK, 0) + P("M 316 56 L 314 24 L 280 44 Z", PINK, 0)
@@ -166,9 +172,11 @@ def machine():
     o += R(110, 46, 200, 46, 23, "#3b2a4a", 6)                # marquee panel (UI_Casino.lua writes on it)
     for sx in (-1, 1):
         o += E(210 + sx * 118, 74, 10, 6, PINK, 0, .9)
-    # coin tray and buttons
+    # coin slot, coin tray (with a lip) and buttons
+    o += R(196, 346, 28, 8, 4, "#3b1d22", 3)
     o += R(116, 356, 188, 40, 14, "#7a2b35", 7)
     o += R(132, 366, 156, 18, 9, "#3b1d22", 0)
+    o += R(110, 384, 200, 12, 6, GOLD2, 5) + L("M 122 388 L 298 388", "#fff3b0", 2.5, .8)
     o += C(70, 376, 13, "#5ad17a", 5) + C(350, 376, 13, "#58b6ff", 5)
     o += shine(64, 370, 4, 3, -30, .8) + shine(344, 370, 4, 3, -30, .8)
     # feet
@@ -182,7 +190,12 @@ def lever_ball():
 
 
 def lever_rod():
-    return R(10, 4, 12, 120, 6, "#c9cdd6", 4) + R(13, 8, 3, 108, 2, "#ffffff", 0, .7)
+    """a chrome rod with a dark outline and red stripes (the middle half of the 32-wide canvas)"""
+    o = R(9, 3, 14, 122, 7, "#b9bfcc", 4)
+    for y in range(14, 118, 20):
+        o += '<path d="M 10 %d L 22 %d L 22 %d L 10 %d Z" fill="%s"/>' % (y + 6, y, y + 6, y + 12, RED)
+    o += R(12, 6, 3, 114, 1.5, "#ffffff", 0, .75)
+    return o + R(9, 3, 14, 122, 7, "none", 4)
 
 
 def lever_hub():
@@ -274,7 +287,8 @@ def room():
     for i in range(0, 1024, 128):
         o += P("M %d 20 Q %d 84 %d 20 Z" % (i, i + 64, i + 128), "#d4414e", 4)
         o += C(i, 22, 8, GOLD, 4)
-    for x, y, s in ((90, 150, 9), (300, 110, 6), (520, 170, 7), (700, 120, 10), (930, 180, 7), (180, 300, 6), (820, 320, 8), (430, 330, 5)):
+    # sparkles on the left only: the right side sits behind the pay table
+    for x, y, s in ((90, 150, 9), (300, 110, 6), (180, 300, 6), (430, 330, 5)):
         o += P(star(4, s * 1.6, s * 0.5, x, y), "#ffe58a", 2, .8)
     return o
 
@@ -301,6 +315,16 @@ def sign():
     return o
 
 
+def payline():
+    """the pay line arrow at the side of the reel window (points right; flipped for the right side)"""
+    return P("M 10 18 L 34 18 L 34 8 L 56 32 L 34 56 L 34 46 L 10 46 Z", RED, 6) + L("M 16 24 L 34 24", "#ffd0d4", 4, .8)
+
+
+def reel_divider():
+    """the bar between two reels (16 x 256)"""
+    return R(3, 2, 10, 252, 5, "#7a2b35", 3) + R(6, 6, 3, 244, 1.5, "#ffb3ba", 0, .6)
+
+
 def shoe():
     o = P("M 14 98 L 26 40 L 114 40 L 114 98 Z", "#8a5634", 5)
     o += P("M 30 46 L 22 92 L 108 92 L 108 46 Z", "#a8683d", 0)
@@ -315,9 +339,10 @@ GROUPS = [
     (128, 128, dict(SYMBOLS, court_k=court_k, court_q=court_q, court_j=court_j, glow=glow, shoe=shoe)),
     (512, 512, {"machine": machine}),
     (64, 64, {"lever_ball": lever_ball, "lever_hub": lever_hub, "suit_hearts": suit_heart, "suit_diamonds": suit_diamond,
-              "suit_spades": suit_spade, "suit_clubs": suit_club, "sparkle": sparkle}),
+              "suit_spades": suit_spade, "suit_clubs": suit_club, "sparkle": sparkle, "payline": payline}),
     (32, 128, {"lever_rod": lever_rod}),
     (32, 32, {"bulb": bulb}),
+    (16, 256, {"reel_divider": reel_divider}),
     (128, 256, {"card_face": card_face, "card_back": card_back}),
     (1024, 512, {"felt": felt, "room": room}),
     (512, 128, {"sign": sign}),

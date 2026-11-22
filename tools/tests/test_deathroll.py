@@ -306,6 +306,11 @@ def _duels(seed, load_addon, rnd):
     ck(net.ex("Alice", "return _duels()") == 1 and net.ex("Bob", "return _duels()") == 1, "still once")
     ck(A.eval("TapCatForever.db.deathRoll.hold == nil") and B.eval("TapCatForever.db.deathRoll.hold == nil"), "holds released")
     ck(net.ex("Alice", "return _duelSum()") + net.ex("Bob", "return _duelSum()") == -5, "duel log: the table keeps 5")
+    # the stats count the bet and what came back, so a win shows its profit
+    for n in ("Alice", "Bob"):
+        line = net.ex(n, "return TapCatForever:CasinoStatsLine('deathroll')")
+        want = "Net |cff40ff40+95" if net.st(n, "result") == "win" else "Net |cffff6060-100"
+        ck(want in line, "%s's stats line: %s" % (n, line))
 
     # --- decline
     a0, b0 = net.coins("Alice"), net.coins("Bob")
@@ -332,7 +337,7 @@ def _duels(seed, load_addon, rnd):
     ck(net.ex("Alice", "return TapCatForever:DeathRollWithdraw()"), "withdraw"); net.pump(1)
     ck(net.st("Bob", "state") == "over" and net.st("Bob", "reason") == "x", "withdrawn")
 
-    # --- turn timeout (nobody rolls): called off, no coins move
+    # --- turn timeout: the player who doesn't roll in time loses (their own addon pays)
     def start(a, b, bet=100, rng=1000):
         net.pump(4)   # one challenge per player every few seconds
         net.ex(a, 'TapCatForever:DeathRollChallenge(%r, %d, %d)' % (b, bet, rng)); net.pump(1)
@@ -344,9 +349,30 @@ def _duels(seed, load_addon, rnd):
     r = "Alice" if net.st("Alice", "turn") == "me" else "Bob"
     net.ex(r, "TapCatForever:DeathRollRoll()"); net.pump(1)
     ck(net.st("Alice", "cur") == 400 and net.st("Bob", "cur") == 400, "first roll counted")
-    net.pump(62)
-    ck(net.st("Alice", "result") == "cancel" and net.st("Bob", "result") == "cancel", "turn timeout calls it off")
-    ck(net.coins("Alice") == a0 and net.coins("Bob") == b0, "turn timeout: stakes back")
+    slow = "Bob" if r == "Alice" else "Alice"
+    net.pump(55)
+    ck(net.st("Alice", "state") == "rolling" and net.st("Bob", "state") == "rolling", "still running before the 60 s")
+    net.pump(7)
+    ck(net.st(slow, "result") == "lose" and net.st(slow, "reason") == "f", "turn timeout: the slow player loses (%s %s)" % (net.st(slow, "result"), net.st(slow, "reason")))
+    ck(net.st(r, "result") == "win" and net.st(r, "reason") == "f", "turn timeout: the other player wins")
+    d_r, d_s = net.coins(r) - (a0 if r == "Alice" else b0), net.coins(slow) - (a0 if slow == "Alice" else b0)
+    ck((d_r, d_s) == (95, -100), "turn timeout: paid like a lost duel (%d %d)" % (d_r, d_s))
+    a0, b0 = net.coins("Alice"), net.coins("Bob")
+    # the forfeit message is lost: the slow player still pays, the other gets their own stake back (coins only leave)
+    start("Alice", "Bob")
+    slow = "Alice" if net.st("Alice", "turn") == "me" else "Bob"
+    other = "Bob" if slow == "Alice" else "Alice"
+    net.pump(55); net.drop = True; net.pump(25); net.drop = False; net.pump(2)
+    ck(net.st(slow, "result") == "lose" and net.st(other, "result") == "cancel", "lost forfeit message: %s %s" % (net.st(slow, "result"), net.st(other, "result")))
+    ck(net.coins(slow) - (a0 if slow == "Alice" else b0) == -100 and net.coins(other) == (a0 if other == "Alice" else b0), "lost forfeit message: a coin sink, never a faucet")
+    a0, b0 = net.coins("Alice"), net.coins("Bob")
+    # Roll was pressed but its line never came (the roll didn't go through): called off, nobody loses
+    start("Alice", "Bob")
+    r = "Alice" if net.st("Alice", "turn") == "me" else "Bob"
+    net.ex(r, "TapCatForever:DeathRollRoll()"); net.c[r].eval("_takeRolls()")
+    net.pump(70)
+    ck(net.st(r, "result") == "cancel" and net.st(r, "reason") == "e", "pressed but no roll line: called off (%s %s)" % (net.st(r, "result"), net.st(r, "reason")))
+    ck(net.coins("Alice") == a0 and net.coins("Bob") == b0, "no roll line: no coins moved")
 
     # --- secret system text: called off on both sides
     start("Bob", "Alice")
@@ -483,26 +509,110 @@ def _duels(seed, load_addon, rnd):
     ck(net.st(other, "result") == "cancel", "the other side too")
     ck(net.coins("Alice") == a0 and net.coins("Bob") == b0, "mismatch: no coins moved")
 
-    # --- the other addon never agrees: called off after the wait
+    # --- the other addon never agrees: the loser pays (it saw its own 1), the winner gets its stake
+    # back but nothing more. Coins only ever leave.
     start("Alice", "Bob")
     net.drop = True
     net.forced = [1]
     r = "Alice" if net.st("Alice", "turn") == "me" else "Bob"
+    other = "Bob" if r == "Alice" else "Alice"
     net.ex(r, "TapCatForever:DeathRollRoll()"); net.pump(0.5)
     net.pump(95)
     net.drop = False
     net.pump(2)
-    ck(net.st("Alice", "result") == "cancel" and net.st("Bob", "result") == "cancel", "no agreement: called off")
-    ck(net.coins("Alice") == a0 and net.coins("Bob") == b0, "no agreement: no coins moved")
+    ck(net.st(r, "result") == "lose" and net.st(other, "result") == "cancel", "no agreement: %s %s" % (net.st(r, "result"), net.st(other, "result")))
+    base = {"Alice": a0, "Bob": b0}
+    ck(net.coins(r) - base[r] == -100 and net.coins(other) == base[other], "no agreement: the loser pays, the winner's stake comes back")
+    a0, b0 = net.coins("Alice"), net.coins("Bob")
 
-    # --- leaving the group mid-duel
+    # --- after the 1 the winner is paid only if the loser pays too (two ways it used to make coins)
+    for case in ("leave", "lockdown"):
+        a0, b0 = net.coins("Alice"), net.coins("Bob")
+        base = {"Alice": a0, "Bob": b0}
+        start("Alice", "Bob")
+        lo = "Alice" if net.st("Alice", "turn") == "me" else "Bob"
+        wi = "Bob" if lo == "Alice" else "Alice"
+        net.ex(lo, "TapCatForever:DeathRollRoll()"); net.c[lo].eval("_takeRolls()")
+        net.sys("%s rolls 1 (1-1000)" % lo)
+        out = net.c[lo].eval("_takeOut()")                      # the loser's "I saw the 1" reaches the winner
+        for i in range(1, len(out) + 1): net.c[wi].globals()._deliver(out[i][1], out[i][2], lo + "-Forever", out[i][3])
+        net.c[wi].eval("_takeOut()")                            # the winner's answer is lost on the way
+        if case == "leave":
+            net.ungroup(lo); net.c[wi].execute("_group = nil; _fire('GROUP_ROSTER_UPDATE')")   # the party breaks up
+        else:
+            net.ex(wi, "_sendResult = 11")                      # the winner's messages are refused from now on
+        net.pump(100)
+        net.ex(wi, "_sendResult = 0")
+        ck(net.st(wi, "result") == "win" and net.st(lo, "result") == "lose", "%s after the 1: %s %s" % (case, net.st(wi, "result"), net.st(lo, "result")))
+        dw, dl = net.coins(wi) - base[wi], net.coins(lo) - base[lo]
+        ck((dw, dl) == (95, -100), "%s after the 1: no coins made (%d %d)" % (case, dw, dl))
+        net.group(["Alice", "Bob"])
+
+    # --- leaving the group mid-duel (before the 1): called off on both sides
+    a0, b0 = net.coins("Alice"), net.coins("Bob")
     start("Bob", "Alice")
-    net.ungroup("Bob"); net.pump(1)
+    net.ungroup("Bob"); net.c["Alice"].execute("_group = {}; _fire('GROUP_ROSTER_UPDATE')"); net.pump(1)
     ck(net.st("Bob", "reason") == "g", "left the group: called off")
-    net.pump(62)
-    ck(net.st("Alice", "result") == "cancel", "the other side times out")
+    ck(net.st("Alice", "result") == "cancel" and net.st("Alice", "reason") == "g", "the other side sees them gone")
     ck(net.coins("Alice") == a0 and net.coins("Bob") == b0, "left the group: no coins moved")
     net.group(["Alice", "Bob"])
+
+    # --- their first roll arrives before their "accept": it still counts
+    early_done = False
+    for _ in range(12):
+        net.pump(4)
+        net.ex("Alice", 'TapCatForever:DeathRollChallenge("Bob", 100, 1000)'); net.pump(1)
+        net.ex("Bob", "TapCatForever:DeathRollAnswer(true)")
+        held = net.c["Bob"].eval("_takeOut()")
+        if net.st("Bob", "turn") != "me":
+            for i in range(1, len(held) + 1): net.c["Alice"].globals()._deliver(held[i][1], held[i][2], "Bob-Forever", held[i][3])
+            net.pump(1)
+            _play_to_end(net, "Alice", "Bob", [5, 1])     # Alice rolls first this time: play it out, try again
+            continue
+        net.forced = [612]
+        net.ex("Bob", "TapCatForever:DeathRollRoll()"); net.c["Bob"].eval("_takeRolls()")
+        net.sys("Bob rolls 612 (1-1000)")
+        ck(net.st("Alice", "state") == "asking", "the roll came first")
+        for i in range(1, len(held) + 1): net.c["Alice"].globals()._deliver(held[i][1], held[i][2], "Bob-Forever", held[i][3])
+        ck(net.st("Alice", "cur") == 612 and net.st("Alice", "turn") == "me" and net.st("Bob", "turn") == "opp", "the early roll is played when the accept arrives")
+        _play_to_end(net, "Alice", "Bob", [300, 1])
+        ck({net.st("Alice", "result"), net.st("Bob", "result")} == {"win", "lose"}, "early roll: finished")
+        early_done = True
+        break
+    ck(early_done, "Bob rolled first in one of 12 tries")
+
+    # --- the challenger reloads while waiting for the answer: the invite is withdrawn
+    net.pump(25)
+    b0 = net.coins("Bob")
+    net.ex("Alice", 'TapCatForever:DeathRollChallenge("Bob", 100, 1000)'); net.pump(1)
+    ck(net.st("Bob", "state") == "invited", "invite before the reload")
+    db = net.c["Alice"].eval("_dbString()")
+    del net.c["Alice"]
+    net.add("Alice", db=db)
+    net.c["Alice"].execute('_group = { party1 = { "Bob", "Forever" } }; _fire("GROUP_ROSTER_UPDATE")')
+    net.pump(3)
+    ck(net.st("Bob", "state") == "over" and net.st("Bob", "reason") == "r", "the reload withdraws the invite (%s %s)" % (net.st("Bob", "state"), net.st("Bob", "reason")))
+    ck(net.coins("Bob") == b0, "nothing held after the reload")
+
+    # --- a replayed accept gets one "it's off" answer, not one per copy
+    net.pump(25)
+    net.ex("Alice", 'TapCatForever:DeathRollChallenge("Bob", 100, 1000)'); net.pump(1)
+    net.ex("Bob", "TapCatForever:DeathRollAnswer(false)"); net.pump(1)
+    did = net.st("Alice", "id")
+    net.c["Alice"].eval("_takeOut()")
+    for _ in range(30): net.c["Alice"].globals()._deliver("TapCatFvr", "D2;1;%s;y;c" % did, "Bob-Forever", "PARTY")
+    ck(len(net.c["Alice"].eval("_takeOut()")) <= 1, "30 replayed accepts get one answer at most")
+
+    # --- no duels where the game hides the roll lines (dungeons, raids, battlegrounds, lockdown)
+    net.pump(25)
+    net.ex("Alice", '_inInstance = "party"')
+    ok, err = net.ex("Alice", 'return TapCatForever:DeathRollChallenge("Bob", 100, 1000)')
+    ck(not ok and "dungeons" in err, "no challenge inside an instance: %r" % err)
+    net.ex("Alice", '_inInstance = false')
+    net.ex("Bob", 'C_ChatInfo.InChatMessagingLockdown = function() return true end')
+    net.ex("Alice", 'TapCatForever:DeathRollChallenge("Bob", 100, 1000)'); net.pump(1)
+    ck(net.st("Alice", "result") == "busy" and net.st("Bob", "state") in (None, "over"), "a player in chat lockdown answers busy")
+    net.ex("Bob", 'C_ChatInfo.InChatMessagingLockdown = nil')
 
     # --- a refused send is retried
     net.ex("Alice", "_sendResult = 9")
@@ -529,7 +639,8 @@ def _duels(seed, load_addon, rnd):
     msgs = len([1 for l in net.log if l[1][:1] == "D"])
     print("death roll duel section (%d clients, %d duel messages: challenge, accept, decline, timeouts, withdraw, turn order, "
           "stray rolls, settle once, not enough TapCoins, busy, spoofed and odd messages, raid, reload, mismatch, "
-          "lost messages, left the group, refused sends, German): all checks passed" % (3, msgs))
+          "lost messages, left the group, refused sends, German, a turn that runs out loses, no coins made after the 1 "
+          "(leaving the group, refused sends), an early first roll, a reload while asking, no duels in instances): all checks passed" % (3, msgs))
 
 # ---------------------------------------------------------------------------- scene
 def _scene(seed, load_addon):
@@ -579,6 +690,9 @@ def _scene(seed, load_addon):
       for _, r in ipairs({ "win", "lose", "declined", "busy", "toohigh", "expired" }) do
         duel({ state = "over", role = "out", result = r, by = "opp" }); duel({ state = "over", role = "in", result = r, by = "me" })
       end
+      duel({ state = "over", role = "out", result = "win", reason = "f", by = "opp" })
+      duel({ state = "over", role = "out", result = "lose", reason = "f", by = "me" })
+      duel({ state = "over", role = "out", result = "win", opp = "Thrallbeard-ArgentDawn", oppBase = "thrallbeard" })
       for k in pairs(DR.REASONS) do
         duel({ state = "over", role = "out", result = "cancel", reason = k, by = "opp" })
         duel({ state = "over", role = "out", result = "cancel", reason = k, by = "me" })
@@ -591,6 +705,8 @@ def _scene(seed, load_addon):
     for t in texts:
         ck("!" not in t and "%s" not in t and "%d" not in t and "nil" not in t, "scene text: %r" % t)
     ck(any("You win" in t for t in texts) and any("Your turn" in t for t in texts) and any("No TapCoins moved" in t for t in texts), "scene texts")
+    ck(any("ran out of time" in t for t in texts), "forfeit texts")
+    ck(not any("ArgentDawn" in t for t in texts), "the scene shows names without their realm")
     # every texture the scene uses exists
     art = os.path.join(ROOT, "Art")
     used = [p for p in lua.eval("(function() local t = {} for p in pairs(_textures) do t[#t + 1] = p end return t end)()").values()]

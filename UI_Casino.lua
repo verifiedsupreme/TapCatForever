@@ -25,7 +25,6 @@ local function at(r, parent, x, y, point)
   r:ClearAllPoints(); r:SetPoint(point or "CENTER", parent, "TOPLEFT", x, -y)
 end
 local function easeOut(p) return 1 - (1 - p) ^ 3 end
-local function easeOutBack(p) local s = 1.3; p = p - 1; return 1 + (s + 1) * p * p * p + s * p * p end
 local function level(f, parent, plus)
   if f.SetFrameLevel and parent.GetFrameLevel then pcall(f.SetFrameLevel, f, (parent:GetFrameLevel() or 1) + plus) end
 end
@@ -155,7 +154,11 @@ local SYM_PLURAL = { cat = "cats", gem = "gems", bell = "bells", coin = "coins",
 local MACHINE_X, MACHINE_Y, MACHINE = 14, 18, 420    -- the machine art (viewBox 420, tools/make_casino_art.py)
 local WIN_X, WIN_Y, WIN_W, WIN_H = 60, 118, 300, 216 -- the reel window inside it
 local ROW = 72                                       -- a reel row
-local SPIN_T = { 1.1, 1.5, 1.9 }                     -- when each reel stops (seconds)
+-- reel motion: full speed (rows per second), then a cubic ease-out to the stop, then a small
+-- fixed bounce. Each reel stops at least REEL_GAP after the one to its left; the first one no
+-- sooner than FIRST_STOP. 28 rows a second is about half a row per frame at 60 fps.
+local REEL_SPEED, REEL_EASE, REEL_BOUNCE, BOUNCE_ROWS = 28, 0.45, 0.14, 0.22
+local FIRST_STOP, REEL_GAP = 0.75, 0.32
 
 -- how often each line comes up (for the odds on hover), from the reel strips
 local function slotOdds()
@@ -194,17 +197,17 @@ local function SlotsView(box, cv)
     local stop = type(last) == "table" and type(last.stops) == "table" and tonumber(last.stops[r]) or random(#TCF.SLOT_REELS[r])
     S.pos[r] = stop
   end
-  for i = 1, 2 do
-    local d = m:CreateTexture(nil, "OVERLAY", nil, 2); d:SetSize(4, WIN_H); at(d, m, WIN_X + i * WIN_W / 3, WIN_Y + WIN_H / 2)
-    d:SetColorTexture(0.23, 0.15, 0.12, 0.9)
+  for i = 1, 2 do   -- the dividers between the reels (over the symbols)
+    local d = tex(m, "reel_divider", 12, WIN_H, "OVERLAY", 2); at(d, m, WIN_X + i * WIN_W / 3, WIN_Y + WIN_H / 2)
   end
   -- the pay line (over the reels) and its win glow
   local glowLayer = CreateFrame("Frame", nil, m); glowLayer:SetAllPoints(); level(glowLayer, m, 6)
   local line = glowLayer:CreateTexture(nil, "OVERLAY", nil, 3); line:SetSize(WIN_W - 8, 3); at(line, m, WIN_X + WIN_W / 2, WIN_Y + WIN_H / 2)
   line:SetColorTexture(0.91, 0.31, 0.36, 0.45)
-  for _, sx in ipairs({ -1, 1 }) do
-    local mk = glowLayer:CreateTexture(nil, "OVERLAY", nil, 4); mk:SetSize(10, 22)
-    at(mk, m, WIN_X + WIN_W / 2 + sx * (WIN_W / 2 + 1), WIN_Y + WIN_H / 2); mk:SetColorTexture(0.91, 0.31, 0.36, 1)
+  for _, sx in ipairs({ -1, 1 }) do   -- the pay line arrows on both sides of the window
+    local mk = tex(glowLayer, "payline", 24, 24, "OVERLAY", 4)
+    at(mk, m, WIN_X + WIN_W / 2 + sx * (WIN_W / 2 + 2), WIN_Y + WIN_H / 2)
+    if sx > 0 then mk:SetTexCoord(1, 0, 0, 1) end
   end
   local glow = tex(glowLayer, "glow", WIN_W + 40, ROW + 50, "OVERLAY"); at(glow, m, WIN_X + WIN_W / 2, WIN_Y + WIN_H / 2)
   glow:SetBlendMode("ADD"); glow:SetVertexColor(1, 0.8, 0.25); glow:Hide()
@@ -226,7 +229,7 @@ local function SlotsView(box, cv)
   S.bulbs = bulbs
   -- the lever: hub on the side, a rod and a red ball that comes down when pulled
   local HUB_X, HUB_Y, LEN = 400, 236, 118
-  local rod = tex(m, "lever_rod", 16, LEN, "BORDER", -1); rod:SetTexCoord(0.25, 0.75, 0, 1)
+  local rod = tex(m, "lever_rod", 20, LEN, "BORDER", -1); rod:SetTexCoord(0.19, 0.81, 0, 1)
   local hub = tex(m, "lever_hub", 30, 30, "BORDER", 1); at(hub, m, HUB_X, HUB_Y)
   local ball = tex(m, "lever_ball", 38, 38, "ARTWORK", 2)
   local function setLever(d)  -- d = 0 up ... 1 pulled down
@@ -243,19 +246,25 @@ local function SlotsView(box, cv)
   U.Tip(leverBtn, function(tt) tt:AddLine("Pull the lever", 1, 0.82, 0); tt:AddLine("Spins the reels for your bet.", 1, 1, 1) end)
   -- click the reels to stop them at once
   local skip = CreateFrame("Button", nil, m); skip:SetSize(WIN_W, WIN_H); at(skip, m, WIN_X, WIN_Y, "TOPLEFT"); level(skip, m, 7)
-  skip:SetScript("OnClick", function() if S.spinning then S.t = SPIN_T[3] end end)
+  skip:SetScript("OnClick", function() if S.spinning then S:StopNow() end end)
 
   local burst = Burst(box)
-  local banner = Banner(box, MACHINE_X + MACHINE / 2, 230)
+  -- the big-win banner sits on the marquee, so the winning line stays in view
+  local banner = Banner(box, MACHINE_X + MACHINE / 2, MACHINE_Y + 72)
   S.burst, S.banner = burst, banner
 
   ------------------------------------------------ right side: title, how it works, pay table, cat, bet, spin
   local RX = 470
+  -- a dark card behind the right column, so its text never sits on the busy room art
+  local card = tex(box, nil, 408, 444, "BACKGROUND", 2); at(card, box, RX - 12, 6, "TOPLEFT")
+  card:SetColorTexture(0.07, 0.05, 0.11, 0.72)
   local title = U.Text(box, "GameFontNormalHuge", "Lucky Paws slots", "LEFT"); at(title, box, RX, 16, "TOPLEFT")
-  local how = U.Text(box, "GameFontHighlightSmall", "Pick a bet and pull the lever. Three of a kind on the middle line wins, " ..
-    "and every cat on it pays. Wins include your bet. Hover here for the odds.", "LEFT")
+  local how = U.Text(box, "GameFontHighlightSmall", "|cffffd100How it works:|r pick a bet and pull the lever. Three of a kind on the middle line wins, " ..
+    "and every cat on it pays. Hover here for the odds.", "LEFT")
   at(how, box, RX, 44, "TOPLEFT"); how:SetWidth(380); if how.SetSpacing then how:SetSpacing(2) end
   local howHit = CreateFrame("Frame", nil, box); howHit:SetSize(380, 30); at(howHit, box, RX, 42, "TOPLEFT")
+  local hh = how.GetStringHeight and how:GetStringHeight()
+  if type(hh) == "number" and hh > 0 then howHit:SetHeight(hh + 6) end
   howHit:EnableMouse(true)
   U.Tip(howHit, function(tt)
     local n, count = slotOdds()
@@ -271,7 +280,7 @@ local function SlotsView(box, cv)
     tt:AddDoubleLine("One cat", string.format("%dx   (1 in %d)", TCF.SLOT_PAY_ONE_CAT, floor(n / max(1, count.onecat or 1) + 0.5)), 1, 1, 1, 1, 0.82, 0)
     tt:AddLine(" ")
     tt:AddLine(string.format("Over many spins the machine pays back about %.1f%% of what is bet: the house keeps %.1f%%.", rtp * 100, 100 - rtp * 100), 0.8, 0.8, 0.8, true)
-    tt:AddLine("Wins include your bet: 2x on a bet of 50 hands back 100.", 0.8, 0.8, 0.8, true)
+    tt:AddLine("The pays include your bet: 2x on a bet of 50 hands back 100, so you win 50.", 0.8, 0.8, 0.8, true)
   end)
   -- the pay table
   local rows = {}
@@ -290,7 +299,8 @@ local function SlotsView(box, cv)
   for i, s in ipairs(TCF.SLOT_ORDER) do payRow(i, { s, s, s }, TCF.SLOT_PAY3[s]) end
   payRow(8, { "cat", "cat" }, TCF.SLOT_PAY_TWO_CATS)
   payRow(9, { "cat" }, TCF.SLOT_PAY_ONE_CAT)
-  local anyNote = U.Text(box, "GameFontDisableSmall", "Cats pay anywhere on the line.", "LEFT"); at(anyNote, box, RX + 12, 314, "TOPLEFT")
+  local anyNote = U.Text(box, "GameFontHighlightSmall", "Cats pay anywhere on the line.", "LEFT"); at(anyNote, box, RX + 12, 314, "TOPLEFT")
+  anyNote:SetTextColor(0.75, 0.72, 0.85)
 
   -- the cat (your own look) cheers you on
   local cat = TCF.CreateCat(box, 128, { preview = true })
@@ -331,8 +341,23 @@ local function SlotsView(box, cv)
     end
   end
 
+  -- where reel r is t seconds into the spin (rows; the strip moves down, so the position falls)
+  local function reelPos(r, t)
+    local from, T1, P = S.from[r], S.t1[r], S.to[r]
+    if t < T1 then return from - REEL_SPEED * t end
+    local q = t - T1
+    if q < REEL_EASE then
+      local e = q / REEL_EASE
+      return from - REEL_SPEED * T1 - (REEL_SPEED * REEL_EASE / 3) * (1 - (1 - e) ^ 3)
+    end
+    q = q - REEL_EASE
+    if q < REEL_BOUNCE then return P - BOUNCE_ROWS * sin(pi * q / REEL_BOUNCE) end
+    return P
+  end
+  S.ReelPos = reelPos
+
   function S:Spin()
-    if self.spinning then self.t = SPIN_T[3]; return end
+    if self.spinning then self:StopNow(); return end
     local c = TCF:CasinoData()
     local lo, hi = TCF:CasinoLimits()
     if hi < lo then
@@ -341,14 +366,24 @@ local function SlotsView(box, cv)
     local res = TCF:SlotsSpin(TCF:CasinoClampBet(c.bet or lo))
     if not res then result:SetText("|cffff7070That bet can't be taken right now.|r"); return end
     self.res, self.spinning, self.t, self.stopped = res, true, 0, {}
-    self.from, self.to = {}, {}
+    self.from, self.to, self.t1, self.stopAt = {}, {}, {}, {}
+    -- each reel runs at full speed, eases into its stop and bounces a little; the travel is the
+    -- shortest that lands on the result no sooner than FIRST_STOP (and REEL_GAP after the last reel)
+    local easeRows = REEL_SPEED * REEL_EASE / 3
+    local earliest = FIRST_STOP
     for r = 1, 3 do
       local n = #TCF.SLOT_REELS[r]
       local start = self.pos[r]
-      local dist = (start - res.stops[r]) % n + n * (1 + r)
+      local dist = (start - res.stops[r]) % n
+      local need = easeRows + REEL_SPEED * max(0, earliest - REEL_EASE)
+      while dist < need do dist = dist + n end
       self.from[r], self.to[r] = start, start - dist
+      self.t1[r] = (dist - easeRows) / REEL_SPEED
+      self.stopAt[r] = self.t1[r] + REEL_EASE
+      earliest = self.stopAt[r] + REEL_GAP
       for k = -2, 2 do self.reels[r].cells[k].bounce = nil end
     end
+    self.endAt = self.stopAt[3] + REEL_BOUNCE
     glow:Hide()
     result:SetText("")
     self.leverT = 0
@@ -367,7 +402,7 @@ local function SlotsView(box, cv)
     if win > 0 then
       local s1 = res.symbols[1]
       local what = res.kind == "three" and ("Three " .. SYM_PLURAL[s1]) or res.kind == "twocats" and "Two cats" or "One cat"
-      result:SetText(string.format("|cffffd100%s. You win %s TapCoins|r", what, TCF.Commas(win)))
+      result:SetText(string.format("|cffffd100%s. You win %s TapCoins|r |cffbbbbbb(%s back)|r", what, TCF.Commas(win - res.bet), TCF.Commas(win)))
       for r = 1, 3 do if res.kind == "three" or res.symbols[r] == "cat" then self.reels[r].cells[0].bounce = 0 end end
       self.glowT = 0; glow:Show()
       if not quiet then
@@ -376,7 +411,7 @@ local function SlotsView(box, cv)
         if big then
           burst:Emit(tx, ty, 34, 1.25, true)
           burst:Emit(MACHINE_X + WIN_X + WIN_W / 2, CH - (MACHINE_Y + WIN_Y + WIN_H / 2), 16, 1.1, true)
-          banner:Play(res.mult >= 100 and "Jackpot" or "Big win", "+" .. TCF.Commas(win) .. " TapCoins")
+          banner:Play(res.mult >= 100 and "Jackpot" or "Big win", "+" .. TCF.Commas(win - res.bet) .. " TapCoins")
           self.bigT = 0
           cat:SetFaceFor("sparkle", 3); if cat.Pet then cat:Pet() end
           TCF:PlaySound(res.mult >= 40 and "legendary" or "rare")
@@ -391,6 +426,14 @@ local function SlotsView(box, cv)
     end
     cv:Refresh(true)
     return paid
+  end
+
+  -- Stop (or a click on the reels): every reel lands now, with one click
+  function S:StopNow()
+    if not self.spinning then return end
+    self.t = self.endAt
+    for r = 1, 3 do self.stopped[r] = true end
+    TCF:PlaySound("click")
   end
 
   -- the tab or the window closes mid-spin: land at once and pay
@@ -410,17 +453,12 @@ local function SlotsView(box, cv)
     if S.spinning then
       S.t = S.t + e
       for r = 1, 3 do
-        local p = min(1, S.t / SPIN_T[r])
-        if p < 1 then
-          S.pos[r] = S.from[r] + (S.to[r] - S.from[r]) * easeOutBack(p)
-        else
-          S.pos[r] = S.res.stops[r]
-        end
+        S.pos[r] = reelPos(r, S.t)
         -- each reel lands with a click
-        if p >= 1 and not S.stopped[r] then S.stopped[r] = true; TCF:PlaySound("click") end
+        if S.t >= S.stopAt[r] and not S.stopped[r] then S.stopped[r] = true; TCF:PlaySound("click") end
         drawReel(r)
       end
-      if S.t >= SPIN_T[3] then S:Land(false) end
+      if S.t >= S.endAt then S:Land(false) end
     end
     -- the winning symbols bounce and the line glows for a while
     if S.glowT then
@@ -467,7 +505,7 @@ local function Card(parent)
   c.rank = c:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); c.rank:SetPoint("TOPLEFT", 8, -7)
   c.rank2 = c:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); c.rank2:SetPoint("BOTTOMRIGHT", -8, 7)
   for _, fs in ipairs({ c.rank, c.rank2 }) do if fs.SetShadowOffset then fs:SetShadowOffset(0, 0) end end
-  c.small = tex(c, nil, 14, 14, "OVERLAY"); c.small:SetPoint("TOPLEFT", 8, -26)
+  c.small = tex(c, nil, 13, 13, "OVERLAY"); c.small:SetPoint("TOPLEFT", 7, -26)
   c.big = tex(c, nil, 40, 40, "ARTWORK"); c.big:SetPoint("CENTER", 0, -2)
   function c:Set(code, up)
     self.code = code
@@ -478,9 +516,12 @@ local function Card(parent)
     local suit = "suit_" .. TCF.BJ_SUITS[s]
     self.small:SetTexture(CART .. suit)
     if r >= 11 then
-      self.big:SetTexture(CART .. (r == 11 and "court_j" or r == 12 and "court_q" or "court_k")); self.big:SetSize(62, 62)
+      -- the court cat sits a little low and right, clear of the corner rank and suit
+      self.big:SetTexture(CART .. (r == 11 and "court_j" or r == 12 and "court_q" or "court_k")); self.big:SetSize(54, 54)
+      self.big:ClearAllPoints(); self.big:SetPoint("CENTER", 4, -8)
     else
       self.big:SetTexture(CART .. suit); local sz = r == 1 and 46 or 36; self.big:SetSize(sz, sz)
+      self.big:ClearAllPoints(); self.big:SetPoint("CENTER", 0, -2)
     end
     self:Face(up)
   end
@@ -513,7 +554,9 @@ local function BlackjackView(box, cv)
   local cat = TCF.CreateCat(box, 120, { preview = true }); at(cat.frame, box, 92, 286)
   B.cat = cat
   local burst = Burst(box)
-  local banner = Banner(box, CW / 2, 140)
+  -- the blackjack banner takes the result line's place while it shows (the line comes back after)
+  local banner = Banner(box, CW / 2, 206)
+  level(banner, box, 250); level(burst.layer, box, 240)
 
   local bet = TCF.UI.CasinoBetChooser(box, function() cv:Refresh(true) end); at(bet, box, 24, 376, "TOPLEFT")
   B.bet = bet
@@ -527,14 +570,14 @@ local function BlackjackView(box, cv)
   U.Tip(btns.double, function(tt) tt:AddLine("Double", 1, 0.82, 0); tt:AddLine("Double your bet and take exactly one more card.", 1, 1, 1, true) end)
   U.Tip(btns.split, function(tt) tt:AddLine("Split", 1, 0.82, 0); tt:AddLine("Split the pair into two hands, each with its own bet (once per hand). Split aces get one card each.", 1, 1, 1, true) end)
   B.deal, B.btns = deal, btns
-  local how = U.Text(box, "GameFontHighlightSmall", "Get closer to 21 than the dealer without going over. Hover here for the rules.", "LEFT")
+  local how = U.Text(box, "GameFontHighlightSmall", "|cffffd100How it works:|r get closer to 21 than the dealer without going over. Hover here for the rules.", "LEFT")
   at(how, box, 300, 428, "TOPLEFT"); how:SetWidth(470)
   local howHit = CreateFrame("Frame", nil, box); howHit:SetSize(470, 18); at(howHit, box, 300, 424, "TOPLEFT"); howHit:EnableMouse(true)
   U.Tip(howHit, function(tt)
     tt:AddLine("Blackjack", 1, 0.82, 0)
     for _, l in ipairs({
       "Get closer to 21 than the dealer without going over. Picture cards count 10, aces 1 or 11.",
-      "A win pays 1 to 1. A blackjack (an ace and a 10 card as your first two cards) pays 3 to 2.",
+      "A win pays 1 to 1. A blackjack (an ace and a 10 card as your first two cards) pays 3 to 2 (half a TapCoin is rounded down).",
       "A tie is a push: you get your bet back.",
       "The dealer draws to 17 and stands on every 17, soft 17 too. The dealer checks for blackjack first.",
       "Double: double your bet on your first two cards and take one more card.",
@@ -546,13 +589,17 @@ local function BlackjackView(box, cv)
   end)
 
   ------------------------------------------------ card positions
+  -- 50 px apart, closer after the fifth card, so long hands stay clear of the shoe and of the
+  -- other split hand
+  local function fan(i) return i <= 5 and (i - 1) * 50 or 200 + (i - 5) * 26 end
+  B.fan = fan
   local function posOf(key)
     local who, h, i = key:match("^(%a)(%d)c(%d+)$")
     if not who then who, i = "d", key:match("^d(%d+)$"); h = 0 end
     h, i = tonumber(h), tonumber(i)
-    if who == "d" then return 360 + (i - 1) * 50, 36 end
+    if who == "d" then return 360 + fan(i), 36 end
     local x0 = B.split and (h == 1 and 160 or 500) or 360
-    return x0 + (i - 1) * 50, 226
+    return x0 + fan(i), 226
   end
   local function newCard()
     local c = table.remove(B.pool) or Card(table_)
@@ -568,6 +615,7 @@ local function BlackjackView(box, cv)
   end
 
   function B:Clear()
+    z = 0
     for k, c in pairs(self.cards) do c:Hide(); c.anim, c.flip = nil, nil; table.insert(self.pool, c); self.cards[k] = nil end
     self.planned, self.queue, self.cur = {}, {}, nil
     self.split, self.holeUp, self.resultShown, self.shownId = false, false, false, nil
@@ -625,7 +673,7 @@ local function BlackjackView(box, cv)
     if s.kind == "deal" then
       local c = newCard()
       c:Set(s.code, s.up)
-      z = z + 1; level(c, table_, z % 200 + 1)
+      z = z + 1; level(c, table_, min(z, 30) + 1)
       B.cards[s.key] = c
       if d > 0 then place(c, SHOE_X - CARD_W / 2 - 10, SHOE_Y - CARD_H / 2 - 6); TCF:PlaySound("click") end
       moveTo(c, s.key, d)
@@ -675,12 +723,17 @@ local function BlackjackView(box, cv)
     self.resultShown = true
     local net = (st.pay or 0) - (st.staked or 0)
     result:SetText(st.text or "")
+    result:Show(); rules:Show()
     if net > 0 then result:SetTextColor(1, 0.85, 0.2) elseif net < 0 then result:SetTextColor(1, 0.55, 0.5) else result:SetTextColor(0.9, 0.9, 0.9) end
     if quiet or net <= 0 then return end
     local hx = B.split and 430 or 400
     local bj = st.natural == "player"
     burst:Emit(hx, CH - 270, bj and 26 or min(24, 8 + floor(net / max(1, st.bet) * 6)), bj and 1.1 or 0.9, bj)
-    if bj then banner:Play("Blackjack", "+" .. TCF.Commas(net) .. " TapCoins") end
+    if bj then
+      -- the banner shows in the result line's place; the line (and the rules) come back after it
+      banner:Play("Blackjack", "You win " .. TCF.Commas(net) .. " TapCoins")
+      result:Hide(); rules:Hide()
+    end
     cat:SetFaceFor(bj and "sparkle" or "happy", 2.5); if cat.Pet then cat:Pet() end
     TCF:PlaySound(bj and "rare" or "loot")
   end
@@ -707,7 +760,7 @@ local function BlackjackView(box, cv)
       for i = 1, 12 do local c = self.cards["h" .. h .. "c" .. i]; if c then codes[#codes + 1] = c.code end end
       local hand = st and st.hands[h]
       if #codes > 0 and hand then
-        local x = (self.split and (h == 1 and 160 or 500) or 360) + CARD_W / 2 + (#codes - 1) * 25
+        local x = (self.split and (h == 1 and 160 or 500) or 360) + (CARD_W + fan(#codes)) / 2
         at(labels[h], box, x, 342)
         labels[h]:SetText(totalText(codes, st.natural == "player" or st.natural == "both" and h == 1) ..
           "   |cffbbbbbb" .. TCF.UI.coinStr(hand.bet, 12) .. (hand.doubled and " (doubled)" or "") .. "|r")
@@ -725,13 +778,14 @@ local function BlackjackView(box, cv)
     if self:Busy() or TCF:BJInPlay() then return end
     local c = TCF:CasinoData()
     local lo, hi = TCF:CasinoLimits()
-    if hi < lo then result:SetText("You need at least 40 TapCoins to play"); result:SetTextColor(1, 0.55, 0.5); return end
+    if hi < lo then result:SetText("You need at least 40 TapCoins to play."); result:SetTextColor(1, 0.55, 0.5); return end
     -- the last hand's win is paid before the next deal
     TCF:CasinoCollect("blackjack")
+    banner:Hide(); result:Show(); rules:Show()
     local st = TCF:BJDeal(TCF:CasinoClampBet(c.bet or lo))
-    if not st then result:SetText("That bet can't be taken right now"); return end
-    if st.shuffled then result:SetText("A fresh shoe"); result:SetTextColor(0.8, 0.95, 0.85) end
+    if not st then result:SetText("That bet can't be taken right now."); result:SetTextColor(1, 0.55, 0.5); return end
     self:Sync(true)
+    if st.shuffled and not st.text then result:SetText("A fresh shoe."); result:SetTextColor(0.8, 0.95, 0.85) end
     cv:Refresh(true)
   end
 
@@ -748,7 +802,7 @@ local function BlackjackView(box, cv)
 
   function B:Finish()
     self:RunAll()
-    burst:Clear(); banner:Hide()
+    burst:Clear(); banner:Hide(); result:Show(); rules:Show()
   end
 
   box:SetScript("OnUpdate", function(_, e)
@@ -785,6 +839,7 @@ local function BlackjackView(box, cv)
     end
     burst:Update(e)
     banner:Update(e)
+    if not banner:IsShown() and not result:IsShown() then result:Show(); rules:Show() end
   end)
 
   function B:Refresh(light)
@@ -834,7 +889,7 @@ TCF.UI.Builders.casino = function(page, win)
   sign:EnableMouse(true)
   local plate = tex(sign, "sign", 300, 56, "ARTWORK"); plate:SetPoint("CENTER", 0, -1); plate:SetTexCoord(0, 1, 0.1, 1)
   local sTitle = U.Text(sign, "GameFontNormalLarge", "TapCat Casino"); sTitle:SetPoint("CENTER", 0, 5); sTitle:SetTextColor(1, 0.85, 0.3)
-  local sSub = U.Text(sign, "GameFontHighlightSmall", "Just for fun: the house keeps a small edge"); sSub:SetPoint("TOP", sTitle, "BOTTOM", 0, -2)
+  local sSub = U.Text(sign, "GameFontHighlightSmall", "Just for fun: the house wins a little over time"); sSub:SetPoint("TOP", sTitle, "BOTTOM", 0, -2)
   sSub:SetTextColor(0.85, 0.8, 0.95)
   local signBulbs = {}
   for i = 0, 9 do

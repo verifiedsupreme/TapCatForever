@@ -80,7 +80,11 @@ function TCF:CheckNews()
   local ptop = UIParent.GetTop and UIParent:GetTop()
   if type(top) == "number" and type(ptop) == "number" and top + 50 > ptop then
     if type(bottom) == "number" and bottom - 50 >= 0 then strip:SetPoint("TOP", win, "BOTTOM", 0, -2)
-    else strip:SetPoint("TOP", win, "TOP", 0, -44) end
+    else
+      strip:SetPoint("TOP", win, "TOP", 0, -44)
+      -- inside the window: above everything on it (the Casino tab's sign sits there too)
+      if strip.SetFrameLevel and win.GetFrameLevel then pcall(strip.SetFrameLevel, strip, (win:GetFrameLevel() or 1) + 80) end
+    end
   else
     strip:SetPoint("BOTTOM", win, "TOP", 0, 2)
   end

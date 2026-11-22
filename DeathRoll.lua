@@ -5,7 +5,7 @@
 -- Against the house cat (solo): the stake goes through Casino.lua's TCF:CasinoBet, and a win pays
 -- 1.9 times the stake through TCF:CasinoPay (rounded to the nearest TapCoin). Who rolls first is a
 -- coin flip, so you win exactly half the games; the house keeps 5% of every stake on average
--- (between 3.3% and 5.3% for stakes that aren't a multiple of 10, because of the rounding).
+-- (between 3.33% and 6.25% for stakes that aren't a multiple of 10, because of the rounding).
 -- tools/tests/test_deathroll.py measures it.
 --
 -- Against a party member who has the addon: the rolls are real /roll results. The Roll button calls
@@ -21,10 +21,16 @@
 --   D2;v;id;answer;first         y accept (first: c challenger or t target rolls first),
 --                                n decline, b busy, c can't bet that much
 --   D3;v;id;reason               called off: x withdrawn, t timeout, s hidden roll text, r reload,
---                                c not enough TapCoins, g left the group, m results didn't match
+--                                c not enough TapCoins, g left the group, m results didn't match,
+--                                e the roll didn't come through; f: I ran out of time, I lose
 --   D4;v;id;loser;rolls          I saw the 1 (loser: c or t; rolls: how many rolls in the duel)
--- Fair rules: a turn has 60 seconds; when it runs out the duel is called off and no coins move.
--- A /reload or logout mid-duel calls it off the same way (the held stake comes back at login).
+-- Fair rules: a turn has 60 seconds. If you don't press Roll in time, you lose the duel: your own
+-- addon pays the bet and sends D3 f, and the other side is paid only when that D3 f arrives (it
+-- waits 15 seconds longer, then calls the duel off). A /reload, logout, leaving the group or a
+-- hidden roll line before the 1 calls the duel off and no coins move.
+-- Settling never makes TapCoins: once you have seen the 1 yourself and you are the loser, you pay
+-- (when the other addon agrees, when it never answers, or if you leave the group); the winner is
+-- paid only when the loser's addon says it saw the same 1. Any failure takes coins out, never in.
 local ADDON, TCF = ...
 local floor, min, max, random = math.floor, math.min, math.max, math.random
 
@@ -42,6 +48,9 @@ DR.HOUSE_DELAY = 1.2                 -- the house cat rolls this long after your
 DR.INVITE_TIME = 60                  -- a challenge waits this long for an answer
 DR.TURN_TIME = 60                    -- each turn of a duel
 DR.DONE_WAIT = 90                    -- after the 1: wait this long for the other addon to agree
+DR.TIMEOUT_FORFEIT = true            -- a turn that runs out without a roll loses the duel (false: it is called off)
+local FORFEIT_GRACE = 15             -- the waiting side waits this much longer for the "I ran out of time"
+local PRESSED_GRACE = 5              -- Roll was pressed: wait this much longer for its chat line
 local RESEND_DONE = 5                -- resend "I saw the 1" this often while waiting
 local IN_WINDOW, IN_MAX = 10, 24     -- at most IN_MAX messages per sender in IN_WINDOW seconds
 local CHALLENGE_GAP = 3              -- one challenge per sender per this many seconds
@@ -108,8 +117,8 @@ local function release(id)
   return h.bet
 end
 
-local function settleDuel(delta, opponent)
-  if TCF.CasinoSettleDuel then return TCF:CasinoSettleDuel(delta, opponent) end
+local function settleDuel(delta, opponent, stake)
+  if TCF.CasinoSettleDuel then return TCF:CasinoSettleDuel(delta, opponent, stake) end
   if delta > 0 then TCF:AddCoins(delta) else TCF:SpendCoins(-delta) end
   return true
 end
@@ -144,6 +153,44 @@ local function inGroup()
   if not IsInGroup then return false end
   local ok, g = pcall(IsInGroup)
   return ok and g and not isSecret(g) and true or false
+end
+
+-- duels with friends read the /roll lines in system chat, which the game hides inside dungeons,
+-- raids, battlegrounds and arenas (and during boss fights): no duels there
+local function chatHidden()
+  if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown then
+    local ok, v = pcall(C_ChatInfo.InChatMessagingLockdown)
+    if ok and v and not isSecret(v) then return true end
+  end
+  if IsInInstance then
+    local ok, inside, kind = pcall(IsInInstance)
+    if ok and inside and not isSecret(inside) and kind ~= "none" then return true end
+  end
+  return false
+end
+DR.ChatHidden = chatHidden
+local NO_DUEL_HERE = "Death rolls with friends don't work inside dungeons, raids, battlegrounds or arenas: the game hides the rolls there."
+
+-- the opponent is still in the group: false only when every group member's name could be read
+-- and theirs isn't there (or they went offline)
+local function oppPresent(d)
+  if not (UnitName and GetNumGroupMembers) then return true end
+  local raid = IsInRaid and IsInRaid()
+  local ok, count = pcall(GetNumGroupMembers)
+  if not ok or isSecret(count) or type(count) ~= "number" then return true end
+  for i = 1, raid and math.min(40, count) or 4 do
+    local unit = (raid and "raid" or "party") .. i
+    local n = UnitName(unit)
+    if isSecret(n) then return true end
+    if type(n) == "string" and n ~= "" and n:gsub("%s", ""):lower() == d.oppBase then
+      if UnitIsConnected then
+        local c = UnitIsConnected(unit)
+        if c == false then return false end
+      end
+      return true
+    end
+  end
+  return false
 end
 
 local function chatType()
@@ -214,15 +261,7 @@ end
 
 -- the game's /roll; the result comes back as a system chat line (read in onSystem)
 local function doRandomRoll(n)
-  local fns = {}
-  if C_RandomRoll then fns[#fns + 1] = C_RandomRoll.RandomRoll; fns[#fns + 1] = C_RandomRoll.Roll end
-  fns[#fns + 1] = RandomRoll
-  for _, fn in ipairs(fns) do
-    if type(fn) == "function" then
-      local ok = pcall(fn, 1, n)
-      if ok then return true end
-    end
-  end
+  if type(RandomRoll) == "function" and pcall(RandomRoll, 1, n) then return true end
   local slash = SlashCmdList and SlashCmdList.RANDOM
   if type(slash) == "function" and pcall(slash, tostring(n)) then return true end
   return false
@@ -274,7 +313,7 @@ local function soloRoll(who, v)
     local paid = 0
     if who == "house" then
       paid = DR.Payout(g.bet)
-      if TCF.CasinoPay then TCF:CasinoPay(paid, GAME) else TCF:AddCoins(paid) end
+      if TCF.CasinoPay then TCF:CasinoPay(paid, GAME, g.bet) else TCF:AddCoins(paid) end
     end
     g.paid = paid
     local st = store()
@@ -379,7 +418,8 @@ local REASONS = {
   c = "%s doesn't have enough TapCoins for that bet any more.",
   g = "%s is no longer in your group.",
   m = "The two addons saw different results, so the death roll was called off.",
-  e = "The roll couldn't be made, so the death roll was called off.",
+  e = "The roll didn't come through, so the death roll was called off.",
+  f = "%s ran out of time on their turn.",
 }
 DR.REASONS = REASONS
 -- the same when it was your side
@@ -388,11 +428,12 @@ DR.REASONS_ME = {
   r = "You reloaded or logged out, so the death roll was called off.",
   c = "You don't have enough TapCoins for that bet any more.",
   g = "You left the group, so the death roll was called off.",
+  f = "You ran out of time on your turn.",
 }
 
 local function saveDuel(d)
   local st = store()
-  if d and (d.state == "rolling" or d.state == "done") then
+  if d and (d.state == "asking" or d.state == "rolling" or d.state == "done") then
     st.duel = { id = d.id, role = d.role, opp = d.opp, bet = d.bet, range = d.range, state = d.state,
                 loser = d.loser, n = d.n, look = nil }
   else
@@ -417,17 +458,27 @@ local function callOff(reason, tell, by)
 end
 DR.CallOff = callOff
 
-local function settle(d)
-  if d.state ~= "done" or d.settled then return end
+-- pay out: the loser pays the bet, the winner gets it less the table's fee. Only called when this
+-- side may settle: the loser once it saw the 1 (or ran out of time), the winner once the loser's
+-- addon said so.
+local function settle(d, reason)
+  if d.settled or d.state == "over" then return end
   d.settled = true
   local won = d.loser == "opp"
   release(d.id)            -- the stake comes back first, then the result moves it for real
-  settleDuel(won and DR.DuelWin(d.bet) or -d.bet, d.opp)
+  settleDuel(won and DR.DuelWin(d.bet) or -d.bet, d.opp, d.bet)
   local st = store()
   st.duelsPlayed = (st.duelsPlayed or 0) + 1
   if won then st.duelsWon = (st.duelsWon or 0) + 1 end
   d.replies = 0
-  finish(d, won and "win" or "lose")
+  finish(d, won and "win" or "lose", reason)
+end
+
+-- your turn ran out without a roll: you lose (your own addon pays) and the other side is told
+local function forfeit(d)
+  d.loser = "me"
+  send("D3", d.id, "f")
+  settle(d, "f")
 end
 
 local function newId()
@@ -447,6 +498,7 @@ function TCF:DeathRollChallenge(name, bet, range)
   if solo then return false, "Finish your death roll with the house cat first." end
   if not inGroup() then return false, "Join a party or raid with a friend who has TapCatForever." end
   if InCombatLockdown and InCombatLockdown() then return false, "Death rolls can't start in combat." end
+  if chatHidden() then return false, NO_DUEL_HERE end
   local m = member(name)
   if not m or isMe(m.name) then return false, "Pick a friend in your group who has TapCatForever." end
   if not validRange(range) then return false, "Pick a roll range." end
@@ -457,6 +509,7 @@ function TCF:DeathRollChallenge(name, bet, range)
   local d = { id = newId(), role = "out", opp = m.name, oppBase = base(m.name), bet = bet, range = range,
               cur = range, state = "asking", expires = now() + DR.INVITE_TIME, rolls = {}, n = 0 }
   DR.duel = d
+  saveDuel(d)   -- a /reload while waiting withdraws the challenge (restore tells them)
   send("D1", d.id, m.name, bet, range)
   notify("state", "duel")
   return true
@@ -473,6 +526,11 @@ function TCF:DeathRollAnswer(accept)
     return true
   end
   if solo then return false, "Finish your death roll with the house cat first." end
+  if chatHidden() then
+    send("D2", d.id, "b", "-")
+    finish(d, "cancel", "s", "me")
+    return false, NO_DUEL_HERE
+  end
   if not validBet(d.bet) or not hold(d.id, d.bet) then
     send("D2", d.id, "c", "-")
     finish(d, "cancel", "c", "me")
@@ -548,7 +606,7 @@ local function onChallenge(sender, id, target, bet, range, s)
     if d.id ~= id then send("D2", id, "b", "-") end
     return
   end
-  if solo or (InCombatLockdown and InCombatLockdown()) then send("D2", id, "b", "-"); return end
+  if solo or (InCombatLockdown and InCombatLockdown()) or chatHidden() then send("D2", id, "b", "-"); return end
   if not validBet(bet) then
     send("D2", id, "c", "-")
     DR.duel = { id = id, role = "in", opp = m.name, oppBase = base(m.name), bet = bet, range = range, cur = range,
@@ -564,8 +622,11 @@ end
 
 local function onAnswer(d, answer, first)
   if d.state ~= "asking" then
-    -- an accept after we gave up waiting: tell them again it's off, so their stake comes back
-    if answer == "y" and d.state == "over" then send("D3", d.id, d.reason or "t") end
+    -- an accept after we gave up waiting: tell them (once) it's off, so their stake comes back
+    if answer == "y" and d.state == "over" and d.result ~= "win" and d.result ~= "lose" and not d.toldOff then
+      d.toldOff = true
+      send("D3", d.id, d.reason or "t")
+    end
     return
   end
   if answer == "y" then
@@ -580,6 +641,12 @@ local function onAnswer(d, answer, first)
     saveDuel(d)
     if TCF.PlaySound then TCF:PlaySound("click") end
     notify("state", "duel")
+    -- their first roll can beat their "accept" here: play the lines we kept back
+    local early = d.early
+    d.early = nil
+    for _, text in ipairs(early or {}) do
+      if DR.duel == d and d.state == "rolling" then DR.OnSystem(text) end
+    end
   elseif answer == "n" then finish(d, "declined", nil, "opp")
   elseif answer == "b" then finish(d, "busy", nil, "opp")
   elseif answer == "c" then finish(d, "toohigh", nil, "opp") end
@@ -621,6 +688,12 @@ local function onAddon(prefix, text, channel, sender)
     if d.role == "out" then onAnswer(d, a, b) end
   elseif kind == "D3" then
     if REASONS[a] and d.state ~= "over" then
+      if a == "f" and (d.state == "rolling" or (d.state == "done" and d.loser == "opp")) then
+        -- they ran out of time on their turn and paid their bet: you win
+        d.loser = "opp"
+        settle(d, "f")
+        return
+      end
       if d.state == "invited" and a == "t" then muted[d.oppBase or ""] = now() + MUTE_AFTER_NO end
       finish(d, "cancel", a, "opp")
     end
@@ -633,7 +706,19 @@ DR.OnAddon = onAddon
 ---------------------------------------------------------------- the /roll lines
 local function onSystem(text)
   local d = DR.duel
-  if not d or d.state ~= "rolling" then return end
+  if not d then return end
+  if d.state == "asking" and not isSecret(text) and type(text) == "string" then
+    -- the other player may roll first as soon as they accept, and that line can arrive before their
+    -- "accept" message: keep their last few roll lines until the answer comes
+    local name = DR.ParseRoll(text)
+    if name and base(name) == d.oppBase then
+      d.early = d.early or {}
+      if #d.early >= 3 then table.remove(d.early, 1) end
+      d.early[#d.early + 1] = text
+    end
+    return
+  end
+  if d.state ~= "rolling" then return end
   if isSecret(text) then callOff("s", true); return end
   local name, v, lo, hi = DR.ParseRoll(text)
   if not name then return end
@@ -682,9 +767,24 @@ local function tick()
     finish(d, "expired", nil, "me")
   elseif d.state == "rolling" then
     if not inGroup() then callOff("g", false)
-    elseif t - d.turnAt >= DR.TURN_TIME then callOff("t", true) end
+    elseif not oppPresent(d) then callOff("g", false, "opp")
+    elseif d.turn == "me" then
+      local late = t - d.turnAt
+      if d.rolledAt and d.rolledAt >= d.turnAt then
+        -- Roll was pressed but its line never came: nobody is to blame
+        if late >= DR.TURN_TIME + PRESSED_GRACE then callOff("e", true) end
+      elseif late >= DR.TURN_TIME then
+        if DR.TIMEOUT_FORFEIT then forfeit(d) else callOff("t", true) end
+      end
+    elseif t - d.turnAt >= DR.TURN_TIME + (DR.TIMEOUT_FORFEIT and FORFEIT_GRACE or 0) then
+      callOff("t", true)
+    end
   elseif d.state == "done" then
-    if t - d.doneAt >= DR.DONE_WAIT then callOff("t", true)
+    -- after the 1 nothing calls the duel off on this side but the other addon (D3, or a result
+    -- that doesn't match): when the wait runs out, the loser pays and the winner gets its own
+    -- stake back, never the other way round
+    if t - d.doneAt >= DR.DONE_WAIT then
+      if d.loser == "me" then settle(d) else callOff("t", true) end
     elseif t - (d.sentDoneAt or 0) >= RESEND_DONE then
       d.sentDoneAt = t
       send("D4", d.id, roleOf(d.loser, d), d.n)
@@ -741,8 +841,10 @@ ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   if event == "CHAT_MSG_ADDON" then onAddon(a1, a2, a3, a4)
   elseif event == "CHAT_MSG_SYSTEM" then onSystem(a1)
   elseif event == "GROUP_ROSTER_UPDATE" then
+    -- leaving the group calls off a duel before the 1; after it (state "done") the duel settles
+    -- by what this side saw, so a quick /leave can't undo a loss
     local d = DR.duel
-    if d and d.state ~= "over" and not inGroup() then callOff("g", false) end
+    if d and d.state ~= "over" and d.state ~= "done" and not inGroup() then callOff("g", false) end
   end
 end)
 

@@ -20,6 +20,11 @@ local NOTE_ROLL = "Rolls with a friend use the game's /roll, so they also show i
 local function now() return GetTime and GetTime() or 0 end
 local function coins(n) return TCF.UI.coinStr(n, 13) end
 local function safeName(n) return (tostring(n or "?"):gsub("|", "||")) end
+-- a name without its realm ("Thrallbeard-ArgentDawn" -> "Thrallbeard"), for the scene's texts
+local function shortName(n)
+  if type(n) ~= "string" or TCF.IsSecret(n) then return "?" end
+  return safeName(n:match("^[^%-]+") or n)
+end
 
 ---------------------------------------------------------------- opening the death roll view
 local function openView()
@@ -49,6 +54,7 @@ local function buildPrompt()
     f:SetBackdropColor(0.08, 0.06, 0.1, 0.92); f:SetBackdropBorderColor(0.95, 0.75, 0.35, 1)
   end
   f:EnableMouse(true)
+  if f.SetClampedToScreen then f:SetClampedToScreen(true) end
   f.text = U.Text(f, "GameFontHighlightSmall"); f.text:SetPoint("TOP", 0, -8); f.text:SetWidth(236)
   f.yes = U.Button(f, "Accept", 72, 20, function()
     local ok, err = TCF:DeathRollAnswer(true)
@@ -75,8 +81,19 @@ end
 
 local function placePrompt()
   prompt:ClearAllPoints()
+  -- as tall as its text needs, so long names never run into the buttons
+  local th = prompt.text.GetStringHeight and prompt.text:GetStringHeight()
+  local h = (type(th) == "number" and th > 0) and floor(th + 0.5) + 40 or 64
+  prompt:SetHeight(max(64, h))
   local hud = TCF.hud
-  if hud and hud:IsShown() then prompt:SetPoint("BOTTOM", hud, "TOP", 0, 22)
+  if hud and hud:IsShown() then
+    -- above the screen cat, or below it when it sits too close to the top of the screen
+    local top, ptop = hud.GetTop and hud:GetTop(), UIParent.GetTop and UIParent:GetTop()
+    if type(top) == "number" and type(ptop) == "number" and top + 22 + h > ptop then
+      prompt:SetPoint("TOP", hud, "BOTTOM", 0, -8)
+    else
+      prompt:SetPoint("BOTTOM", hud, "TOP", 0, 22)
+    end
   else prompt:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 260) end
 end
 
@@ -88,7 +105,7 @@ local function updatePrompt()
   end
   if not prompt then prompt = buildPrompt() end
   prompt.text:SetText(string.format("%s challenges you to a death roll\n%s each, rolls from 1 to %s",
-    safeName(d.opp), coins(d.bet), TCF.Commas(d.range)))
+    shortName(d.opp), coins(d.bet), TCF.Commas(d.range)))
   prompt.left:SetText(string.format("%d s", max(0, floor(d.expires - now()))))
   placePrompt()
   prompt:Show()
@@ -132,6 +149,7 @@ local function buildSide(v, side)
   fx:SetSize(CAT * 1.1, CAT * 1.1)
   if fx.SetFrameLevel then pcall(fx.SetFrameLevel, fx, lvl + 10) end
   s.fx = fx
+  fx:SetSize(CAT, CAT)   -- the flop art is drawn on the cat's own 64-pixel grid (4 texels a pixel)
   local function layer(file, sub)
     local t = fx:CreateTexture(nil, "ARTWORK", nil, sub)
     t:SetAllPoints(fx); t:SetTexture(ART .. file); t:Hide()
@@ -196,7 +214,7 @@ function TCF.UI.CasinoDeathRoll(container, win)
   -- a soft dark strip along the sand so the names and text stay readable
   local strip = scene:CreateTexture(nil, "BORDER")
   strip:SetPoint("BOTTOMLEFT", 0, 0); strip:SetPoint("BOTTOMRIGHT", 0, 0); strip:SetHeight(floor(ch * 0.17) + 4)
-  strip:SetColorTexture(0.12, 0.07, 0.04, 0.42)
+  strip:SetColorTexture(0.12, 0.07, 0.04, 0.6)
   v.L, v.R = buildSide(v, "L"), buildSide(v, "R")
   place(v)
 
@@ -235,18 +253,16 @@ function TCF.UI.CasinoDeathRoll(container, win)
   v.prev = U.Button(bar, "<", 24, 22, function() v.friendIdx = (v.friendIdx or 1) - 1; v:Refresh(true); TCF:PlaySound("click") end)
   v.prev:SetPoint("TOPLEFT", 8, -31)
   v.friend = U.Text(bar, "GameFontHighlight"); v.friend:SetPoint("LEFT", v.prev, "RIGHT", 4, 0); v.friend:SetWidth(144)
+  if v.friend.SetWordWrap then v.friend:SetWordWrap(false) end
   v.next = U.Button(bar, ">", 24, 22, function() v.friendIdx = (v.friendIdx or 1) + 1; v:Refresh(true); TCF:PlaySound("click") end)
   v.next:SetPoint("LEFT", v.friend, "RIGHT", 4, 0)
-  v.houseRule = U.Text(bar, "GameFontDisableSmall", nil, "LEFT"); v.houseRule:SetPoint("TOPLEFT", 12, -36); v.houseRule:SetWidth(200)
-  v.houseRule:SetText("Win: 1.9 times your bet back")
-  -- bet
-  v.betLabel = U.Text(bar, "GameFontNormal"); v.betLabel:SetPoint("TOP", bar, "TOP", -10, -8)
-  local function step(n) return function() v:ChangeBet(n); TCF:PlaySound("click") end end
-  v.betDown2 = U.Button(bar, "-100", 44, 20, step(-100)); v.betDown2:SetPoint("TOP", bar, "TOP", -128, -30)
-  v.betDown = U.Button(bar, "-10", 38, 20, step(-10)); v.betDown:SetPoint("LEFT", v.betDown2, "RIGHT", 2, 0)
-  v.betText = U.Text(bar, "GameFontHighlight"); v.betText:SetPoint("LEFT", v.betDown, "RIGHT", 4, 0); v.betText:SetWidth(84)
-  v.betUp = U.Button(bar, "+10", 38, 20, step(10)); v.betUp:SetPoint("LEFT", v.betText, "RIGHT", 4, 0)
-  v.betUp2 = U.Button(bar, "+100", 44, 20, step(100)); v.betUp2:SetPoint("LEFT", v.betUp, "RIGHT", 2, 0)
+  -- bet: the same chooser as the other Casino games (- / + and 10 / 50 / 100 / Max), the same bet
+  if TCF.UI.CasinoBetChooser then
+    v.chooser = TCF.UI.CasinoBetChooser(bar, function() v:Refresh() end)
+    v.chooser:SetPoint("TOPLEFT", bar, "TOP", -126, -3)
+  else
+    v.betText = U.Text(bar, "GameFontHighlight"); v.betText:SetPoint("TOP", bar, "TOP", 0, -20)
+  end
   -- roll range
   v.rangeLabel = U.Text(bar, "GameFontNormal"); v.rangeLabel:SetPoint("TOPRIGHT", bar, "TOPRIGHT", -60, -8)
   v.rangeLabel:SetText("Start the rolls at")
@@ -264,7 +280,9 @@ function TCF.UI.CasinoDeathRoll(container, win)
     v.rangeBtns[r] = b
   end
 
-  -- middle: the current range
+  -- middle: the current range, on a dark plate so it reads over the arches and torches
+  v.plate = scene:CreateTexture(nil, "ARTWORK")
+  v.plate:SetTexture(ART .. "dr_plate"); v.plate:SetSize(200, 100); v.plate:SetPoint("CENTER", scene, "CENTER", 0, 18)
   v.rangeCap = U.Text(scene, "GameFontNormal"); v.rangeCap:SetPoint("CENTER", scene, "CENTER", 0, 34)
   v.rangeCap:SetShadowOffset(1, -1)
   v.rangeNum = scene:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
@@ -291,10 +309,10 @@ function TCF.UI.CasinoDeathRoll(container, win)
   v.status:SetShadowOffset(1, -1)
   v.action = U.Button(scene, "Start", 170, 28, function() v:Action(); end)
   v.action:SetPoint("BOTTOM", scene, "BOTTOM", 0, 10)
-  v.note = U.Text(scene, "GameFontDisableSmall", nil, "LEFT"); v.note:SetPoint("BOTTOMLEFT", scene, "BOTTOMLEFT", 10, 6)
-  v.note:SetWidth(max(160, cw * 0.27)); v.note:SetShadowOffset(1, -1)
-  v.note2 = U.Text(scene, "GameFontDisableSmall", nil, "RIGHT"); v.note2:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", -10, 6)
-  v.note2:SetWidth(max(160, cw * 0.27)); v.note2:SetShadowOffset(1, -1)
+  v.note = U.Text(scene, "GameFontHighlightSmall", nil, "LEFT"); v.note:SetPoint("BOTTOMLEFT", scene, "BOTTOMLEFT", 10, 6)
+  v.note:SetWidth(max(160, cw * 0.27)); v.note:SetShadowOffset(1, -1); v.note:SetAlpha(0.85)
+  v.note2 = U.Text(scene, "GameFontHighlightSmall", nil, "RIGHT"); v.note2:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", -10, 6)
+  v.note2:SetWidth(max(160, cw * 0.27)); v.note2:SetShadowOffset(1, -1); v.note2:SetAlpha(0.85)
 
   -- saved choices
   local st = TCF.db.deathRoll
@@ -340,12 +358,6 @@ function Scene:Locked()
   return running or (d and d.state ~= "over")
 end
 
-function Scene:ChangeBet(n)
-  local lo, hi = DR.Limits()
-  self.bet = max(lo, min(max(lo, hi), (self.bet or lo) + n))
-  self:Save()
-  self:Refresh()
-end
 
 function Scene:Friends()
   local list = {}
@@ -410,9 +422,12 @@ function Scene:Refresh(full)
   local kind, g = self:Showing()
   if kind == "duel" and self.mode ~= "friend" then self.mode = "friend" end
   local lo, hi = DR.Limits()
+  local locked = self:Locked()
+  -- the bet is the Casino's shared bet (the Slots and Blackjack choosers change it too)
+  local cd = TCF.CasinoData and TCF:CasinoData()
+  if cd and not locked and tonumber(cd.bet) then self.bet = tonumber(cd.bet) end
   if hi >= lo then self.bet = max(lo, min(hi, self.bet or lo)) end
   local friendMode = self.mode == "friend"
-  local locked = self:Locked()
 
   -- top bar
   if self.mode == "house" then self.modeHouse:LockHighlight(); self.modeFriend:UnlockHighlight()
@@ -420,22 +435,23 @@ function Scene:Refresh(full)
   self.modeHouse:SetEnabled(not locked); self.modeFriend:SetEnabled(not locked)
   local friends = self:Friends()
   self.prev:SetShown(friendMode); self.next:SetShown(friendMode); self.friend:SetShown(friendMode)
-  self.houseRule:SetShown(not friendMode)
   local fm
   if friendMode then
     if kind == "duel" then
       fm = DR.Member(g.opp)
-      self.friend:SetText(safeName(g.opp))
+      self.friend:SetText(shortName(g.opp))
     else
       fm = friends[self:FriendIndex(#friends)]
-      self.friend:SetText(fm and safeName(fm.name) or "|cff999999Nobody yet|r")
+      self.friend:SetText(fm and shortName(fm.name) or "|cff999999Nobody yet|r")
     end
     self.prev:SetEnabled(#friends > 1 and not locked); self.next:SetEnabled(#friends > 1 and not locked)
   end
-  self.betLabel:SetText(hi >= lo and string.format("Bet  |cffaaaaaa(%d to %d)|r", lo, hi) or "Bet")
-  local betShown = (locked and g) and g.bet or self.bet
-  self.betText:SetText(coins(betShown or lo))
-  for _, b in ipairs({ self.betDown, self.betDown2, self.betUp, self.betUp2 }) do b:SetEnabled(not locked and hi >= lo) end
+  if self.chooser then
+    self.chooser:SetLocked(locked and true or false)
+    if locked and g and g.bet then self.chooser.val:SetText(TCF.UI.coinStr(g.bet, 16)) end
+  elseif self.betText then
+    self.betText:SetText(coins((locked and g and g.bet) or self.bet or lo))
+  end
   for r, b in pairs(self.rangeBtns) do
     local sel = (locked and g and g.range or self.range) == r
     if sel then b:LockHighlight() else b:UnlockHighlight() end
@@ -448,7 +464,7 @@ function Scene:Refresh(full)
     setLook(L, look, lookKey(look))
   end
   local me = UnitName and UnitName("player")
-  L.name:SetText((type(me) == "string" and not TCF.IsSecret(me)) and safeName(me) or "You")
+  L.name:SetText((type(me) == "string" and not TCF.IsSecret(me)) and shortName(me) or "You")
   local rightName, rightLook, rightKey
   if kind == "solo" then
     rightName, rightLook = g.house.name, DR.HouseLook(g.house)
@@ -464,7 +480,7 @@ function Scene:Refresh(full)
     rightName, rightLook, rightKey = self.idleHouse.name, DR.HouseLook(self.idleHouse), "house:idle"
   end
   if rightLook then setLook(R, rightLook, rightKey); R.holder:Show() else R.holder:Hide() end
-  R.name:SetText(rightName and safeName(rightName) or "")
+  R.name:SetText(rightName and shortName(rightName) or "")
   local stake = g and g.bet
   L.bet:SetText(stake and ("Bet " .. coins(stake)) or "")
   R.bet:SetText((stake and rightName) and ("Bet " .. coins(stake)) or "")
@@ -482,7 +498,7 @@ function Scene:Refresh(full)
   local t = now()
   if kind == "solo" then
     if g.over then
-      if g.loser == "house" then status = string.format("|cff40ff40You win %s|r. %s rolled the 1.", coins(g.paid or 0), safeName(g.house.name))
+      if g.loser == "house" then status = string.format("|cff40ff40You win %s|r (%s back). %s rolled the 1.", coins((g.paid or 0) - g.bet), coins(g.paid or 0), safeName(g.house.name))
       else status = string.format("%s wins this time. You rolled the 1.", safeName(g.house.name)) end
       btn = "Play again"
     elseif g.turn == "me" then
@@ -493,12 +509,12 @@ function Scene:Refresh(full)
       btn, btnOn = "Roll 1 - " .. TCF.Commas(g.cur), false
     end
   elseif kind == "duel" then
-    local opp = safeName(g.opp)
+    local opp = shortName(g.opp)
     if g.state == "asking" then
       status = string.format("Waiting for %s to answer (%d s).", opp, max(0, floor(g.expires - t)))
       btn = "Withdraw"
     elseif g.state == "invited" then
-      self.inv.text:SetText(string.format("%s challenges you to a death roll for %s each, rolls from 1 to %s. (%d s)",
+      self.inv.text:SetText(string.format("%s challenges you to a death roll for %s each, rolls from 1 to %s (%d s).",
         opp, coins(g.bet), TCF.Commas(g.range), max(0, floor(g.expires - t))))
       self.inv:Show()
     elseif g.state == "rolling" then
@@ -515,7 +531,9 @@ function Scene:Refresh(full)
       btn, btnOn = "Roll", false
     else
       local r = g.result
-      if r == "win" then status = string.format("|cff40ff40You win %s|r. %s rolled the 1.", coins(DR.DuelWin(g.bet)), opp)
+      if r == "win" and g.reason == "f" then status = string.format("|cff40ff40You win %s|r. %s ran out of time on their turn.", coins(DR.DuelWin(g.bet)), opp)
+      elseif r == "lose" and g.reason == "f" then status = string.format("You ran out of time on your turn and lose %s.", coins(g.bet))
+      elseif r == "win" then status = string.format("|cff40ff40You win %s|r. %s rolled the 1.", coins(DR.DuelWin(g.bet)), opp)
       elseif r == "lose" then status = string.format("%s wins. You rolled the 1 and lose %s.", opp, coins(g.bet))
       elseif r == "declined" then status = g.by == "me" and "You declined." or string.format("%s declined.", opp)
       elseif r == "busy" then status = string.format("%s is busy with another game right now.", opp)
@@ -527,7 +545,7 @@ function Scene:Refresh(full)
         status = why:format(opp) .. " No TapCoins moved."
         if g.reason == "x" and g.by == "me" then status = "You withdrew the challenge. No TapCoins moved." end
       end
-      btn = fm and ("Challenge " .. safeName(fm.name)) or "Challenge"
+      btn = fm and ("Challenge " .. shortName(fm.name)) or "Challenge"
       btnOn = fm ~= nil and hi >= lo
     end
   elseif friendMode then
@@ -536,8 +554,8 @@ function Scene:Refresh(full)
       btn, btnOn = "Challenge", false
     else
       status = string.format("Challenge %s: you both bet %s. Whoever rolls the 1 loses it; the winner gets %s.",
-        safeName(fm.name), coins(self.bet), coins(DR.DuelWin(self.bet)))
-      btn, btnOn = "Challenge " .. safeName(fm.name), hi >= lo
+        shortName(fm.name), coins(self.bet), coins(DR.DuelWin(self.bet)))
+      btn, btnOn = "Challenge " .. shortName(fm.name), hi >= lo
     end
   else
     status = "Take turns rolling. Each roll goes from 1 to the last number. Whoever rolls a 1 loses."
@@ -556,7 +574,7 @@ function Scene:Refresh(full)
   self.action:SetShown(btn ~= nil)
   if friendMode then
     self.note:SetText(NOTE_ROLL)
-    self.note2:SetText("Each turn has 60 seconds. If time runs out or someone reloads, the duel is called off and no TapCoins move.")
+    self.note2:SetText("Each turn has 60 seconds: if you don't roll in time, you lose. A reload or leaving the group calls the duel off.")
   else
     self.note:SetText("Who rolls first is a coin flip. Win and you get 1.9 times your bet back.")
     self.note2:SetText("TapCoins are scarce: the house keeps a little of every bet on average.")
@@ -617,7 +635,7 @@ local function burst(v, s)
     c.vx, c.vy = cos(a) * sp, sin(a) * sp
     c.r, c.vr = random() * 6, (random() - 0.5) * 14
     c.age, c.life, c.on = 0, 1.6 + random() * 0.9, true
-    c.tex:SetSize(8 + (i % 4) * 2, 8 + (i % 4) * 2)
+    c.tex:SetSize(14 + (i % 4) * 2, 14 + (i % 4) * 2)
     c.tex:SetAlpha(1); c.tex:Show()
   end
 end

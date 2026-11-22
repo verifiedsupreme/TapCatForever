@@ -5,9 +5,12 @@ usage: python3 tools/make_duel_art.py [work_dir] [preview.png]   -> Art/casino/*
   dr_flop_fur.tga    256x256 a cat lying on its back, fur parts only (white, tinted to the cat's fur in game)
   dr_flop_line.tga   256x256 the same cat's outlines, belly, pads and nose (fixed colours, drawn on top)
   dr_xeyes.tga       256x256 the X eyes for that cat (same canvas, so all three turn together)
+                     The three are drawn on the cat's own 64-pixel grid (4 texels a pixel, hard edges),
+                     like Art/cat_fur.tga, so the flop looks like the same cat.
+  dr_plate.tga       256x128 the dark plate behind the range in the middle of the arena
   dr_ghost.tga       128x128 a little ghost cat that floats up and fades
   dr_pop.tga         128x128 the bubble behind a roll number (white, tinted in game)
-  dr_conf1..3.tga    32x32 confetti pieces (white, tinted in game)
+  dr_conf1..3.tga    32x32 confetti pieces: a ribbon, a paw and a star (white with an ink outline, tinted in game)
 """
 import math, os, random, shutil, subprocess, sys, tempfile
 from PIL import Image
@@ -115,37 +118,41 @@ def colosseum():
 FUR = "#ffffff"
 HX, HY, HR = 64, 148, 40
 TAIL = "M 200 146 Q 238 146 236 116 Q 234 98 218 100 Q 214 108 222 112 Q 228 118 224 128 Q 220 138 198 136 Z"
-LEGS = [(104, 118, -16), (128, 110, -5), (158, 110, 5), (182, 118, 16)]
+# legs in the air, splayed out: (x, y, angle, length, paw tip bent this way); front legs (by the
+# head) longer than the back ones
+LEGS = [(102, 120, -38, 50, -1), (126, 112, -13, 54, -1), (160, 112, 14, 44, 1), (184, 120, 36, 40, 1)]
 BODY = "M 74 160 Q 68 120 112 114 L 176 114 Q 214 118 208 160 Q 202 180 140 180 Q 80 180 74 160 Z"
 EARS = ["M %d %d L %d %d L %d %d Z" % (HX - 22, HY - 30, HX - 50, HY - 22, HX - 34, HY - 2),
         "M %d %d L %d %d L %d %d Z" % (HX - 24, HY + 26, HX - 50, HY + 40, HX - 20, HY + 44)]
-def leg(x, y): return "M %d %d L %d %d Q %d %d %d %d Q %d %d %d %d L %d %d Z" % (x - 9, y + 4, x - 9, y - 34, x - 9, y - 46, x, y - 46, x + 9, y - 46, x + 9, y - 34, x + 9, y + 4)
+def leg(x, y, n, bend):
+    """a leg n long pointing up from (x, y), with a round paw bent a little to one side"""
+    top = y - n
+    return ("M %d %d L %d %d Q %d %d %d %d Q %d %d %d %d L %d %d Z"
+            % (x - 9, y + 4, x - 9, top + 10, x - 11 + bend * 2, top - 5, x + bend * 4, top - 5,
+               x + 11 + bend * 2, top - 5, x + 9, top + 10, x + 9, y + 4))
 def rot(a, x, y, body): return '<g transform="rotate(%d %d %d)">%s</g>' % (a, x, y, body)
 def flop_svg(part):
     """part: fur (white fills, tinted in game), line (outlines and fixed colours, drawn over the fur), xeyes.
     Outlines of parts behind others are masked by the shapes in front (head > body > legs, tail; head > ears)."""
     if part == "fur":
-        s = path(TAIL, FUR) + "".join(rot(a, x, y, path(leg(x, y), FUR)) for x, y, a in LEGS)
+        s = path(TAIL, FUR) + "".join(rot(a, x, y, path(leg(x, y, n, b), FUR)) for x, y, a, n, b in LEGS)
         return s + path(BODY, FUR) + "".join(path(e, FUR) for e in EARS) + circ(HX, HY, HR, FUR)
     if part == "xeyes":
-        s = ""
-        for ex, ey in ((HX + 2, HY - 15), (HX + 2, HY + 15)):
-            s += line("M %d %d L %d %d M %d %d L %d %d" % (ex - 7, ey - 7, ex + 7, ey + 7, ex - 7, ey + 7, ex + 7, ey - 7), INK, 5.5)
-        return s
+        return ""   # drawn pixel by pixel in xeyes_pixels()
     head = circ(HX, HY, HR, "#000")
     defs = ('<defs><mask id="nohead"><rect width="256" height="256" fill="#fff"/>%s</mask>'
             '<mask id="nobody"><rect width="256" height="256" fill="#fff"/>%s%s</mask></defs>') % (head, head, path(BODY, "#000"))
-    behind_body = path(TAIL, "none", 7) + "".join(rot(a, x, y, path(leg(x, y), "none", 7)) for x, y, a in LEGS)
+    behind_body = path(TAIL, "none", 5.5) + "".join(rot(a, x, y, path(leg(x, y, n, b), "none", 5.5)) for x, y, a, n, b in LEGS)
     s = defs + '<g mask="url(#nobody)">%s</g>' % behind_body
-    for x, y, a in LEGS:  # pink toe beans on the raised paws
-        s += rot(a, x, y, ell(x, y - 37, 5.5, 4, "#f6a3b4") + circ(x - 4, y - 44, 1.8, "#f6a3b4") + circ(x + 4, y - 44, 1.8, "#f6a3b4"))
+    for x, y, a, n, b in LEGS:  # pink toe beans on the raised paws
+        s += rot(a, x, y, ell(x + b * 2, y - n + 7, 6, 4.5, "#f6a3b4"))
     s += '<g mask="url(#nohead)">%s%s%s</g>' % (
         path("M 104 150 Q 108 128 142 126 Q 176 128 180 150 Q 172 166 142 166 Q 112 166 104 150 Z", "#fff6ea"),
-        path(BODY, "none", 8),
-        "".join(path(e, "none", 7) for e in EARS)
+        path(BODY, "none", 5.5),
+        "".join(path(e, "none", 5.5) for e in EARS)
         + path("M %d %d L %d %d L %d %d Z" % (HX - 27, HY - 23, HX - 43, HY - 19, HX - 33, HY - 9), "#f6a3b4")
         + path("M %d %d L %d %d L %d %d Z" % (HX - 26, HY + 30, HX - 43, HY + 38, HX - 25, HY + 39), "#f6a3b4"))
-    s += circ(HX, HY, HR, "none", 8)
+    s += circ(HX, HY, HR, "none", 5.5)
     s += ell(HX + 12, HY + 22, 7, 5, "#f7a6a6", op=0.8) + ell(HX + 12, HY - 22, 7, 5, "#f7a6a6", op=0.8)   # blush
     s += path("M %d %d L %d %d L %d %d Z" % (HX + 17, HY - 5, HX + 17, HY + 5, HX + 24, HY), "#f08aa0", 2)  # nose
     s += path("M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (HX + 26, HY - 6, HX + 36, HY - 7, HX + 35, HY, HX + 36, HY + 7, HX + 26, HY + 6), "#a8444a", 2.5)  # open mouth
@@ -183,14 +190,48 @@ def pop_svg():
     return s
 
 def confetti_svg(k):
-    if k == 1: return '<rect x="9" y="5" width="14" height="22" rx="3" fill="#ffffff" stroke="%s" stroke-width="2.5"/>' % INK
-    if k == 2: return circ(16, 16, 9, "#ffffff", 2.5)
+    """32x32 pieces, white with an ink outline (tinted in game): a curly ribbon, a paw, a star"""
+    if k == 1:
+        return path("M 6 22 Q 10 8 16 16 Q 22 24 26 10 L 29 12 Q 24 30 16 21 Q 10 14 9 24 Z", "#ffffff", 2.5)
+    if k == 2:
+        s = ell(16, 20, 7, 6, "#ffffff", 2.5)
+        for dx, dy in ((-8, 10), (-3, 6), (3, 6), (8, 10)):
+            s += circ(16 + dx, dy + 1, 3, "#ffffff", 2)
+        return s
     pts = []
     for i in range(10):
-        r = 13 if i % 2 == 0 else 6
+        r = 14 if i % 2 == 0 else 6.5
         a = -math.pi / 2 + i * math.pi / 5
-        pts.append("%.1f %.1f" % (16 + r * math.cos(a), 16 + r * math.sin(a)))
+        pts.append("%.1f %.1f" % (16 + r * math.cos(a), 17 + r * math.sin(a)))
     return path("M " + " L ".join(pts) + " Z", "#ffffff", 2.5)
+
+def plate_svg():
+    """256x128: the dark rounded plate behind the range numbers, with a gold rim"""
+    return ('<rect x="8" y="8" width="240" height="112" rx="34" fill="#2a1a22" opacity=".78" stroke="%s" stroke-width="6"/>'
+            '<rect x="18" y="18" width="220" height="92" rx="26" fill="none" stroke="#e0a21b" stroke-width="3" opacity=".8"/>' % INK)
+
+def xeyes_pixels():
+    """the X eyes on the 64-pixel grid: a cream X five pixels wide with an ink rim, so they read on
+    black fur as well as on white"""
+    small = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    px = small.load()
+    cream, ink = (255, 244, 220, 255), (59, 38, 32, 255)
+    for cx, cy in ((HX // 4 + 1, (HY - 20) // 4), (HX // 4 + 1, (HY + 20) // 4 + 1)):
+        x_ = {(cx + d, cy + d) for d in range(-2, 3)} | {(cx + d, cy - d) for d in range(-2, 3)}
+        for (x, y) in x_:
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    if (x + dx, y + dy) not in x_: px[x + dx, y + dy] = ink
+        for (x, y) in x_: px[x, y] = cream
+    return small.resize((256, 256), Image.NEAREST)
+
+def pixelize(im, grid=64, cut=110):
+    """the cat's look: draw on a 64-pixel grid with hard edges, then scale each pixel up to 4x4"""
+    small = im.resize((grid, grid), Image.BOX)
+    r, g, b, a = small.split()
+    a = a.point(lambda v: 255 if v >= cut else 0)
+    small = Image.merge("RGBA", (r, g, b, a))
+    return small.resize(im.size, Image.NEAREST)
 
 def render(items, w, h, work):
     """items: name -> svg body; renders them at w x h and returns name -> PIL image"""
@@ -207,8 +248,11 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     out = {}
     out.update(render({"colosseum": colosseum()}, 512, 256, work))
-    out.update(render({"dr_flop_fur": flop_svg("fur"), "dr_flop_line": flop_svg("line"), "dr_xeyes": flop_svg("xeyes")}, 256, 256, work))
+    flop = render({"dr_flop_fur": flop_svg("fur"), "dr_flop_line": flop_svg("line"), "dr_xeyes": flop_svg("xeyes")}, 256, 256, work)
+    out.update({k: pixelize(v) for k, v in flop.items()})
+    out["dr_xeyes"] = xeyes_pixels()
     out.update(render({"dr_ghost": ghost_svg(), "dr_pop": pop_svg()}, 128, 128, work))
+    out.update(render({"dr_plate": plate_svg()}, 256, 128, work))
     out.update(render({"dr_conf%d" % k: confetti_svg(k) for k in (1, 2, 3)}, 32, 32, work))
     for name, im in out.items():
         write_tga(im, os.path.join(OUT, name + ".tga"))

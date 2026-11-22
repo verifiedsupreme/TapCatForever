@@ -28,6 +28,8 @@ local function num(v)
 end
 
 local function newStats() return { played = 0, wagered = 0, won = 0, biggest = 0 } end
+local GAME_KEY = {}
+for _, g in ipairs(TCF.CASINO_GAMES) do GAME_KEY[g.key] = true end
 
 -- TCF.db.casino, made and repaired on first use
 function TCF:CasinoData()
@@ -73,7 +75,7 @@ function TCF:CasinoBet(amount, game, extra)
   amount = num(amount)
   if not amount or amount ~= floor(amount) or amount <= 0 then return false end
   local c = self:CasinoData()
-  if type(game) ~= "string" or not c[game] or game == "total" or game == "pending" then return false end
+  if not GAME_KEY[game] then return false end
   self:CasinoCollect(game)
   if not extra then
     local lo, hi = self:CasinoLimits()
@@ -87,31 +89,34 @@ function TCF:CasinoBet(amount, game, extra)
   return true
 end
 
--- Pays winnings (the whole amount handed back, stake included) at once.
-function TCF:CasinoPay(amount, game)
+-- Pays winnings (the whole amount handed back, stake included) at once. stake: what was bet for
+-- them, so "Biggest win" counts the profit (a push or a 2x line on a small bet is not a big win).
+function TCF:CasinoPay(amount, game, stake)
   amount = floor(num(amount) or 0)
   if amount <= 0 then return 0 end
   local c = self:CasinoData()
-  if not c[game] or game == "total" or game == "pending" then game = nil end
+  if not GAME_KEY[game] then game = nil end
   self.db.coins = self.db.coins + amount
+  local profit = amount - max(0, floor(num(stake) or 0))
   if game then
     addStat(c, game, "won", amount)
-    c[game].biggest = max(c[game].biggest, amount)
+    if profit > 0 then c[game].biggest = max(c[game].biggest, profit) end
   else
     c.total.won = c.total.won + amount
   end
-  c.total.biggest = max(c.total.biggest, amount)
+  if profit > 0 then c.total.biggest = max(c.total.biggest, profit) end
   self:MarkDirty()
   return amount
 end
 
 -- Winnings that wait for the game's animation. stat: an achievement counter (db.stats) to add
--- one to when it is paid.
-function TCF:CasinoHold(amount, game, stat)
+-- one to when it is paid. stake: the bet those winnings were for (see CasinoPay).
+function TCF:CasinoHold(amount, game, stat, stake)
   local c = self:CasinoData()
   local p = c.pending[game]
   if type(p) ~= "table" then p = { amount = 0 }; c.pending[game] = p end
   p.amount = (num(p.amount) or 0) + floor(num(amount) or 0)
+  p.stake = (num(p.stake) or 0) + floor(num(stake) or 0)
   if stat then p.stats = p.stats or {}; table.insert(p.stats, stat) end
 end
 
@@ -123,7 +128,7 @@ function TCF:CasinoCollect(game)
     if game == nil or g == game then
       c.pending[g] = nil
       if type(p) == "table" then
-        paid = paid + self:CasinoPay(p.amount, g)
+        paid = paid + self:CasinoPay(p.amount, g, p.stake)
         for _, st in ipairs(type(p.stats) == "table" and p.stats or {}) do
           if type(st) == "string" then self.db.stats[st] = (self.db.stats[st] or 0) + 1 end
         end
@@ -138,9 +143,10 @@ function TCF:CasinoCollect(game)
 end
 
 -- Party death roll: moves TapCoins between you and another player. delta > 0 credits you, < 0
--- debits you (never below zero), at most the top bet either way. Logged in TCF.db.casino.duels
--- (the last 20). Returns the change really made.
-function TCF:CasinoSettleDuel(delta, opponent)
+-- debits you (never below zero), at most the top bet either way. stake: the bet of the duel (for
+-- the stats: it counts as bet, and a win counts stake + delta as paid back, so the net is right).
+-- Logged in TCF.db.casino.duels (the last 20). Returns the change really made.
+function TCF:CasinoSettleDuel(delta, opponent, stake)
   delta = num(delta)
   if not delta then return 0 end
   delta = floor(delta + 0.5)
@@ -150,13 +156,16 @@ function TCF:CasinoSettleDuel(delta, opponent)
   if delta < 0 then delta = -min(-delta, coins) end
   if delta == 0 then return 0 end
   self.db.coins = coins + delta
+  stake = num(stake)
+  stake = stake and max(0, min(TCF.CASINO_MAX_BET, floor(stake))) or (delta < 0 and -delta or 0)
   local s = c.deathroll
   s.duels = (s.duels or 0) + 1
   s.net = (s.net or 0) + delta
   addStat(c, "deathroll", "played", 1)
-  addStat(c, "deathroll", "wagered", math.abs(delta))
+  addStat(c, "deathroll", "wagered", stake)
+  local back = max(0, stake + delta)
+  if back > 0 then addStat(c, "deathroll", "won", back) end
   if delta > 0 then
-    addStat(c, "deathroll", "won", delta)
     s.biggest = max(s.biggest, delta); c.total.biggest = max(c.total.biggest, delta)
   end
   if type(opponent) ~= "string" or TCF.IsSecret(opponent) or opponent == "" then opponent = "another player" end
@@ -173,13 +182,14 @@ function TCF:CasinoStatsLine(game)
   local s = (game and c[game]) or c.total
   local C = TCF.Commas
   local net = s.won - s.wagered
-  return string.format("Played %s   Bet %s   Won %s   Net %s%s|r   Biggest win %s",
+  return string.format("Played %s   Total bet %s   Paid back %s   Net %s%s|r   Biggest win %s",
     C(s.played), C(s.wagered), C(s.won), net >= 0 and "|cff40ff40+" or "|cffff6060-", C(math.abs(net)), C(s.biggest))
 end
 
 ---------------------------------------------------------------- slots
--- Three reel strips of 20 stops. Each has 2 cats, 2 gems, 2 bells, 3 coins, 3 fish, 4 yarn balls
--- and 4 paws, in a different order. One line: the middle row.
+-- Three reel strips of 20 stops, each with its own mix, so the rarer a line the more it pays:
+-- three cats 1 in 1,000, gems 1 in 667, bells 1 in 500, coins 1 in 400, fish 1 in 296,
+-- yarn balls 1 in 222, paws 1 in 178. Two cats on each reel. One line: the middle row.
 TCF.SLOT_SYMBOLS = {
   cat = { name = "Cat", art = "sym_cat" }, gem = { name = "Gem", art = "sym_gem" },
   bell = { name = "Bell", art = "sym_bell" }, coin = { name = "Coin", art = "sym_coin" },
@@ -187,12 +197,12 @@ TCF.SLOT_SYMBOLS = {
   paw = { name = "Paw", art = "sym_paw" },
 }
 TCF.SLOT_REELS = {
-  { "cat", "paw", "yarn", "coin", "fish", "paw", "bell", "yarn", "gem", "fish", "paw", "coin", "yarn", "cat", "fish", "paw", "bell", "yarn", "gem", "coin" },
-  { "paw", "gem", "yarn", "fish", "cat", "coin", "paw", "yarn", "bell", "fish", "paw", "gem", "coin", "yarn", "cat", "fish", "paw", "bell", "yarn", "coin" },
-  { "yarn", "coin", "paw", "cat", "fish", "yarn", "gem", "paw", "coin", "bell", "yarn", "fish", "paw", "cat", "coin", "yarn", "gem", "fish", "paw", "bell" },
+  { "cat", "paw", "yarn", "fish", "paw", "bell", "yarn", "coin", "paw", "gem", "fish", "yarn", "paw", "cat", "fish", "paw", "yarn", "bell", "coin", "gem" },
+  { "paw", "gem", "coin", "fish", "cat", "coin", "yarn", "bell", "coin", "paw", "fish", "gem", "coin", "yarn", "cat", "fish", "paw", "bell", "yarn", "coin" },
+  { "yarn", "bell", "paw", "cat", "fish", "gem", "bell", "yarn", "coin", "paw", "bell", "fish", "gem", "cat", "yarn", "bell", "paw", "fish", "gem", "coin" },
 }
 -- what a line pays, as times your bet (your bet included)
-TCF.SLOT_PAY3 = { cat = 100, gem = 40, bell = 25, coin = 15, fish = 10, yarn = 6, paw = 3 }
+TCF.SLOT_PAY3 = { cat = 100, gem = 40, bell = 25, coin = 15, fish = 10, yarn = 5, paw = 3 }
 TCF.SLOT_PAY_TWO_CATS, TCF.SLOT_PAY_ONE_CAT = 5, 2
 TCF.SLOT_ORDER = { "cat", "gem", "bell", "coin", "fish", "yarn", "paw" }
 TCF.SLOT_BIG_WIN = 10  -- this many times the bet or more: the big celebration
@@ -246,7 +256,7 @@ function TCF:SlotsSpin(bet, stops)
                 bet = bet, mult = mult, kind = kind, win = mult * bet }
   c.slotsLast = res
   if res.win > 0 then
-    self:CasinoHold(res.win, "slots", (kind == "three" and a == "cat") and "casinoCats" or nil)
+    self:CasinoHold(res.win, "slots", (kind == "three" and a == "cat") and "casinoCats" or nil, bet)
   end
   return res
 end
@@ -386,7 +396,7 @@ local function finish(self, st, c)
     pay = pay + h.pay
   end
   st.pay, st.staked = pay, staked
-  if pay > 0 then self:CasinoHold(pay, "blackjack") end
+  if pay > 0 then self:CasinoHold(pay, "blackjack", nil, staked) end
   st.collected = pay <= 0
   st.text = TCF.BJResultText(st)
 end
@@ -455,10 +465,10 @@ function TCF:BJDeal(bet, cards)
   if pBJ or dBJ then
     st.phase, st.holeShown, h.done = "done", true, true
     if pBJ and dBJ then h.result, h.pay, st.natural = "push", bet, "both"
-    elseif pBJ then h.result, h.pay, st.natural = "bj", bet + floor(bet * 3 / 2), "player"
+    elseif pBJ then h.result, h.pay, st.natural = "bj", bet + floor(bet * 3 / 2), "player"   -- 3 to 2, half a TapCoin rounded down
     else h.result, h.pay, st.natural = "lose", 0, "dealer" end
     st.pay, st.staked = h.pay, bet
-    if h.pay > 0 then self:CasinoHold(h.pay, "blackjack", pBJ and not dBJ and "casinoBlackjacks" or nil) end
+    if h.pay > 0 then self:CasinoHold(h.pay, "blackjack", pBJ and not dBJ and "casinoBlackjacks" or nil, bet) end
     st.collected = h.pay <= 0
     st.text = TCF.BJResultText(st)
   end
