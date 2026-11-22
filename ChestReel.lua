@@ -132,12 +132,8 @@ local function createReel()
     for i, args in ipairs(queue) do
       -- the item the reel landed on takes over a loot box that is already up, so the box
       -- shows what you just watched (everything else still queues behind it)
-      local it, isGear = args[1], args[6]
-      local q = it and (isGear and it.q or it.rarity) or 1
-      if q < 3 and TCF.ShowLootToast then
-        -- a common or green find: the slim line under the Treasure Bag, no loot box
-        TCF:ShowLootToast(it, args[2], args[3], args[4], isGear, true, args[7])
-      elseif i == 1 and lr and lr:IsShown() and lr.ShowFront then lr:ShowFront(args)
+      -- every chest you open shows its loot box when the reel ends, whatever the quality
+      if i == 1 and lr and lr:IsShown() and lr.ShowFront then lr:ShowFront(args)
       else TCF.ShowLootRevealDirect(TCF, unpack(args, 1, 7)) end
     end
   end
@@ -191,21 +187,17 @@ TCF.ShowLootRevealDirect = TCF.ShowLootReveal
 function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear, coins)
   coins = coins or takeChestCoins(self, chestKey)
   local args = { it, isNew, salvage, title, chestKey, isGear, coins }
-  -- only chest openings (your own click) can get the reel and the loot box, and only for a
-  -- blue (Rare) or better find; everything else goes straight into your bags with at most a
-  -- slim line (LootToast.lua). "Open all" still lists everything in the loot window.
+  -- only chest openings (your own click) get the reel and the loot box; everything else goes
+  -- straight into your bags with at most a slim line (LootToast.lua). "Open all" still lists
+  -- everything in the loot window.
   if self.ShowLootToast and not chestKey and not self.forceReveal then
     return self:ShowLootToast(it, isNew, salvage, title, isGear)
   end
   local quality = it and (isGear and it.q or it.rarity) or 1
   local ch = chestKey and TCF.CHEST_BY_KEY[chestKey]
-  -- every chest you open yourself spins the reel (unless turned off); what it lands on gets the
-  -- loot box only when it is blue (Rare) or better, otherwise the slim line (see Finish)
+  -- every chest you open yourself spins the reel (unless turned off), then shows the loot box
   if ch and it and self.db.ui.chestAnim ~= false and not self.openingAll then
     return self:PlayChestReel(it, quality, chestKey, args)
-  end
-  if self.ShowLootToast and it and quality < 3 and not self.openingAll then
-    return self:ShowLootToast(it, isNew, salvage, title, isGear, true, coins)
   end
   if self.reel and self.reel:IsShown() then table.insert(self.reel.queue, args); return end
   -- no reel (animation off): a single chest opened while the box is up still shows at once

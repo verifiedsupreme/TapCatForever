@@ -1028,7 +1028,7 @@ TEST = r'''
           check(toasts == 0 and TapCatForeverReel and TapCatForeverReel:IsShown(), "chest gear: the reel plays")
           if TCF.lastChest.gear.q < 3 and TCF.reel then
             TCF.reel:Finish()
-            check(toasts == 1, "green chest gear: a slim line after the reel")
+            check(toasts == 0, "green chest gear: the loot box after the reel, no slim line")
           end
         end
         if TapCatForeverReel then TapCatForeverReel:Hide() end
@@ -3117,20 +3117,13 @@ TEST = r'''
       TCF.forceReveal = true; TCF:OpenChest("dungeon", true); TCF.forceReveal = nil
       check(lr:IsShown() and lr.coins:GetText() == "+" .. TCF.Commas(1234) .. " TapCoins", "no reel: coin line " .. tostring(lr.coins:GetText()))
       lr:Hide()
-      -- a green from a chest: the slim line carries the coins
+      -- 1.5.3.3: a green from a chest you open gets the loot box too, with its coin line
       TCF.RollRarity = function() return 2 end
       TCF.RollChestCoins = function() return 5 end
-      local first = #_frames + 1
-      local toastCoins
-      local toast = TCF.ShowLootToast
-      TCF.ShowLootToast = function(self, it, isNew, salvage, title, isGear, fromChest, coins) toastCoins = coins; return toast(self, it, isNew, salvage, title, isGear, fromChest, coins) end
       TCF.db.keys.dungeon = TCF.db.keys.dungeon + 1
       TCF.forceReveal = true; TCF:OpenChest("dungeon", true); TCF.forceReveal = nil
-      check(toastCoins == 5 and not lr:IsShown(), "a green: slim line with the coins")
-      local line
-      for _, f in ipairs(_frames) do if type(f.text) == "string" and f.text:find("+5 TapCoins", 1, true) then line = f end end
-      check(line and line.text:find("|cffffd100+5 TapCoins|r", 1, true), "slim line text: " .. tostring(line and line.text))
-      TCF.ShowLootToast = toast
+      check(lr:IsShown() and lr.coins:GetText() == "+5 TapCoins", "a green: the loot box with the coins: " .. tostring(lr.coins:GetText()))
+      lr:Hide()
       -- a second reward from the same chest (a skin) doesn't repeat the coins; the next chest has its own
       ui.chestAnim = false
       local gear

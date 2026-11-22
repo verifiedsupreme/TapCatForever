@@ -46,3 +46,21 @@ def check(seed, load_addon):
     if "strang" in A.eval("_boardKeys()"):
         raise AssertionError("lb party: whisper accepted")
     print("leaderboard party section (shares through the party without the channel): all checks passed")
+
+def _own_row_odd_realms(load_addon):
+    import sys
+    LB_CLIENT = sys.modules["__main__"].LB_CLIENT
+    for realm in ("Forever (US)", "Forever.EU", "Living Flame", "Forever-1", "Nightslayer"):
+        lua = load_addon(login=False)
+        lua.execute(LB_CLIENT)
+        lua.execute('_charName = "Ziggu"; GetNormalizedRealmName = function() return "%s" end; GetRealmName = GetNormalizedRealmName' % realm.replace(" ", ""))
+        lua.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+        lua.execute("_optIn(true)")
+        n = lua.eval('(function() local l = TapCatForever:LeaderboardSection("taps", "taps"); local c = 0; for _, r in ipairs(l) do if r.self then c = c + 1 end end; return c end)()')
+        if n != 1:
+            raise AssertionError("own row missing on realm %r" % realm)
+_orig_check = check
+def check(seed, load_addon):
+    _orig_check(seed, load_addon)
+    _own_row_odd_realms(load_addon)
+    print("leaderboard own row section (odd realm names): all checks passed")

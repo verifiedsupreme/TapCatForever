@@ -73,7 +73,8 @@ def check(seed, load_addon):
       return r1, t1, b1, reel, toast, box
     ''')
     r = tuple(r)
-    if not (r[0] == 1 and r[1] == 1 and r[2] == 0 and r[3] == 2 and r[4] == 1 and r[5] == 1):
+    # 1.5.3.3: every chest opened by hand spins the reel and then shows the loot box
+    if not (r[0] == 1 and r[1] == 0 and r[2] == 1 and r[3] == 2 and r[4] == 0 and r[5] == 2):
         raise AssertionError("hotfix reel: green/blue reel,toast,box counts %r" % (r,))
     print(table_)
     print("hotfix loot section (chest gear near level, rare world epics, legendaries at 60, reel for every chest): all checks passed")

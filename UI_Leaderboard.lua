@@ -248,7 +248,18 @@ TCF.UI.Builders.leaderboard = function(page, win)
     prof = " Trade Gold counts all of a player's cats, and a skill is the best of any of their cats. Players on an older version of the addon only show under Total taps.",
   }
 
+  -- 1.5.3.3: any error while drawing shows on the page (and once in chat) instead of an empty board
+  local drawPage
   function page:Refresh()
+    local ok, err = pcall(drawPage, self)
+    if not ok then
+      board:Show()
+      page.empty:SetText("The leaderboard hit an error. Please send this to the developer: " .. tostring(err))
+      page.empty:Show()
+      if not page.errShown then page.errShown = true; TCF:Print("Leaderboard error: " .. tostring(err), true) end
+    end
+  end
+  function drawPage(page)
     TCF.LeaderboardDirty(true)
     local on = TCF.LeaderboardOptedIn()
     join:SetShown(not on)
@@ -346,8 +357,8 @@ TCF.UI.Builders.leaderboard = function(page, win)
         page.empty:SetText(win.lbProf == "gold" and "No other players with Trade Gold yet." or
           ("No other players with " .. (pbName or "this") .. " skill yet."))
       else
-        page.empty:SetText("No other players yet. Others on your realm who join show up here as you and they are online, " ..
-          "which can take a while.")
+        page.empty:SetText("No other players yet. Group up or be in a guild with friends who joined, " ..
+          "and you show up on each other's leaderboard.")
       end
     end
     page.empty:SetShown(others <= 0)

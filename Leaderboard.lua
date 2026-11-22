@@ -96,7 +96,7 @@ local function validName(s)
   if not plain(s) or #s > 80 then return false end
   local n, r = s:match("^([^%-]+)%-([^%-]+)$")
   if not n or #n < 2 or #n > 48 or #r > 48 then return false end
-  return n:find("^[%a\128-\255]+$") ~= nil and r:find("^[%w\128-\255']+$") ~= nil
+  return n:find("^[%a\128-\255]+$") ~= nil and r:find("^[^%s%c;|:,]+$") ~= nil
 end
 TCF.LeaderboardValidName = validName
 
@@ -402,15 +402,21 @@ function TCF:LeaderboardOwnEntry()
   local db = self.db
   if not db or not TCF.CLASS_BY_KEY[db.class] then return nil end
   local full = myFull()
-  if not full then return nil end
+  if not full then
+    -- 1.5.3.3: your own row always shows, even when the realm name can't be read
+    local n = UnitName and UnitName("player")
+    if not plain(n) or n == "" then n = "You" end
+    full = n .. "-" .. (myRealm() or "Realm")
+  end
   local cd = self:CD()
-  local s = self.DevSummary and self:DevSummary()
+  local okS, s = pcall(function() return self.DevSummary and self:DevSummary() end)
+  if not okS then s = nil end
   local v = s and s.version or "?"
   if not v:find("^[%w%.%-]+$") then v = "?" end
   local ts = serverNow()
   return { n = full, c = db.class, l = max(1, min(200, floor(cd and cd.level or 1))), t = max(0, floor(db.taps or 0)),
     a = countAchievements(), z = min(200, TCF.DevZonesCleared and TCF.DevZonesCleared() or 0), v = v, ts = ts,
-    x = self:LeaderboardOwnExtra(), xts = ts }
+    x = (function() local ok, x = pcall(self.LeaderboardOwnExtra, self); return ok and x or nil end)(), xts = ts }
 end
 
 -- every class cat's level, Trade Gold earned by all the cats, and the best skill of any cat
