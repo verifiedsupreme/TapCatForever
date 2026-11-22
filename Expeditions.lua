@@ -94,6 +94,8 @@ function TCF:ClaimExpedition(index)
   local e = TCF.EXPEDITION_BY_KEY[ex.key]
   st.done = (st.done or 0) + 1
   self.db.stats.expeditions = (self.db.stats.expeditions or 0) + 1
+  -- class achievements: expeditions finished by each class's cat (ClassAchievements.lua)
+  if self.ClassCount then for _, c in ipairs(ex.members) do self:ClassCount(c, "exp", 1) end end
   -- every cat that went earns a little XP (5 per minute away; half if it failed)
   local won = random() <= ex.chance
   local xp = floor(e.dur / 60 * 5 * (won and 1 or 0.5))

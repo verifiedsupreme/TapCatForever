@@ -24,6 +24,7 @@ CatVector.lua
 Abilities.lua
 Adventure.lua
 Expeditions.lua
+ClassAchievements.lua
 Professions.lua
 Herbalism.lua
 FirstAid.lua
