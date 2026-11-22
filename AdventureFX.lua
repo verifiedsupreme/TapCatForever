@@ -52,12 +52,23 @@ local function call(o, method, ...)
 end
 
 -- hooks: slotPos(i) -> x, y (the enemy's chest), slotFrame(i) -> the slot frame (model, actor),
--- float(text, x, y, r, g, b, big), shake(i, secs), anim(i, animID, secs), target() -> slot index
+-- float(text, x, y, r, g, b, big), shake(i, secs), anim(i, animID, secs), target() -> slot index,
+-- die(i, mob) -> the enemy in slot i (still that mob) plays its death
 function FX.New(layer, anchor, hooks)
-  local self = setmetatable({ layer = layer, anchor = anchor, hooks = hooks, pool = {}, pending = {}, auras = {},
-    clock = 0, passives = {}, petT = 0, totemT = 0, guardT = 0, fighting = false, stats = nil }, FX)
-  for i = 1, 3 do self.auras[i] = { kit = 0, left = 0 } end
+  local self = setmetatable({ layer = layer, anchor = anchor, hooks = hooks, pool = {}, pending = {}, carried = {}, auras = {},
+    stun = { 0, 0, 0 }, clock = 0, passives = {}, petT = 0, totemT = 0, guardT = 0, fighting = false, stats = nil }, FX)
+  -- kit/left: the lasting effect shown now; kit2/left2: one waiting under it (shown again when the first
+  -- ends); restore: re-apply the shown one shortly after a one-time effect on the same enemy
+  for i = 1, 3 do self.auras[i] = { kit = 0, left = 0, kit2 = 0, left2 = 0, restore = 0 } end
   return self
+end
+
+-- enemy animations: a flinch never cuts a stun short (stunned, frozen, rooted or feared)
+function FX:Anim(i, id, secs)
+  if not self.stun[i] then return end
+  if id == ANIM_STUN then self.stun[i] = max(self.stun[i], secs)
+  elseif self.stun[i] > 0 then return end
+  self.hooks.anim(i, id, secs)
 end
 
 ---------------------------------------------------------------- the game's spell visuals on enemies
@@ -75,23 +86,59 @@ function FX:Kit(i, kit, oneShot)
   if f.mode == "scene" and f.actor and f.placed then ok = call(f.actor, "SetSpellVisualKit", kit, oneShot and true or false)
   elseif f.mode == "classic" and f.model then ok = call(f.model, "ApplySpellVisualKit", kit, oneShot and true or false) end
   if ok then self.kitsPlayed = (self.kitsPlayed or 0) + 1 end
+  -- an actor may hold only one kit: a one-time effect can wipe the lasting one, so it goes back on soon after
+  local a = self.auras[i]
+  if ok and oneShot and a and a.kit ~= 0 then a.restore = 0.6 end
   return ok
 end
 
--- a lasting effect (damage over time, stun) on enemy i for secs, cleared when it ends or the enemy dies
+-- a lasting effect (damage over time, stun) on enemy i for secs, cleared when it ends or the enemy dies.
+-- Only the 3D actors keep one on: the older model frame has no documented way to take a kit off again,
+-- so there it plays once. One lasting effect shows at a time; the other waits and comes back when the
+-- shown one ends (Fear over Corruption, then Corruption again).
 function FX:Aura(i, kit, secs)
   local a = self.auras[i]
   if not a or not kit or kit == 0 then return end
-  if self:Kit(i, kit, false) then a.kit, a.left = kit, secs end
+  local f = self.hooks.slotFrame(i)
+  if not (f and f.mode == "scene") then self:Kit(i, kit, true) return end
+  if a.kit == kit then a.left = max(a.left, secs) return end
+  if a.kit2 == kit then a.kit2, a.left2 = 0, 0 end
+  if self:Kit(i, kit, false) then
+    if a.kit ~= 0 and a.left > a.left2 then a.kit2, a.left2 = a.kit, a.left end
+    a.kit, a.left, a.restore = kit, secs, 0
+  end
 end
 
 function FX:ClearAura(i)
   local a = self.auras[i]
-  if a and a.kit ~= 0 then
+  if a and (a.kit ~= 0 or a.kit2 ~= 0) then
     local f = self.hooks.slotFrame(i)
-    if f and f.mode == "scene" and f.actor then call(f.actor, "SetSpellVisualKit", 0, false)
-    elseif f and f.model then call(f.model, "ApplySpellVisualKit", 0, false) end
-    a.kit, a.left = 0, 0
+    if a.kit ~= 0 and f and f.mode == "scene" and f.actor then call(f.actor, "SetSpellVisualKit", 0, false) end
+    a.kit, a.left, a.kit2, a.left2, a.restore = 0, 0, 0, 0, 0
+  end
+end
+
+-- counts lasting effects down: the shown one ends (the waiting one comes back) or goes back on after a
+-- one-time effect
+function FX:UpdateAuras(e)
+  for i, a in ipairs(self.auras) do
+    if a.kit2 ~= 0 then a.left2 = a.left2 - e; if a.left2 <= 0 then a.kit2, a.left2 = 0, 0 end end
+    if a.kit ~= 0 then
+      a.left = a.left - e
+      if a.left <= 0 then
+        if a.kit2 ~= 0 then
+          a.kit, a.left, a.kit2, a.left2, a.restore = a.kit2, a.left2, 0, 0, 0
+          if not self:Kit(i, a.kit, false) then self:ClearAura(i) end
+        else self:ClearAura(i) end
+      elseif a.restore > 0 then
+        a.restore = a.restore - e
+        if a.restore <= 0 then
+          a.restore = 0
+          if not self:Kit(i, a.kit, false) then self:ClearAura(i) end
+        end
+      end
+    end
+    if self.stun[i] > 0 then self.stun[i] = max(0, self.stun[i] - e) end
   end
 end
 
@@ -112,6 +159,7 @@ function FX:Play(sprite, mode, ax, ay, bx, by, size, dur, tint)
   s.ax, s.ay, s.bx, s.by, s.size = ax, ay, bx or ax, by or ay, size or 40
   s.arc, s.spin, s.phase = (mode == "proj") and 18 or 0, 0, 0
   s.impact, s.impactTint, s.impactSize, s.kitSlot, s.kit, s.txt, s.shakeSlot, s.anim = nil, nil, 46, nil, nil, nil, nil, nil
+  s.dieSlot, s.dieMob = nil, nil
   s.tex:SetTexture(PATH[sprite])
   if tint then s.tex:SetVertexColor(tint[1], tint[2], tint[3]) else s.tex:SetVertexColor(1, 1, 1) end
   s.rot = (mode == "proj" and bx) and atan2(by - ay, bx - ax) or 0
@@ -134,7 +182,9 @@ function FX:Land(s)
   if s.kit and s.kitSlot then self:Kit(s.kitSlot, s.kit, true) end
   if s.txt then self.hooks.float(s.txt, s.tx, s.ty, s.tr, s.tg, s.tb, s.big) end
   if s.shakeSlot then self.hooks.shake(s.shakeSlot, 0.2) end
-  if s.anim and s.kitSlot then self.hooks.anim(s.kitSlot, s.anim, 0.35) end
+  if s.anim and s.kitSlot then self:Anim(s.kitSlot, s.anim, 0.35) end
+  -- the killing blow: the enemy falls when the shot arrives, not before
+  if s.dieMob then self.hooks.die(s.dieSlot, s.dieMob); s.dieMob = nil end
 end
 
 function FX:Update(e)
@@ -169,9 +219,7 @@ function FX:Update(e)
     end
   end
   -- lasting effects on enemies run out
-  for i, a in ipairs(self.auras) do
-    if a.kit ~= 0 then a.left = a.left - e; if a.left <= 0 then self:ClearAura(i) end end
-  end
+  self:UpdateAuras(e)
   if self.fighting then self:UpdatePassives(e) end
 end
 
@@ -181,11 +229,29 @@ end
 function FX:TakePending(i)
   local s = i and self.pending[i]
   if s then self.pending[i] = nil end
-  if s and s.on then return s end
+  if s and s.on then self.carried[i] = s; return s end
 end
 
 function FX:EndBatch()
   for i in pairs(self.pending) do self.pending[i] = nil end
+  for i in pairs(self.carried) do self.carried[i] = nil end
+end
+
+-- a "hit" or "crit" on enemy i with a shot or spell on its way: it carries the number (shown at x) and
+-- the flinch until it lands; false when nothing is on its way (the hit shows at once)
+function FX:CarryHit(i, txt, x, crit)
+  local s = self:TakePending(i)
+  if not s then return false end
+  if crit then FX.Carry(s, txt, x, 150, 1, 0.82, 0.1, true, i) else FX.Carry(s, txt, x, 140, 1, 1, 1, false, i) end
+  return true
+end
+
+-- the enemy in slot i (mob) died from a shot that is still flying: it falls when the shot lands
+function FX:DieOnLand(i, mob)
+  local s = i and self.carried[i]
+  if not (s and s.on and mob) then return false end
+  s.dieSlot, s.dieMob = i, mob
+  return true
 end
 
 -- for TakePending: carry this number (shown at x, y) and enemy slot's flinch until the shot lands
@@ -200,6 +266,8 @@ function FX:Swing(i, st, class)
   local tx, ty = self.hooks.slotPos(i)
   if not tx then return false end
   local attack = st and st.attack or "melee"
+  -- a druid in Cat Form claws (its damage may still count as spell damage)
+  if attack == "spell" and class == "DRUID" and TCF:AbilityKnown("DRUID", "cat") then attack = "melee" end
   if attack == "shoot" or attack == "wand" then
     local def = FX.SHOT[st.shot] or FX.SHOT.bow
     local tint = attack == "wand" and FX.SCHOOL_TINT[st.school or "arcane"] or nil
@@ -245,6 +313,10 @@ local function collect(self, info, all)
 end
 
 local ENEMY_KINDS = { nuke = true, execute = true, drain = true, aoe = true, dot = true, stun = true }
+-- abilities that hit only the target (whatever their sprite looks like)
+local SINGLE_KINDS = { nuke = true, execute = true, drain = true, dot = true }
+-- abilities whose damage comes as a "hit" event right after (that hit taps the cat, unless a shot carries it)
+local HIT_KINDS = { nuke = true, execute = true, drain = true, aoe = true }
 
 -- the game's kits for an ability: impact (when it lands) and aura (while it lasts)
 function FX.KitsFor(class, key, sprite)
@@ -255,9 +327,10 @@ function FX.KitsFor(class, key, sprite)
 end
 
 -- info: { key, kind, target, class } from the fight's "ability" event
+-- returns true when the cat should tap for the cast now (no hit event will tap for it)
 function FX:Ability(info)
   local fx = TCF.SPELL_FX.For(info.class, info.key, info.kind)
-  if not fx then return end
+  if not fx then return true end
   local sprite, mode = fx[1], fx[2]
   local ab
   for _, a in ipairs(TCF.ABILITIES[info.class] or {}) do if a.key == info.key then ab = a; break end end
@@ -265,13 +338,15 @@ function FX:Ability(info)
   local onEnemy = ENEMY_KINDS[info.kind]
   local impact, aura = 0, 0
   if onEnemy then impact, aura = FX.KitsFor(info.class, info.key, sprite) end
-  local n = collect(self, info, mode == "each" or mode == "multi" or mode == "rain" or (mode == "stun" and info.kind == "stun"))
+  local n = collect(self, info, not SINGLE_KINDS[info.kind]
+    and (mode == "each" or mode == "multi" or mode == "rain" or (mode == "stun" and info.kind == "stun")))
+  local carried = false
   local cx, cy = FX.MUZZLE[1] - 8, FX.MUZZLE[2] + 20
   if mode == "proj" or mode == "multi" then
     for k = 1, n do
       local p = targets[k]
       local s = self:Play(sprite, "proj", cx, cy, p.x, p.y, 40, 0.35 + k * 0.05)
-      if s then s.kitSlot, s.kit, s.anim = p.i, impact, ANIM_WOUND; self.pending[p.i] = s end
+      if s then s.kitSlot, s.kit, s.anim = p.i, impact, ANIM_WOUND; self.pending[p.i] = s; carried = true end
     end
   elseif mode == "drain" then
     if n > 0 then
@@ -283,7 +358,7 @@ function FX:Ability(info)
       local p = targets[k]
       self:Play(sprite, "burst", p.x, p.y, nil, nil, 60, 0.4)
       self:Kit(p.i, impact, true)
-      self.hooks.anim(p.i, ANIM_WOUND, 0.35)
+      self:Anim(p.i, ANIM_WOUND, 0.35)
     end
   elseif mode == "rain" then
     for k = 1, n do
@@ -298,18 +373,19 @@ function FX:Ability(info)
       local p = targets[k]
       self:Play("stun", "rise", p.x, p.y + 46, nil, nil, 46, 1.2)
       if aura ~= 0 then self:Aura(p.i, aura, dur) else self:Kit(p.i, impact, true) end
-      if info.kind == "stun" then self.hooks.anim(p.i, ANIM_STUN, dur) end
+      if info.kind == "stun" then self:Anim(p.i, ANIM_STUN, dur) end
     end
   elseif mode == "self" then self:Play(sprite, "rise", FX.CAT[1] + 5, FX.CAT[2] + 18, nil, nil, 50, 0.9)
   elseif mode == "bubble" then self:Play(sprite, "bubble", FX.CAT[1], FX.CAT[2] + 8, nil, nil, 120, 1.4, fx[3]) end
   -- damage over time: the game's aura on the enemy while it burns or bleeds
-  if info.kind == "dot" and aura ~= 0 and n > 0 then self:Aura(targets[1].i, aura, dur) end
+  if info.kind == "dot" and aura ~= 0 and n > 0 then self:Aura(info.target, aura, dur) end
+  return not (HIT_KINDS[info.kind] and not carried)
 end
 
 ---------------------------------------------------------------- passive abilities
 -- called when a pack appears: the known passives play, and the ones that keep acting are kept
 function FX:Spawn(class)
-  for i = 1, 3 do self:ClearAura(i) end
+  for i = 1, 3 do self:ClearAura(i); self.stun[i] = 0 end
   local list = self.passives
   for k = #list, 1, -1 do list[k] = nil end
   if self.totem then self:Stop(self.totem); self.totem = nil end
@@ -341,7 +417,7 @@ end
 function FX:Stand()
   self.fighting = false
   if self.totem then self:Stop(self.totem); self.totem = nil end
-  for i = 1, 3 do self:ClearAura(i) end
+  for i = 1, 3 do self:ClearAura(i); self.stun[i] = 0 end
 end
 
 function FX:UpdatePassives(e)
@@ -391,16 +467,21 @@ end
 -- the enemy in slot i died or left: its lasting effect ends, a shot on its way still lands
 function FX:Gone(i)
   self:ClearAura(i)
+  if self.stun[i] then self.stun[i] = 0 end
 end
 
 ---------------------------------------------------------------- the cat holds its ranged weapon
--- While a cat that shoots is fighting, its right paw holds the bow, gun, crossbow, thrown weapon or
--- wand it shoots with (a cosmetic weapon of the same kind is kept). look: TCF:GetAppearance().
-local RANGED_ART = { shoot = { wpn_bow = true, wpn_rifle = true, wpn_dagger = true }, wand = { wpn_wand = true } }
-function FX.FightLook(look, st, class, fighting)
-  if not fighting or not st or (st.attack ~= "shoot" and st.attack ~= "wand") or not TCF.RangedLook then return look end
+-- While a cat that shoots is in a fight (also between packs, so its paw doesn't swap back and forth),
+-- its right paw holds the bow, gun, crossbow, thrown weapon or wand it shoots with. A cosmetic weapon
+-- is kept only when it is the same kind (a cosmetic bow for a bow or crossbow, a rifle for a gun...).
+-- look: TCF:GetAppearance(); run: TCF.advRun; active: the fight is started.
+FX.SHOT_ART = { bow = "wpn_bow", xbow = "wpn_bow", gun = "wpn_rifle", thrown = "wpn_dagger", wand = "wpn_wand" }
+function FX.FightLook(look, run, class, active)
+  local st = run and run.stats
+  if not (active and st and not run.away and run.class == class) then return look end
+  if (st.attack ~= "shoot" and st.attack ~= "wand") or not TCF.RangedLook then return look end
   local main = look.main
-  if main and not main.gear and RANGED_ART[st.attack][main.art] then return look end
+  if main and not main.gear and main.art == FX.SHOT_ART[st.shot] then return look end
   local rl = TCF:RangedLook(class)
   if not rl or (main and main.id == rl.id) then return look end
   local out = {}
@@ -409,7 +490,9 @@ function FX.FightLook(look, st, class, fighting)
   return out
 end
 
--- /run TapCatForever:AdvFxDebug()  says whether the game's spell visuals can play on the enemies
+-- /run TapCatForever:AdvFxDebug()  (for testing) says whether the game's spell visuals can play on the
+-- enemies, and how the cat's basic attack lands
+local SHOT_WORDS = { bow = "shoots a bow", xbow = "shoots a crossbow", gun = "shoots a gun", thrown = "throws its weapon" }
 function TCF:AdvFxDebug()
   local fx = self.advFx
   if not fx then print("TapCat fight visuals: open the Adventure tab first.") return end
@@ -417,7 +500,9 @@ function TCF:AdvFxDebug()
   local api = f and ((f.mode == "scene" and f.actor and type(f.actor.SetSpellVisualKit) == "function" and "model actor")
     or (f.model and type(f.model.ApplySpellVisualKit) == "function" and "model frame")) or "none"
   local st = self:CombatStats()
-  print(string.format("TapCat fight visuals: game spell visuals %s (API: %s), %d played; basic attack %s%s%s",
-    fx:KitsOn() and "on" or "off (cartoonSpellFx)", api, fx.kitsPlayed or 0, tostring(st.attack),
-    st.shot and (" with a " .. st.shot) or "", st.school and (" (" .. st.school .. ")") or ""))
+  local how = st.attack == "shoot" and (SHOT_WORDS[st.shot] or "shoots")
+    or st.attack == "wand" and ("wand bolts (" .. tostring(st.school or "arcane") .. ")")
+    or st.attack == "spell" and "casts" or "melee"
+  print(string.format("TapCat fight visuals: game spell visuals %s (API: %s), %d played; basic attack: %s",
+    fx:KitsOn() and "on" or "off (cartoonSpellFx)", api, fx.kitsPlayed or 0, how))
 end

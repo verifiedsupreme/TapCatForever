@@ -43,8 +43,8 @@ FX = {
     # muzzle flash at the gun's barrel
     "muzzle": glow("#ffd24a", 24) + P(star(7, 26, 11), "#ffcf3a") + P(star(7, 13, 6, rot=-60), "#fff6c8", 2),
     # a short, thick crossbow bolt with metal vanes
-    "bolt": P("M 10 29 L 46 29 L 46 35 L 10 35 Z", "#6e5038", 2.5) + P("M 46 24 L 60 32 L 46 40 Z", "#d5dde8")
-            + P("M 8 24 L 18 29 L 18 35 L 8 40 Z", "#9aa6b5", 2.5),
+    "bolt": P("M 10 28 L 46 28 L 46 36 L 10 36 Z", "#6e5038", 3.5) + P("M 46 23 L 60 32 L 46 41 Z", "#d5dde8", 3.5)
+            + P("M 7 23 L 18 28 L 18 36 L 7 41 Z", "#9aa6b5", 3.5),
     # a throwing knife (spins in flight)
     "thrown": P("M 8 32 L 22 26 L 58 32 L 22 38 Z", "#dfe6ee") + P("M 22 26 L 58 32 L 26 32 Z", "#ffffff", 0, .7)
               + P("M 4 28 L 14 28 L 14 36 L 4 36 Z", "#8a5a36", 2.5),

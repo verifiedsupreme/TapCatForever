@@ -80,7 +80,8 @@ def check(seed, load_addon):
       ------------------------------------------------ the cat holds its ranged weapon while it fights
       wear("MAGE", 5069)
       T:SetClass("MAGE")
-      local st = T:CombatStats("MAGE")
+      -- (FightLook takes the fight run: { class, stats, away })
+      local st = { class = "MAGE", stats = T:CombatStats("MAGE") }
       local look = T:GetAppearance("MAGE")
       local fight = T.AdvFX.FightLook(look, st, "MAGE", true)
       ok(fight.main and fight.main.id == "gear:5069" and fight.main.art == "wpn_wand", "a wand mage holds the wand in fights: " .. tostring(fight.main and fight.main.id))
@@ -89,9 +90,9 @@ def check(seed, load_addon):
       local cos = { id = "cos_wand", art = "wpn_wand", slot = "main", c1 = { 1, 1, 1 } }
       local l2 = {}; for k, v in pairs(look) do l2[k] = v end; l2.main = cos
       ok(T.AdvFX.FightLook(l2, st, "MAGE", true).main == cos, "a cosmetic wand is kept")
-      ok(T.AdvFX.FightLook(look, noWand, "MAGE", true) == look, "no wand, nothing to hold")
+      ok(T.AdvFX.FightLook(look, { class = "MAGE", stats = noWand }, "MAGE", true) == look, "no wand, nothing to hold")
       wear("HUNTER", gun.id)
-      local hl = T.AdvFX.FightLook(T:GetAppearance("HUNTER"), T:CombatStats("HUNTER"), "HUNTER", true)
+      local hl = T.AdvFX.FightLook(T:GetAppearance("HUNTER"), { class = "HUNTER", stats = T:CombatStats("HUNTER") }, "HUNTER", true)
       ok(hl.main and hl.main.art == "wpn_rifle", "a hunter holds its gun")
 
       ------------------------------------------------ B. every ability shows something

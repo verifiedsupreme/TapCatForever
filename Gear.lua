@@ -952,6 +952,25 @@ local GROWTH = {
   DRUID   = { str = 0.9, agi = 0.9, sta = 1.0, int = 1.3, spi = 1.4 },
 }
 
+-- How the basic attacks land in Adventure (AdventureFX.lua draws them, same damage either way):
+-- "shoot" a hunter's bow, gun, crossbow or thrown weapon, "wand" bolts from an equipped wand
+-- (mage, priest, warlock), "spell" a caster without a wand or a hybrid whose spells hit harder,
+-- otherwise "melee". Returns attack, shot (the ranged weapon's type), school (a wand's damage school).
+local function attackStyle(rule, eq, overrideItem, overrideSlot, wRanged, ranged, melee, spell)
+  local rangedId = eq.RANGED
+  if overrideSlot == "RANGED" then rangedId = overrideItem and overrideItem.id end
+  local rangedIt = rangedId and TCF.GEAR[rangedId]
+  if rule.role == "ranged" and wRanged and ranged >= melee * 0.8 and rangedIt then return "shoot", rangedIt.sub end
+  if rule.role == "caster" then
+    if rangedIt and rangedIt.sub == "wand" then
+      return "wand", "wand", TCF.WAND_SCHOOL and (TCF.WAND_SCHOOL[rangedIt.base or rangedIt.id] or TCF.WAND_SCHOOL[rangedIt.id]) or "arcane"
+    end
+    return "spell"
+  end
+  if rule.role == "hybrid" and spell > melee then return "spell" end
+  return "melee"
+end
+
 function TCF:CombatStats(class, overrideItem, overrideSlot)
   class = class or self.db.class
   local L = min(60, self:CD(class).level)
@@ -1000,6 +1019,7 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
   -- spells (wands add a little)
   local spell = 6 + L * 1.4 + (t.sp + t.heal * 0.25) * 0.35 + t.int * 0.05
   if wRanged and wRanged.dps and (class == "MAGE" or class == "WARLOCK" or class == "PRIEST") then spell = spell + wRanged.dps * 0.3 end
+  local attack, shot, school = attackStyle(rule, eq, overrideItem, overrideSlot, wRanged, ranged, melee, spell)
 
   local dps, crit
   if rule.role == "caster" then
@@ -1017,22 +1037,6 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
   local hit = t.hit + t.hitr / 10
   local miss = max(0, 8 - hit) / 100
   dps = dps * (1 - miss)
-  -- how the basic attacks land in Adventure (AdventureFX.lua draws them, same damage either way):
-  -- "shoot" a hunter's bow, gun, crossbow or thrown weapon, "wand" bolts from an equipped wand
-  -- (mage, priest, warlock), "spell" a caster without a wand or a hybrid whose spells hit harder,
-  -- otherwise "melee". shot: the ranged weapon's type; school: a wand's damage school.
-  local rangedId = eq.RANGED
-  if overrideSlot == "RANGED" then rangedId = overrideItem and overrideItem.id end
-  local rangedIt = rangedId and TCF.GEAR[rangedId]
-  local attack, shot, school = "melee", nil, nil
-  if rule.role == "ranged" and wRanged and ranged >= melee * 0.8 and rangedIt then
-    attack, shot = "shoot", rangedIt.sub
-  elseif rule.role == "caster" then
-    if rangedIt and rangedIt.sub == "wand" then
-      attack, shot = "wand", "wand"
-      school = TCF.WAND_SCHOOL and (TCF.WAND_SCHOOL[rangedIt.base or rangedIt.id] or TCF.WAND_SCHOOL[rangedIt.id]) or "arcane"
-    else attack = "spell" end
-  elseif rule.role == "hybrid" and spell > melee then attack = "spell" end
   return {
     level = L, dps = dps, hp = hp, armor = armor, crit = crit, hit = hit,
     str = t.str, agi = t.agi, sta = t.sta, int = t.int, spi = t.spi, ap = ap, sp = t.sp, def = t.def,

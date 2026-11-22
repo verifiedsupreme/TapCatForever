@@ -63,15 +63,18 @@ NAMES = {
 SCHOOL_SPELLS = {"fire": 2136, "frost": 116, "shadow": 686, "arcane": (5143, 7268), "holy": 585, "nature": 5176,
                  "physical": 78}
 DAMAGE_TYPE = {0: "physical", 1: "holy", 2: "fire", 3: "nature", 4: "frost", 5: "shadow", 6: "arcane"}
-# wands with no damage type in either client table: guessed from the name, then arcane
-WAND_WORDS = [("fire", "fire"), ("flame", "fire"), ("burn", "fire"), ("blaz", "fire"), ("ember", "fire"), ("cinder", "fire"),
-              ("scorch", "fire"), ("smolder", "fire"), ("char", "fire"), ("pyr", "fire"), ("torch", "fire"),
-              ("frost", "frost"), ("ice", "frost"), ("chill", "frost"), ("freez", "frost"), ("glacia", "frost"),
-              ("shadow", "shadow"), ("gloom", "shadow"), ("umbral", "shadow"), ("doom", "shadow"), ("necro", "shadow"),
-              ("dark", "shadow"), ("decay", "shadow"), ("bone", "shadow"), ("skull", "shadow"), ("sorrow", "shadow"),
-              ("holy", "holy"), ("light", "holy"), ("consecrat", "holy"), ("sun", "holy"),
-              ("nature", "nature"), ("thorn", "nature"), ("leaf", "nature"), ("wood", "nature"), ("lightning", "nature"),
-              ("storm", "nature"), ("thunder", "nature")]
+# wands with no damage type in either client table: guessed from words in the name (a word that
+# starts with the given text; "light" only as a whole word, so "Lightweight" is not holy), then arcane
+WAND_WORDS = [(r"fire", "fire"), (r"flame", "fire"), (r"burn", "fire"), (r"blaz", "fire"), (r"ember", "fire"),
+              (r"cinder", "fire"), (r"scorch", "fire"), (r"smolder", "fire"), (r"charr", "fire"), (r"pyr", "fire"),
+              (r"torch", "fire"), (r"frost", "frost"), (r"ice\b", "frost"), (r"icy\b", "frost"), (r"chill", "frost"),
+              (r"freez", "frost"), (r"glacia", "frost"), (r"shadow", "shadow"), (r"gloom", "shadow"), (r"umbral", "shadow"),
+              (r"doom", "shadow"), (r"necro", "shadow"), (r"dark", "shadow"), (r"decay", "shadow"), (r"bone", "shadow"),
+              (r"skull", "shadow"), (r"sorrow", "shadow"), (r"banshee", "shadow"), (r"desolat", "shadow"), (r"hoodoo", "shadow"),
+              (r"holy", "holy"), (r"light\b", "holy"), (r"consecrat", "holy"), (r"sun\b", "holy"), (r"nature", "nature"),
+              (r"thorn", "nature"), (r"leaf", "nature"), (r"lightning", "nature"), (r"storm", "nature"),
+              (r"thunder", "nature"), (r"shock", "nature")]
+WAND_WORDS = [(re.compile(r"\b" + w), sch) for w, sch in WAND_WORDS]
 
 
 def load(name):
@@ -161,13 +164,15 @@ def main():
                     if i in wands and r.get("DamageType", "") != "":
                         types[i] = DAMAGE_TYPE.get(int(r["DamageType"]), "arcane")
     guessed = 0
+    guesses = []
     out = []
     for i in sorted(wands):
         s = types.get(i)
         if not s or s == "physical":
             low = wands[i].lower()
-            s = next((sch for w, sch in WAND_WORDS if w in low), "arcane")
+            s = next((sch for w, sch in WAND_WORDS if w.search(low)), "arcane")
             guessed += 1
+            guesses.append("%d %s -> %s" % (i, wands[i], s))
         out.append("[%d]=%s" % (i, '"%s"' % s))
     lines.append("-- damage school of every wand (item ID -> school); %d from the client tables, %d guessed from the name" % (len(wands) - guessed, guessed))
     lines.append("TCF.WAND_SCHOOL = {")
@@ -176,6 +181,8 @@ def main():
     lines.append("}")
     open(OUT, "w", encoding="utf-8").write("\n".join(lines) + "\n")
     print("spell kits:", dict(counts), "schools:", len(sk), "wands:", len(wands), "guessed:", guessed)
+    for g in guesses:
+        print("  guessed:", g)
     for p in problems:
         print("  problem:", p)
 

@@ -29,7 +29,7 @@ TCF.WAND_SCHOOL = {
   [13065]="arcane", [13396]="shadow", [13534]="frost", [13938]="arcane", [15204]="arcane", [15279]="arcane", [15280]="arcane", [15281]="arcane", [15282]="fire", [15283]="arcane",
   [15465]="nature", [15692]="arcane", [16789]="frost", [16993]="fire", [16997]="nature", [17077]="fire", [17745]="nature", [18301]="shadow", [18338]="arcane", [18483]="frost",
   [18761]="shadow", [19108]="frost", [19118]="nature", [19130]="frost", [19367]="fire", [19435]="arcane", [19861]="shadow", [19927]="nature", [19967]="shadow", [20082]="shadow",
-  [20672]="nature", [21603]="shadow", [21801]="nature", [22254]="holy", [22408]="shadow", [22820]="shadow", [22821]="shadow", [22971]="arcane", [22997]="arcane", [23009]="shadow",
-  [23177]="shadow", [24342]="arcane", [25282]="arcane", [25283]="arcane", [25284]="arcane", [25285]="nature", [25973]="shadow", [27403]="arcane", [27404]="holy", [28063]="arcane",
-  [28151]="arcane", [29915]="arcane", [31270]="arcane", [31724]="arcane", [31761]="arcane", [34418]="arcane",
+  [20672]="nature", [21603]="shadow", [21801]="nature", [22254]="holy", [22408]="shadow", [22820]="shadow", [22821]="shadow", [22971]="shadow", [22997]="arcane", [23009]="shadow",
+  [23177]="shadow", [24342]="nature", [25282]="arcane", [25283]="arcane", [25284]="arcane", [25285]="arcane", [25973]="shadow", [27403]="arcane", [27404]="arcane", [28063]="arcane",
+  [28151]="arcane", [29915]="shadow", [31270]="shadow", [31724]="arcane", [31761]="arcane", [34418]="arcane",
 }

@@ -662,12 +662,15 @@ TCF.UI.Builders.adventure = function(page, win)
     slotFrame = function(i) return slots[i] end,
     float = function(txt, x, y, r, g, b, big) FloatText(txt, x, y, r, g, b, big) end,
     shake = function(i, t) local f = slots[i]; if f then f.shake = max(f.shake or 0, t) end end,
-    -- a flinch never cuts a stun short
     anim = function(i, id, t)
       local f = slots[i]
       if not (f and f:IsShown() and f.mob and f.mob.alive) then return end
-      if f.animId == 14 and (f.anim or 0) > 0 and id ~= 14 then return end
-      setAnim(f, id); f.anim, f.animId = t, id
+      setAnim(f, id); f.anim = t
+    end,
+    -- a killing shot landed: its enemy falls now (if the slot still holds it)
+    die = function(i, mob)
+      local d = slots[i]
+      if d and d.mob == mob then setAnim(d, ANIM_DEATH); d.fade = 1.0; d.anim = 0 end
     end,
     target = function()
       local run = TCF.advRun
@@ -761,11 +764,9 @@ TCF.UI.Builders.adventure = function(page, win)
     elseif t.art and t.art > 0 then
       art:SetTexture(t.art); art:SetTexCoord(0, 0.78, 0.05, 0.62); art:Show()
     else art:Hide() end
+    advCat:ApplyAppearance(TCF.AdvFX.FightLook(TCF:GetAppearance(), TCF.advRun, TCF.db.class, adv.active)) -- holds its bow or wand while fighting
     local run = TCF.advRun
-    -- a cat that shoots holds its bow, gun or wand while it fights
-    local fighting = adv.active and run and run.pack and not run.away
-    advCat:ApplyAppearance(TCF.AdvFX.FightLook(TCF:GetAppearance(), run and run.stats, TCF.db.class, fighting))
-    if not fighting and FX.fighting and not (run and run.respawn > 0 and adv.active) then FX:Stand() end
+    if FX.fighting and not (adv.active and run and run.pack and not run.away) and not (run and run.respawn > 0 and adv.active) then FX:Stand() end
     local st = TCF:CombatStats()
     local known = 0
     for _, a in ipairs(TCF.ABILITIES[TCF.db.class]) do if TCF:AbilityKnown(TCF.db.class, a.key) then known = known + 1 end end
@@ -807,11 +808,8 @@ TCF.UI.Builders.adventure = function(page, win)
   local refreshT = 0
   page:SetScript("OnShow", function()
     TCF.advWatching = true
-    if TCF.advRun then
-      TCF.advRun.events = {}; layoutSlots(TCF.advRun.pack)
-      -- passives that keep acting (pet, totem) pick up again mid-fight
-      if TCF.advRun.pack and TCF:CD().adv.active then FX:Spawn(TCF.advRun.class) end
-    end
+    if TCF.advRun then TCF.advRun.events = {}; layoutSlots(TCF.advRun.pack) end
+    if TCF.advRun and TCF.advRun.pack and TCF:CD().adv.active then FX:Spawn(TCF.advRun.class) end -- passives (pet, totem) pick up again
   end)
   page:SetScript("OnHide", function() TCF.advWatching = false end)
   page:SetScript("OnUpdate", function(_, e)
@@ -823,29 +821,25 @@ TCF.UI.Builders.adventure = function(page, win)
       -- over the model's middle (it may have slid left to stay inside the panel)
       local fx = f and f:IsShown() and (532 + f.baseX - (f.slotW or 110) / 2 + (f.fitDX or 0)) or 400
       if kind == "spawn" then
-        layoutSlots(run.pack); refresh(); FX:Spawn(run.class)
+        layoutSlots(run.pack); refresh()
+        FX:Spawn(run.class)
       elseif kind == "swing" then
         -- a basic attack: a shot flies (the right paw holds the ranged weapon), or a swipe or plain spell
         if FX:Swing(idx, run.stats, run.class) then advCat:Tap("R") end
+      elseif (kind == "hit" or kind == "crit") and FX:CarryHit(idx, short(amt), fx, kind == "crit") then
+        -- (a shot or spell on its way carries the number and the flinch until it lands)
       elseif kind == "hit" or kind == "crit" or kind == "dot" then
-        -- a shot or spell on its way carries the number and the flinch until it lands
-        local p = kind ~= "dot" and FX:TakePending(idx)
-        if p then
-          if kind == "crit" then FX.Carry(p, short(amt), fx, 150, 1, 0.82, 0.1, true, idx)
-          else FX.Carry(p, short(amt), fx, 140, 1, 1, 1, false, idx) end
-        else
-          if kind ~= "dot" then advCat:Tap() end
-          if f then f.shake = 0.2 end
-          if kind == "crit" then FloatText(short(amt), fx, 150, 1, 0.82, 0.1, true)
-          elseif kind == "hit" then FloatText(short(amt), fx, 140, 1, 1, 1)
-          elseif amt >= 1 and random() < 0.25 then FloatText(short(amt * 4), fx, 120, 0.9, 0.8, 0.3) end
-        end
+        if kind ~= "dot" then advCat:Tap() end
+        if f then f.shake = 0.2 end
+        if kind == "crit" then FloatText(short(amt), fx, 150, 1, 0.82, 0.1, true)
+        elseif kind == "hit" then FloatText(short(amt), fx, 140, 1, 1, 1)
+        elseif amt >= 1 and random() < 0.25 then FloatText(short(amt * 4), fx, 120, 0.9, 0.8, 0.3) end
       elseif kind == "tap" then
         if f then f.shake = max(f.shake, 0.1) end
         FloatText(short(amt), fx, 115, 0.55, 0.85, 1)
       elseif kind == "hurt" then
         FloatText("-" .. short(amt), 95, 150, 1, 0.25, 0.25)
-        if f then setAnim(f, ANIM_ATTACK); f.anim, f.animId = 0.7, ANIM_ATTACK end
+        if f then setAnim(f, ANIM_ATTACK); f.anim = 0.7 end
         FX:Hurt()
       elseif kind == "heal" then
         FloatText("+" .. short(amt), 95, 160, 0.3, 1, 0.3)
@@ -853,18 +847,19 @@ TCF.UI.Builders.adventure = function(page, win)
         abilityText:SetText("|T" .. TCF.Icon(ev[3]) .. ":16:16|t " .. amt); abilityT = 1.2
         local info = ev[4]
         if info then
-          advCat:Tap()
-          FX:Ability(info)
+          if FX:Ability(info) then advCat:Tap() end
           for _, b in ipairs(abtns) do if b.a and b.a.key == info.key then b.flashA = 1; b.flash:SetAlpha(1) end end
         end
       elseif kind == "mobdie" then
         local d = slots[amt]
-        if d then setAnim(d, ANIM_DEATH); d.fade = 1.0; d.anim, d.animId = 0, ANIM_DEATH end
+        if d and FX:DieOnLand(amt, d.mob) then d = nil end -- a killing shot still flying: it falls when it lands
+        if d then setAnim(d, ANIM_DEATH); d.fade = 1.0; d.anim = 0 end
         FX:Gone(amt)
       elseif kind == "kill" then
         refresh()
       elseif kind == "defeat" then
-        advCat:SetFaceFor("blink", 2); FX:Stand(); layoutSlots(nil); refresh()
+        FX:Stand()
+        advCat:SetFaceFor("blink", 2); layoutSlots(nil); refresh()
       end
     end
     FX:EndBatch()
