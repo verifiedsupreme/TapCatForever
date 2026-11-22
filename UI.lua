@@ -634,14 +634,14 @@ function TCF:CreateWindow()
 
   local tabs, pages = {}, {}
   local TAB_GEAR, TAB_ADVENTURE, TAB_ABILITIES, TAB_EXPEDITIONS, TAB_PROFESSIONS, TAB_WARDROBE = 1, 2, 3, 4, 5, 6
-  local TAB_QUESTS, TAB_SHOP, TAB_ACH, TAB_LEADERBOARD, TAB_SETTINGS = 7, 8, 9, 10, 11
+  local TAB_QUESTS, TAB_SHOP, TAB_ACH, TAB_LEADERBOARD, TAB_CASINO, TAB_SETTINGS = 7, 8, 9, 10, 11, 12
   local tabNames = { "Gear", "Adventure", "Abilities", "Expeditions", "Professions", "Appearance",
-                     "Quests", "Shop", "Achievements", "Leaderboard", "Settings" }
+                     "Quests", "Shop", "Achievements", "Leaderboard", "Casino", "Settings" }
   local builderKeys = { [TAB_GEAR] = "gear", [TAB_ADVENTURE] = "adventure", [TAB_ABILITIES] = "abilities",
                         [TAB_EXPEDITIONS] = "expeditions", [TAB_PROFESSIONS] = "professions",
-                        [TAB_LEADERBOARD] = "leaderboard" }
+                        [TAB_LEADERBOARD] = "leaderboard", [TAB_CASINO] = "casino" }
   local pageRefresh = {}
-  win.TAB_GEAR, win.TAB_LEADERBOARD, win.TAB_SETTINGS = TAB_GEAR, TAB_LEADERBOARD, TAB_SETTINGS
+  win.TAB_GEAR, win.TAB_LEADERBOARD, win.TAB_CASINO, win.TAB_SETTINGS = TAB_GEAR, TAB_LEADERBOARD, TAB_CASINO, TAB_SETTINGS
   win.tabNames = tabNames
   local SelectTab -- defined below
   function win:SelectTab(i) SelectTab(i) end

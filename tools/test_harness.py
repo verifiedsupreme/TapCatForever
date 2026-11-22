@@ -4288,12 +4288,12 @@ def check_leaderboard(seed=1):
     H.ex("_takeOut()")
     send_limits()
 
-    # 12. the Leaderboard tab: 11 tabs in two rows of 6 whose labels fit; the Settings button, /tcf top
+    # 12. the Leaderboard tab: 12 tabs (Casino is the 11th) in two rows of 6 whose labels fit; the Settings button, /tcf top
     # and /tcf leaderboard open it; the three sections with ranks, sorting, your row in each, scrolling
     B.ex("if not TapCatForever.window then TapCatForever:CreateWindow() end; TapCatForever.window:Show()")
     names = [B.ev("TapCatForever.window.tabNames[%d]" % i) for i in range(1, B.ev("#TapCatForever.window.tabNames") + 1)]
-    ck(len(names) == 11 and B.ev("#TapCatForever.window.tabButtons") == 11 and names[B.ev("TapCatForever.window.TAB_LEADERBOARD") - 1] == "Leaderboard"
-       and names[-1] == "Settings", "11 tabs, Leaderboard among them: %r" % names)
+    ck(len(names) == 12 and B.ev("#TapCatForever.window.tabButtons") == 12 and names[B.ev("TapCatForever.window.TAB_LEADERBOARD") - 1] == "Leaderboard"
+       and names[-1] == "Settings", "12 tabs, Leaderboard among them: %r" % names)
     tw, ts = B.ev("TapCatForever.window.tabWidth"), B.ev("TapCatForever.window.tabStep")
     ck(tw == 92 and ts > tw and abs(5 * ts + tw - 560) < 0.01, "two rows of 6 tabs, 92 wide, filling the 560 wide panel (step %s)" % ts)
     for n in names:

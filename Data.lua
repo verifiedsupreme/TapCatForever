@@ -798,6 +798,9 @@ TCF.ACHIEVEMENTS = {
   { id = "skin_ach_collect", name = "Crazy Cat Collector",  stat = "skins",        goal = 10, coins = 1500, icon = "INV_Misc_Coin_02",        skin = "skin_luckycat" },
   { id = "streak7",   name = "Devoted",             stat = "streak",   goal = 7,         coins = 500,   icon = "INV_Misc_PocketWatch_01", item = "ach_medal" },
   { id = "streak30",  name = "Inseparable",         stat = "streak",   goal = 30,        coins = 3000,  icon = "INV_Misc_PocketWatch_02" },
+  -- the Casino (Casino.lua): small one-time rewards, so the casino stays a TapCoin sink
+  { id = "casino_bj",   name = "Natural",             stat = "casinoBlackjacks", goal = 1, coins = 25,  icon = "INV_Misc_Ticket_Tarot_Portal" },
+  { id = "casino_cats", name = "Three Cats in a Row", stat = "casinoCats",       goal = 1, coins = 100, icon = "Ability_Druid_CatForm" },
 }
 local STAT_TEXT = {
   taps = "Tap %s times.", level = "Reach level %s.", owned = "Own %s cosmetics.",
@@ -814,6 +817,7 @@ local STAT_TEXT = {
   races = "Collect %s different racial heritage pieces across your characters.",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s item(s) with professions.",
+  casinoBlackjacks = "Get a blackjack in the Casino.", casinoCats = "Line up three cats on the Casino slots.",
   dungeons = "Finish %s real WoW dungeon(s) with the addon on.", raids = "Finish %s raid(s): a real WoW raid or a raid zone in Adventure.",
 }
 local CLEAR_NAMES = { gnomer = "Gnomeregan", zg = "Zul'Gurub", mc = "Molten Core", bwl = "Blackwing Lair", aq40 = "the Temple of Ahn'Qiraj", naxx = "Naxxramas (defeat Kel'Thuzad)" }
