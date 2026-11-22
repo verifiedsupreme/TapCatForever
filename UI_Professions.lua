@@ -935,15 +935,27 @@ TCF.UI.Builders.professions = function(page, win)
     end
     r:SetScript("OnEnter", function(s) recipeEnter(r, s) end)
     r:SetScript("OnLeave", recipeLeave)
-    r.name = Text(r, "GameFontNormal", nil, "LEFT"); r.name:SetPoint("TOPLEFT", 52, -4); r.name:SetWidth(380)
-    r.info = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.info:SetPoint("LEFT", 52, -1); r.info:SetWidth(380)
-    r.need = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.need:SetPoint("BOTTOMLEFT", 52, 4); r.need:SetWidth(380)
+    r.name = Text(r, "GameFontNormal", nil, "LEFT"); r.name:SetPoint("TOPLEFT", 52, -4); r.name:SetWidth(350)
+    r.info = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.info:SetPoint("LEFT", 52, -1); r.info:SetWidth(350)
+    r.need = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.need:SetPoint("BOTTOMLEFT", 52, 4); r.need:SetWidth(350)
     for _, fs in ipairs({ r.name, r.info, r.need }) do if fs.SetWordWrap then fs:SetWordWrap(false) end end
-    r.delta = Text(r, "GameFontNormal", nil, "RIGHT"); r.delta:SetPoint("RIGHT", -94, 0)
-    r.craft = Button(r, "Craft", 80, 22, function()
+    r.delta = Text(r, "GameFontNormal", nil, "RIGHT"); r.delta:SetPoint("RIGHT", -124, 0)
+    r.craft = Button(r, "Craft", 62, 22, function()
       if r.recipe and TCF:Craft(r.recipe) then TCF:PlaySound("click"); win:Refresh() end
     end)
-    r.craft:SetPoint("RIGHT", -8, 0)
+    r.craft:SetPoint("RIGHT", -52, 0)
+    r.all = Button(r, "All", 42, 22, function()
+      if r.recipe and TCF:CraftAll(r.recipe) > 0 then TCF:PlaySound("click"); win:Refresh() end
+    end)
+    r.all:SetPoint("RIGHT", -6, 0)
+    Tip(r.all, function(tt)
+      local rec = r.recipe
+      if not rec then return end
+      local n = TCF:CraftCount(rec)
+      tt:AddLine("Craft all", 1, 0.82, 0)
+      if n > 0 then tt:AddLine(string.format("Makes %d with the materials you have (up to %d at once).", n, TCF.CRAFT_ALL_MAX), 1, 1, 1, true)
+      else tt:AddLine("You don't have enough materials yet.", 1, 0.3, 0.3, true) end
+    end)
     Tip(r.craft, function(tt)
       local rec = r.recipe
       if not rec then return end
@@ -1078,6 +1090,7 @@ TCF.UI.Builders.professions = function(page, win)
         if why then r.need:SetText("|cffff5050" .. why .. "|r  |cff888888Uses " .. table.concat(plain, ", ") .. "|r")
         else r.need:SetText(table.concat(parts, ",  ")) end
         r.craft:SetEnabled(TCF:CanCraft(rec))
+        r.all:SetEnabled(TCF:CraftCount(rec) > 1)
       end
     end
     if #craftList == 0 then craftPage:SetText("|cff888888No recipes yet.|r")

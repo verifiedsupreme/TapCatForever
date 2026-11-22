@@ -1080,6 +1080,46 @@ function TCF:CanCraft(r)
   return true
 end
 
+-- "All": craft a recipe as many times as the materials allow (up to 50 at once), quietly, with
+-- one chat line at the end instead of a line and a notice for every item.
+TCF.CRAFT_ALL_MAX = 50
+function TCF:CraftCount(r)
+  if not self:CanCraft(r) then return 0 end
+  local s, n = S(self), math.huge
+  for m, need in pairs(r.mats) do n = min(n, floor((s.mats[m] or 0) / need)) end
+  local it = self.RecipeItem and self:RecipeItem(r)
+  if not r.gear and it and (it.slot == "skin" or it.source) then n = min(n, 1) end   -- a cosmetic is made once
+  return min(n, TCF.CRAFT_ALL_MAX)
+end
+function TCF:CraftAll(r)
+  local want = self:CraftCount(r)
+  if want <= 0 then return 0 end
+  local s = S(self)
+  local skill0 = r.prof and self:ProfSkill(r.prof) or 0
+  local origPrint, origToast = TCF.Print, TCF.ShowLootToast
+  TCF.Print = function(selfp, msg, force) if force then return origPrint(selfp, msg, force) end end
+  TCF.ShowLootToast = function() end
+  local made = 0
+  local ok, err = pcall(function()
+    for _ = 1, want do
+      if not self:Craft(r) then break end
+      made = made + 1
+    end
+  end)
+  TCF.Print, TCF.ShowLootToast = origPrint, origToast
+  if not ok then error(err, 0) end
+  if made > 0 then
+    local it = self:RecipeItem(r)
+    local name = it and it.name or "items"
+    local gained = r.prof and (self:ProfSkill(r.prof) - skill0) or 0
+    local where = r.gear and "your Gear bag" or "your collection"
+    self:Print(string.format("Crafted %d x %s (in %s)%s.", made, name, where,
+      gained > 0 and string.format(", skill +%d", gained) or ""), true)
+    self:MarkDirty(); self:RefreshAll()
+  end
+  return made
+end
+
 function TCF:Craft(r)
   if not self:CanCraft(r) then return false end
   local s = S(self)
