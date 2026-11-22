@@ -11,7 +11,7 @@ LOGO = "https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/med
 ISSUES = "https://github.com/verifiedsupreme/TapCatForever/issues"
 
 SUMMARY = ("A cartoon cat taps along with every key you press. Level a cat for each class, dress it in real "
-           "WoW gear, fight through dungeons and raids, craft gear, collect 64 cat skins and play with friends. "
+           "WoW gear, fight through dungeons and raids for chests and legendaries, craft gear, collect 64 cat skins and play with friends. "
            "Made for WoW: Forever.")
 
 TITLE = "TapCatForever"
@@ -22,7 +22,14 @@ INTRO = (" Every keystroke you already make in World of Warcraft earns your cat 
 INTRO2 = "It never touches your gameplay. It just watches your key presses and makes them a little more fun."
 
 FEATURES = [
-    ("What's new in 1.5", [
+    ("What's new in 1.5.1", [
+        "Every class's cat now has its own Trade Gold and professions.",
+        "Lots more gear: plain whites and real \"of the Monkey\" style greens for every level and slot, and small finds from regular Adventure enemies that fill your empty slots first.",
+        "Real legendaries, such as Thunderfury and Sulfuras, can now drop: very rarely from a Heroic Cache, and a little more often from the new Raider's Hoard.",
+        "New Raider's Hoard and Dungeon Chest, earned only from raids and dungeons and full of their boss loot.",
+        "Clearing a zone for the first time pays a few hundred TapCoins, and hovering gear shows what your cat wears beside it.",
+    ]),
+    ("New in 1.5", [
         "Professions by class: Mining and Blacksmithing, Skinning and Leatherworking, or Tailoring, each crafting real Classic gear with stats.",
         "Play with friends: party members who also have TapCatForever show up as little cats beside yours, and your taps count up to 50% more.",
         "A fishing dock where your cat fishes, with its fishing buddy beside it.",
@@ -37,12 +44,14 @@ FEATURES = [
         "Each class has its own cat that levels from 1, with its own gear, abilities, professions, Trade Gold and progress.",
         "Your cat wears real WoW items: every helm, chest, belt, necklace, ring, weapon, shield and off-hand has its own hand-drawn cartoon version, about 4,500 items in all.",
         "Every class starts with its own weapon (a bow for hunters, a dagger for rogues, a staff for mages) and learns class abilities with TapCoins, from Heroic Strike to Pyroblast.",
-        "Hover any piece of gear to see how it compares with what your cat is wearing.",
+        "Hover any piece of gear to see what your cat wears in that slot right beside it, with the Power change.",
+        "Thousands of real Classic items for every class, from plain whites and \"of the Bear\" greens to raid epics and legendaries. Sell junk clears out anything worse than what you wear.",
     ]),
     ("Adventure", [
         "An idle fight through 28 real zones, dungeons and raids, from Elwynn Forest and the Deadmines to Molten Core and Naxxramas, each with its own hand-drawn scene.",
         "Real bosses and real creature models. Your cat casts its abilities with visible spell effects, and an ability bar shows every cooldown.",
-        "Bosses drop gear, chests and rare cat skins.",
+        "Regular enemies now and then drop a small find for your level, aimed at your empty slots first, so a new cat gears up quickly.",
+        "Bosses drop gear, chests and rare cat skins. The first time you clear a zone you also get a few hundred TapCoins (more for later zones).",
     ]),
     ("Expeditions", [
         "Send a party of three cats away for 15 minutes to 24 hours. They come back with TapCoins, chests and XP.",
@@ -61,8 +70,9 @@ FEATURES = [
         "The addons find each other on their own, so there is nothing to set up. Invite a friend and play together.",
     ]),
     ("Chests, shop and collecting", [
-        "Cat Treat Pouches, Adventurer's Strongboxes and Heroic Caches, opened with a spinning reel that lands on your reward. Gear you find anywhere else goes straight into your bags with a small notice.",
-        "Finishing real dungeons and raids in WoW earns chests too.",
+        "Cat Treat Pouches, Adventurer's Strongboxes and Heroic Caches, opened with a spinning reel that lands on your reward. Pouches can hold a blue now and then, and Heroic Caches have a tiny chance of a real legendary.",
+        "The Dungeon Chest and the Raider's Hoard can't be bought: you earn them by finishing dungeons and raids, in Adventure, on expeditions and in real WoW. They are packed with boss loot, and the Raider's Hoard is the best place to find a legendary.",
+        "Gear you find outside chests goes straight into your bags with a small notice you can hover.",
         "Daily shop wares, daily and weekly quests, and 77 achievements.",
         "64 cat skins: tabbies and tuxedos, Bengals and Maine Coons, a Galaxy Cat, Frostsabers, the Spectral Tiger, boss-drop cats, chest-only cats, quest and expedition cats, crafted cats, and achievement cats like Mr. Bigglesworth.",
         "Hats, capes, wings, fur patterns, effects and racial heritage items for your character's race.",
