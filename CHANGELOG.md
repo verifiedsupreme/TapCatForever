@@ -2,6 +2,9 @@
 
 ## 1.5.3.7
 
+**Quests**
+- Tap quests ask for a lot more: the daily Paws of Fury is now 4,000, 8,000 or 12,000 taps, and the weekly Tireless Tapper is 100,000 taps (it gives a little more too). New quests use the new numbers from the next daily and weekly reset.
+
 **Gear**
 - The Usable only box on the Gear page now also hides gear above your cat's level, so it only lists what your cat can put on now.
 
