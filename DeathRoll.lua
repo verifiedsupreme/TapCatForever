@@ -14,7 +14,8 @@
 -- its own side: enough TapCoins, turn order, range. The stake is held (taken out of your TapCoins)
 -- while the duel runs, and given back if the duel is called off, so nobody can spend it mid-duel.
 -- When both addons have seen the 1, each settles its own side with TCF:CasinoSettleDuel: the loser
--- pays the bet, the winner gets it less a 5% table fee (DR.DUEL_FEE), so duels can't make TapCoins.
+-- pays the bet and the winner gets the whole bet (DR.DUEL_FEE is 0: duels between friends are even,
+-- so they never make or take TapCoins overall).
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel, every field checked; v = 1):
 --   D1;v;id;target;bet;range     challenge (target = the challenged player's name)
@@ -43,7 +44,7 @@ DR.GAME = GAME
 DR.RANGES = { 100, 1000, 10000 }
 DR.DEFAULT_RANGE = 1000
 DR.PAY_NUM, DR.PAY_DEN = 19, 10      -- solo: a win pays 1.9x the stake (rounded to the nearest TapCoin)
-DR.DUEL_FEE = 5                      -- duels: the table keeps 5% of the loser's bet (at least 1), so duels are a small coin sink too
+DR.DUEL_FEE = 0                      -- duels: the % of the loser's bet the table keeps (0: the winner gets the whole bet)
 DR.HOUSE_DELAY = 1.2                 -- the house cat rolls this long after your roll
 DR.INVITE_TIME = 60                  -- a challenge waits this long for an answer
 DR.TURN_TIME = 60                    -- each turn of a duel
@@ -86,8 +87,11 @@ local function validRange(r)
 end
 
 function DR.Payout(bet) return floor(bet * DR.PAY_NUM / DR.PAY_DEN + 0.5) end
--- what the winner of a duel gets: the loser's bet less the table's fee
-function DR.DuelWin(bet) return bet - max(1, math.ceil(bet * DR.DUEL_FEE / 100)) end
+-- what the winner of a duel gets: the loser's bet less the table's fee (none while DR.DUEL_FEE is 0)
+function DR.DuelWin(bet)
+  if (DR.DUEL_FEE or 0) <= 0 then return bet end
+  return bet - max(1, math.ceil(bet * DR.DUEL_FEE / 100))
+end
 
 -- the duel stake is held: out of your TapCoins while the duel runs, back when it's called off.
 -- The hold is saved, so a /reload or a crash gives it back at the next login.
@@ -458,7 +462,7 @@ local function callOff(reason, tell, by)
 end
 DR.CallOff = callOff
 
--- pay out: the loser pays the bet, the winner gets it less the table's fee. Only called when this
+-- pay out: the loser pays the bet, the winner gets it (DR.DuelWin). Only called when this
 -- side may settle: the loser once it saw the 1 (or ran out of time), the winner once the loser's
 -- addon said so.
 local function settle(d, reason)

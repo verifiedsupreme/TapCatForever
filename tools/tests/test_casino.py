@@ -162,13 +162,13 @@ def check(seed, load_addon):
     ck(ev("T:CasinoSettleDuel(99999, 'Bob')") == 500, "at most the top bet")
     ck(ev("T:CasinoSettleDuel(_SECRET, 'Bob')") == 0, "secret delta ignored")
     ck(ev("#C.duels") == 4 and ev("C.duels[3].opp") == "another player", "duels logged")
-    # duel stats with the stake: a win of 95 on a bet of 100 counts as bet 100, paid back 195
+    # duel stats with the stake (duels are even): a win of 100 on a bet of 100 counts as bet 100, paid back 200
     ex("C.deathroll = nil; C.total = nil; C = T:CasinoData(); T.db.coins = 1000")
-    ex("T:CasinoSettleDuel(95, 'Bob', 100)")
-    ck(ev("C.deathroll.wagered") == 100 and ev("C.deathroll.won") == 195 and ev("C.deathroll.biggest") == 95, "duel win stats")
+    ex("T:CasinoSettleDuel(100, 'Bob', 100)")
+    ck(ev("C.deathroll.wagered") == 100 and ev("C.deathroll.won") == 200 and ev("C.deathroll.biggest") == 100, "duel win stats")
     ex("T:CasinoSettleDuel(-100, 'Bob', 100)")
-    ck(ev("C.deathroll.wagered") == 200 and ev("C.deathroll.won") == 195, "duel loss stats")
-    ck("Net |cffff6060-5" in ev("T:CasinoStatsLine('deathroll')"), "duel net -5: " + ev("T:CasinoStatsLine('deathroll')"))
+    ck(ev("C.deathroll.wagered") == 200 and ev("C.deathroll.won") == 200, "duel loss stats")
+    ck("Net |cff40ff40+0" in ev("T:CasinoStatsLine('deathroll')"), "duel net 0: " + ev("T:CasinoStatsLine('deathroll')"))
 
     # ---- slots: every line pays what the table says
     pays = {"cat": 100, "gem": 40, "bell": 25, "coin": 15, "fish": 10, "yarn": 5, "paw": 3}

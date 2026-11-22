@@ -246,7 +246,7 @@ function TCF.UI.CasinoDeathRoll(container, win)
   end)
   U.Tip(v.modeFriend, function(tt)
     tt:AddLine("Against a friend", 1, 0.82, 0)
-    tt:AddLine("Challenge someone in your party or raid who has TapCatForever. You both bet the same amount; whoever rolls the 1 loses it, and the winner gets it less a 5% table fee.", 1, 1, 1, true)
+    tt:AddLine("Challenge someone in your party or raid who has TapCatForever. You both bet the same amount. Whoever rolls the 1 loses it, and the winner gets the whole bet.", 1, 1, 1, true)
     tt:AddLine(NOTE_ROLL, 0.7, 0.85, 1, true)
   end)
   -- friend picker (friend mode)
@@ -553,7 +553,7 @@ function Scene:Refresh(full)
       status = "Nobody in your group has TapCatForever yet. Group up with a friend who has it to challenge them."
       btn, btnOn = "Challenge", false
     else
-      status = string.format("Challenge %s: you both bet %s. Whoever rolls the 1 loses it; the winner gets %s.",
+      status = string.format("Challenge %s: you both bet %s. Whoever rolls the 1 loses it, and the winner gets %s.",
         shortName(fm.name), coins(self.bet), coins(DR.DuelWin(self.bet)))
       btn, btnOn = "Challenge " .. shortName(fm.name), hi >= lo
     end

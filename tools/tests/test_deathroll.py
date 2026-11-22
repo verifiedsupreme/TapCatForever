@@ -53,7 +53,7 @@ def check(seed, load_addon):
     _duels(seed, load_addon, rnd)
     _scene(seed, load_addon)
 
-def win_of(bet): return bet - max(1, -(-bet * 5 // 100))   # the winner gets the bet less a 5% table fee
+def win_of(bet): return bet   # duels between friends are even: the winner gets the whole bet (no table fee)
 
 def settled(da, db, bet, ra):
     """da, db: the two players' coin changes; ra: the first player's result"""
@@ -305,11 +305,12 @@ def _duels(seed, load_addon, rnd):
     ck(net.coins("Alice") - a0 == da and net.coins("Bob") - b0 == db_, "no second settlement")
     ck(net.ex("Alice", "return _duels()") == 1 and net.ex("Bob", "return _duels()") == 1, "still once")
     ck(A.eval("TapCatForever.db.deathRoll.hold == nil") and B.eval("TapCatForever.db.deathRoll.hold == nil"), "holds released")
-    ck(net.ex("Alice", "return _duelSum()") + net.ex("Bob", "return _duelSum()") == -5, "duel log: the table keeps 5")
+    ck(net.ex("Alice", "return _duelSum()") + net.ex("Bob", "return _duelSum()") == 0, "duel log: even, no table fee")
+    ck(A.eval("TapCatForever.DR.DuelWin(100)") == 100 and A.eval("TapCatForever.DR.DuelWin(37)") == 37, "DuelWin: the whole bet")
     # the stats count the bet and what came back, so a win shows its profit
     for n in ("Alice", "Bob"):
         line = net.ex(n, "return TapCatForever:CasinoStatsLine('deathroll')")
-        want = "Net |cff40ff40+95" if net.st(n, "result") == "win" else "Net |cffff6060-100"
+        want = "Net |cff40ff40+100" if net.st(n, "result") == "win" else "Net |cffff6060-100"
         ck(want in line, "%s's stats line: %s" % (n, line))
 
     # --- decline
@@ -356,7 +357,7 @@ def _duels(seed, load_addon, rnd):
     ck(net.st(slow, "result") == "lose" and net.st(slow, "reason") == "f", "turn timeout: the slow player loses (%s %s)" % (net.st(slow, "result"), net.st(slow, "reason")))
     ck(net.st(r, "result") == "win" and net.st(r, "reason") == "f", "turn timeout: the other player wins")
     d_r, d_s = net.coins(r) - (a0 if r == "Alice" else b0), net.coins(slow) - (a0 if slow == "Alice" else b0)
-    ck((d_r, d_s) == (95, -100), "turn timeout: paid like a lost duel (%d %d)" % (d_r, d_s))
+    ck((d_r, d_s) == (100, -100), "turn timeout: paid like a lost duel (%d %d)" % (d_r, d_s))
     a0, b0 = net.coins("Alice"), net.coins("Bob")
     # the forfeit message is lost: the slow player still pays, the other gets their own stake back (coins only leave)
     start("Alice", "Bob")
@@ -545,7 +546,7 @@ def _duels(seed, load_addon, rnd):
         net.ex(wi, "_sendResult = 0")
         ck(net.st(wi, "result") == "win" and net.st(lo, "result") == "lose", "%s after the 1: %s %s" % (case, net.st(wi, "result"), net.st(lo, "result")))
         dw, dl = net.coins(wi) - base[wi], net.coins(lo) - base[lo]
-        ck((dw, dl) == (95, -100), "%s after the 1: no coins made (%d %d)" % (case, dw, dl))
+        ck((dw, dl) == (100, -100), "%s after the 1: no coins made (%d %d)" % (case, dw, dl))
         net.group(["Alice", "Bob"])
 
     # --- leaving the group mid-duel (before the 1): called off on both sides

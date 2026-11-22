@@ -9,7 +9,7 @@
 **Bets**
 - A bet is at least 10 TapCoins and at most a quarter of your TapCoins, up to 500. You need at least 40 TapCoins to play.
 - Use the - and + buttons or the quick 10, 50, 100 and Max buttons to choose your bet. All three games share the same bet, and it is kept for next time.
-- Every game keeps a small house edge, so over time the Casino takes a few TapCoins out of the game. It is for fun, not for getting rich. There are no free spins.
+- Every game against the house keeps a small house edge, so over time the Casino takes a few TapCoins out of the game. Duels with friends are even: no table fee. It is for fun, not for getting rich. There are no free spins.
 - Casino bets and wins don't count toward the TapCoins earned and spent achievements.
 
 **Lucky Paws slots**
@@ -45,7 +45,7 @@
 - Your friend gets a small Accept or Decline box just above their cat on the screen, and in the Casino tab. It goes away after 60 seconds. If you decline or don't answer, that friend can challenge you again after 20 seconds.
 - You both need enough TapCoins for the bet (each player's own limits count). Your bet is held while the duel runs and comes back if it is called off.
 - The rolls are real /roll rolls: the Roll button rolls for you, and they also show in chat for your group like a normal /roll. You can type /roll yourself too, as long as it is your turn and the right range.
-- Whoever rolls the 1 loses their bet. The winner gets it, less a 5% table fee.
+- Whoever rolls the 1 loses their bet, and the winner gets all of it. There is no table fee between friends.
 - Each turn has 60 seconds. If you don't roll in time, you lose the duel, the same as rolling the 1.
 - If someone reloads or leaves the group before the 1, or the game hides the roll results, the duel is called off and no TapCoins move. Once the 1 has been rolled, the result stands: leaving the group or a reload then doesn't undo it.
 - Duels with friends don't work inside dungeons, raids, battlegrounds or arenas: the game hides the roll results there. Challenge each other outside.

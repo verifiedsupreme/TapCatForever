@@ -27,7 +27,7 @@ INTRO2 = "It never touches your gameplay. It just watches your key presses and m
 FEATURES = [
     ("What's new in 1.6.0", [
         "A Casino tab: Lucky Paws slots, blackjack, and death roll against a house cat or a friend in your party, in a cartoon colosseum. Bets are 10 to 500 TapCoins (at most a quarter of what you have), and every game keeps a small house edge, so it is for fun, not for getting rich.",
-        "Death roll with a friend uses real /roll rolls. Your friend gets a small Accept or Decline box just above their cat, and the winner gets the loser's bet, less a 5% table fee.",
+        "Death roll with a friend uses real /roll rolls. Your friend gets a small Accept or Decline box just above their cat, and the winner gets the loser's whole bet.",
         "Two new achievements: Natural (get a blackjack) and Three Cats in a Row (three cats on the slots).",
         "The realm leaderboard is still under construction: we're working on getting players to show up on each other's leaderboard. Your own row and the opt-in work as before.",
     ]),
