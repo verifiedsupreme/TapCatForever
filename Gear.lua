@@ -422,6 +422,79 @@ function TCF:UnequipGear(slotKey, class)
   self:RefreshAll()
 end
 
+-- "Equip best": put on the gear from the bag that gives the most Power, slot by slot, until
+-- nothing in the bag would raise it. Handles rings/trinkets in both slots, a second copy of an
+-- item, and two-hander versus one-hander plus off-hand. Returns pieces changed and Power gained.
+function TCF:EquipBestGear(class)
+  class = class or self.db.class
+  local eq, bag = self:GearEquipped(class), self:Bag(class)
+  local level = self:CD(class).level
+  local function power() return self:CombatStats(class).power end
+  local start = power()
+  local changed = {}
+  local function snapshot() local t = {}; for k, v in pairs(eq) do t[k] = v end; return t end
+  local function restore(t) for k in pairs(eq) do eq[k] = nil end; for k, v in pairs(t) do eq[k] = v end end
+  local function canWear(it, slot)
+    if not it or it.req > level or not self:GearUsable(it, class) then return false end
+    local ok = self:CanEquipGear(it, class, slot)
+    return ok and true or false
+  end
+  local function put(id, slot)
+    local it = TCF.GEAR[id]
+    eq[slot] = id
+    if it.slot == "2H" then eq.OFFHAND = nil end
+    if slot == "OFFHAND" and eq.MAINHAND and TCF.GEAR[eq.MAINHAND] and TCF.GEAR[eq.MAINHAND].slot == "2H" then eq.MAINHAND = nil end
+  end
+  local function hasCopy(id, slot)
+    return equippedCount(eq, id) < (bag[id] or 0) or eq[slot] == id
+  end
+  for _ = 1, 40 do
+    local base, best, bestP = power(), nil, nil
+    local before = snapshot()
+    for id, n in pairs(bag) do
+      local it = TCF.GEAR[id]
+      if n and n > 0 and it then
+        for _, slot in ipairs(self:GearTargetSlots(it, class)) do
+          if eq[slot] ~= id and canWear(it, slot) and hasCopy(id, slot) then
+            put(id, slot)
+            local p = power()
+            if p > base and (not bestP or p > bestP) then best, bestP = { { id, slot } }, p end
+            restore(before)
+            -- a one-hander replacing a two-hander also wants an off-hand: try the best pair
+            local mh = before.MAINHAND and TCF.GEAR[before.MAINHAND]
+            if slot == "MAINHAND" and mh and mh.slot == "2H" and it.slot ~= "2H" then
+              for oid, on in pairs(bag) do
+                local o = TCF.GEAR[oid]
+                if on and on > 0 and o and oid ~= id and canWear(o, "OFFHAND") then
+                  put(id, "MAINHAND")
+                  if hasCopy(oid, "OFFHAND") then
+                    put(oid, "OFFHAND")
+                    local p2 = power()
+                    if p2 > base and (not bestP or p2 > bestP) then best, bestP = { { id, "MAINHAND" }, { oid, "OFFHAND" } }, p2 end
+                  end
+                  restore(before)
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+    if not best then break end
+    for _, pick in ipairs(best) do put(pick[1], pick[2]); changed[pick[1]] = true end
+  end
+  local count = 0
+  for _ in pairs(changed) do count = count + 1 end
+  local gained = power() - start
+  if count > 0 then
+    self:Print(string.format("Equipped your best gear: %d %s changed, +%d Power.", count, count == 1 and "piece" or "pieces", gained), true)
+    self:MarkDirty(); self:RefreshAll()
+  else
+    self:Print("You're already wearing your best gear.", true)
+  end
+  return count, gained
+end
+
 function TCF.GearLink(it)
   return "|c" .. TCF.RARITY[it.q].hex .. "[" .. it.name .. "]|r"
 end
