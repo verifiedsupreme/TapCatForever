@@ -903,11 +903,74 @@ def acc(o):
         return H(fe + mirror(fe, 128))
     return ""
 
+# ======================================================================== shoulders (1.6)
+# One pauldron drawn on the cat's right shoulder (left of the picture) and mirrored onto the other,
+# tucked under the head's lower corner and over the top of the body, cape and chest. In body space.
+SH_C = (64, 131)  # centre of the left pauldron
+def shoulder_one(o):
+    """the left pauldron. variants: plate (domed), spiked, mail (layered lames), leather (spaulder
+    with a strap), cloth (padded mantle roll), bone (skull cap), crystal, mantle (fur ruff).
+    m = main, t = trim/rim, g = second colour, e = gem. Flags: spikes, gem, fur, rivets, horns, skull, glow=."""
+    v = o["variant"] or "plate"
+    m, t, g, e = C(o.get("m"), "steel"), C(o.get("t"), "gold"), C(o.get("g"), "leather"), C(o.get("e"), "ruby")
+    f = o["flags"]; s = ""; cx, cy = SH_C
+    if v in ("plate", "spiked"):
+        dome = "M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 30, cy + 8, cx + 26, cy - 22, cx - 4, cy - 22,
+            cx - 34, cy - 20, cx - 36, cy + 12, cx - 4, cy + 22, cx + 30, cy + 8)
+        s += P(dome, m, 5)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 34, cy + 6, cx - 6, cy + 18, cx + 28, cy + 4), t, 7) + LN("M %d %d Q %d %d %d %d" % (cx - 34, cy + 6, cx - 6, cy + 18, cx + 28, cy + 4), INK, 2)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 22, cy - 8, cx - 8, cy - 16, cx + 8, cy - 13), light(m, .6), 4)
+        if v == "spiked" or "spikes" in f:
+            for k, (x, y, a) in enumerate(((cx - 22, cy - 14, -40), (cx - 2, cy - 20, -12), (cx + 18, cy - 16, 16))):
+                ln = 26 if k == 1 else 20
+                s = P("M %d %d L %.1f %.1f L %d %d Z" % (x - 6, y + 6, x + math.sin(math.radians(a)) * ln, y - math.cos(math.radians(a)) * ln, x + 6, y + 6), C(o.get("g"), "steel"), 3.5) + s
+    elif v == "mail":
+        for k in range(3):
+            y = cy - 14 + k * 11; w = 30 - k * 2
+            s += P("M %d %d Q %d %d %d %d L %d %d Q %d %d %d %d Z" % (cx - w - 4, y + 10, cx - 4, y - 14, cx + w - 2, y + 4, cx + w - 4, y + 12,
+                   cx - 4, y - 4, cx - w - 2, y + 18), m if k % 2 == 0 else darker(m, .85), 4)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 32, cy + 18, cx - 4, cy + 4, cx + 24, cy + 14), t, 5)
+    elif v == "leather":
+        cap = "M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 24, cy + 6, cx + 18, cy - 18, cx - 4, cy - 18, cx - 30, cy - 16, cx - 30, cy + 10, cx - 4, cy + 18, cx + 24, cy + 6)
+        s += P(cap, m, 5) + LN("M %d %d Q %d %d %d %d" % (cx - 24, cy + 4, cx - 4, cy + 12, cx + 18, cy + 2), darker(m, .6), 2.5) + '<path d="M %d %d Q %d %d %d %d" fill="none" stroke="%s" stroke-width="2" stroke-dasharray="4 4"/>' % (cx - 22, cy - 6, cx - 4, cy - 12, cx + 14, cy - 8, light(m, .5))
+        s += RC(cx - 6, cy - 4, 10, 26, t, 3, 3) + RC(cx - 7, cy + 8, 12, 8, C(o.get("e"), "brass"), 2, 2.5)
+    elif v == "cloth":
+        roll = "M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 30, cy + 2, cx + 22, cy - 18, cx - 2, cy - 16,
+            cx - 28, cy - 14, cx - 32, cy + 6, cx - 30, cy + 22, cx - 10, cy + 20, cx + 10, cy + 16, cx + 30, cy + 2)
+        s += P(roll, m, 5) + LN("M %d %d Q %d %d %d %d" % (cx - 30, cy + 14, cx - 2, cy + 18, cx + 26, cy + 4), t, 6) + LN("M %d %d Q %d %d %d %d" % (cx - 30, cy + 14, cx - 2, cy + 18, cx + 26, cy + 4), INK, 2)
+        for x in (cx - 18, cx - 4, cx + 10): s += LN("M %d %d Q %d %d %d %d" % (x, cy - 12, x - 2, cy, x - 1, cy + 12), darker(m, .78), 2.5)
+    elif v == "mantle":
+        for k, (x, y, r) in enumerate(((cx + 18, cy - 4, 13), (cx + 2, cy - 10, 15), (cx - 16, cy - 6, 15), (cx - 26, cy + 8, 13), (cx - 8, cy + 10, 14), (cx + 12, cy + 8, 12))):
+            s += CI(x, y, r, m if k % 2 == 0 else light(m, .2), 4)
+    elif v == "bone":
+        s += P("M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 26, cy + 10, cx + 20, cy - 26, cx - 8, cy - 22, cx - 40, cy - 14, cx - 32, cy + 14), C(o.get("m"), "bone"), 5)
+        s += EL(cx - 14, cy - 6, 7, 6, INK, 0) + EL(cx + 4, cy - 8, 7, 6, INK, 0) + P("M %d %d L %d %d L %d %d Z" % (cx - 6, cy + 2, cx - 4, cy - 4, cx - 2, cy + 2), INK, 0)
+        for k in range(4): s += RC(cx - 20 + k * 9, cy + 6, 7, 8, C(o.get("m"), "bone"), 1.5, 2.5)
+    elif v == "crystal":
+        for x, y, w, h, a in ((cx - 18, cy - 4, 12, 34, -30), (cx - 2, cy - 8, 14, 40, -6), (cx + 14, cy - 2, 11, 30, 20)):
+            s += '<g transform="rotate(%d %d %d)">%s</g>' % (a, x, y + 14, P("M %d %d L %d %d L %d %d L %d %d Z" % (x - w / 2, y + 14, x, y + 14 - h, x + w / 2, y + 14, x, y + 22), m, 3.5))
+        s += P("M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx - 30, cy + 14, cx - 4, cy - 2, cx + 26, cy + 10, cx - 2, cy + 24, cx - 30, cy + 14), t, 4)
+    if "rivets" in f:
+        for x, y in ((cx - 24, cy + 8), (cx - 6, cy + 12), (cx + 14, cy + 8)): s += CI(x, y, 3, light(t, .3), 2)
+    if "gem" in f: s += GEM(cx - 4, cy - 4, 6.5, e)
+    if "fur" in f:
+        for x, y in ((cx + 22, cy + 10), (cx + 8, cy + 18), (cx - 8, cy + 20), (cx - 24, cy + 16), (cx - 36, cy + 6)): s += CI(x, y, 7.5, C(o.get("g"), "cream"), 3)
+    if "horns" in f:
+        s = P("M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx - 18, cy - 10, cx - 44, cy - 20, cx - 40, cy - 46, cx - 32, cy - 28, cx - 10, cy - 18), C(o.get("g"), "bone"), 4) + s
+    if "skull" in f:
+        s += P("M %d %d Q %d %d %d %d Q %d %d %d %d L %d %d L %d %d Z" % (cx - 12, cy + 4, cx - 13, cy - 14, cx - 2, cy - 14, cx + 9, cy - 14, cx + 8, cy + 4, cx + 4, cy + 8, cx - 8, cy + 8), "#f6f6f2", 3) + CI(cx - 6, cy - 4, 2.6, INK, 0) + CI(cx + 2, cy - 4, 2.6, INK, 0)
+    if "glow" in o: s = GLOW(s, C(o["glow"], "fire")) + s
+    return s
+
+def shoulder(o):
+    one = shoulder_one(o)
+    return one + mirror(one, 128)
+
 CLIPS = ('<defs><clipPath id="bodyclip"><path d="M 78 112 Q 54 160 58 214 L 198 214 Q 202 160 178 112 Z"/></clipPath>'
          '<clipPath id="chestclip"><path d="%s"/></clipPath></defs>' % BODY_OUT)
 
 FAMILIES = {"sword", "axe", "mace", "dagger", "staff", "polearm", "fist", "shield", "held", "head", "chest", "belt", "neck", "ring",
-            "bow", "rifle", "wand", "totem", "back", "acc"}
+            "bow", "rifle", "wand", "totem", "back", "acc", "shoulder"}
 def render(spec, kind, key=""):
     """Returns {layer_name: svg_body} for one item spec. kind: head chest belt neck ring weapon1 weapon2 shield held."""
     o = parse(spec); o["_key"] = key
@@ -920,6 +983,7 @@ def render(spec, kind, key=""):
     if kind == "held": return {"": held(o)}
     if kind == "back": return {"": back(o)}
     if kind == "acc": return {"": acc(o)}
+    if kind == "shoulder": return {"": shoulder(o)}
     return {"": weapon(o, kind == "weapon2")}
 
 # everything sits a little lower on the canvas so tall hats fit above the head

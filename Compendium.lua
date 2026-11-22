@@ -336,6 +336,8 @@ function TCF:HowToGet(it)
     local race = RACE_NAMES[it.id] or "matching"
     add(string.format("Racial heritage: buy it in the Shop for %s TapCoins while playing %s %s character",
       commas(TCF.RACE_PRICE or 600), race:match("^[AEIOU]") and "an" or "a", race))
+  elseif src == "set" and self.CosmeticSetLines then
+    for _, line in ipairs(self:CosmeticSetLines(it)) do add(line) end
   elseif src == "retired" then
     add("No longer available. Players who have it keep it.")
   end
@@ -362,7 +364,7 @@ local CATS = {
   { key = "skin", name = "Skins" }, { key = "cos", name = "Cosmetics" }, { key = "tap", name = "Tap Effects" },
   { key = "effect", name = "Effects" }, { key = "gear", name = "Gear" },
 }
-local COS_SLOTS = { "head", "chest", "back", "main", "off", "acc", "pattern", "fur" }
+local COS_SLOTS = { "head", "shoulder", "chest", "back", "main", "off", "acc", "race", "pattern", "fur" }
 local FILTERS = { { "all", "All" }, { "owned", "Owned" }, { "missing", "Missing" } }
 -- item grid: 12 x 7 cells of 58 (+5 gap) = 751 x 436; gear grid: 9 x 10 of 40 (+4) = 392 x 436
 local COLS, ROWS, CELL, GAP = 12, 7, 58, 5
@@ -552,7 +554,7 @@ function TCF:CreateCompendium()
   for i, key in ipairs(COS_SLOTS) do
     local s = TCF.SLOT_BY_KEY[key]
     local b = CreateFrame("Button", nil, f)
-    b:SetSize(26, 26); b:SetPoint("TOPLEFT", 20 + (i - 1) * 30, -74)
+    b:SetSize(22, 22); b:SetPoint("TOPLEFT", 20 + (i - 1) * 24, -76)  -- 10 slots fit in x 20-256
     local t = b:CreateTexture(nil, "ARTWORK"); t:SetAllPoints(); t:SetTexture(TCF.Icon(s.icon)); t:SetTexCoord(0.07, 0.93, 0.07, 0.93)
     b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetPoint("TOPLEFT", -3, 3); b.sel:SetPoint("BOTTOMRIGHT", 3, -3)
     b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD")

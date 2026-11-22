@@ -21,6 +21,10 @@ CraftData.lua
 Cat.lua
 VectorData.lua
 CatVector.lua
+CatAnim.lua
+CosmeticSets.lua
+CosmeticFX.lua
+Sets\MoltenCore.lua
 Abilities.lua
 Adventure.lua
 Expeditions.lua

@@ -39,7 +39,8 @@ subprocess.check_call(["node", os.path.join(HERE, "render_svg.js"), CAT_DIR, "51
 # ---- items: one drawing per icon from tools/item_specs/<group>.txt
 groups = json.load(open(os.path.join(HERE, "item_specs", "groups.json")))
 two = set(json.load(open(os.path.join(HERE, "item_specs", "two_handed.json"))))
-KIND = {"head": "head", "back": "back", "chest": "chest", "belt": "belt", "neck": "neck", "ring": "ring", "shield": "shield", "held": "held"}
+KIND = {"head": "head", "back": "back", "chest": "chest", "belt": "belt", "neck": "neck", "ring": "ring", "shield": "shield", "held": "held",
+        "shoulder": "shoulder"}
 FAM = {"w_sword": "sword", "w_axe": "axe", "w_mace": "mace", "w_dagger": "dagger", "w_staff": "staff", "w_polearm": "polearm", "w_fist": "fist", "w_bow": "bow"}
 items = {}
 for g, keys in groups.items():
@@ -60,6 +61,16 @@ for g, keys in groups.items():
         cls = {"weapon1": "weapon", "weapon2": "weapon"}.get(kind, kind)
         items[key] = cls
         open(os.path.join(ITEM_DIR, key + ".svg"), "w").write(V.svg(layers[""]))
+# real gear shoulders (1.6): one drawing per shoulder icon, from tools/shoulders/specs.txt ("icon: spec")
+SH_SPECS = os.path.join(HERE, "shoulders", "specs.txt")
+if os.path.exists(SH_SPECS):
+    for l in open(SH_SPECS):
+        l = l.strip()
+        if l and not l.startswith("#"):
+            key, sp = [x.strip() for x in l.split(":", 1)]
+            if not sp.startswith("shoulder:"): sp = "shoulder:" + sp
+            items[key] = "shoulder"
+            open(os.path.join(ITEM_DIR, key + ".svg"), "w").write(V.svg(V.render(sp, "shoulder", key)[""]))
 subprocess.check_call(["node", os.path.join(HERE, "render_svg.js"), ITEM_DIR, "256"])
 
 # ---- cosmetics: drawn with main = red, trim = green, then split into tintable layers
@@ -130,5 +141,9 @@ with open(os.path.join(ROOT, "VectorData.lua"), "w") as f:
 subprocess.check_call([sys.executable, os.path.join(HERE, "make_tapfx.py"), os.path.join(WORK, "tapfx")])
 subprocess.check_call([sys.executable, os.path.join(HERE, "make_spellfx.py"), os.path.join(WORK, "spellfx")])
 subprocess.check_call([sys.executable, os.path.join(HERE, "make_backgrounds.py"), os.path.join(WORK, "bg")])
+# animation sprites (CatAnim.lua) and the cosmetic sets, each built by its own file (tools/sets/README.md)
+subprocess.check_call([sys.executable, os.path.join(HERE, "make_animfx.py")])
+for setfile in sorted(glob.glob(os.path.join(HERE, "sets", "*.py"))):
+    subprocess.check_call([sys.executable, setfile])
 total = sum(os.path.getsize(os.path.join(OUT, f)) for f in os.listdir(OUT))
 print("textures:", len(entries), "size: %.1f MB" % (total / 1e6))

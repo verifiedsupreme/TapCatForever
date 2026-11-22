@@ -208,6 +208,7 @@ function TCF:InitDB()
   for _, lo in pairs(db.loadouts) do
     for slot, id in pairs(lo) do if not TCF.ITEMS[id] then lo[slot] = nil end end
   end
+  if self.MigrateRaceSlot then self:MigrateRaceSlot(db) end  -- 1.6: the racial accessory has its own slot
   if db.look.fur and not TCF.ITEMS[db.look.fur] then db.look.fur = "fur_ginger" end
   if db.look.pattern and not TCF.ITEMS[db.look.pattern] then db.look.pattern = nil end
   -- v1 -> v2: levels became per-class; the old shared level goes to the current class
@@ -296,8 +297,9 @@ function TCF:GetAppearance(class, previewItem, previewGear)
   out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil
   out.skin = self.db.look.skin and TCF.ITEMS[self.db.look.skin] or nil
   out.tap = self.db.look.tap and TCF.ITEMS[self.db.look.tap] or nil
-  -- racial accessory can be hidden in Settings
+  -- racial accessory can be hidden in Settings (since 1.6 it has its own slot, "race")
   if not self.db.ui.racial and out.acc and out.acc.source == "race" then out.acc = nil end
+  if not self.db.ui.racial then out.race = nil end
   if previewItem then out[previewItem.slot] = previewItem end
   return out
 end
@@ -1273,7 +1275,7 @@ function TCF:BuyRaceAccessory()
   self.db.ui.racial = true
   for _, cl in ipairs(TCF.CLASSES) do
     local lo = self:GetLoadout(cl.key)
-    if not lo.acc then lo.acc = it.id end
+    if not lo[it.slot] then lo[it.slot] = it.id end
   end
   self:Print(string.format("Your cat shows its %s pride: %s.", raceName or "racial", TCF.ItemLink(it)), true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end

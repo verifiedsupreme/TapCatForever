@@ -8,26 +8,46 @@ local CANVAS = 512
 local LIFT = 44          -- how far a resting paw hovers above its tapping spot (canvas units)
 local STRIPE = 0.8       -- tabby stripes are the fur colour, darker
 
--- draw order: name -> { layer, sublevel }. Slots with _a/_b/_f hold either a gear drawing
--- (full colour, in _f) or a cosmetic (_a main colour, _b trim colour, _f fixed colours).
+-- draw order: name -> { frame, layer, sublevel }. Frame 1 holds everything behind the head gear
+-- (cape, body, chest, shoulders, head, face); frame 2 sits above it (accessories, racial
+-- accessory, head gear, held items, paws). Slots with _a/_b/_f hold either a gear drawing (full
+-- colour, in _f) or a cosmetic (_a main colour, _b trim colour, _f fixed colours); _x is where a
+-- piece's animated layers go (CatAnim.lua), right above the piece.
 local ORDER = {
-  back_a = { "BACKGROUND", -8 }, back_b = { "BACKGROUND", -7 }, back_f = { "BACKGROUND", -6 },
-  body_t = { "BACKGROUND", -5 }, belly = { "BACKGROUND", -4 }, patB = { "BACKGROUND", -3 }, patB2 = { "BACKGROUND", -2 },
-  body_marks_t = { "BACKGROUND", -1 }, body_line = { "BACKGROUND", 0 },
-  chest_a = { "BORDER", -8 }, chest_b = { "BORDER", -7 }, chest_f = { "BORDER", -6 }, belt = { "BORDER", -5 }, neck = { "BORDER", -4 },
-  mane = { "BORDER", 0 }, head_t = { "BORDER", 1 }, patH = { "BORDER", 2 }, patH2 = { "BORDER", 3 },
-  head_marks_t = { "BORDER", 4 }, face = { "BORDER", 5 }, iris = { "BORDER", 6 },
-  acc_a = { "ARTWORK", -8 }, acc_b = { "ARTWORK", -7 }, acc_f = { "ARTWORK", -6 },
-  head_a = { "ARTWORK", -5 }, head_b = { "ARTWORK", -4 }, head_f = { "ARTWORK", -3 },
-  main_a = { "ARTWORK", -2 }, main_b = { "ARTWORK", -1 }, main_f = { "ARTWORK", 0 },
-  offw_a = { "ARTWORK", 1 }, offw_b = { "ARTWORK", 2 }, offw_f = { "ARTWORK", 3 },
-  paw_L_t = { "OVERLAY", -8 }, patPL = { "OVERLAY", -7 }, paw_L = { "OVERLAY", -6 },
-  paw_R_t = { "OVERLAY", -5 }, patPR = { "OVERLAY", -4 }, paw_R = { "OVERLAY", -3 },
-  ring = { "OVERLAY", -2 }, off_a = { "OVERLAY", -1 }, off_b = { "OVERLAY", 0 }, off_f = { "OVERLAY", 1 },
+  back_a = { 1, "BACKGROUND", -7 }, back_b = { 1, "BACKGROUND", -6 }, back_f = { 1, "BACKGROUND", -5 }, back_x = { 1, "BACKGROUND", -4 },
+  body_t = { 1, "BACKGROUND", -3 }, belly = { 1, "BACKGROUND", -2 }, patB = { 1, "BACKGROUND", -1 }, patB2 = { 1, "BACKGROUND", 0 },
+  body_marks_t = { 1, "BACKGROUND", 1 }, body_x = { 1, "BACKGROUND", 2 }, body_x2 = { 1, "BACKGROUND", 3 }, body_line = { 1, "BACKGROUND", 4 },
+  chest_a = { 1, "BORDER", -8 }, chest_b = { 1, "BORDER", -7 }, chest_f = { 1, "BORDER", -6 }, chest_x = { 1, "BORDER", -5 },
+  belt = { 1, "BORDER", -4 }, neck = { 1, "BORDER", -3 }, mane = { 1, "BORDER", -2 },
+  -- shoulders: over the cape, chest and mane, under the head (it sits on them) and everything in frame 2
+  shoulder_a = { 1, "BORDER", -1 }, shoulder_b = { 1, "BORDER", 0 }, shoulder_f = { 1, "BORDER", 1 }, shoulder_x = { 1, "BORDER", 2 },
+  head_t = { 1, "ARTWORK", -8 }, patH = { 1, "ARTWORK", -7 }, patH2 = { 1, "ARTWORK", -6 }, head_marks_t = { 1, "ARTWORK", -5 },
+  head_x = { 1, "ARTWORK", -4 }, head_x2 = { 1, "ARTWORK", -3 }, face = { 1, "ARTWORK", -2 }, iris = { 1, "ARTWORK", -1 },
+  -- accessories: neck pieces (bow tie, scarf...) under the racial accessory, face pieces (shades,
+  -- monocle...) over it (VecAccLayer moves them), so a dwarf beard covers a bow tie and shades sit on tusks
+  acc_a = { 2, "BACKGROUND", -8 }, acc_b = { 2, "BACKGROUND", -7 }, acc_f = { 2, "BACKGROUND", -6 },
+  race_a = { 2, "BACKGROUND", -4 }, race_b = { 2, "BACKGROUND", -3 }, race_f = { 2, "BACKGROUND", -2 },
+  head_a = { 2, "BORDER", -8 }, head_b = { 2, "BORDER", -7 }, head_f = { 2, "BORDER", -6 },
+  main_a = { 2, "ARTWORK", -8 }, main_b = { 2, "ARTWORK", -7 }, main_f = { 2, "ARTWORK", -6 }, main_x = { 2, "ARTWORK", -5 },
+  offw_a = { 2, "ARTWORK", -4 }, offw_b = { 2, "ARTWORK", -3 }, offw_f = { 2, "ARTWORK", -2 }, offw_x = { 2, "ARTWORK", -1 },
+  paw_L_t = { 2, "OVERLAY", -8 }, patPL = { 2, "OVERLAY", -7 }, paw_L_x = { 2, "OVERLAY", -6 }, paw_L = { 2, "OVERLAY", -5 },
+  paw_R_t = { 2, "OVERLAY", -4 }, patPR = { 2, "OVERLAY", -3 }, paw_R_x = { 2, "OVERLAY", -2 }, paw_R = { 2, "OVERLAY", -1 },
+  ring = { 2, "OVERLAY", 0 }, off_a = { 2, "OVERLAY", 1 }, off_b = { 2, "OVERLAY", 2 }, off_f = { 2, "OVERLAY", 3 }, off_x = { 2, "OVERLAY", 4 },
 }
+-- animated layers of head gear (the slot name head_x is the skin's head layer in frame 1)
+ORDER.hat_x = { 2, "BORDER", -5 }
+-- skin glow behind the whole cat, and particles behind it and in front of everything
+ORDER.behind = { 1, "BACKGROUND", -8 }
+ORDER.front = { 2, "OVERLAY", 6 }
+TCF.VEC_ORDER = ORDER
 -- which paw each piece follows
-local FOLLOW = { paw_L_t = "L", paw_L = "L", patPL = "L", ring = "L", paw_R_t = "R", paw_R = "R", patPR = "R" }
-for _, p in ipairs({ "_a", "_b", "_f" }) do FOLLOW["off" .. p] = "L"; FOLLOW["offw" .. p] = "L"; FOLLOW["main" .. p] = "R" end
+local FOLLOW = { paw_L_t = "L", paw_L = "L", patPL = "L", paw_L_x = "L", ring = "L", paw_R_t = "R", paw_R = "R", patPR = "R", paw_R_x = "R" }
+for _, p in ipairs({ "_a", "_b", "_f", "_x" }) do FOLLOW["off" .. p] = "L"; FOLLOW["offw" .. p] = "L"; FOLLOW["main" .. p] = "R" end
+TCF.VEC_FOLLOW = FOLLOW
+-- face accessories draw over the racial accessory, neck accessories under it
+local FACE_ACC = { acc_shades = true, acc_monocle = true, acc_eyepatch = true, acc_mustache = true, acc_flower = true }
+local ANIM_ONLY = { body_x = true, body_x2 = true, head_x = true, head_x2 = true, paw_L_x = true, paw_R_x = true, hat_x = true,
+  behind = true, front = true, back_x = true, chest_x = true, shoulder_x = true, main_x = true, offw_x = true, off_x = true }
 
 function Cat:VecActive()
   return TCF.VEC and not self.opts.pixelOnly
@@ -39,11 +59,18 @@ function Cat:VecInit()
   v:SetAllPoints(self.frame)
   if v.SetFrameLevel and self.frame.GetFrameLevel then pcall(v.SetFrameLevel, v, (self.frame:GetFrameLevel() or 1) + 1) end
   v:Hide()
-  self.vec, self.vt, self.vplace = v, {}, {}
+  -- a second frame just above for what is worn on and in front of the head (more draw sublevels)
+  local v2 = CreateFrame("Frame", nil, v)
+  v2:SetAllPoints(v)
+  if v2.SetFrameLevel and v.GetFrameLevel then pcall(v2.SetFrameLevel, v2, (v:GetFrameLevel() or 1) + 1) end
+  self.vec, self.vec2, self.vt, self.vplace = v, v2, {}, {}
+  self.vframes = { v, v2 }
   for name, o in pairs(ORDER) do
-    local t = v:CreateTexture(nil, o[1], nil, o[2])
-    t:Hide()
-    self.vt[name] = t
+    if not ANIM_ONLY[name] then
+      local t = self.vframes[o[1]]:CreateTexture(nil, o[2], nil, o[3])
+      t:Hide()
+      self.vt[name] = t
+    end
   end
   -- the cat itself
   local base = { body_t = "body_t", body_marks_t = "body_marks_t", belly = "belly", body_line = "body_line",
@@ -79,11 +106,13 @@ end
 function Cat:VecLayout()
   if not self.vec then return end
   for slot in pairs(self.vplace) do self:VecPlace(slot) end
+  if self.AnimLayout then self:AnimLayout() end
 end
 
 function Cat:VecPaws()
   if not self.vec then return end
   for slot in pairs(FOLLOW) do self:VecPlace(slot) end
+  if self.AnimPaws then self:AnimPaws() end
 end
 
 function Cat:VecFace(kind)
@@ -146,7 +175,7 @@ end
 -- which drawing kinds each slot accepts. Real items often reuse another slot's icon (a belt icon
 -- on a helm, a hood icon on a cape); that drawing sits where its own slot belongs, so refuse it.
 local SLOT_KIND = { head = { head = true }, chest = { chest = true }, back = { back = true }, main = { weapon = true },
-  off = { shield = true, held = true, weapon = true }, offw = { weapon = true } }
+  off = { shield = true, held = true, weapon = true }, offw = { weapon = true }, shoulder = { shoulder = true }, race = { acc = true } }
 
 -- the drawing keys for a look item: gear -> its icon drawing when it has one that fits the slot,
 -- otherwise (most bows, guns and capes) the cosmetic version tinted with the gear's colours
@@ -202,7 +231,8 @@ function Cat:VecApply(look)
     local e = k and TCF.VEC[k]
     self:VecSet(slot, e and e[8] == slot and k or nil)
   end
-  for _, slot in ipairs({ "head", "chest", "back", "acc", "main" }) do self:VecSlot(slot, look[slot]) end
+  for _, slot in ipairs({ "head", "chest", "back", "shoulder", "acc", "race", "main" }) do self:VecSlot(slot, look[slot]) end
+  self:VecAccLayer(look.acc)
   -- off hand: weapons are mirrored into the left paw; shields and held items have their own place
   if kindOf(look.off, "off") == "weapon" then
     self:VecSlot("offw", look.off, true); self:VecSlot("off", nil)
@@ -210,6 +240,17 @@ function Cat:VecApply(look)
     self:VecSlot("off", look.off); self:VecSlot("offw", nil)
   end
   self:VecPaws()
+  -- animated layers (CatAnim.lua): set pieces, expensive skins and cosmetics, effects
+  if self.AnimApply then self:AnimApply(look) end
+end
+
+-- face accessories (shades, monocle...) sit over the racial accessory, neck ones (bow tie, scarf...) under it
+function Cat:VecAccLayer(it)
+  local face = it and FACE_ACC[it.art]
+  for i, p in ipairs({ "_a", "_b", "_f" }) do
+    local t = self.vt["acc" .. p]
+    if t.SetDrawLayer then t:SetDrawLayer("BACKGROUND", face and (i - 1) or (i - 9)) end
+  end
 end
 
 ---------------------------------------------------------------- tap effects
@@ -236,7 +277,7 @@ function Cat:VecBurst(side)
     for _, q in ipairs(self.parts) do if not q.on then p = q; break end end
     if not p then
       if #self.parts >= MAX_PARTS then return end
-      p = { tex = self.vec:CreateTexture(nil, "OVERLAY", nil, 7) }
+      p = { tex = (self.vec2 or self.vec):CreateTexture(nil, "OVERLAY", nil, 7) }
       self.parts[#self.parts + 1] = p
     end
     -- fan out upwards, leaning away from the body
@@ -254,6 +295,7 @@ function Cat:VecBurst(side)
 end
 
 function Cat:VecUpdate(elapsed)
+  if self.AnimUpdate then self:AnimUpdate(elapsed) end
   if not self.parts then return end
   local s = self.size / CANVAS
   for _, p in ipairs(self.parts) do

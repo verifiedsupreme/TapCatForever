@@ -1,0 +1,7 @@
+# Example lines in the format of tools/shoulders/specs.txt (this file is not built).
+# icon (lowercase, as TCF.GEAR has it): spec for tools/vector_items.py shoulder_one()
+inv_shoulder_23: shoulder:cloth m=crimson t=gold
+inv_shoulder_02: shoulder:mantle m=#7fb2e8
+inv_shoulder_08: shoulder:leather m=darkleather t=leather e=brass
+inv_shoulder_22: shoulder:spiked m=steel t=gold g=silver rivets
+inv_misc_bone_taurenskull_01: shoulder:bone skull horns

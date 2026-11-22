@@ -18,12 +18,12 @@ local MAX_KNOWN = 40
 local MAX_SLOTS = 12         -- slot entries read from one message
 local MINI, MINI_GAP, MAX_SHOWN = 40, 2, 4
 
-local SLOT_CODES = { "h", "c", "m", "o", "b", "a", "e", "n", "w", "r" }  -- send order (most visible first)
+local SLOT_CODES = { "h", "c", "m", "o", "b", "a", "e", "n", "w", "r", "s", "x" }  -- send order (most visible first)
 local CODE_SLOT = { h = "head", c = "chest", m = "main", o = "off", b = "back", a = "acc", e = "effect",
-  n = "neck", w = "belt", r = "ring" }
+  n = "neck", w = "belt", r = "ring", s = "shoulder", x = "race" }  -- 1.6: s (shoulders), x (racial accessory); older versions skip codes they don't know
 -- look slot -> gear slot, so a friend's real gear is drawn the same way Gear.lua draws yours
 local GEAR_SLOT = { head = "HEAD", chest = "CHEST", back = "BACK", main = "MAINHAND", off = "OFFHAND",
-  neck = "NECK", belt = "WAIST", ring = "FINGER1" }
+  neck = "NECK", belt = "WAIST", ring = "FINGER1", shoulder = "SHOULDER" }
 
 local known, order = {}, {}  -- name -> member; names in the order they said hello
 local fakes = {}             -- test-mode party cats (TCF:PartyTestInject)
@@ -185,6 +185,8 @@ local function parse(text)
         if GEAR_SLOT[slot] and TCF.GEAR and TCF.GEAR[gid] then eq[GEAR_SLOT[slot]] = gid end
       else
         local it = cos(v, slot)
+        -- a version before 1.6 sends its racial accessory as the accessory (a=)
+        if not it and slot == "acc" then it = cos(v, "race"); slot = it and "race" or slot end
         if it then cosmetics[slot] = it end
       end
     end
