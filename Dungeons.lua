@@ -82,6 +82,11 @@ local function chestBlocked(db, run)
   end
 end
 
+-- for the in-dungeon banner (UI_DungeonBanner.lua): where you are, why no chest, the limits
+TCF.CurrentInstance = currentInstance
+TCF.DUNGEON_BOSS_COINS, TCF.DUNGEON_CHESTS_PER_DAY = BOSS_COINS, DUNGEON_CHESTS_PER_DAY
+function TCF:DungeonChestBlockedReason(run) return chestBlocked(self.db, run) end
+
 function TCF:DungeonComplete(run, how)
   if run.rewarded then return end
   run.rewarded = true
@@ -174,4 +179,5 @@ ev:SetScript("OnEvent", function(_, event, ...)
   else
     TCF:DungeonCheck()
   end
+  if TCF.RefreshDungeonBanner then TCF:RefreshDungeonBanner() end
 end)

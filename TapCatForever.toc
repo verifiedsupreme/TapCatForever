@@ -48,6 +48,7 @@ Welcome.lua
 UI_Gear.lua
 UI_Adventure.lua
 UI_AdventureInfo.lua
+UI_DungeonBanner.lua
 UI_Abilities.lua
 UI_Expeditions.lua
 UI_Professions.lua

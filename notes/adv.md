@@ -43,3 +43,10 @@
 - TCF.BOSS_COSMETICS = TCF.BOSS_COSMETICS or {} (AdventureRewards.lua).
 - Key: the Adventure boss's display name exactly as TCF.TIERS names it (the first field of an entry in a tier's bosses list), for example "Ragnaros", "Edwin VanCleef", "Hogger".
 - Value: a list of TCF.ITEMS keys. On every Adventure kill of that boss, each listed item the player doesn't own yet is given quietly (no notice for cosmetics, one chat line if chat messages are on). The Compendium and tooltips then say "Adventure: <boss> in <zone> gives it every time you beat it, until you have it".
+
+## The window knows when you're in a dungeon
+- While you are inside a real dungeon, opening the TapCatForever window shows a slim banner at the bottom of the character column, for example "You're in The Deadmines. Finish it for a Dungeon Chest; each boss gives 5 TapCoins. Bosses this run: 2."
+- It also says when this run can't give a chest (today's chest from this dungeon already earned, or the daily limit reached), and when the chest for this run is already in your Treasure Bag.
+- When real bosses there have rewards you don't have yet, the banner says so. Hover it to see them.
+- In a raid it says Raider's Hoard and 10 TapCoins a boss (for when WoW: Forever opens raids).
+- It updates while the window is open and is hidden outside dungeons and raids. It is part of the window, not a pop-up.
