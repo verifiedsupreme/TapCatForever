@@ -20,3 +20,4 @@
 - A line at the bottom shows your class, level, title, Power and XP.
 - Text gets small in the compact window: drag the grip in the corner (or use Window size in Settings) to make the whole window bigger.
 - Your choice is remembered. Leaving the compact window goes back to the wide window, with the character column open or folded as you left it.
+- The What's new strip over the window takes the width of the narrow and compact windows, and grows taller for its text.

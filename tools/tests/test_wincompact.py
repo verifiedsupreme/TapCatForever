@@ -157,6 +157,20 @@ def check(seed, load_addon):
       for i = 1, #win.tabButtons do win:SelectTab(i); win:Refresh(); ck(win.tab == i and win.parts.right:IsShown(), "tab " .. i .. " in compact") end
       for _, cl in ipairs(T.CLASSES) do T:SetClass(cl.key) end
       ck(win.compactStrip.lvl:GetText():find(T.CLASS_BY_KEY[T.db.class].name, 1, true), "the bottom line names the class")
+      -- the What's new strip takes the compact window's width, and the full width again after
+      T.version = T.NEWS[1].version
+      T.db.newsSeen, T.db.newsShows = nil, nil
+      win:Hide(); win:Show(); T:CheckNews()
+      local strip = T.newsStrip
+      if strip then strip.text.SetWidth = function(fs, w) fs._w = w end; T:FitNewsStrip() end
+      ck(T:CurrentNews() == nil or strip and strip:IsShown() and strip._w == 420 and strip.text._w == 420 - 192 and strip._h >= 46, "the news strip fits the compact window: " .. tostring(strip and strip._w) .. " x " .. tostring(strip and strip._h))
+      if strip then
+      win.layoutButton.scripts.OnClick(win.layoutButton)
+      ck(strip._w == 760 and strip.text._w == 520, "and is full width with the full window: " .. tostring(strip._w))
+      win.paneButton.scripts.OnClick(win.paneButton)
+      ck(strip._w == 592, "and narrow with the narrow window: " .. tostring(strip._w))
+      T:MarkNewsSeen()
+      end
       return table.concat(fails, "; ")
     ''')
     if r:

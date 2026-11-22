@@ -422,6 +422,7 @@ local function SetupLayout(win)
     local off = not compact and self:IsCasinoTab()
     pane.icon:SetDesaturated(off); pane.arrow:SetShown(not off)
     if compact then self:RefreshCompact() end
+    TCF:FitNewsStrip()
     if self.OnLayout then self:OnLayout(mode) end
   end
 
@@ -460,11 +461,40 @@ local function SetupLayout(win)
   end
 end
 
+-- The What's new strip (News.lua) is 760 wide, centred on the window: in the narrow and compact
+-- windows it takes the window's width instead, and grows taller for its wrapped text.
+local NEWS_W, NEWS_H, NEWS_SIDE = 760, 46, 192   -- NEWS_SIDE: the icon, the gaps, Read more and close
+function TCF:FitNewsStrip()
+  local strip, win = self.newsStrip, self.window
+  if not strip or not win then return end
+  local w = min(NEWS_W, win.layoutW or NEWS_W)
+  strip:SetWidth(w)
+  if strip.text then
+    strip.text:SetWidth(w - NEWS_SIDE - (w < NEWS_W and 0 or 48))
+    local th = strip.text.GetStringHeight and strip.text:GetStringHeight()
+    if type(th) ~= "number" then
+      -- no measurement (outside the game): about 6 pixels a letter, 14 a line
+      local len = #(tostring(strip.text:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+      th = math.ceil(len * 6 / max(1, w - NEWS_SIDE)) * 14
+    end
+    strip:SetHeight(max(NEWS_H, th + 20))
+  end
+end
+
 function TCF.UI.SetupWindowLayout(win)
   local P = win.parts or {}
   win.layoutW, win.layoutH = P.W or 920, P.H or 620
   SetupSize(win)
   if P.left and P.right and P.compBtn then SetupLayout(win) end
+  -- News.lua loads after this file: wrap its CheckNews once, when the first window is built
+  if TCF.CheckNews and not TCF.newsFitHooked then
+    TCF.newsFitHooked = true
+    local check = TCF.CheckNews
+    TCF.CheckNews = function(self, ...)
+      check(self, ...)
+      self:FitNewsStrip()
+    end
+  end
   function win:OnWindowScale()
     if self.windowSizeControl then self.windowSizeControl.Sync() end
   end
