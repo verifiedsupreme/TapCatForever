@@ -2,3 +2,28 @@
 0: cloak hood m=purple t=gold g=#3a2350
 1: cloak hood studs m=tan t=darkleather g=#4a3020
 2: cloak fur m=brown t=leather g=cream
+# sheet back loot batch 0 (1.5.1 world gear): bear pelts worn as a fur cape
+3: cloak fur m=bronze t=leather g=tan
+4: cloak fur m=grey t=pink g=white
+# sheet back loot batch 1 (1.5.1 world gear): cloth cloaks; hood = hood resting behind the head, studs = studded leather edge, fur = fur edge
+5: cloak hood m=#86a238 t=gold g=#2c3a1a
+6: cloak hood fur m=#9c7a52 t=leather g=#e8d6b0
+7: cloak hood m=#7c7ee0 t=gold g=#2a2648
+8: cloak hood m=#c8a64e t=silver g=#3a3226
+9: cloak hood studs m=red t=tan g=#4a1a18 e=steel
+10: cloak hood studs m=#6e7c2a t=tan g=#2a3016 e=steel
+11: cloak fur m=tan t=blue g=cream
+12: cloak m=#4f6fb8 t=bone
+13: cloak m=orange t=tan
+14: cloak m=green t=lime
+15: cloak m=blue t=silver
+16: cloak m=#22a05a t=silver
+17: cloak m=red t=gold
+18: cloak fur m=#8a7fa0 t=#5a5068 g=#e0c4c4
+19: cloak m=dark t=silver
+20: cloak fur m=red t=dark g=cream
+# sheet back loot batch 4 (1.5.1 world gear): Embossed Leather Cloak, Tribal Cloak, Rathorian's Cape
+# helmet_48: a deep brown leather cowl with a darker riveted band and gold rivets along the rim, red cloth
+# showing behind and inside it; drawn as a hooded leather cloak: m = the brown leather, t = the darker
+# riveted edge band, g = the red cloth seen along the hood rim, e = the gold studs.
+21: cloak hood studs m=#6a4428 t=#3e2618 g=#b8302a e=gold

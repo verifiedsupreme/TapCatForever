@@ -96,6 +96,9 @@ TCF.UI.Builders.expeditions = function(page, win)
       else
         rewards = rewards .. " Short trips are mostly for XP and TapCoins; longer ones bring more chests."
       end
+      if e.hoard then
+        rewards = rewards .. string.format(" Also a %d%% chance of %s.", floor(e.hoard * 100 + 0.5), an(TCF.CHEST_BY_KEY.raid.name))
+      end
       tt:AddLine(rewards, 0.8, 0.8, 0.8, true)
       tt:AddLine("A failed expedition brings back half the XP and only a few TapCoins.", 0.7, 0.7, 0.7, true)
     end)

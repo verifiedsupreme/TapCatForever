@@ -315,13 +315,80 @@ def draw_fist(o, two=False):
 
 def draw_bow(o, two=False):
     m, t = C(o.get("m"), "wood"), C(o.get("t"), "leather")
-    b = LN("M 4 -150 Q 40 -70 4 10", INK, 11) + LN("M 4 -150 Q 40 -70 4 10", m, 6) + LN("M 4 -150 L 4 10", "#f4f0e0", 1.6)
-    b += RC(-2, -78, 12, 22, t, 3, 3)
+    if o["variant"] == "crossbow":
+        # wooden stock pointing up, a bow limb across its top, the string drawn back to the nut, a bolt on top
+        st, e = C(o.get("g"), "#f4f0e0"), C(o.get("e"), "steel")
+        b = RC(-7, -112, 14, 122, t, 4) + RC(-10, -4, 20, 30, darker(t, .8), 6)
+        b += LN("M -46 -84 Q 0 -128 46 -84", INK, 12) + LN("M -46 -84 Q 0 -128 46 -84", m, 7)
+        b += LN("M -45 -86 L 0 -66 L 45 -86", st, 1.8) + RC(-5, -70, 10, 8, darker(t, .7), 2, 2.5)
+        if "bolt" in o["flags"]:
+            b += LN("M 0 -66 L 0 -136", INK, 6) + LN("M 0 -66 L 0 -136", C("wood", "wood"), 3)
+            b += P("M -7 -134 L 0 -152 L 7 -134 Z", e, 3) + P("M -6 -66 L 0 -76 L 6 -66 Z", C("white", "white"), 2.5)
+        b += '<path d="M 7 -40 Q 20 -32 7 -20" fill="none" stroke="%s" stroke-width="7" stroke-linecap="round"/>' % INK
+        b += '<path d="M 7 -40 Q 20 -32 7 -20" fill="none" stroke="%s" stroke-width="3.5" stroke-linecap="round"/>' % C("iron", "iron")
+        return b, b
+    v, fl = o["variant"], o["flags"]
+    if not v:  # the plain bow (cosmetic wpn_bow, whose build adds g): kept exactly as before
+        b = LN("M 4 -150 Q 40 -70 4 10", INK, 11) + LN("M 4 -150 Q 40 -70 4 10", m, 6) + LN("M 4 -150 L 4 10", "#f4f0e0", 1.6)
+        b += RC(-2, -78, 12, 22, t, 3, 3)
+        return b, b
+    # limb as a quadratic curve p0 -> p2 bulging out through p1; the string joins the two tips
+    top, bot, bulge = (-174, 6, 34) if v == "long" else (-150, 10, 40)
+    p0, p1, p2 = (4, top), (bulge, (top + bot) / 2.0), (4, bot)
+    def at(u):
+        return tuple((1 - u) ** 2 * p0[k] + 2 * (1 - u) * u * p1[k] + u * u * p2[k] for k in (0, 1))
+    limb = "M %d %d Q %d %d %d %d" % (p0 + p1 + p2)
+    thick = 9 if v == "horn" else 6
+    st = C(o.get("g"), "#f4f0e0")
+    b = LN("M %d %d L %d %d" % (p0 + p2), st, 1.8)
+    if v == "spiked":  # spikes along the back of the limb
+        for u in (0.12, 0.3, 0.7, 0.88):
+            x, y = at(u)
+            b += P("M %.1f %.1f L %.1f %.1f L %.1f %.1f Z" % (x + 2, y - 7, x + 16, y + (6 if u > .5 else -6), x + 2, y + 7), m, 3)
+    b += LN(limb, INK, thick + 5) + LN(limb, m, thick)
+    if v == "horn":  # ridges across a thick horn limb
+        for u in (0.1, 0.22, 0.34, 0.66, 0.78, 0.9):
+            x, y = at(u); b += LN("M %.1f %.1f L %.1f %.1f" % (x - 4, y, x + 4, y), darker(m, .7), 2)
+    if v == "recurve":  # tips flick forward
+        for (x, y), d in ((p0, -1), (p2, 1)):
+            b += LN("M %d %d q 5 %d 11 %d" % (x, y, d * 2, d * 7), INK, 10) + LN("M %d %d q 5 %d 11 %d" % (x, y, d * 2, d * 7), m, 5)
+    if v == "wrapped":  # bands of the wrap colour along the limb
+        for u in (0.2, 0.32, 0.68, 0.8):
+            x, y = at(u); b += LN("M %.1f %.1f L %.1f %.1f" % (x - 4, y - 2, x + 4, y + 2), INK, 7) + LN("M %.1f %.1f L %.1f %.1f" % (x - 4, y - 2, x + 4, y + 2), t, 3.5)
+    gx, gy = at(0.5)
+    b += RC(gx - 6, gy - 11, 12, 22, t, 3, 3)
+    if v == "disc":  # a round plate at the grip with a coloured rim
+        b += CI(gx + 4, gy, 12, t, 3) + CI(gx + 4, gy, 7, C(o.get("e"), "ruby"), 2.5) + CI(gx + 4, gy, 3, t, 2)
+    if "ribbons" in fl:  # two ribbon tails hanging from the grip
+        e = C(o.get("e"), "red")
+        b += P("M %.1f %.1f q -8 14 -2 30 l 5 -2 q -4 -14 3 -26 Z" % (gx - 2, gy + 8), e, 2.5)
+        b += P("M %.1f %.1f q 4 16 -6 28 l 5 2 q 9 -12 5 -28 Z" % (gx + 2, gy + 8), darker(e, .85), 2.5)
+    if "fur" in fl:  # a fur pom hanging from the grip
+        e = C(o.get("e"), "white")
+        b += LN("M %.1f %.1f L %.1f %.1f" % (gx - 4, gy + 6, gx - 10, gy + 20), INK, 2)
+        for dx, dy in ((-12, 24), (-6, 28), (-14, 31), (-8, 34)): b += CI(gx + dx, gy + dy, 5, e, 2.5)
     return b, b
 
 def draw_rifle(o, two=False):
     m, t = C(o.get("m"), "iron"), C(o.get("t"), "wood")
-    b = RC(-6, -150, 12, 120, m, 3) + RC(-9, -40, 18, 60, t, 5) + RC(-12, -10, 24, 34, t, 6) + RC(-10, -156, 20, 10, m, 2, 3) + CI(0, -52, 5, darker(t, .7), 2.5)
+    v, fl = o["variant"], o["flags"]
+    b = RC(-6, -150, 12, 120, m, 3) + RC(-9, -40, 18, 60, t, 5) + RC(-12, -10, 24, 34, t, 6)
+    if v == "bell":  # blunderbuss: the barrel flares into a wide mouth
+        b += P("M -6 -146 L -15 -170 L 15 -170 L 6 -146 Z", m, 3.5) + EL(0, -170, 15, 4.5, darker(m, .45), 3)
+        if "e" in o: b += LN("M -14 -165 L 14 -165", C(o["e"], "teal"), 3.5)
+    else:
+        b += RC(-10, -156, 20, 10, m, 2, 3)
+    if "bands" in fl:
+        for y in (-128, -100, -72): b += RC(-8, y, 16, 6, C(o.get("g"), "gold"), 2, 2.5)
+    if "sight" in fl: b += RC(5, -138, 10, 5, C(o.get("g"), "iron"), 1, 2.5) + RC(12, -152, 5, 18, C(o.get("g"), "iron"), 2, 2.5)
+    if v == "scope":  # a scope tube along the barrel with a bright lens at the front
+        g = C(o.get("g"), "gold")
+        b += RC(8, -120, 10, 56, g, 3, 3) + RC(6, -126, 14, 10, g, 3, 3) + RC(7, -70, 12, 8, g, 3, 3)
+        b += GEM(13, -128, 6, C(o.get("e"), "cyan"))
+    b += CI(0, -52, 5, darker(t, .7), 2.5)
+    if v:  # trigger guard (left off the plain cosmetic rifle so its art stays the same)
+        b += '<path d="M 9 -26 Q 22 -18 9 -6" fill="none" stroke="%s" stroke-width="7" stroke-linecap="round"/>' % INK
+        b += '<path d="M 9 -26 Q 22 -18 9 -6" fill="none" stroke="%s" stroke-width="3.5" stroke-linecap="round"/>' % C(o.get("g"), "iron")
     return b, b
 
 def draw_wand(o, two=False):

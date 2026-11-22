@@ -6,7 +6,8 @@
 local ADDON, TCF = ...
 local min, max = math.min, math.max
 
-local W, H, GAP, MAX_SHOWN = 270, 46, 4, 5
+-- wide enough for the longest random-bonus names ("Swashbuckler's Shoulderpads of the Monkey")
+local W, H, GAP, MAX_SHOWN = 330, 46, 4, 5
 local LIFE, FADE = 7, 0.6
 
 local holder, toasts = nil, {}
@@ -113,7 +114,12 @@ function TCF:ShowLootToast(it, isNew, salvage, title, isGear)
   if isGear then
     local d = self.GearUpgrade and self:GearUpgrade(it)
     if not self:GearUsable(it, self.db.class) then sub = "|cffff8040Your class can't use it|r"
-    elseif d and d > 0 then sub = "|cff20ff20+" .. d .. " Power|r if worn"
+    elseif d and d > 0 then
+      -- a piece for a slot the cat has empty says so (small finds from Adventure mostly are)
+      local slot = self.BestGearSlot and self:BestGearSlot(it)
+      local empty = slot and not self:GearEquipped(self.db.class)[slot]
+      local sn = empty and TCF.GEAR_SLOT_BY_KEY and TCF.GEAR_SLOT_BY_KEY[slot]
+      sub = "|cff20ff20+" .. d .. " Power|r " .. (sn and ("for your empty " .. sn.name .. " slot") or "if worn")
     elseif d and d < 0 then sub = "|cffff4040" .. d .. " Power|r if worn"
     else sub = "|cffaaaaaaSame Power as what you wear|r" end
   elseif it.slot == "skin" then
@@ -123,6 +129,10 @@ function TCF:ShowLootToast(it, isNew, salvage, title, isGear)
   end
   t.title = title
   t.sub:SetText(sub)
+  -- a name still too long: the random bonus is what tells finds apart, so repeat it on the sub line
+  if isGear and it.suffix and TCF.GEAR_SUFFIXES and TCF.GEAR_SUFFIXES[it.suffix] and t.name.IsTruncated and t.name:IsTruncated() then
+    t.sub:SetText("|cffffffff" .. TCF.GEAR_SUFFIXES[it.suffix] .. "|r  " .. sub)
+  end
   t:Show()
   layout()
 end

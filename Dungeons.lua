@@ -36,12 +36,12 @@ end
 
 function TCF.DungeonChestFor(kind, level)
   if TCF.IsSecret(level) then level = 60 end
-  if kind == "raid" then return "heroic" end
+  if kind == "raid" then return "raid" end
   if level < 20 then return "pouch" end
   if math.random() < (level >= 50 and 0.25 or 0.10) then return "heroic" end
   return "strong"
 end
-TCF.DUNGEON_CHEST_TEXT = "Finish a real dungeon in WoW: below level 20 you get a Cat Treat Pouch; from level 20 an Adventurer's Strongbox (10% chance of a Heroic Cache, 25% from level 50). Raids always give a Heroic Cache. Each dungeon gives a chest once a day and each raid once a week, and up to " .. DUNGEON_CHESTS_PER_DAY .. " dungeon chests a day across all your characters."
+TCF.DUNGEON_CHEST_TEXT = "Finish a real dungeon in WoW: below level 20 you get a Cat Treat Pouch; from level 20 an Adventurer's Strongbox (10% chance of a Heroic Cache, 25% from level 50). Raids always give a Raider's Hoard. Each dungeon gives a chest once a day and each raid once a week, and up to " .. DUNGEON_CHESTS_PER_DAY .. " dungeon chests a day across all your characters."
 
 -- When the current weekly reset started (raids pay once per reset).
 local function lastWeeklyReset(now)
@@ -99,7 +99,7 @@ function TCF:DungeonComplete(run, how)
     db.dungeonDay.n = db.dungeonDay.n + 1
   end
   -- chest by character level: Pouch below 20, Strongbox from 20 (chance of a
-  -- Heroic Cache from 50), raids always give a Heroic Cache
+  -- Heroic Cache, higher from 50), raids always give a Raider's Hoard
   local chestKey = TCF.DungeonChestFor(run.type, UnitLevel and UnitLevel("player") or 60)
   local stat = run.type == "raid" and "raids" or "dungeons"
   db.stats[stat] = (db.stats[stat] or 0) + 1

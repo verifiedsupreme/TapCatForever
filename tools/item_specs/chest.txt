@@ -110,3 +110,8 @@
 106: tabard m=blue t=white e=gold
 107: shirt m=black t=dark
 108: shirt m=green t=lime
+# sheet chest loot batch 0 (1.5.1 world gear)
+109: robe m=#b9ad8c t=white fur g=white
+110: robe m=green t=white fur g=white
+111: robe m=navy t=gold pauldrons
+112: shirt m=ruby t=crimson

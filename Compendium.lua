@@ -185,7 +185,8 @@ local RACE_NAMES = {
 local function chestsFor(rarity)
   local names = {}
   for _, ch in ipairs(TCF.CHESTS) do
-    if (ch.weights[rarity] or 0) > 0 then names[#names + 1] = ch.name end
+    -- a gear-only chest (the Raider's Hoard) never gives a cosmetic
+    if not ch.gearOnly and (ch.weights[rarity] or 0) > 0 then names[#names + 1] = ch.name end
   end
   return table.concat(names, ", ")
 end
@@ -197,6 +198,44 @@ local function gearLines(it, add)
     add(whereLine(prof))
     add("Crafted gear is never found as loot. It sells for Trade Gold, not TapCoins")
     return
+  end
+  if it.retired then
+    local kinds = {}
+    for k, name in ipairs(TCF.GEAR_SUFFIXES or {}) do
+      if TCF.GEAR[(TCF.SUFFIX_ID_BASE or 0) + it.id * 100 + k] then kinds[#kinds + 1] = name end
+    end
+    if #kinds == 0 then
+      -- a placeholder or later-expansion item: known, but never loot
+      add("This item never drops")
+      add("Players who have it keep it")
+      return
+    end
+    add("No longer drops on its own: it is found with a random bonus now (" .. table.concat(kinds, ", ") .. ")")
+    add("Players who have this plain one keep it")
+    return
+  end
+  if it.q == 1 then
+    add(string.format("Plain (white) gear: now and then an enemy in Adventure drops it, around level %d", max(1, it.req or 1)))
+    add("Mostly found early on, and mostly for slots your cat has empty. Chests never hold white gear")
+    return
+  end
+  if it.q == 5 then
+    local real = false
+    for _, l in ipairs(TCF.Legendaries and TCF:Legendaries() or {}) do if l == it then real = true; break end end
+    if not real then add("This item never drops"); return end
+    local parts = {}
+    for _, ch in ipairs(TCF.CHESTS) do
+      if (ch.legendary or 0) > 0 then
+        parts[#parts + 1] = string.format("about 1 in %d %s", floor(1 / ch.legendary + 0.5), ch.plural or (ch.name .. "s"))
+      end
+    end
+    add("A real Legendary, never a world drop. Only " .. (#parts > 0 and table.concat(parts, " and ") or "special chests") .. " hold one")
+    add("The chest picks a Legendary your cat's class can use, preferring one made for that class")
+    add("Raider's Hoards come from raids: raid bosses and first clears in Adventure, real raids and raid expeditions")
+    return
+  end
+  if it.suffix and TCF.GEAR_SUFFIXES then
+    add(string.format("One of the random bonuses %s can come with (%s)", (it.base and TCF.GEAR[it.base] or it).name, TCF.GEAR_SUFFIXES[it.suffix] or "?"))
   end
   local t = it.tier and it.tier > 0 and TCF.TIERS and TCF.TIERS[it.tier]
   local b = t and it.boss and it.boss > 0 and t.bosses[it.boss]
@@ -219,6 +258,7 @@ local function gearLines(it, add)
   else
     add(string.format("World drop around level %d", max(1, it.req or 1)))
     add("Chests give gear close to your cat's class level, so open them around that level")
+    if it.q == 2 then add("Enemies in Adventure sometimes drop it too, mostly for slots your cat has empty") end
   end
 end
 
@@ -400,21 +440,35 @@ local function craftedSections()
   return out
 end
 
+-- world drops by level band: Uncommon and better first, then that band's plain (white) gear
+-- in its own list, so the many whites don't bury the greens and blues
+local worldCache
+local function worldSections()
+  if worldCache then return worldCache end
+  local bands = {}
+  for b in pairs(TCF.WORLD_POOL or {}) do bands[#bands + 1] = b end
+  table.sort(bands)
+  local out = {}
+  for _, b in ipairs(bands) do
+    local lo, hi = max(1, b * 5), b * 5 + 4
+    local label = (lo >= 60 and "Level 60") or string.format("Levels %d-%d", lo, min(60, hi))
+    local good, plain = {}, {}
+    for _, it in ipairs(TCF.WORLD_POOL[b]) do
+      if it.q <= 1 then plain[#plain + 1] = it else good[#good + 1] = it end
+    end
+    if #good > 0 then out[#out + 1] = { label = label, list = good } end
+    if #plain > 0 then out[#out + 1] = { label = "|cffccccccPlain gear, " .. label:lower() .. "|r", list = plain } end
+  end
+  worldCache = out
+  return out
+end
+
 -- the lists of gear for one Adventure zone (bosses with loot, then other zone loot),
 -- for world drops (index 0): level bands, or for crafted gear (CRAFTED): one list per craft
 local function gearSections(zone)
   local out = {}
   if zone == CRAFTED then return craftedSections() end
-  if zone == 0 then
-    local bands = {}
-    for b in pairs(TCF.WORLD_POOL or {}) do bands[#bands + 1] = b end
-    table.sort(bands)
-    for _, b in ipairs(bands) do
-      local lo, hi = max(1, b * 5), b * 5 + 4
-      out[#out + 1] = { label = (lo >= 60 and "Level 60") or string.format("Levels %d-%d", lo, min(60, hi)), list = TCF.WORLD_POOL[b] }
-    end
-    return out
-  end
+  if zone == 0 then return worldSections() end
   local t = TCF.TIERS[zone]
   local loot = TCF.BOSS_LOOT[zone] or {}
   for bi, b in ipairs(t.bosses or {}) do

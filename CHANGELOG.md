@@ -24,6 +24,14 @@
 **Gear**
 - Hovering a piece of gear shows the item your cat is wearing in that slot right beside it, like WoW's own comparison, along with the Power change.
 
+**Loot**
+- New chest: the Raider's Hoard. It always holds gear: Epic boss loot from the raids your cat has reached (the first raid if it has reached none). Raid bosses in Adventure drop one about every 3 hours of fighting, the first clear of a raid zone gives one, real WoW raids give one (once a week each), and the Molten Core, Blackwing Lair and Naxxramas expeditions sometimes bring one home. It is never sold in the Shop, and the Treasure Bag has a new row for it.
+- Real Legendary gear can now drop, picked for your class: about 1 in 500 Heroic Caches and 1 in 100 Raider's Hoards hold one. Before, a Legendary roll gave a raid boss Epic.
+- The Cat Treat Pouch, the smallest chest, keeps its small chance of a Rare (blue) piece: about 1 in 12 pouches. It now gives one at every level. Before, at levels with no blue gear close by, it quietly gave a green instead.
+- Much more world gear for every class: about 750 white (Common) pieces with plain armor or damage, and about 1,600 Classic green items that drop with random bonuses such as "of the Monkey", "of the Bear" or "of the Owl" (about 4,900 versions in all).
+- Small finds: trash enemies in Adventure now and then drop a white or green piece for your level. They favour slots your cat has empty, then upgrades, so a new cat fills most of its slots in its first hour or so. Finds slow down as your slots fill and as your cat finds more, so chests and bosses stay the main source of good loot.
+- White gear is never in chests. Sell junk and the Gear page handle it like other gear.
+
 **Other fixes**
 - Prices and sources on item squares (Appearance tab and Compendium) are readable again: the text sat under the faded item picture.
 - Send feedback is in Settings (and /tcf feedback) instead of the top of the window.

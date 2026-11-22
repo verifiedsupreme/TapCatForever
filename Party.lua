@@ -110,7 +110,13 @@ end
 local function lookId(it)
   if type(it) ~= "table" or type(it.id) ~= "string" then return nil end
   local gid = it.gear and it.id:match("^gear:(%d+)$")
-  if gid then return "#" .. gid end
+  if gid then
+    -- a random-suffix item draws exactly like its base, so send the base: friends on an older
+    -- version know it, and the message stays short
+    local g = TCF.GEAR and TCF.GEAR[tonumber(gid)]
+    if g and g.base then gid = tostring(g.base) end
+    return "#" .. gid
+  end
   if it.id:find("^[%w_:]+$") then return it.id end
 end
 
@@ -156,6 +162,11 @@ local function parse(text)
       local gid = v:match("^#(%d+)$")
       if gid then
         gid = tonumber(gid)
+        -- a random-suffix item (id = SUFFIX_ID_BASE + base * 100 + suffix) this version doesn't
+        -- know: show its base item, which draws the same (Gear.lua tints and shapes suffix
+        -- items by their base). Current versions send the base already; this is a safety net.
+        local sb = TCF.SUFFIX_ID_BASE
+        if gid and TCF.GEAR and not TCF.GEAR[gid] and sb and gid > sb then gid = floor((gid - sb) / 100) end
         if GEAR_SLOT[slot] and TCF.GEAR and TCF.GEAR[gid] then eq[GEAR_SLOT[slot]] = gid end
       else
         local it = cos(v, slot)

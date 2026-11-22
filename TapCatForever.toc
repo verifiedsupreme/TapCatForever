@@ -15,6 +15,7 @@ ArtData.lua
 Core.lua
 Gear.lua
 GearData.lua
+WorldGearData.lua
 CraftData.lua
 Cat.lua
 VectorData.lua

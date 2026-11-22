@@ -68,6 +68,7 @@ function TCF:PlaySound(kind)
     level = { "UI_EPICLOOT_TOAST", "LEVELUPSOUND", "IG_QUEST_LIST_COMPLETE" },
     loot  = { "LOOTWINDOWCOINSOUND", "IG_BACKPACK_COIN_SELECT" },
     rare  = { "UI_EPICLOOT_TOAST", "IG_QUEST_LIST_COMPLETE" },
+    legendary = { "UI_LEGENDARY_LOOT_TOAST", "UI_EPICLOOT_TOAST", "IG_QUEST_LIST_COMPLETE" },
     click = { "IG_MAINMENU_OPTION_CHECKBOX_ON", "IG_CHARACTER_INFO_TAB" },
     ach   = { "ACHIEVEMENT_MENU_OPEN", "IG_QUEST_LIST_COMPLETE" },
     buy   = { "LOOTWINDOWCOINSOUND", "IG_BACKPACK_COIN_SELECT" },
@@ -93,7 +94,7 @@ local DEFAULTS = {
   stats = { chests = 0, drops = 0, frenzies = 0, pets = 0, peakTPS = 0, classesPlayed = {} },
   daily = { last = "", streak = 0, best = 0 },
   shop = { day = "", rerolls = 0, stock = {}, bought = {} },
-  keys = { pouch = 0, strong = 0, heroic = 0 },  -- free (unopened) chests
+  keys = { pouch = 0, strong = 0, heroic = 0, raid = 0 },  -- free (unopened) chests
   ui = {
     point = { "BOTTOM", "BOTTOM", 0, 160 },
     scale = 1.0, alpha = 1.0, textScale = 1.0, shown = true,
@@ -524,12 +525,32 @@ function TCF:GrantItem(it, reason, reveal, chestKey)
   return isNew, salvage
 end
 
+-- The gear quality a chest most often holds (same mapping as TCF:ChestOdds): it colours the
+-- chest's name in chat. Pouch and Strongbox: green, Heroic Cache: blue, Raider's Hoard: purple.
+function TCF.ChestQuality(ch)
+  if ch.raidLoot then return 4 end
+  local byQ, bestQ, bestW = {}, 2, -1
+  for r = 1, 5 do
+    local q = max(2, min(4, r))
+    byQ[q] = (byQ[q] or 0) + (ch.weights[r] or 0)
+  end
+  for q = 2, 4 do if (byQ[q] or 0) > bestW then bestQ, bestW = q, byQ[q] end end
+  return bestQ
+end
+
 -- Puts an unopened chest in the Treasure Bag.
 function TCF:AwardChest(key, source)
   local ch = TCF.CHEST_BY_KEY[key]
   self.db.keys[key] = (self.db.keys[key] or 0) + 1
-  self:Print(string.format("%s: you earned a |cff1eff00%s|r! Open it from your Treasure Bag.", source or "Reward", ch.name))
-  if self.cat and self.cat.Toast then self.cat:Toast("|T" .. TCF.Icon(ch.icon) .. ":18:18|t " .. ch.name .. "!", 0.2, 1, 0.2) end
+  local col = TCF.RARITY[TCF.ChestQuality(ch)]
+  local hex = ch.color or (col and col.hex) or "ff1eff00"
+  local art = ch.name:find("^[AEIOUaeiou]") and "an" or "a"
+  self:Print(string.format("%s: you earned %s |c%s%s|r. Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name))
+  if self.cat and self.cat.Toast then
+    local r, g, b = 0.2, 1, 0.2
+    if col and col.color then r, g, b = col.color[1], col.color[2], col.color[3] end
+    self.cat:Toast("|T" .. TCF.Icon(ch.icon) .. ":18:18|t " .. ch.name, r, g, b)
+  end
   self:PlaySound("loot")
   self:MarkDirty()
   self:RefreshAll()
@@ -600,10 +621,11 @@ function TCF:OpenChest(key, useKey)
   if useKey then
     if (self.db.keys[key] or 0) <= 0 then return end
     self.db.keys[key] = self.db.keys[key] - 1
-  elseif not self:SpendCoins(ch.cost) then
-    return
+  elseif not ch.cost or not self:SpendCoins(ch.cost) then
+    return   -- (a chest with no price, like the Raider's Hoard, is never sold)
   end
   self.db.stats.chests = self.db.stats.chests + 1
+  if ch.raidLoot then self.db.stats.hoards = (self.db.stats.hoards or 0) + 1 end
   self.skinChestKey = key   -- a skin found in this chest shows in the chest's loot box
   local ok, a, b, c = pcall(function()
     local a, b, c = self:OpenChestContents(ch, key)
@@ -619,15 +641,199 @@ function TCF:OpenChest(key, useKey)
   return a, b, c
 end
 
+---------------------------------------------------------------- chest gear
+-- Real legendaries (q == 5), from the loot pools so Blizzard's placeholder copies (Gear.lua
+-- keeps them out of every pool) and crafted gear never show up.
+local legendaries
+function TCF:Legendaries()
+  if not legendaries then
+    legendaries = {}
+    local seen = {}
+    local function scan(list)
+      for _, it in ipairs(list or {}) do
+        if it.q == 5 and not it.crafted and not it.retired and not seen[it] then seen[it] = true; legendaries[#legendaries + 1] = it end
+      end
+    end
+    for _, list in pairs(TCF.WORLD_POOL or {}) do scan(list) end
+    for _, list in pairs(TCF.TIER_POOL or {}) do scan(list) end
+    for _, bosses in pairs(TCF.BOSS_LOOT or {}) do for _, list in pairs(bosses) do scan(list) end end
+    table.sort(legendaries, function(a, b) return a.id < b.id end)
+  end
+  return legendaries
+end
+
+-- The legendaries a class can use: the ones made for it (Atiesh for a Mage) when there are
+-- any, otherwise every one it can wield.
+function TCF:LegendariesFor(class)
+  class = class or self.db.class
+  local suits, usable = {}, {}
+  for _, it in ipairs(self:Legendaries()) do
+    if self:GearUsable(it, class) then
+      usable[#usable + 1] = it
+      if self:GearSuits(it, class) then suits[#suits + 1] = it end
+    end
+  end
+  return #suits > 0 and suits or usable
+end
+
+function TCF:RollLegendary(class)
+  local pool = self:LegendariesFor(class)
+  if #pool > 0 then return pool[random(#pool)] end
+end
+
+-- Adventure tier numbers of the raids a class's cat has reached (its current zone or any zone
+-- up to its best stage). all = every raid. A cat that hasn't reached one gets the first raid.
+function TCF:RaidTiers(class, all)
+  local cd = self.db.classData[class or self.db.class]
+  local adv = cd and cd.adv
+  local upTo = adv and max(floor((adv.best or 0) / 100), adv.tier or 0) or 0
+  local list, first = {}, nil
+  for ti, t in ipairs(TCF.TIERS or {}) do
+    if t.raid then
+      first = first or ti
+      if all or ti <= upTo then list[#list + 1] = ti end
+    end
+  end
+  if #list == 0 and first then list[1] = first end
+  return list
+end
+
+-- Epic boss loot from one raid that the class can use. own = only gear made for the class.
+local function raidEpics(self, ti, class, own)
+  local out = {}
+  for _, list in pairs(TCF.BOSS_LOOT[ti] or {}) do
+    for _, it in ipairs(list) do
+      if it.q == 4 and not it.crafted and (own and self:GearSuits(it, class) or not own and self:GearUsable(it, class)) then
+        out[#out + 1] = it
+      end
+    end
+  end
+  return out
+end
+
+-- Every epic a Raider's Hoard could hold for this class right now (the chest reel shows these).
+-- all = from every raid instead (a Legendary rarity roll in other chests).
+function TCF:RaidHoardPool(class, all)
+  class = class or self.db.class
+  local out = {}
+  for _, ti in ipairs(self:RaidTiers(class, all)) do
+    for _, it in ipairs(raidEpics(self, ti, class, false)) do out[#out + 1] = it end
+  end
+  return out
+end
+
+-- An epic from a raid boss: a random raid of the list (default: the raids the cat has reached),
+-- then a random epic of its bosses, made for the class 80% of the time like boss loot.
+function TCF:RollRaidEpic(class, raids)
+  class = class or self.db.class
+  raids = raids or self:RaidTiers(class)
+  if #raids == 0 then return nil end
+  for _ = 1, 6 do
+    local ti = raids[random(#raids)]
+    local own = random() < 0.8
+    local cands = raidEpics(self, ti, class, own)
+    if #cands == 0 and own then cands = raidEpics(self, ti, class, false) end
+    if #cands > 0 then return cands[random(#cands)] end
+  end
+  -- unlucky picks (a raid with nothing for this class): any epic from any of the raids
+  local cands = {}
+  for _, ti in ipairs(raids) do
+    for _, it in ipairs(raidEpics(self, ti, class, false)) do cands[#cands + 1] = it end
+  end
+  if #cands > 0 then return cands[random(#cands)] end
+end
+
+-- World gear of quality q near the level. RollWorldLoot quietly drops a quality when nothing
+-- of it is near the level (there is no blue in the level-9 window, for example), so look a few
+-- levels higher before settling for less.
+local function worldGearOfQuality(self, level, q)
+  local w = { q == 2 and 1 or 0, q == 3 and 1 or 0, q == 4 and 1 or 0 }
+  local fallback
+  for _, up in ipairs({ 0, 3, 6, 10 }) do
+    local g = self:RollWorldLoot(level + up, nil, w)
+    if g and g.q == q then return g end
+    fallback = fallback or g
+    if level + up >= 60 then break end
+  end
+  return fallback
+end
+
+-- Gear for a chest's rarity roll: Uncommon to Epic near the cat's level (half the time boss loot
+-- from zones it has cleared), or a raid boss Epic for a Legendary roll.
+function TCF:ChestGear(ch, rarity)
+  local class = self.db.class
+  if ch.raidLoot then return self:RollRaidEpic(class) end
+  if rarity >= 5 then return self:RollRaidEpic(class, self:RaidTiers(class, true)) end
+  local q = max(2, min(4, rarity))
+  local gear
+  -- half the time: real boss loot from a zone this class has cleared
+  local adv = self:CD().adv
+  local bestTier = floor(adv.best / 100)
+  if bestTier >= 1 and random() < 0.5 then
+    for _ = 1, 6 do
+      local ti = random(max(1, bestTier - 3), bestTier)
+      local t = TCF.TIERS[ti]
+      local it = t and self:RollBossLoot(ti, random(#t.bosses))
+      if it and it.q == q then gear = it; break end
+    end
+  end
+  return gear or worldGearOfQuality(self, self:CD().level, q)
+end
+
+-- Odds of what a chest holds, per opening, in the order they are listed in tooltips:
+-- { { label, percent, hex colour }, ... }. Same rules as TCF:OpenChestContents.
+function TCF:ChestOdds(ch)
+  local out = {}
+  local skin = (ch.key == "heroic" and #self:UnownedShopSkins() > 0) and TCF.CHEST_SKIN_CHANCE or 0
+  local rest = 1 - skin
+  local legend = rest * (ch.legendary or 0)
+  rest = rest - legend
+  local gearShare = ch.gearOnly and 1 or TCF.CHEST_GEAR_CHANCE
+  local total = 0
+  for r = 1, 5 do total = total + (ch.weights[r] or 0) end
+  local byQ = {}
+  for r = 1, 5 do
+    local q = ch.raidLoot and 4 or max(2, min(4, r))
+    byQ[q] = (byQ[q] or 0) + (ch.weights[r] or 0) / total
+  end
+  for q = 2, 4 do
+    if (byQ[q] or 0) > 0 then
+      local col = TCF.RARITY[q]
+      out[#out + 1] = { col.name .. " gear", rest * gearShare * byQ[q] * 100, col.hex }
+    end
+  end
+  if legend > 0 then out[#out + 1] = { "Legendary gear", legend * 100, TCF.RARITY[5].hex } end
+  if gearShare < 1 then out[#out + 1] = { "Cosmetic", rest * (1 - gearShare) * 100, "ffd28cff" } end
+  if skin > 0 then out[#out + 1] = { "Cat skin from the shop", skin * 100, "ffffd100" } end
+  return out
+end
+
+-- "81%", "8.1%", "0.2%"
+function TCF.OddsText(pct)
+  if pct >= 10 then return string.format("%d%%", floor(pct + 0.5)) end
+  local s = string.format("%.1f", pct):gsub("%.0$", "")
+  return s .. "%"
+end
+
+-- a Heroic Cache holds a cat skin from the shop you don't own yet this often
+TCF.CHEST_SKIN_CHANCE = 0.03
+
+-- shop skins this player does not own yet (what a Heroic Cache can give). ChestOdds and
+-- OpenChestContents both use it, so the odds shown and the real roll always agree.
+function TCF:UnownedShopSkins()
+  local pool, owned = {}, (self.db and self.db.owned) or {}
+  for _, it in ipairs(TCF.ITEM_LIST) do
+    if it.slot == "skin" and it.skinPrice and not owned[it.id] then pool[#pool + 1] = it end
+  end
+  return pool
+end
+
 -- What is inside a chest (the chest is already paid for).
 function TCF:OpenChestContents(ch, key)
   self.lastChest = nil
   local rarity = self:RollRarity(ch.weights)
-  if key == "heroic" and random() < 0.03 then
-    local pool = {}
-    for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.slot == "skin" and it.skinPrice and not self.db.owned[it.id] then pool[#pool + 1] = it end
-    end
+  if key == "heroic" and random() < TCF.CHEST_SKIN_CHANCE then
+    local pool = self:UnownedShopSkins()
     if #pool > 0 then
       local it = pool[random(#pool)]
       self:GrantSkin(it.id, "Found in a " .. ch.name, true)
@@ -635,37 +841,25 @@ function TCF:OpenChestContents(ch, key)
       return it, true
     end
   end
-  -- 90%: real gear for your current class and level; 10%: a cosmetic
-  if self.RollWorldLoot and random() < TCF.CHEST_GEAR_CHANCE then
-    local level = self:CD().level
-    local gear
-    if rarity >= 5 then
-      -- legendary roll: a raid boss item
-      local raids = {}
-      for i, t in ipairs(TCF.TIERS) do if t.raid then raids[#raids + 1] = i end end
-      local ti = raids[random(#raids)]
-      gear = self:RollBossLoot(ti, random(#TCF.TIERS[ti].bosses))
-    else
-      local q = max(2, min(4, rarity))
-      -- half the time: real boss loot from a zone this class has cleared
-      local adv = self:CD().adv
-      local bestTier = floor(adv.best / 100)
-      if bestTier >= 1 and random() < 0.5 then
-        for _ = 1, 6 do
-          local ti = random(max(1, bestTier - 3), bestTier)
-          local t = TCF.TIERS[ti]
-          local it = t and self:RollBossLoot(ti, random(#t.bosses))
-          if it and it.q == q then gear = it; break end
-        end
-      end
-      gear = gear or self:RollWorldLoot(level, nil, { q == 2 and 1 or 0, q == 3 and 1 or 0, q == 4 and 1 or 0 })
+  local gear
+  if self.RollWorldLoot then
+    -- a real Legendary: about 1 in 500 Heroic Caches and 1 in 100 Raider's Hoards. A class
+    -- that can use none of them gets the raid boss Epic instead.
+    if (ch.legendary or 0) > 0 and random() < ch.legendary then
+      gear = self:RollLegendary()
+      if not gear then rarity = 5 end
     end
-    if gear then
-      local isNew = self:GrantGear(gear, ch.name, true, key)
-      self.lastChest = { gear = gear, isNew = isNew }
-      return gear, isNew
+    -- 90%: real gear for your current class and level; 10%: a cosmetic (gearOnly: always gear)
+    if not gear and (ch.gearOnly or random() < TCF.CHEST_GEAR_CHANCE) then
+      gear = self:ChestGear(ch, rarity)
     end
   end
+  if gear then
+    local isNew = self:GrantGear(gear, ch.name, true, key)
+    self.lastChest = { gear = gear, isNew = isNew }
+    return gear, isNew
+  end
+  -- a gear-only chest with nothing to give (should not happen): a cosmetic of its best rarity
   local it = self:RollItem(rarity, true)
   local isNew, salvage = self:GrantItem(it, ch.name, true, key)
   self.lastChest = { item = it, isNew = isNew, salvage = salvage }

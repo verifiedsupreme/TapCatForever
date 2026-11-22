@@ -72,3 +72,7 @@
 71: fish m=green
 72: club m=purple
 73: hammer m=steel t=sky g=dark glow=frost
+# sheet w_mace loot batch 4 (1.5.1 world gear): Last Month's Mutton, Last Year's Mutton: a roast leg of mutton used as a club
+# food_18: a roasted drumstick, glossy orange-brown meat on a short cream bone with a knobbly end;
+# drawn as a club: m = the meat, g = the bone handle. drumstick describes the icon for a later drawer.
+74: club drumstick m=#d77a2c g=bone

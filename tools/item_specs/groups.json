@@ -2,7 +2,26 @@
 "back": [
 "inv_misc_cape_02",
 "inv_misc_cape_07",
-"inv_misc_cape_10"
+"inv_misc_cape_10",
+"inv_misc_pelt_bear_02",
+"inv_misc_pelt_bear_ruin_03",
+"inv_misc_cape_01",
+"inv_misc_cape_03",
+"inv_misc_cape_05",
+"inv_misc_cape_06",
+"inv_misc_cape_08",
+"inv_misc_cape_09",
+"inv_misc_cape_12",
+"inv_misc_cape_13",
+"inv_misc_cape_14",
+"inv_misc_cape_15",
+"inv_misc_cape_16",
+"inv_misc_cape_17",
+"inv_misc_cape_18",
+"inv_misc_cape_19",
+"inv_misc_cape_20",
+"inv_misc_cape_22",
+"inv_helmet_48"
 ],
 "belt": [
 "inv_belt_01",
@@ -151,7 +170,11 @@
 "inv_shirt_16",
 "inv_shirt_17",
 "inv_shirt_black_01",
-"inv_shirt_green_01"
+"inv_shirt_green_01",
+"inv_chest_cloth_33",
+"inv_chest_cloth_34",
+"inv_chest_cloth_41",
+"inv_shirt_red_01"
 ],
 "head": [
 "ability_ambush",
@@ -547,6 +570,26 @@
 "inv_weapon_halberd_11",
 "inv_weapon_shortblade_13"
 ],
+"w_bow": [
+"inv_weapon_bow_01",
+"inv_weapon_bow_02",
+"inv_weapon_bow_05",
+"inv_weapon_bow_06",
+"inv_weapon_bow_07",
+"inv_weapon_bow_08",
+"inv_weapon_bow_10",
+"inv_weapon_bow_11",
+"inv_weapon_bow_12",
+"inv_weapon_crossbow_02",
+"inv_weapon_crossbow_03",
+"inv_weapon_rifle_01",
+"inv_weapon_rifle_02",
+"inv_weapon_rifle_03",
+"inv_weapon_rifle_04",
+"inv_weapon_rifle_05",
+"inv_weapon_rifle_06",
+"inv_weapon_rifle_07"
+],
 "w_dagger": [
 "inv_drink_10",
 "inv_knife_1h_stratholme_d_01",
@@ -603,7 +646,8 @@
 "inv_misc_monsterclaw_04",
 "inv_weapon_hand_01",
 "inv_weapon_hand_03",
-"spell_nature_stoneclawtotem"
+"spell_nature_stoneclawtotem",
+"inv_gauntlets_07"
 ],
 "w_mace": [
 "inv_drink_04",
@@ -679,7 +723,8 @@
 "inv_torch_unlit",
 "inv_waepon_bow_zulgrub_d_01",
 "inv_wand_10",
-"spell_frost_frostbrand"
+"spell_frost_frostbrand",
+"inv_misc_food_18"
 ],
 "w_polearm": [
 "inv_spear_01",

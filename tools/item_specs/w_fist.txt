@@ -9,3 +9,10 @@
 8: claw m=dark t=forest e=red
 9: claw m=sky t=teal glow=frost
 10: claw m=tan t=orange glow=fire
+# sheet w_fist loot batch 4 (1.5.1 world gear): (Right-Handed / Left-Handed Claw and Blades, plus Elven Spirit Claws, Dog Training Gloves and
+# Cenarion Gloves, which share this icon)
+# gauntlets_07: brown fur glove with three long steel claws over the fingers, a silver crescent-moon
+# emblem on the back of the hand and a purple cuff; claw = the blades, t = the fur glove band,
+# e = the silver emblem (drawn as the centre stone). g=purple (cuff) and fur describe the icon for a
+# richer drawer later; draw_fist ignores them today.
+11: claw fur m=steel t=#8a6a48 e=silver g=purple

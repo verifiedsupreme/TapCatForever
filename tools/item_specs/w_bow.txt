@@ -1,0 +1,36 @@
+# ranged weapons (Ranged slot; a hunter's bow, crossbow or gun is drawn in the right paw).
+# Every spec names its family (bow: or rifle:). None of these go into two_handed.json.
+# bow: m = limb, t = grip wrap, g = string, e = accent, glow = magic glow.
+#   Variants: horn, recurve, long, spiked, wrapped, disc; crossbow (t = stock, e = bolt tip; flag bolt).
+# rifle: m = barrel, t = wooden stock, g = metal fittings (trigger guard, bands, sight, scope),
+#   e = accent (muzzle ring, scope lens). Variants: bell (flared blunderbuss mouth), scope; flags bands, sight.
+# sheet w_bow loot batch 2 (1.5.1 world gear: bows)
+0: bow:horn fur m=#b89aa8 t=purple e=white g=cream
+1: bow:recurve m=#c8702e t=#8a9a2a g=bone
+2: bow:long m=#b07a3e t=#c2b04a g=#b8c860
+3: bow:spiked m=gold t=#a8b83a g=bone
+4: bow:recurve m=#d07a2a t=teal e=cream g=bone
+5: bow:spiked m=bone t=#c8b060 g=#d8e870 glow=#c8e050
+6: bow:wrapped ribbons m=red t=iron e=crimson g=teal
+7: bow:disc m=orange t=gold e=magenta g=yellow
+8: bow:wrapped m=#a0683a t=tan g=bone
+# sheet w_bow loot batch 3 (1.5.1 world gear: crossbows and guns)
+# crossbow_02: honey-gold wooden limb across a tan stock, steel-tipped bolt
+9: bow:crossbow bolt m=#d9a24a t=tan g=cream e=steel
+# crossbow_03: red-brown lacquered limb, darker brown stock, steel-tipped bolt
+10: bow:crossbow bolt m=#b4542c t=#7a3f22 g=cream e=steel
+# rifle_01: plain steel barrel with a flared muzzle, orange-brown wooden stock, iron trigger guard
+11: rifle:bell m=steel t=#b8743a g=iron
+# rifle_02: brass flared barrel with a teal muzzle ring, red stock, gold fittings and a front sight
+12: rifle:bell sight m=brass t=red g=gold e=teal
+# rifle_03: gold flared barrel with gold bands, crimson stock
+13: rifle:bell bands m=gold t=crimson g=gold
+# rifle_04: bone-white flared barrel with a mossy green mouth, brown stock, bone fittings, tall sight
+14: rifle:bell sight m=bone t=brown g=bone e=#7aa83a
+# rifle_05: gold barrel with a gold scope (cyan lens), orange-brown stock
+15: rifle:scope m=gold t=#b8743a g=gold e=cyan
+# rifle_06: silver barrel with a gold scope (cyan lens), orange stock
+16: rifle:scope m=silver t=#c8803a g=gold e=cyan
+# rifle_07: silver flared barrel with bone bands, tan-orange stock
+17: rifle:bell bands m=silver t=#c8843e g=bone
+

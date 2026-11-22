@@ -954,7 +954,10 @@ function TCF:CreateWindow()
   end
   local chestTitle = Text(sh, "GameFontNormalLarge", "Treasure Chests"); chestTitle:SetPoint("TOPLEFT", 16, -176)
   local chestCards = {}
-  for i, ch in ipairs(TCF.CHESTS) do
+  -- chests you can buy (the Raider's Hoard has no price: it only comes from raids)
+  local shopChests = {}
+  for _, ch in ipairs(TCF.CHESTS) do if ch.cost then shopChests[#shopChests + 1] = ch end end
+  for i, ch in ipairs(shopChests) do
     local c = Panel(sh, 160, 118, 0.9)
     c:SetPoint("TOPLEFT", 14 + (i - 1) * 166, -200)
     local ic = c:CreateTexture(nil, "ARTWORK"); ic:SetSize(40, 40); ic:SetPoint("TOPLEFT", 10, -10)
@@ -967,28 +970,16 @@ function TCF:CreateWindow()
     c.key:SetPoint("BOTTOMRIGHT", -8, 8)
     Tip(c.key, function(tt)
       tt:AddLine("Your unopened chests (Treasure Bag)", 1, 0.82, 0)
-      tt:AddLine("Cat Treat Pouch: each daily quest.", 1, 1, 1, true)
-      tt:AddLine("Adventurer's Strongbox: weekly quest, finishing a dungeon, every 5 class levels.", 1, 1, 1, true)
-      tt:AddLine("Heroic Cache: finishing a raid, every 20 class levels.", 1, 1, 1, true)
+      for _, line in ipairs(TCF.CHEST_SOURCES) do tt:AddLine(line, 1, 1, 1, true) end
     end)
-    Tip(c, function(tt)
-      tt:AddLine(ch.name, 1, 0.82, 0)
-      local names = {}
-      for r = 1, 5 do
-        if ch.weights[r] > 0 then
-          local col = TCF.RARITY[r]
-          tt:AddDoubleLine("|c" .. col.hex .. col.name .. "|r", ch.weights[r] .. "%", 1, 1, 1, 1, 1, 1)
-        end
-      end
-      tt:AddLine("Duplicates are salvaged into TapCoins.", 0.7, 0.7, 0.7, true)
-    end)
+    Tip(c, function(tt) TCF:ChestOddsTooltip(tt, ch, true) end)
     c.chest = ch
     chestCards[i] = c
   end
   local gearPct = floor((TCF.CHEST_GEAR_CHANCE or 0.9) * 100 + 0.5)  -- same odds as TCF:OpenChest
   local dungeonText = Text(sh, "GameFontHighlightSmall", nil, "LEFT"); dungeonText:SetPoint("TOPLEFT", 16, -326); dungeonText:SetWidth(520)
   -- kept to about five lines so it clears the heritage panel below
-  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Quests, levels, zone clears and expeditions give chests too. Chests hold gear (" .. gearPct .. "%) or a cosmetic (" .. (100 - gearPct) .. "%).")
+  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Quests, levels, zone clears and expeditions give chests too. Chests hold gear (" .. gearPct .. "%) or a cosmetic (" .. (100 - gearPct) .. "%); a Raider's Hoard only gear.")
   -- racial heritage offer for the current character's race
   local her = Panel(sh, 528, 58, 0.9); her:SetPoint("TOPLEFT", 14, -384)
   her.cell = ItemCell(her, 46); her.cell:SetPoint("LEFT", 6, 0)
@@ -1194,7 +1185,7 @@ function TCF:CreateWindow()
   fbB:SetPoint("LEFT", welB, "RIGHT", 8, 0)
   Tip(fbB, function(tt)
     tt:AddLine("Send feedback", 1, 0.82, 0)
-    tt:AddLine("Report a bug or suggest an idea. Shows a link you can copy into your browser.", 1, 1, 1, true)
+    tt:AddLine("Report a bug or suggest an idea. Shows links you can copy into your browser.", 1, 1, 1, true)
   end)
   local function ConfirmReset(which, text)
     StaticPopupDialogs.TAPCATFOREVER_RESET = {
@@ -1420,6 +1411,13 @@ function TCF:CreateLootReveal()
   local stage = CreateFrame("Frame", nil, f); stage:SetSize(120, 120); stage:SetPoint("TOP", 0, -48)
   f.rays = stage:CreateTexture(nil, "BACKGROUND"); f.rays:SetSize(190, 190); f.rays:SetPoint("CENTER")
   f.rays:SetTexture(ART .. "fx_rays"); f.rays:SetBlendMode("ADD")
+  -- Legendary gear: a second, gold ray layer turning the other way and a soft pulsing glow
+  f.legendRays = stage:CreateTexture(nil, "BACKGROUND", nil, 1); f.legendRays:SetSize(230, 230); f.legendRays:SetPoint("CENTER")
+  f.legendRays:SetTexture(ART .. "fx_rays"); f.legendRays:SetBlendMode("ADD"); f.legendRays:SetVertexColor(1, 0.75, 0.2)
+  f.legendRays:Hide()
+  f.legendGlow = stage:CreateTexture(nil, "BORDER"); f.legendGlow:SetSize(150, 150); f.legendGlow:SetPoint("CENTER")
+  f.legendGlow:SetTexture("Interface\\Buttons\\CheckButtonHilight"); f.legendGlow:SetBlendMode("ADD"); f.legendGlow:SetVertexColor(1, 0.5, 0)
+  f.legendGlow:Hide()
   f.box = CreateFrame("Frame", nil, stage, BT); f.box:SetSize(104, 104); f.box:SetPoint("CENTER")
   if f.box.SetBackdrop then f.box:SetBackdrop(BACKDROP_PANEL); f.box:SetBackdropColor(0.04, 0.04, 0.07, 1) end
   f.pic = ItemPicture(f.box, 94); f.pic:SetPoint("CENTER")
@@ -1495,6 +1493,12 @@ function TCF:CreateLootReveal()
   f:SetScript("OnUpdate", function(_, e)
     t = t + e
     f.rays:SetRotation(t * 0.6)
+    if f.legendary then
+      f.legendRays:SetRotation(-t * 0.35)
+      local pulse = 0.5 + 0.5 * math.sin(t * 3)
+      f.legendRays:SetAlpha(0.45 + 0.35 * pulse)
+      f.legendGlow:SetAlpha(0.35 + 0.45 * pulse)
+    end
     local pop = math.min(1, (f.age or 1) / 0.25)
     f.age = (f.age or 0) + e
     f.box:SetScale(0.6 + 0.4 * pop)
@@ -1505,6 +1509,7 @@ function TCF:CreateLootReveal()
     self.item, self.chestKey, self.isGear = it, chestKey, isGear
     if isGear then self:ShowGear(it, isNew, title, chestKey); self:UpdateQueue(); return end
     self.pic:Show(); self.gearIcon:Hide()
+    self:SetLegendary(false)
     local col = TCF.RARITY[it.rarity].color
     self.title:SetText(title or "Loot!")
     self.rays:SetVertexColor(col[1], col[2], col[3]); self.rays:SetAlpha(it.rarity >= 3 and 0.9 or 0.45)
@@ -1528,8 +1533,16 @@ function TCF:CreateLootReveal()
     if it.rarity >= 4 then TCF:PlaySound("rare") end
   end
 
+  -- the little celebration for real Legendary gear
+  function f:SetLegendary(on)
+    self.legendary = on
+    self.legendRays:SetShown(on)
+    self.legendGlow:SetShown(on)
+  end
+
   function f:ShowGear(it, isNew, title, chestKey)
     local col = TCF.RARITY[it.q].color
+    self:SetLegendary(it.q >= 5)
     self.title:SetText(title or "Loot!")
     self.rays:SetVertexColor(col[1], col[2], col[3]); self.rays:SetAlpha(it.q >= 3 and 0.9 or 0.45)
     if self.box.SetBackdropBorderColor then self.box:SetBackdropBorderColor(col[1], col[2], col[3], 1) end
@@ -1543,6 +1556,7 @@ function TCF:CreateLootReveal()
     elseif d and d < 0 then status = status .. "  |cffff4040" .. d .. " Power if worn|r"
     elseif d then status = status .. "  |cffaaaaaaSame Power as what you wear|r" end
     if not TCF:GearUsable(it, TCF.db.class) then status = status .. "\n|cffff8040Your current class can't use it.|r" end
+    if it.q >= 5 then status = "|cffff8000A real Legendary. Very few cats ever find one.|r\n" .. status end
     self.status:SetText(status)
     local canEquip = TCF:CanEquipGear(it, TCF.db.class)
     self.equip:SetShown(canEquip and true or false)
@@ -1551,7 +1565,7 @@ function TCF:CreateLootReveal()
     self.again:SetText("Open another (" .. left .. ")")
     self.age = 0
     self:Show()
-    if it.q >= 4 then TCF:PlaySound("rare") end
+    if it.q >= 5 then TCF:PlaySound("legendary") elseif it.q >= 4 then TCF:PlaySound("rare") end
   end
 
   function f:Next(skipQueue)
@@ -1578,9 +1592,42 @@ function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
 end
 
 ---------------------------------------------------------------- Treasure Bag (unopened chests)
+-- Where each chest comes from (one short line in the Treasure Bag; the Shop's Bag tooltip
+-- lists CHEST_SOURCES).
+TCF.CHEST_BAG_TEXT = {
+  pouch = "Daily quests, dungeons below 20", strong = "Dungeons 20+, weekly quest, levels",
+  heroic = "Every 20 levels, expeditions, dungeons", raid = "Adventure raids, real raids",
+}
+TCF.CHEST_SOURCES = {
+  "Cat Treat Pouch: each daily quest, Adventure bosses, dungeons below level 20.",
+  "Adventurer's Strongbox: weekly quest, finishing a dungeon, every 5 class levels, first zone clears in Adventure.",
+  "Heroic Cache: every 20 class levels, raid expeditions, sometimes a dungeon from level 20.",
+  "Raider's Hoard: raid bosses and first raid clears in Adventure, finishing a real raid, raid expeditions. Never sold.",
+}
+
+-- A chest's odds per opening (TCF:ChestOdds), for the Shop and Treasure Bag tooltips.
+function TCF:ChestOddsTooltip(tt, ch, shop)
+  tt:AddLine(ch.name, 1, 0.82, 0)
+  for _, o in ipairs(self:ChestOdds(ch)) do
+    tt:AddDoubleLine("|c" .. o[3] .. o[1] .. "|r", TCF.OddsText(o[2]), 1, 1, 1, 1, 1, 1)
+  end
+  if ch.raidLoot then
+    local first
+    for _, t in ipairs(TCF.TIERS or {}) do if t.raid then first = t.name; break end end
+    tt:AddLine("Epic loot from the bosses of the raids your cat has reached in Adventure" .. (first and (" (" .. first .. " until it reaches one)") or "") .. ".", 0.8, 0.8, 0.8, true)
+  else
+    tt:AddLine("Gear is for your cat's class and level.", 0.8, 0.8, 0.8, true)
+  end
+  if (ch.legendary or 0) > 0 then
+    tt:AddLine("Legendary: a real Legendary item your class can use.", 0.8, 0.8, 0.8, true)
+  end
+  if shop and not ch.gearOnly then tt:AddLine("Duplicate cosmetics are salvaged into TapCoins.", 0.7, 0.7, 0.7, true) end
+end
+
 function TCF:CreateBag()
   local f = CreateFrame("Frame", "TapCatForeverBag", UIParent, BT)
-  f:SetSize(400, 290); f:SetPoint("CENTER", 310, 0)
+  -- tall enough for one row per kind of chest (4: Pouch, Strongbox, Heroic Cache, Raider's Hoard)
+  f:SetSize(400, 106 + 62 * #TCF.CHESTS); f:SetPoint("CENTER", 310, 0)
   f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
   f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -1600,19 +1647,11 @@ function TCF:CreateBag()
     local n = Text(r, "GameFontNormal", ch.name, "LEFT"); n:SetPoint("TOPLEFT", ic, "TOPRIGHT", 8, -2); n:SetWidth(192)
     local d = Text(r, "GameFontDisableSmall", nil, "LEFT"); d:SetPoint("BOTTOMLEFT", ic, "BOTTOMRIGHT", 8, 2); d:SetWidth(192)
     if n.SetWordWrap then n:SetWordWrap(false); d:SetWordWrap(false) end
-    d:SetText(({ pouch = "Daily quests, dungeons below 20", strong = "Dungeons 20+, weekly quest, levels", heroic = "Raids, zone clears, 20 levels" })[ch.key])
+    d:SetText(TCF.CHEST_BAG_TEXT[ch.key] or "")
     r.all = Button(r, "All", 40, 22, function() TCF:OpenAllChests(ch.key) end); r.all:SetPoint("RIGHT", -8, 0)
-    Tip(r.all, function(tt) tt:AddLine("Open all " .. ch.name .. "s", 1, 0.82, 0) end)
+    Tip(r.all, function(tt) tt:AddLine("Open all " .. (ch.plural or ch.name .. "s"), 1, 0.82, 0) end)
     r.open = Button(r, "Open", 52, 22, function() TCF:OpenChest(ch.key, true) end); r.open:SetPoint("RIGHT", r.all, "LEFT", -4, 0)
-    Tip(r, function(tt)
-      tt:AddLine(ch.name, 1, 0.82, 0)
-      for rr = 1, 5 do
-        if ch.weights[rr] > 0 then
-          local col = TCF.RARITY[rr]
-          tt:AddDoubleLine("|c" .. col.hex .. col.name .. "|r", ch.weights[rr] .. "%", 1, 1, 1, 1, 1, 1)
-        end
-      end
-    end)
+    Tip(r, function(tt) TCF:ChestOddsTooltip(tt, ch) end)
     r.chest = ch
     f.rows[i] = r
   end
@@ -1645,10 +1684,13 @@ end
 -- chests in one click that freezes the client, so those are muted for the batch and done once after.
 function TCF:OpenAllChests(key)
   local refreshAll, playSound, print = self.RefreshAll, self.PlaySound, self.Print
-  local opened, lines, rare = 0, {}, false
+  local opened, lines, best = 0, {}, nil
+  local RANK = { loot = 1, rare = 2, legendary = 3 }
   self.RefreshAll = function() end
-  -- muted for the batch, but remember if any drop asked for the rare sound
-  self.PlaySound = function(_, kind) if kind == "rare" then rare = true end end
+  -- muted for the batch, but remember the best loot sound any drop asked for
+  self.PlaySound = function(_, kind)
+    if RANK[kind] and (not best or RANK[kind] > RANK[best]) then best = kind end
+  end
   self.Print = function(s, msg, force)
     if force then return print(s, msg, force) end
     lines[#lines + 1] = msg
@@ -1673,7 +1715,7 @@ function TCF:OpenAllChests(key)
   else
     self:Print(string.format("Opened %d chests. Everything is already yours; the loot window lists it all.", opened), true)
   end
-  self:PlaySound(rare and "rare" or "loot")
+  self:PlaySound((best == "legendary" or best == "rare") and best or "loot")
   self:RefreshAll()
 end
 

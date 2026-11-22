@@ -298,7 +298,12 @@ end
 
 -- Show the real weapon/shield models equipped on this class in the 3D cat's paws.
 function Cat:UpdateHeld(look)
-  local function gearId(it) return it and it.gear and tonumber((it.id or ""):match("^gear:(%d+)$")) end
+  -- a random-suffix item has a made-up id: show its base item's real model (TCF.GearModelId)
+  local function gearId(it)
+    local id = it and it.gear and tonumber((it.id or ""):match("^gear:(%d+)$"))
+    if id and TCF.GearModelId then id = TCF.GearModelId(id) end
+    return id
+  end
   local ids = { R = gearId(look.main), L = gearId(look.off) }
   for side, m in pairs(self.held) do
     local id = TCF.db.ui.show3dWeapons ~= false and ids[side]

@@ -16,6 +16,8 @@ local function isPlaceholder(name, ilvl)
   return ilvl == 0 or name:sub(1, 2) == "zz" or name:find("OLD", 1, true) or name:find("(Extra Effects)", 1, true)
     or name:sub(1, 6) == "Bland "
 end
+-- Items in the Classic id range that really come from a later expansion: known, never dropped.
+local NOT_CLASSIC = { [22736] = true }   -- Andonisus, Reaper of Souls (Burning Crusade, item level 100)
 
 -- Called once per item by GearData.lua (and by CraftData.lua for crafted items that only
 -- exist there: crafted = "blacksmithing" / "leatherworking" / "tailoring").
@@ -30,7 +32,9 @@ function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss,
   TCF.GEAR[id] = it
   TCF.GEAR_LIST[#TCF.GEAR_LIST + 1] = it
   if crafted then it.crafted, it.tier, it.boss, it.dc = crafted, 0, 0, 0; return end
-  if isPlaceholder(name, ilvl) then return end
+  -- placeholders and later-expansion items are marked retired too, so code that scans
+  -- TCF.GEAR_LIST with a "not it.retired" filter skips them as well
+  if isPlaceholder(name, ilvl) or NOT_CLASSIC[id] then it.retired = true; return end
   if tier > 0 then
     if boss > 0 then
       TCF.BOSS_LOOT[tier] = TCF.BOSS_LOOT[tier] or {}
@@ -63,6 +67,57 @@ function TCF.MarkCrafted(id, craft)
   end
   it.crafted, it.tier, it.boss, it.dc = craft, 0, 0, 0
   return it
+end
+
+-- WorldGearData.lua: random-suffix greens ("Bandit Cinch of the Monkey"). Each one is a gear
+-- item of its own with id SUFFIX_ID_BASE + baseId * 100 + suffix number (tools/make_world_gear.py
+-- documents the scheme; real item ids are all below 100000). It copies the base item (name,
+-- icon, levels, slot, type, armor or damage, loot source) and adds the suffix's stats. The bare
+-- base stays known, so saves that have it still show it, but it never drops again.
+-- Called as S(baseId, k1, "stats", k2, "stats", ...).
+TCF.SUFFIX_ID_BASE = 10000000
+function TCF.AddSuffixGear(baseId, ...)
+  local b = TCF.GEAR[baseId]
+  if not b or b.crafted then return end
+  local n = select("#", ...) / 2
+  b.retired = true   -- leaves the loot pools in TCF.DropRetiredGear (one pass, end of WorldGearData.lua)
+  local names = TCF.GEAR_SUFFIXES or {}
+  -- the base's real drop chance is shared by its versions, so a boss doesn't drop it more often
+  local dc = n > 0 and floor((b.dc or 0) / n) or 0
+  for i = 1, n do
+    local k, st = select(2 * i - 1, ...)
+    local id = TCF.SUFFIX_ID_BASE + baseId * 100 + k
+    local stats = (b.statStr ~= "" and (b.statStr .. ",") or "") .. st
+    TCF.AddGear(id, b.name .. " " .. (names[k] or "of Mystery"), b.icon, b.q, b.ilvl, b.req, b.slot, b.sub, stats,
+      b.tier or 0, b.boss or 0, dc, b.cls)
+    local it = TCF.GEAR[id]
+    it.base, it.suffix = baseId, k
+  end
+end
+
+-- Takes every retired item (a random-suffix base) out of the loot pools, in one pass.
+function TCF.DropRetiredGear()
+  local function prune(list)
+    if not list then return end
+    local j = 0
+    for i = 1, #list do
+      local it = list[i]
+      list[i] = nil
+      if not it.retired then j = j + 1; list[j] = it end
+    end
+  end
+  for _, list in pairs(TCF.WORLD_POOL) do prune(list) end
+  for _, list in pairs(TCF.TIER_POOL) do prune(list) end
+  for _, boss in pairs(TCF.BOSS_LOOT) do for _, list in pairs(boss) do prune(list) end end
+end
+
+-- The real WoW item id to show a gear item's 3D model with (suffix items use their base's).
+-- An unknown suffix id (say from a newer party member) is mapped back by the id scheme.
+function TCF.GearModelId(id)
+  local it = TCF.GEAR[id]
+  if it and it.base then return it.base end
+  if id and id >= TCF.SUFFIX_ID_BASE then return floor((id - TCF.SUFFIX_ID_BASE) / 100) end
+  return id
 end
 
 -- Parsed stats (cached)
@@ -349,7 +404,7 @@ end
 function TCF:GearSellValue(it)
   if it.crafted then return max(1, floor(craftMatValue(it) * 0.5)), "gold" end
   -- vendor-style value in TapCoins; deliberately small
-  return max(1, floor(it.ilvl * (it.q == 2 and 0.15 or it.q == 3 and 0.35 or it.q == 4 and 1.0 or 3) )), "coins"
+  return max(1, floor(it.ilvl * (it.q <= 1 and 0.05 or it.q == 2 and 0.15 or it.q == 3 and 0.35 or it.q == 4 and 1.0 or 3) )), "coins"
 end
 
 -- "1,234 TapCoins" / "1,234 Trade Gold"
@@ -512,17 +567,24 @@ function TCF:RollBossLoot(tier, boss, class)
   return pick
 end
 
--- Trash / world loot near a level, by quality weights {unc, rare, epic}
+-- Trash / world loot near a level, by quality weights {unc, rare, epic}; weights.common (optional)
+-- is a weight for white (Common) gear. Chests never pass it, so chests never give whites.
 -- If the rolled quality has nothing near the level, the search widens (a little higher
--- level, plus zone and boss loot of zones at this level) before dropping one quality.
+-- level, plus zone and boss loot of zones at this level), then for Rare and Epic to the world
+-- items of that quality nearest the level (up to 20 below, 10 above: some levels, like 5-14,
+-- have no world blues at all), before dropping one quality.
 function TCF:RollWorldLoot(level, class, weights, tier)
   class = class or self.db.class
   -- cat levels keep climbing but world gear ends at level 60
   level = min(60, max(1, level or 1))
   weights = weights or { 85, 13, 2 }
+  local common = weights.common or 0
   local q = 2
-  local r, acc = random() * (weights[1] + weights[2] + weights[3]), 0
-  for i = 1, 3 do acc = acc + weights[i]; if r <= acc then q = i + 1; break end end
+  local r, acc = random() * (common + weights[1] + weights[2] + weights[3]), common
+  if common > 0 and r <= common then q = 1
+  else
+    for i = 1, 3 do acc = acc + weights[i]; if r <= acc then q = i + 1; break end end
+  end
   local suits = function(it) return self:GearSuits(it, class) end
   local usable = function(it) return self:GearUsable(it, class) end
   local function find(wq, test, wide)
@@ -548,11 +610,214 @@ function TCF:RollWorldLoot(level, class, weights, tier)
     end
     if #cands > 0 then return cands[random(#cands)] end
   end
-  for wq = q, 2, -1 do
+  -- world items of quality wq nearest the level: at or below it first (wearable now), else the
+  -- lowest above it (an upgrade for a little later)
+  local function nearest(wq, test)
+    local below, above
+    for b = floor(max(0, level - 20) / 5), floor(min(60, level + 10) / 5) do
+      for _, it in ipairs(TCF.WORLD_POOL[b] or {}) do
+        if it.q == wq and not it.crafted and it.req >= level - 20 and it.req <= level + 10 and test(it) then
+          if it.req <= level then
+            if not below or it.req > below[1].req then below = { it } elseif it.req == below[1].req then below[#below + 1] = it end
+          else
+            if not above or it.req < above[1].req then above = { it } elseif it.req == above[1].req then above[#above + 1] = it end
+          end
+        end
+      end
+    end
+    local pick = below or above
+    if pick then return pick[random(#pick)] end
+  end
+  local lowest = q == 1 and 1 or 2
+  for wq = q, lowest, -1 do
     local it = find(wq, suits) or find(wq, suits, true) or find(wq, usable, true)
+    if not it and wq >= 3 then it = nearest(wq, suits) or nearest(wq, usable) end
     if it then return it end
   end
   return nil
+end
+
+-- (The very rare legendary roll for the Heroic Cache and Raider's Hoard is TCF:RollLegendary in
+-- Core.lua: it draws from TCF:LegendariesFor, the same list the chest reel shows.)
+
+---------------------------------------------------------------- small finds (Adventure trash)
+-- Now and then an enemy in Adventure drops a plain piece of gear: a white or green for the cat's
+-- level that the class can use, never crafted gear. Finds strongly favour slots the cat has empty,
+-- then real upgrades, so a new cat fills most of its slots within its first hour or so. The more
+-- slots are filled, and the better the gear in them, the rarer finds get: chests and bosses stay
+-- the main source of good loot.
+--   chance per trash kill = EMPTY * (empty slots / slots) + UPGRADE * (how much the worn gear could improve)
+--   and at least GAP_MIN .. GAP_MAX seconds of fighting between finds. The gap grows with the share
+--   of slots filled or with the finds this class has already had (FINDS_PER_SLOT per slot means
+--   "fully grown"), whichever is larger, so selling every find can't keep finds coming fast.
+--   The gap clock (cd.adv.findClock) is saved per class and only runs while a fight is on.
+TCF.SMALL_FIND = { EMPTY = 0.12, UPGRADE = 0.006, GAP_MIN = 15, GAP_MAX = 900, TARGET_EMPTY = 0.85, FINDS_PER_SLOT = 3 }
+local FIND_SLOTS = { "HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "WRIST", "WAIST", "HANDS", "LEGS", "FEET",
+  "FINGER1", "FINGER2", "MAINHAND", "OFFHAND", "RANGED" }
+-- the slots the cat shows (finds fill these first)
+local SHOWN_SLOTS = { HEAD = true, CHEST = true, BACK = true, MAINHAND = true, OFFHAND = true, NECK = true, WAIST = true,
+  FINGER1 = true, FINGER2 = true }
+-- how much room a worn piece leaves for a better one (white: lots, epic: little)
+local Q_ROOM = { [0] = 1, [1] = 1, [2] = 0.6, [3] = 0.3, [4] = 0.12, [5] = 0.05 }
+local function hasRanged(class)
+  local w = CLASS_RULES[class].w
+  return w.bow or w.gun or w.xbow or w.thrown or w.wand
+end
+
+-- The slots a small find can fill for this class right now, and how much the gear could still
+-- improve (0 = all epics, 1 = all whites or long outgrown). A slot counts as filled when the cat
+-- wears something there or has a piece for it in the bag it could wear now (not equipped yet),
+-- so finds don't pile up for one slot while the player hasn't equipped the last one.
+function TCF:SmallFindNeed(class)
+  class = class or self.db.class
+  local eq = self:GearEquipped(class)
+  local level = min(60, self:CD(class).level)
+  local cover = {}   -- slot -> item that fills it
+  for _, s in ipairs(FIND_SLOTS) do
+    local it = eq[s] and TCF.GEAR[eq[s]]
+    if it then cover[s] = it end
+  end
+  for id, have in pairs(self:Bag(class)) do
+    local it = TCF.GEAR[id]
+    local spare = it and have - equippedCount(eq, id) or 0
+    if spare > 0 and it.req <= level and self:GearUsable(it, class) then
+      for _, s in ipairs(self:GearTargetSlots(it, class)) do
+        if spare <= 0 then break end
+        if not cover[s] then cover[s] = it; spare = spare - 1 end
+      end
+    end
+  end
+  local empty, n, room, filled = {}, 0, 0, 0
+  for _, s in ipairs(FIND_SLOTS) do
+    local counts = true
+    if s == "RANGED" and not hasRanged(class) then counts = false end
+    if s == "OFFHAND" and isTwoHand(eq.MAINHAND) then counts = false end
+    if counts then
+      n = n + 1
+      local it = cover[s]
+      if it then
+        filled = filled + 1
+        local r = Q_ROOM[it.q] or 0.5
+        if it.req < level - 10 then r = min(1, r + 0.5) end   -- long outgrown
+        room = room + r
+      else
+        empty[#empty + 1] = s
+      end
+    end
+  end
+  return empty, n, filled > 0 and room / filled or 1
+end
+
+-- Picks the piece for a small find (nil if nothing fits). Whites are common early, greens later.
+function TCF:RollSmallFind(class, level, empty)
+  class = class or self.db.class
+  level = min(60, max(1, level or self:CD(class).level))
+  local whiteChance = max(0.3, min(0.8, 0.8 - level * 0.012))
+  local firstQ = random() < whiteChance and 1 or 2
+  local lo = max(1, level - 7)
+  -- everything wearable now: the class can use it, the cat is high enough level
+  local byQ = { [1] = {}, [2] = {} }
+  for b = floor(max(0, lo - 7) / 5), floor(level / 5) do
+    for _, it in ipairs(TCF.WORLD_POOL[b] or {}) do
+      if (it.q == 1 or it.q == 2) and it.req <= level and not it.crafted and not it.retired and self:GearUsable(it, class) then
+        local list = byQ[it.q]
+        list[#list + 1] = it
+      end
+    end
+  end
+  local function fits(it, slot)
+    for _, s in ipairs(self:GearTargetSlots(it, class)) do if s == slot then return true end end
+  end
+  -- for one slot: near the level and made for the class first, then near, then anything wearable
+  local function pickFor(slot, q)
+    local lists = { {}, {}, {} }
+    for _, it in ipairs(byQ[q]) do
+      if fits(it, slot) then
+        local k = it.req < lo and 3 or self:GearSuits(it, class) and 1 or 2
+        lists[k][#lists[k] + 1] = it
+      end
+    end
+    -- within a tier, the heaviest armor the class can wear: whites have no bonus stats, so they
+    -- all "suit", and a plate wearer should not be handed cloth while mail or plate is there
+    for _, list in ipairs(lists) do
+      if #list > 0 then
+        local best = 0
+        for _, it in ipairs(list) do
+          local r = ARMOR_RANK[it.sub]
+          if r and r > best then best = r end
+        end
+        if best > 1 then
+          local heavy = {}
+          for _, it in ipairs(list) do
+            local r = ARMOR_RANK[it.sub]
+            if not r or r == best then heavy[#heavy + 1] = it end
+          end
+          list = heavy
+        end
+        return list[random(#list)]
+      end
+    end
+  end
+  -- mostly: something for an empty slot (the other quality if the first has nothing there)
+  if empty and #empty > 0 and random() < TCF.SMALL_FIND.TARGET_EMPTY then
+    -- random order, but usually the slots the cat shows (head, chest, back, weapons, neck, belt,
+    -- ring) come first, so the cat's look fills in quickly
+    local order, rest = {}, {}
+    local showFirst = random() < 0.7
+    for _, s in ipairs(empty) do
+      if showFirst and SHOWN_SLOTS[s] then order[#order + 1] = s else rest[#rest + 1] = s end
+    end
+    local function shuffle(t, from)
+      for i = #t, from + 1, -1 do local j = random(from, i); t[i], t[j] = t[j], t[i] end
+    end
+    shuffle(order, 1)
+    local first = #order
+    for _, s in ipairs(rest) do order[#order + 1] = s end
+    shuffle(order, first + 1)
+    for _, s in ipairs(order) do
+      local it = pickFor(s, firstQ) or pickFor(s, 3 - firstQ)
+      if it then return it end
+    end
+  end
+  -- otherwise: the best real upgrade among a handful of pieces, if there is one
+  local list = #byQ[firstQ] > 0 and byQ[firstQ] or byQ[3 - firstQ]
+  if #list == 0 then return nil end
+  local best, bestUp
+  for _ = 1, min(12, #list) do
+    local it = list[random(#list)]
+    if it.req >= lo and self:GearSuits(it, class) then
+      local d = self:GearUpgrade(it, class) or 0
+      if d > 0 and (not bestUp or d > bestUp) then best, bestUp = it, d end
+    end
+  end
+  return best
+end
+
+-- Called by Adventure.lua for every trash enemy the cat kills (m = the enemy, t = its zone).
+function TCF:TrashSmallFind(m, t)
+  if not self.db or not self.GrantGear then return end
+  local class = self.db.class
+  local cd = self:CD(class)
+  if not cd then return end
+  local SF = TCF.SMALL_FIND
+  -- one roll against the chance; most kills miss even the best case, so they skip the bag check
+  local roll = random()
+  if roll >= SF.EMPTY + SF.UPGRADE then return end
+  local empty, n, room = self:SmallFindNeed(class)
+  if n == 0 then return end
+  local adv = cd.adv
+  local done = (adv and adv.smallFinds) or 0
+  local filledFrac = max((n - #empty) / n, min(1, done / (n * SF.FINDS_PER_SLOT)))
+  -- seconds of fighting since this class's last find (nil: it has never had one)
+  local clock = adv and adv.findClock
+  if clock and clock < SF.GAP_MIN + (SF.GAP_MAX - SF.GAP_MIN) * filledFrac * filledFrac then return end
+  if roll >= SF.EMPTY * #empty / n + SF.UPGRADE * room then return end
+  local it = self:RollSmallFind(class, cd.level, empty)
+  if not it then return end
+  local name = type(m) == "table" and m.name
+  self:GrantGear(it, "Found on " .. ((type(name) == "string" and name ~= "") and name or "an enemy"))
+  if adv then adv.findClock = 0; adv.smallFinds = done + 1 end
+  return it
 end
 
 ---------------------------------------------------------------- combat stats from gear
@@ -644,6 +909,7 @@ end
 ---------------------------------------------------------------- appearance from gear
 -- When no cosmetic is chosen for a visible slot, the cat wears its real gear.
 local QTINT = {
+  [1] = { { 0.72, 0.66, 0.58 }, { 0.62, 0.62, 0.64 }, { 0.70, 0.56, 0.42 } },
   [2] = { { 0.55, 0.70, 0.45 }, { 0.75, 0.65, 0.45 }, { 0.62, 0.62, 0.66 } },
   [3] = { { 0.40, 0.60, 0.95 }, { 0.80, 0.82, 0.90 }, { 0.35, 0.45, 0.75 } },
   [4] = { { 0.62, 0.30, 0.90 }, { 1.00, 0.80, 0.35 }, { 0.80, 0.20, 0.25 } },
@@ -658,12 +924,14 @@ local KEYWORD_TINT = {
   { "storm", { 0.45, 0.65, 1.0 } }, { "thunder", { 0.45, 0.65, 1.0 } }, { "fel", { 0.45, 1.0, 0.30 } },
 }
 local function tintFor(it, n)
-  local lname = it.name:lower()
+  local b = it.base and TCF.GEAR[it.base]
+  local lname = (b or it).name:lower()
   for _, kw in ipairs(KEYWORD_TINT) do
     if lname:find(kw[1], 1, true) then return kw[2] end
   end
   local set = QTINT[it.q] or QTINT[2]
-  return set[(it.id + (n or 0)) % #set + 1]
+  local vid = it.base or it.id   -- a random-suffix item looks like its base
+  return set[(vid + (n or 0)) % #set + 1]
 end
 
 local ART_FOR = {
@@ -718,7 +986,9 @@ function TCF:GearAppearance(class, override)
   if o then
     local art
     if o.sub == "shield" then art = o.q >= 3 and "off_kiteshield" or "off_roundshield"
-    elseif o.slot == "HOLD" then art = (o.id % 3 == 0) and "off_orb" or (o.id % 3 == 1) and "off_tome" or "off_lantern"
+    elseif o.slot == "HOLD" then
+      local v = (o.base or o.id) % 3   -- a random-suffix item looks like its base
+      art = (v == 0) and "off_orb" or (v == 1) and "off_tome" or "off_lantern"
     elseif o.sub == "dagger" then art = "off_dagger" else art = "off_sword" end
     out.off = look(art, o, "off")
   end

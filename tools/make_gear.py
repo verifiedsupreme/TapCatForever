@@ -5,6 +5,9 @@ Builds GearData.lua from real Classic (Vanilla) item data:
   - wago.tools DB2 exports: Creature.csv (creature model display IDs),
     JournalInstance.csv (dungeon/raid artwork file IDs)
 
+More world gear (random-suffix greens, white items) is in WorldGearData.lua, built from this
+file's output by tools/make_world_gear.py: re-run that after re-running this.
+
 Usage: python3 tools/make_gear.py <data-dir>
   <data-dir> must contain package/data/json/data.json, Creature.csv, JournalInstance.csv,
   JournalEncounterCreature.csv

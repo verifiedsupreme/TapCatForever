@@ -7,28 +7,45 @@ local CARD, GAP, VISIBLE, COUNT, LAND = 56, 6, 8, 34, 30
 local STEP = CARD + GAP
 local DUR, HOLD = 2.4, 0.45
 
--- gear by quality, built once (only gear chests can hold: never crafted gear)
+-- gear by quality, built once from the loot pools, so it is only gear chests can hold: never
+-- crafted gear, retired random-suffix bases or Blizzard's placeholder items
 local gearByQ
 local function gearPool(q)
   if not gearByQ then
     gearByQ = {}
-    for _, g in pairs(TCF.GEAR) do
-      if not g.crafted then gearByQ[g.q] = gearByQ[g.q] or {}; table.insert(gearByQ[g.q], g) end
+    local function add(list)
+      for _, g in ipairs(list or {}) do
+        if not g.crafted and not g.retired then
+          gearByQ[g.q] = gearByQ[g.q] or {}; table.insert(gearByQ[g.q], g)
+        end
+      end
     end
+    for _, list in pairs(TCF.WORLD_POOL) do add(list) end
+    for _, list in pairs(TCF.TIER_POOL) do add(list) end
+    for _, bosses in pairs(TCF.BOSS_LOOT) do for _, list in pairs(bosses) do add(list) end end
   end
   return gearByQ[q] or {}
 end
 
 -- a random thing this chest could hold: gear (90%) or a cosmetic (10%) of a rolled rarity,
--- the same split as TCF:OpenChest
-local function randomLoot(ch, seen)
+-- the same split as TCF:OpenChest. A Legendary roll shows a real legendary (now and then,
+-- at the chest's own odds); gear-only chests (Raider's Hoard) show the raid epics they can hold.
+local function randomLoot(ch, seen, raidPool, legends)
   local class = TCF.db.class
   for _ = 1, 30 do
     local r = TCF:RollRarity(ch.weights)
     local it, rarity
-    if random() < (TCF.CHEST_GEAR_CHANCE or 0.9) then
-      local pool = gearPool(max(2, r))
-      local g = pool[random(max(1, #pool))]
+    if (ch.legendary or 0) > 0 and #legends > 0 and random() < ch.legendary then
+      local g = legends[random(#legends)]
+      it, rarity = g, g.q
+    elseif ch.gearOnly or random() < (TCF.CHEST_GEAR_CHANCE or 0.9) then
+      local g
+      if ch.raidLoot or r >= 5 then
+        g = raidPool[random(max(1, #raidPool))]   -- the Legendary rarity roll is a raid boss Epic
+      else
+        local pool = gearPool(max(2, min(4, r)))
+        g = pool[random(max(1, #pool))]
+      end
       if g and TCF:GearUsable(g, class) then it, rarity = g, g.q end
     else
       local c = TCF.ITEM_LIST[random(#TCF.ITEM_LIST)]
@@ -94,7 +111,7 @@ local function createReel()
     if p >= 1 and not s.landed then
       s.landed = true
       s.cards[LAND].glow:Show()
-      TCF:PlaySound(s.rarity >= 4 and "rare" or "loot")
+      TCF:PlaySound(s.rarity >= 5 and "legendary" or s.rarity >= 4 and "rare" or "loot")
     end
     if s.t >= DUR + HOLD then s:Finish() end
   end)
@@ -122,9 +139,17 @@ function TCF:PlayChestReel(it, rarity, chestKey, args)
   local ch = TCF.CHEST_BY_KEY[chestKey]
   f.title:SetText("Opening " .. (ch and ch.name or "chest") .. "...")
   local seen = { [it] = true }
+  -- built once per reel: raid epics for a Raider's Hoard (the ones it can hold for this cat)
+  -- or for a Legendary rarity roll (any raid), and the legendaries this class can use
+  local raidPool, legends = {}, {}
+  if ch and TCF.RaidHoardPool then
+    raidPool = TCF:RaidHoardPool(nil, not ch.raidLoot)
+    legends = TCF:LegendariesFor()
+  end
   for i, c in ipairs(f.cards) do
     if i == LAND then setCard(c, it, rarity)
-    else local r, rr = randomLoot(ch, seen); setCard(c, r, rr) end
+    elseif ch then local r, rr = randomLoot(ch, seen, raidPool, legends); setCard(c, r, rr)
+    else local r = TCF.ITEM_LIST[random(#TCF.ITEM_LIST)]; setCard(c, r, r.rarity) end
   end
   local center = VISIBLE * STEP / 2
   f.endOff = (LAND - 1) * STEP + GAP / 2 + CARD / 2 - center + random(-CARD * 0.3, CARD * 0.3)

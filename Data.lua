@@ -476,7 +476,7 @@ TCF.RACE_ITEM = {
 
 -- Cat skins: the cat's whole look (fur colour, markings, eyes, mane).
 -- source: price (Appearance tab), drop {boss, chance}, ach (achievement id), or get (other sources):
---   { kind = "chest", chest = "pouch"|"strong"|"heroic", chance }   rolled each time that chest is opened
+--   { kind = "chest", chest = "pouch"|"strong"|"heroic"|"raid", chance }   rolled each time that chest is opened
 --   { kind = "quest", quest = "daily"|"weekly", chance }            rolled when a quest of that type is done
 --   { kind = "expedition", expedition = key or "any", chance }      rolled on a successful expedition
 --   { kind = "realdungeon", run = "party"|"raid", chance }          rolled when a real dungeon/raid chest is awarded
@@ -676,12 +676,17 @@ end
 
 ---------------------------------------------------------------- chests
 TCF.CHESTS = {
-  { key = "pouch",  name = "Cat Treat Pouch",        cost = 100,  icon = "INV_Misc_Bag_10",
-    weights = { 62, 28, 9, 1, 0 },  desc = "Mostly Common & Uncommon." },
-  { key = "strong", name = "Adventurer's Strongbox", cost = 450,  icon = "INV_Box_02",
-    weights = { 0, 55, 33, 10, 2 }, desc = "Uncommon or better. Small Legendary chance." },
-  { key = "heroic", name = "Heroic Cache",           cost = 1400, icon = "INV_Box_04",
-    weights = { 0, 0, 58, 34, 8 },  desc = "Rare or better. Best Legendary odds." },
+  { key = "pouch",  name = "Cat Treat Pouch",        plural = "Cat Treat Pouches",        cost = 100,  icon = "INV_Misc_Bag_10",
+    weights = { 62, 28, 9, 1, 0 },  desc = "Mostly Uncommon. Sometimes Rare, rarely Epic." },
+  { key = "strong", name = "Adventurer's Strongbox", plural = "Adventurer's Strongboxes", cost = 450,  icon = "INV_Box_02",
+    weights = { 0, 55, 33, 10, 2 }, desc = "Uncommon or better, with some Epics." },
+  { key = "heroic", name = "Heroic Cache",           plural = "Heroic Caches",            cost = 1400, icon = "INV_Box_04",
+    weights = { 0, 0, 58, 34, 8 },  legendary = 0.002, desc = "Rare or Epic. A tiny chance of a real Legendary." },
+  -- raid-only: never sold (no cost), always gear (gearOnly): Epic boss loot from the raids the
+  -- cat has reached in Adventure (raidLoot), and now and then a real Legendary
+  { key = "raid",   name = "Raider's Hoard",         plural = "Raider's Hoards",                       icon = "INV_Box_03",
+    weights = { 0, 0, 0, 1, 0 },    legendary = 0.01, gearOnly = true, raidLoot = true,
+    desc = "Epic raid boss gear. A small chance of a real Legendary." },
 }
 TCF.CHEST_BY_KEY = {}
 for _, ch in ipairs(TCF.CHESTS) do TCF.CHEST_BY_KEY[ch.key] = ch end
@@ -737,6 +742,8 @@ TCF.ACHIEVEMENTS = {
 
   { id = "chest10",   name = "Treasure Hunter",     stat = "chests",   goal = 10,        coins = 150,   icon = "INV_Box_02" },
   { id = "chest100",  name = "Loot Goblin",         stat = "chests",   goal = 100,       coins = 1500,  icon = "INV_Box_04" },
+  { id = "hoard1",    name = "Spoils of the Raid",  stat = "hoards",   goal = 1,         coins = 300,   icon = "INV_Box_03" },
+  { id = "hoard25",   name = "Dragon's Hoard",      stat = "hoards",   goal = 25,        coins = 2500,  icon = "INV_Box_03" },
   { id = "drop1",     name = "Lucky Paw",           stat = "drops",    goal = 1,         coins = 50,    icon = "INV_Misc_Bag_07" },
   { id = "drop25",    name = "Fortune Favors",      stat = "drops",    goal = 25,        coins = 750,   icon = "INV_Misc_Bag_07" },
 
@@ -787,7 +794,7 @@ local STAT_TEXT = {
   epics = "Own %s Epic cosmetics.", legends = "Own %s Legendary cosmetics.",
   classesPlayed = "Dress your cat as all %s classes.", outfits = "Equip head, chest and main hand on %s class(es).",
   coinsEarned = "Earn %s TapCoins in total.", coinsSpent = "Spend %s TapCoins.",
-  chests = "Open %s chests.", drops = "Find %s random loot drops while tapping.",
+  chests = "Open %s chests.", hoards = "Open %s Raider's Hoard(s).", drops = "Find %s random loot drops while tapping.",
   frenzies = "Enter a Paw Frenzy %s times.", peakTPS = "Tap %s times in one second.",
   pets = "Pet your cat %s times.", streak = "Log in %s days in a row.",
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",

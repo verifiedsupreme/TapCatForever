@@ -2,13 +2,13 @@
 local ADDON, TCF = ...
 local floor, max, min = math.floor, math.max, math.min
 
-local SHORT = { str = "Str", agi = "Agi", sta = "Sta", int = "Int", spi = "Spi", ap = "AP", sp = "SP", critr = "Crit", hitr = "Hit", def = "Def" }
+local SHORT = { str = "Str", agi = "Agi", sta = "Sta", int = "Int", spi = "Spi", ap = "AP", rap = "Ranged AP", sp = "SP", heal = "Healing", critr = "Crit", hitr = "Hit", def = "Def" }
 function TCF.GearSummary(it)
   local st = TCF.GearStats(it)
   local parts = {}
   if st.dps then parts[#parts + 1] = string.format("%.1f DPS", st.dps) end
   if st.arm then parts[#parts + 1] = st.arm .. " Armor" end
-  for _, k in ipairs({ "str", "agi", "sta", "int", "spi", "ap", "sp", "critr", "hitr", "def" }) do
+  for _, k in ipairs({ "str", "agi", "sta", "int", "spi", "ap", "rap", "sp", "heal", "critr", "hitr", "def" }) do
     if st[k] then parts[#parts + 1] = "+" .. st[k] .. " " .. SHORT[k] end
   end
   return table.concat(parts, "  ")
@@ -147,6 +147,11 @@ TCF.UI.Builders.gear = function(page, win)
     local r = Panel(page, 528, 44, 0.85); r:SetPoint("TOP", 0, -54 - (i - 1) * 47)
     r.btn = U.GearButton(r, 36); r.btn:SetPoint("LEFT", 5, 0)
     r.name = Text(r, "GameFontNormal", nil, "LEFT"); r.name:SetPoint("TOPLEFT", r.btn, "TOPRIGHT", 8, -1); r.name:SetWidth(300)
+    -- one line only (long random-bonus names would run into the info line); the Equipped /
+    -- Not ideal tags sit in their own text at the right so they are never cut off
+    r.name:SetWordWrap(false)
+    r.tag = Text(r, "GameFontNormalSmall", nil, "RIGHT"); r.tag:SetPoint("TOPRIGHT", r, "TOPLEFT", 380, -6)
+    r.tag:SetWordWrap(false)
     r.info = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.info:SetPoint("BOTTOMLEFT", r.btn, "BOTTOMRIGHT", 8, 1); r.info:SetWidth(330)
     r.delta = Text(r, "GameFontNormal", nil, "RIGHT"); r.delta:SetPoint("RIGHT", -148, 0)
     r.equip = Button(r, "Equip", 58, 20, function() if r.item then TCF:EquipGear(r.item.id) end end)
@@ -260,8 +265,12 @@ TCF.UI.Builders.gear = function(page, win)
         -- a second ring/trinket/one-hander can be worn too, if you own another copy
         local canWearMore = worn == 0 or (worn < n and #TCF:GearTargetSlots(it, class) > 1)
         local col = TCF.RARITY[it.q]
-        r.name:SetText("|c" .. col.hex .. it.name .. "|r" .. (worn > 0 and "  |cff20ff20(equipped)|r" or "")
-          .. ((not TCF:GearSuits(it, class) and TCF:GearUsable(it, class)) and "  |cffff9933(not ideal)|r" or ""))
+        local notIdeal = not TCF:GearSuits(it, class) and TCF:GearUsable(it, class)
+        local tag = (worn > 0 and "|cff20ff20Equipped|r" or "")
+          .. (notIdeal and ((worn > 0 and "  " or "") .. "|cffff9933Not ideal|r") or "")
+        r.tag:SetText(tag)
+        r.name:SetWidth(330 - (tag ~= "" and ((r.tag:GetStringWidth() or 90) + 8) or 0))
+        r.name:SetText("|c" .. col.hex .. it.name .. "|r")
         r.info:SetText(string.format("|cffffd100%d|r  %s %s  |cff999999%s|r", it.ilvl, TCF.ITEM_TYPE_NAMES[it.sub] or "",
           TCF.ITEM_SLOT_NAMES[it.slot] or "", TCF.GearSummary(it)))
         local d = TCF:GearUpgrade(it)
@@ -280,7 +289,7 @@ TCF.UI.Builders.gear = function(page, win)
       end
     end
     pageText:SetText(#list > 0 and string.format("Page %d / %d  (%d items)", win.gearPage, pagesN, #list)
-      or "|cff888888No gear here yet. Bosses in Adventure, chests and expeditions drop real items, and your crafting profession makes them.|r")
+      or "|cff888888No gear here yet. Enemies and bosses in Adventure, chests and expeditions drop real items, and your crafting profession makes them.|r")
     prev:SetEnabled(win.gearPage > 1); nextB:SetEnabled(win.gearPage < pagesN)
   end
 end

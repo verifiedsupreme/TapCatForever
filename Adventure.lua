@@ -20,9 +20,10 @@ TCF.ADV = {
   -- A chest clock counts seconds while a fight is on; once it passes CHEST_MIN,
   -- each boss kill has a growing chance ((clock - MIN) / RAMP) to drop a chest,
   -- which resets the clock. Dungeons/zones: a Cat Treat Pouch every ~18 min of
-  -- fighting (~3/hour). Raids: an Adventurer's Strongbox every ~30 min.
+  -- fighting (~3/hour). Raids: a Raider's Hoard every ~3 hours of fighting (it is
+  -- always an Epic or better, so it comes much more slowly than a Pouch).
   CHEST_MIN = 900, CHEST_RAMP = 600,
-  RAID_CHEST_MIN = 1500, RAID_CHEST_RAMP = 900,
+  RAID_CHEST_MIN = 3 * 3600, RAID_CHEST_RAMP = 3600,
 }
 local K, ADV = TCF.ADV.K, TCF.ADV
 
@@ -282,7 +283,7 @@ function TCF:AdvMobKilled(m)
       self.db.zonesCleared = self.db.zonesCleared or {}   -- account-wide: the first cat to clear it gets the full bonus
       self.db.zonesCleared[t.key] = true
       self:AddCoins(coins)
-      self:AwardChest(t.raid and "heroic" or "strong", t.name .. " cleared")
+      self:AwardChest(t.raid and "raid" or "strong", t.name .. " cleared")
       self:AdvLog(string.format("|cff20ff20%s cleared for the first time.|r +%s TapCoins and a chest", t.name, TCF.Commas(coins)))
       if self.cat and self.cat.Toast then self.cat:Toast(string.format("%s cleared: +%s TapCoins", t.name, TCF.Commas(coins)), 1, 0.82, 0.2) end
     else
@@ -290,7 +291,7 @@ function TCF:AdvMobKilled(m)
       if t.raid then lo, ramp = ADV.RAID_CHEST_MIN, ADV.RAID_CHEST_RAMP end
       if random() < min(1, max(0, ((adv.chestClock or 0) - lo) / ramp)) then
         adv.chestClock = 0
-        local chest = t.raid and "strong" or "pouch"
+        local chest = t.raid and "raid" or "pouch"
         self:AwardChest(chest, m.name)
         self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY[chest].name .. " from " .. m.name)
       end
@@ -299,6 +300,8 @@ function TCF:AdvMobKilled(m)
     -- profession ingredients: cloth for First Aid, meat for Cooking
     if self.DropCloth then self:DropCloth(m.level) end
     if self.DropMeat then self:DropMeat(m.level) end
+    -- now and then a small find: a white or green piece for the cat's level (Gear.lua)
+    if self.TrashSmallFind then self:TrashSmallFind(m, t) end
   end
   self:MarkDirty()
 end
@@ -395,6 +398,9 @@ function TCF:AdvTick(dt)
   run.t = run.t + dt
   local cadv = self:CD().adv
   cadv.chestClock = (cadv.chestClock or 0) + dt -- only counts while a fight is on
+  -- the small-find gap clock (Gear.lua TrashSmallFind): saved per class, also fight time only.
+  -- nil means this class has never had a find, so its first one is not held back.
+  if cadv.findClock then cadv.findClock = cadv.findClock + dt end
   for key, d in pairs(run.dots) do
     if d["until"] < run.t then run.dots[key] = nil
     else

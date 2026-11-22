@@ -10,6 +10,8 @@ local floor, min, max, random = math.floor, math.min, math.max, math.random
 -- chest: { chest key, chance on success }; rolls: bonus chest rolls (see ExpeditionBonusChance).
 -- The trips under 2 hours can be re-sent all day, so they give no bonus rolls and only a
 -- small chest chance (about 0.3 Pouches per slot-hour), well below the long trips.
+-- hoard: the raid trips' chance of a Raider's Hoard on success, on top of their other chests
+-- (about one Hoard every 2 days with both slots always on raids).
 TCF.EXPEDITIONS = {
   { key = "elwynn", name = "Scout Elwynn Forest",       dur = 15 * 60,    rec = 700,   coins = 12,  tier = 1,  rolls = 0, chest = { "pouch", 0.08 },  icon = "INV_Misc_Map_01" },
   { key = "westfall", name = "Westfall Bounty Hunt",    dur = 30 * 60,    rec = 1000,  coins = 25,  tier = 2,  rolls = 0, chest = { "pouch", 0.15 },  icon = "INV_Misc_Bandana_03" },
@@ -17,9 +19,9 @@ TCF.EXPEDITIONS = {
   { key = "sm", name = "Storm Scarlet Monastery",        dur = 2 * 3600,   rec = 3400,  coins = 90,  tier = 11, rolls = 2, chest = { "strong", 0.25 }, icon = "INV_Shield_03" },
   { key = "brd", name = "Delve Blackrock Depths",        dur = 4 * 3600,   rec = 5800,  coins = 160, tier = 17, rolls = 2, chest = { "strong", 0.5 },  icon = "INV_Hammer_09" },
   { key = "strat", name = "Purge Stratholme",            dur = 6 * 3600,   rec = 6600,  coins = 230, tier = 21, rolls = 2, chest = { "strong", 0.7 },  icon = "Spell_Shadow_RaiseDead" },
-  { key = "mc", name = "Assault Molten Core",            dur = 8 * 3600,   rec = 7600,  coins = 320, tier = 23, rolls = 3, chest = { "heroic", 0.25 }, icon = "Spell_Fire_Elemental_Totem" },
-  { key = "bwl", name = "Siege Blackwing Lair",          dur = 12 * 3600,  rec = 9400,  coins = 480, tier = 26, rolls = 3, chest = { "heroic", 0.4 },  icon = "INV_Misc_Head_Dragon_Black" },
-  { key = "naxx", name = "Storm Naxxramas",              dur = 24 * 3600,  rec = 12500, coins = 900, tier = 28, rolls = 3, chest = { "heroic", 0.6 },  icon = "Spell_Shadow_AbominationExplosion" },
+  { key = "mc", name = "Assault Molten Core",            dur = 8 * 3600,   rec = 7600,  coins = 320, tier = 23, rolls = 3, chest = { "heroic", 0.25 }, hoard = 0.1,  icon = "Spell_Fire_Elemental_Totem" },
+  { key = "bwl", name = "Siege Blackwing Lair",          dur = 12 * 3600,  rec = 9400,  coins = 480, tier = 26, rolls = 3, chest = { "heroic", 0.4 },  hoard = 0.15, icon = "INV_Misc_Head_Dragon_Black" },
+  { key = "naxx", name = "Storm Naxxramas",              dur = 24 * 3600,  rec = 12500, coins = 900, tier = 28, rolls = 3, chest = { "heroic", 0.6 },  hoard = 0.25, icon = "Spell_Shadow_AbominationExplosion" },
 }
 TCF.EXPEDITION_BY_KEY = {}
 for _, e in ipairs(TCF.EXPEDITIONS) do TCF.EXPEDITION_BY_KEY[e.key] = e end
@@ -106,6 +108,7 @@ function TCF:ClaimExpedition(index)
   self:AddCoins(coins)
   self:Print(string.format("|cff20ff20%s succeeded!|r +%d TapCoins, +%d XP for each cat.", e.name, coins, xp), true)
   if random() < e.chest[2] then self:AwardChest(e.chest[1], e.name) end
+  if e.hoard and random() < e.hoard then self:AwardChest("raid", e.name) end
   -- extra chests instead of loose gear
   local bonus = TCF.ExpeditionBonusChance(e)
   for i = 1, e.rolls do

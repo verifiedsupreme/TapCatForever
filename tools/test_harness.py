@@ -140,6 +140,28 @@ TEST = r'''
     _fire("ADDON_LOADED", "TapCatForever")
     _fire("PLAYER_LOGIN")
     TCF.db.ui.chat = true; TCF.db.ui.sound = true  -- off by default; on here so the test exercises them
+    -- loot rules watched for the whole run (checked in 12): chests never hold white gear, and a
+    -- real legendary only ever comes out of a Heroic Cache or a Raider's Hoard
+    _lootWatch = { bad = {}, chestGear = 0, legendaries = 0 }
+    do
+      local chestKey = {}
+      for _, ch in ipairs(TCF.CHESTS) do chestKey[ch.name] = ch.key end
+      local grant = TCF.GrantGear
+      TCF.GrantGear = function(self, it, reason, reveal, key, ...)
+        local w = _lootWatch
+        local from = key or chestKey[reason]
+        if from then
+          w.chestGear = w.chestGear + 1
+          if it.q < 2 then w.bad[#w.bad + 1] = "white gear from a chest: " .. it.name end
+        end
+        if it.q == 5 and not it.crafted then
+          w.legendaries = w.legendaries + 1
+          if from ~= "heroic" and from ~= "raid" then w.bad[#w.bad + 1] = "a legendary from " .. tostring(reason) .. ": " .. it.name end
+          if it.name:find("(", 1, true) then w.bad[#w.bad + 1] = "a placeholder legendary: " .. it.name end
+        end
+        return grant(self, it, reason, reveal, key, ...)
+      end
+    end
     assert(TCF.kbReady, "keyboard listener not set up")
     local kb = TapCatForeverKeyListener
     local keys = { "1", "2", "3", "Q", "E", "R", "F", "SPACE", "7", "8", "LSHIFT" }
@@ -162,7 +184,10 @@ TEST = r'''
     print(string.format("taps=%d level=%d xp=%d coins=%d earned=%d frenzies=%d peak=%d drops=%d",
       TCF.db.taps, TCF:CD().level, TCF:CD().xp, TCF.db.coins, TCF.db.coinsEarned, TCF.db.stats.frenzies, TCF.db.stats.peakTPS, TCF.db.stats.drops))
     -- window and all tabs
+    local shopFrom = #_frames
+    assert(not TCF.window, "the window is built on first open")
     TCF:ToggleWindow()
+    _shopScan = { shopFrom, #_frames }   -- the frames of the window, Shop page included (checked in 12)
     local win = TCF.window
     assert(win:IsShown())
     -- go through each slot of the wardrobe for every class
@@ -290,9 +315,9 @@ TEST = r'''
     _inInstance = false; _fire("ZONE_CHANGED_NEW_AREA")
     assert(TCF.db.keys.strong + TCF.db.keys.heroic == strongBefore + 1, "dungeon at level 20+ gives a Strongbox (or sometimes a Heroic Cache)")
     -- group-finder completion while inside a raid
-    local heroicBefore = TCF.db.keys.heroic
+    local raidBefore = TCF.db.keys.raid or 0
     _inInstance = "raid"; _fire("PLAYER_ENTERING_WORLD"); _fire("LFG_COMPLETION_REWARD"); _fire("LFG_COMPLETION_REWARD")
-    assert(TCF.db.keys.heroic == heroicBefore + 1, "raid completion once")
+    assert((TCF.db.keys.raid or 0) == raidBefore + 1, "raid completion once, a Raider's Hoard")
     _inInstance = false; _fire("PLAYER_ENTERING_WORLD")
     -- real gear: equip the best usable item in every slot, tooltips, selling
     TCF:SetClass("WARRIOR")
@@ -1236,6 +1261,789 @@ TEST = r'''
       TapCatForeverPatchNotes:Hide()
       TCF.version = realVersion
     end
+    -- 11. chests (1.5.1): real legendaries, the raid-only Raider's Hoard, blue in the pouch at every level
+    do
+      local hoard = TCF.CHEST_BY_KEY.raid
+      check(hoard and not hoard.cost and hoard.gearOnly and hoard.raidLoot and (hoard.legendary or 0) > 0, "Raider's Hoard: never sold, always raid gear")
+      local coins0 = TCF.db.coins
+      check(TCF:OpenChest("raid") == nil and TCF.db.coins == coins0, "a Raider's Hoard can't be bought")
+      -- legendaries: real ones only (no placeholder copies), one for every class
+      local legs = TCF:Legendaries()
+      check(#legs >= 6, "legendaries in the loot pools: " .. #legs)
+      for _, it in ipairs(legs) do check(it.q == 5 and not it.crafted and not it.name:find("(", 1, true), "real legendary: " .. it.name) end
+      for _, cl in ipairs(TCF.CLASSES) do
+        local it = TCF:RollLegendary(cl.key)
+        check(it and it.q == 5 and TCF:GearUsable(it, cl.key), cl.key .. " can get a legendary")
+      end
+      -- odds shown in tooltips add up and match the rules
+      for _, ch in ipairs(TCF.CHESTS) do
+        local sum = 0
+        for _, o in ipairs(TCF:ChestOdds(ch)) do sum = sum + o[2] end
+        check(math.abs(sum - 100) < 1e-6, ch.key .. " odds add up: " .. sum)
+      end
+      -- only real Classic legendaries: Blizzard's placeholder Ashbringer and Burning Crusade's
+      -- Andonisus are known but never drop, and a class gets the ones made for it
+      check(TCF.GEAR[22736] and TCF.GEAR[22736].retired and TCF.GEAR[50442] and TCF.GEAR[50442].retired,
+        "Andonisus and the Ashbringer placeholder never drop")
+      for _, it in ipairs(legs) do check(it.id ~= 22736 and it.ilvl <= 92, "a Classic legendary: " .. it.name) end
+      for _, list in pairs(TCF.WORLD_POOL) do for _, it in ipairs(list) do check(it.id ~= 22736, "Andonisus is not world loot") end end
+      for _, it in ipairs(TCF:LegendariesFor("MAGE")) do check(it.name:find("^Atiesh"), "a Mage's legendaries are Atiesh: " .. it.name) end
+      for k = 1, 60 do
+        local it = TCF:RollLegendary("MAGE")
+        check(it and it.name:find("^Atiesh"), "a Mage's Legendary roll gives Atiesh: " .. tostring(it and it.name))
+      end
+      -- the Heroic Cache's skin odds only show while there is a shop skin left to find
+      do
+        local owned, added = TCF.db.owned, {}
+        local function heroicOdds()
+          local sum, skinLine = 0, false
+          for _, o in ipairs(TCF:ChestOdds(TCF.CHEST_BY_KEY.heroic)) do
+            sum = sum + o[2]
+            if o[1]:find("skin", 1, true) then skinLine = true end
+          end
+          return sum, skinLine
+        end
+        local hadSkins = #TCF:UnownedShopSkins() > 0
+        local _, skinBefore = heroicOdds()
+        check(skinBefore == hadSkins, "Heroic Cache skin odds show while a shop skin is left")
+        for _, it in ipairs(TCF:UnownedShopSkins()) do owned[it.id] = true; added[#added + 1] = it.id end
+        local sum, skinLine = heroicOdds()
+        for _, id in ipairs(added) do owned[id] = nil end
+        check(not skinLine and math.abs(sum - 100) < 1e-6, "no cat skin odds once every shop skin is owned: " .. sum)
+      end
+      -- earning a chest: its name in the colour of its usual gear, a/an, no exclamation marks
+      do
+        local printed, origPrint = {}, TCF.Print
+        TCF.Print = function(_, msg) printed[#printed + 1] = msg end
+        local k1, k2 = TCF.db.keys.raid or 0, TCF.db.keys.strong or 0
+        TCF:AwardChest("raid", "Test"); TCF:AwardChest("strong", "Test")
+        TCF.Print = origPrint
+        TCF.db.keys.raid, TCF.db.keys.strong = k1, k2
+        check(printed[1] and printed[1]:find("a |c" .. TCF.RARITY[4].hex .. "Raider's Hoard", 1, true) and not printed[1]:find("!", 1, true),
+          "a Raider's Hoard is announced in Epic purple: " .. tostring(printed[1]))
+        check(printed[2] and printed[2]:find("an |c" .. TCF.RARITY[2].hex .. "Adventurer's Strongbox", 1, true) and not printed[2]:find("!", 1, true),
+          "an Adventurer's Strongbox is announced in green: " .. tostring(printed[2]))
+      end
+      -- the Compendium: where legendaries come from, and the Hoard never holds cosmetics
+      do
+        local thunder = TCF.GEAR[19019]
+        local how = table.concat(TCF:HowToGet(thunder), " / ")
+        check(how:find("1 in 500 Heroic Caches", 1, true) and how:find("1 in 100 Raider's Hoards", 1, true) and not how:find("World drop", 1, true),
+          "a legendary's Compendium lines: " .. how)
+        how = table.concat(TCF:HowToGet(TCF.GEAR[50442]), " / ")
+        check(how:find("never drops", 1, true) and not how:find("random bonus", 1, true), "a placeholder never drops: " .. how)
+        local epicLoot
+        for _, it in ipairs(TCF.ITEM_LIST) do if it.source == "loot" and it.rarity == 4 then epicLoot = it; break end end
+        if epicLoot then
+          how = table.concat(TCF:HowToGet(epicLoot), " / ")
+          check(how:find("Heroic Cache", 1, true) and not how:find("Raider's Hoard", 1, true), "a Hoard never holds cosmetics: " .. how)
+        end
+      end
+      local tip = tipText(function() TCF:ChestOddsTooltip(GameTooltip, TCF.CHEST_BY_KEY.heroic, true) end)
+      check(tip:find("Legendary gear|r 0.2%", 1, true), "Heroic Cache shows its real Legendary odds: " .. tip)
+      tip = tipText(function() TCF:ChestOddsTooltip(GameTooltip, hoard) end)
+      check(tip:find("Epic gear|r 99%", 1, true) and tip:find("Legendary gear|r 1%", 1, true) and not tip:find("Cosmetic", 1, true), "Raider's Hoard odds: " .. tip)
+      -- opening Raider's Hoards: always gear, Epic raid boss loot (or a real legendary) the class can use
+      local skinRoll = TCF.RollSkinSource
+      TCF.RollSkinSource = function() end
+      TCF:SetClass("WARRIOR")
+      local cd = TCF:CD()
+      local oldLevel, oldTier, oldBest = cd.level, cd.adv.tier, cd.adv.best
+      cd.level = 60
+      local raids, firstRaid = {}, nil
+      for ti, t in ipairs(TCF.TIERS) do if t.raid then raids[ti] = true; firstRaid = firstRaid or ti end end
+      local hoards0 = TCF.db.stats.hoards or 0
+      TCF.db.keys.raid = 150
+      TCF.openingAll = true
+      local nLeg = 0
+      for k = 1, 150 do
+        local g = TCF:OpenChest("raid", true)
+        local lc = TCF.lastChest
+        check(lc and lc.gear and lc.gear == g, "Raider's Hoard holds gear")
+        check(g.q == 5 or (g.q == 4 and g.tier == firstRaid and g.boss > 0), "a new cat's Hoard is Epic boss loot from the first raid: " .. g.name .. " tier " .. tostring(g.tier))
+        check(TCF:GearUsable(g, "WARRIOR"), "Hoard gear fits the class: " .. g.name)
+        if g.q == 5 then nLeg = nLeg + 1 end
+      end
+      check(TCF.db.keys.raid == 0 and (TCF.db.stats.hoards or 0) == hoards0 + 150, "hoards counted")
+      TCF:CheckAchievements()
+      check(TCF.db.achievements.hoard1, "opening a Raider's Hoard earns Spoils of the Raid")
+      -- a cat deep in the raids gets loot from every raid it has reached
+      cd.adv.tier, cd.adv.best = #TCF.TIERS, #TCF.TIERS * 100 + 1
+      local seenTier = {}
+      for k = 1, 300 do
+        local g = TCF:ChestGear(hoard, 4)
+        check(g and g.q == 4 and raids[g.tier], "raid epic")
+        seenTier[g.tier] = true
+      end
+      local nSeen = 0
+      for _ in pairs(seenTier) do nSeen = nSeen + 1 end
+      check(nSeen >= 4, "Hoards from many raids once they are reached: " .. nSeen)
+      -- the Heroic Cache: a real legendary when its tiny roll hits
+      local heroic = TCF.CHEST_BY_KEY.heroic
+      local leg0 = heroic.legendary
+      heroic.legendary = 1
+      TCF.db.keys.heroic = (TCF.db.keys.heroic or 0) + 5
+      local gotLeg = 0
+      for k = 1, 5 do
+        local g = TCF:OpenChest("heroic", true)
+        if TCF.lastChest and TCF.lastChest.gear and TCF.lastChest.gear.q == 5 then gotLeg = gotLeg + 1 end
+      end
+      heroic.legendary = leg0
+      check(gotLeg >= 4, "a hit Legendary roll gives a real legendary: " .. gotLeg)
+      TCF.openingAll = nil
+      -- the loot box celebrates a legendary, and only a legendary
+      local lr = TCF.lootReveal or TCF:CreateLootReveal()
+      lr:ShowGear(legs[1], true, "Heroic Cache", "heroic")
+      check(lr.legendRays:IsShown() and lr.legendGlow:IsShown() and lr.status:GetText():find("Legendary", 1, true), "legendary celebration")
+      for i = 1, 5 do _update(0.1) end
+      lr:ShowGear(TCF:RollRaidEpic("WARRIOR"), true, "Raider's Hoard", "raid")
+      check(not lr.legendRays:IsShown() and not lr.legendGlow:IsShown(), "no celebration for an Epic")
+      lr:Hide()
+      -- the reel for a Hoard shows raid epics
+      TCF.db.ui.chestAnim = true
+      TCF.db.keys.raid = 1
+      TCF.forceReveal = true
+      TCF:OpenChest("raid", true)
+      TCF.forceReveal = nil
+      check(TapCatForeverReel and TapCatForeverReel:IsShown(), "the Hoard reel plays")
+      for i = 1, 40 do _update(0.1) end
+      if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
+      -- the Cat Treat Pouch's blue roll finds blue at every level (level 9 has none of its own)
+      for _, lvl in ipairs({ 1, 5, 9, 14, 23, 37, 52, 60 }) do
+        cd.level = lvl
+        cd.adv.tier, cd.adv.best = 1, 0
+        for k = 1, 15 do
+          local g = TCF:ChestGear(TCF.CHEST_BY_KEY.pouch, 3)
+          check(g and g.q == 3, "a blue pouch roll is blue at level " .. lvl .. ": " .. (g and (g.name .. " q" .. g.q) or "nothing"))
+        end
+      end
+      cd.level, cd.adv.tier, cd.adv.best = oldLevel, oldTier, oldBest
+      -- Treasure Bag: room for every kind of chest, the Hoard included; the Shop sells only 3
+      for _, ch in ipairs(TCF.CHESTS) do TCF.db.keys[ch.key] = 1 end
+      -- rebuild the bag with sizes and points recorded (the mock frames don't keep them)
+      local origCF = CreateFrame
+      CreateFrame = function(...)
+        local f = origCF(...)
+        f.SetSize = function(s, w, h) s.w, s.h = w, h end
+        f.SetPoint = function(s, ...) s.pt = { ... } end
+        return f
+      end
+      if TCF.bag then TCF.bag:Hide() end
+      TCF.bag = nil
+      local okBag, bag = pcall(TCF.CreateBag, TCF)
+      CreateFrame = origCF
+      check(okBag, "Treasure Bag builds: " .. tostring(bag))
+      bag:Show(); bag:Refresh()
+      local shown, lowest = 0, 0
+      for _, r in ipairs(bag.rows) do
+        if r:IsShown() then shown = shown + 1; lowest = math.min(lowest, r.pt[3] - r.h) end
+      end
+      check(shown == #TCF.CHESTS and #TCF.CHESTS == 4, "Treasure Bag shows 4 kinds of chest: " .. shown)
+      check(-lowest + 14 + 22 + 4 <= bag.h, "the 4th row clears the Open everything button: " .. lowest .. " " .. tostring(bag.h))
+      tip = tipText(function() bag.rows[4].scripts.OnEnter(bag.rows[4]) end)
+      check(tip:find("Raider's Hoard", 1, true), "Hoard row tooltip: " .. tip)
+      TCF:OpenAllChests()
+      bag:Hide()
+      for _, ch in ipairs(TCF.CHESTS) do check((TCF.db.keys[ch.key] or 0) == 0, "opened every chest: " .. ch.key) end
+      if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
+      tip = tipText(function() bag.rows[1].all.scripts.OnEnter(bag.rows[1].all) end)
+      check(tip:find("Open all Cat Treat Pouches", 1, true), "All button plural: " .. tip)
+      -- opening a batch of Hoards where the first shown is a Legendary ends on the legendary sound
+      do
+        local legChance, sounds, origSound = TCF.CHEST_BY_KEY.raid.legendary, {}, TCF.PlaySound
+        TCF.CHEST_BY_KEY.raid.legendary = 1
+        TCF.db.keys.raid = 3
+        TCF.PlaySound = function(_, kind) sounds[#sounds + 1] = kind end
+        TCF:OpenAllChests("raid")
+        TCF.PlaySound, TCF.CHEST_BY_KEY.raid.legendary = origSound, legChance
+        if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
+        check(sounds[#sounds] == "legendary", "a batch with a Legendary ends on the legendary sound: " .. table.concat(sounds, ","))
+      end
+      -- the raid expedition tooltips name their Hoard chance
+      do
+        local first = #_frames + 1
+        local page = CreateFrame("Frame")
+        local okE, errE = pcall(TCF.UI.Builders.expeditions, page, { party = {}, Refresh = function() end })
+        check(okE, "expeditions page builds: " .. tostring(errE))
+        local naxxTip
+        for i = first, #_frames do
+          local f = _frames[i]
+          if f.exp == TCF.EXPEDITION_BY_KEY.naxx and f.scripts.OnEnter then naxxTip = tipText(function() f.scripts.OnEnter(f) end) end
+        end
+        check(naxxTip and naxxTip:find("Also a 25% chance of a Raider's Hoard.", 1, true), "Naxxramas tooltip shows its Hoard chance: " .. tostring(naxxTip))
+      end
+      -- sources: Adventure raid bosses and raid clears, raid expeditions
+      local paid = {}
+      local origAward = TCF.AwardChest
+      TCF.AwardChest = function(self, key, src, ...) paid[#paid + 1] = key; return origAward(self, key, src, ...) end
+      local zg = firstRaid
+      cd.adv.tier, cd.adv.stage = zg, 1
+      cd.adv.chestClock = 1e6
+      TCF:AdvMobKilled({ name = "High Priest Venoxis", boss = 1, level = 63 })
+      cd.adv.tier, cd.adv.stage = 2, 1
+      cd.adv.chestClock = 1e6
+      TCF:AdvMobKilled({ name = "Slark", boss = 1, level = 12 })
+      check(paid[1] == "raid" and paid[2] == "pouch", "raid bosses drop a Raider's Hoard, zone bosses a Pouch: " .. table.concat(paid, ","))
+      -- trash kills ask Gear.lua for a small find when it has one
+      local found = {}
+      local origFind = TCF.TrashSmallFind
+      TCF.TrashSmallFind = function(self, m, t) found[#found + 1] = { m, t } end
+      TCF:AdvMobKilled({ name = "Riverpaw Gnoll", level = 11 })
+      check(#found == 1 and found[1][1].name == "Riverpaw Gnoll" and found[1][2] == TCF.TIERS[2], "trash kill calls TrashSmallFind(m, t)")
+      TCF.TrashSmallFind = nil
+      TCF:AdvMobKilled({ name = "Riverpaw Gnoll", level = 11 })   -- and works without it
+      TCF.TrashSmallFind = origFind
+      paid = {}
+      local st = TCF.db.expeditions or { active = {} }
+      TCF.db.expeditions = st
+      local mc = TCF.EXPEDITION_BY_KEY.mc
+      local h0 = mc.hoard
+      mc.hoard = 1
+      table.insert(st.active, { key = "mc", members = { "WARRIOR", "MAGE", "PRIEST" }, start = 0, finish = 0, power = 1e9, chance = 1 })
+      TCF:ClaimExpedition(#st.active)
+      mc.hoard = h0
+      local gotHoard = false
+      for _, k in ipairs(paid) do if k == "raid" then gotHoard = true end end
+      check(gotHoard, "a raid expedition can bring home a Raider's Hoard: " .. table.concat(paid, ","))
+      check(TCF.EXPEDITION_BY_KEY.sm.hoard == nil, "only raid expeditions bring Hoards")
+      TCF.AwardChest = origAward
+      TCF.RollSkinSource = skinRoll
+      print(string.format("chests: Raider's Hoard ok (%d legendaries in 150), %d legendaries, %d raids reached", nLeg, #legs, nSeen))
+    end
+    -- 12. more gear (1.5.1): legendaries only from the big chests, the Raider's Hoard, white gear,
+    -- random-suffix greens, small finds in Adventure, and the pages that show them
+    -- (a function of its own: Lua 5.1 allows 200 locals per function)
+    ;(function()
+      local hoard, heroic = TCF.CHEST_BY_KEY.raid, TCF.CHEST_BY_KEY.heroic
+      -- 12a. what the loot watch (set up at the start) saw over the whole run
+      check(#_lootWatch.bad == 0, "loot rules broken during the run: " .. table.concat(_lootWatch.bad, "; ", 1, math.min(6, #_lootWatch.bad)))
+      check(_lootWatch.chestGear >= 100, "gear from chests during the run: " .. _lootWatch.chestGear)
+      login("Lootcheck")
+      TCF.db.ui.chat = true
+      TCF:SetClass("WARRIOR")
+      local cd = TCF:CD()
+      local adv = cd.adv
+      cd.level = 60
+      local skinChance, skinRoll, gearChance = TCF.CHEST_SKIN_CHANCE, TCF.RollSkinSource, TCF.CHEST_GEAR_CHANCE
+      TCF.CHEST_SKIN_CHANCE, TCF.RollSkinSource = 0, function() end
+      TCF.openingAll = true
+      if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
+      local function openMany(key, n)
+        local got = {}
+        TCF.db.keys[key] = (TCF.db.keys[key] or 0) + n
+        for k = 1, n do
+          TCF:OpenChest(key, true)
+          local lc = TCF.lastChest
+          got[#got + 1] = lc and lc.gear or false
+        end
+        return got
+      end
+      local function gname(g) return g and (g.name .. " (q" .. g.q .. ", id " .. g.id .. ")") or "a cosmetic" end
+
+      -- 12b. real legendaries: only a Heroic Cache or a Raider's Hoard holds one, and only real ones
+      local real = {}
+      for _, it in ipairs(TCF:Legendaries()) do real[it] = true end
+      check(heroic.legendary >= 0.001 and heroic.legendary <= 0.005, "Heroic Cache Legendary chance about 1 in 500: " .. heroic.legendary)
+      check(hoard.legendary >= 0.005 and hoard.legendary <= 0.02, "Raider's Hoard Legendary chance about 1 in 100: " .. hoard.legendary)
+      for _, cl in ipairs(TCF.CLASSES) do
+        for k = 1, 80 do
+          local it = TCF:RollLegendary(cl.key)
+          check(it and real[it], cl.key .. " Legendary roll gave something that is not a real legendary: " .. gname(it))
+        end
+      end
+      local leg0, hleg0 = heroic.legendary, hoard.legendary
+      heroic.legendary, hoard.legendary = 1, 1   -- force the Legendary roll
+      for _, cl in ipairs(TCF.CLASSES) do
+        TCF:SetClass(cl.key); TCF:CD().level = 60
+        for _, key in ipairs({ "heroic", "raid" }) do
+          for _, g in ipairs(openMany(key, 3)) do
+            check(g and g.q == 5 and real[g] and TCF:GearUsable(g, cl.key), key .. " with its Legendary roll forced, " .. cl.key .. " got " .. gname(g))
+          end
+        end
+      end
+      -- no Legendary roll: even the top rarity roll of every chest is an Epic, never a Legendary
+      heroic.legendary, hoard.legendary = 0, 0
+      local origRarity = TCF.RollRarity
+      TCF.RollRarity = function() return 5 end
+      TCF:SetClass("WARRIOR"); cd = TCF:CD(); adv = cd.adv
+      for _, ch in ipairs(TCF.CHESTS) do
+        if ch.key ~= "heroic" and ch.key ~= "raid" then check((ch.legendary or 0) == 0, ch.key .. " has no Legendary roll") end
+        for _, g in ipairs(openMany(ch.key, 40)) do
+          check((not g and not ch.gearOnly) or (g and g.q == 4), ch.name .. " top rarity roll gave " .. gname(g))
+        end
+      end
+      TCF.RollRarity = origRarity
+      heroic.legendary, hoard.legendary = leg0, hleg0
+      -- natural odds: plenty of Pouches and Strongboxes, not one Legendary
+      for _, key in ipairs({ "pouch", "strong" }) do
+        for _, g in ipairs(openMany(key, 300)) do check(not g or g.q <= 4, key .. " gave a Legendary: " .. gname(g)) end
+      end
+
+      -- 12c. the Raider's Hoard: never in the Shop, always in the Treasure Bag, and where it comes from
+      local shopNames = {}
+      for i = _shopScan[1] + 1, _shopScan[2] do
+        local f = _frames[i]
+        if f.kind == "FontString" and type(f.text) == "string" then shopNames[f.text] = true end
+      end
+      for _, ch in ipairs(TCF.CHESTS) do
+        check((shopNames[ch.name] and true or false) == (ch.cost ~= nil), ch.name .. (ch.cost and " is sold in the Shop" or " is not in the Shop"))
+      end
+      check(not hoard.cost, "the Raider's Hoard has no price")
+      local inSources = false
+      for _, line in ipairs(TCF.CHEST_SOURCES) do if line:find("^Raider's Hoard") then inSources = true end end
+      check(inSources and TCF.CHEST_BAG_TEXT and TCF.CHEST_BAG_TEXT.raid, "Treasure Bag texts list the Raider's Hoard")
+      TCF.db.keys.raid = 1
+      if TCF.bag then TCF.bag:Hide() end
+      TCF.bag = nil
+      local bag = TCF:CreateBag(); bag:Show(); bag:Refresh()
+      local hoardRow = false
+      for i, r in ipairs(bag.rows) do if TCF.CHESTS[i].key == "raid" and r:IsShown() then hoardRow = true end end
+      check(hoardRow, "the Treasure Bag shows a row for the Raider's Hoard")
+      bag:Hide()
+      TCF.db.keys.raid = 0
+      local paid = {}
+      local origAward = TCF.AwardChest
+      TCF.AwardChest = function(self, key, src, ...) paid[#paid + 1] = key .. "@" .. tostring(src); return origAward(self, key, src, ...) end
+      local firstRaid
+      for ti, t in ipairs(TCF.TIERS) do if t.raid and not firstRaid then firstRaid = ti end end
+      local function firstClear(ti)
+        local t = TCF.TIERS[ti]
+        local stage = TCF:AdvStages(ti)
+        adv.tier, adv.stage = ti, stage
+        adv.cleared[TCF.AdvStageCode(ti, stage)] = nil
+        TCF:AdvMobKilled({ name = t.bosses[#t.bosses][1], boss = #t.bosses, final = true, level = 61 })
+        return paid[#paid] or ""
+      end
+      check(firstClear(firstRaid):find("^raid@"), "the first clear of a raid gives a Raider's Hoard: " .. table.concat(paid, ", "))
+      check(firstClear(1):find("^strong@"), "the first clear of a zone gives a Strongbox: " .. table.concat(paid, ", "))
+      adv.tier, adv.stage, adv.chestClock = firstRaid, 1, 1e6
+      TCF:AdvMobKilled({ name = TCF.TIERS[firstRaid].bosses[1][1], boss = 1, level = 63 })
+      check(paid[#paid]:find("^raid@"), "an Adventure raid boss's chest is a Raider's Hoard: " .. paid[#paid])
+      local nHoardTrips = 0
+      for _, e in ipairs(TCF.EXPEDITIONS) do
+        local t = e.tier and TCF.TIERS[e.tier]
+        if e.hoard then
+          nHoardTrips = nHoardTrips + 1
+          check(t and t.raid and e.hoard > 0 and e.hoard <= 0.5, e.key .. ": only raid expeditions bring Raider's Hoards, at a fair rate: " .. e.hoard)
+        end
+      end
+      check(nHoardTrips >= 3, "raid expeditions with a Raider's Hoard chance: " .. nHoardTrips)
+      TCF.AwardChest = origAward
+      adv.tier, adv.stage = 1, 1
+
+      -- 12d. white gear: in the world pools only, plain armor or damage, never from a chest
+      local whites, whiteBand = 0, {}
+      local BONUS = { "str", "agi", "sta", "int", "spi", "sp", "heal", "ap", "rap", "def", "critr", "hitr", "crit", "hit", "mp5", "dodger" }
+      for b, list in pairs(TCF.WORLD_POOL) do
+        for _, it in ipairs(list) do
+          if it.q == 1 then
+            whites = whites + 1; whiteBand[b] = (whiteBand[b] or 0) + 1
+            local st = TCF.GearStats(it)
+            check(not it.crafted and it.tier == 0 and it.boss == 0 and ((st.arm or 0) > 0 or (st.dps or 0) > 0), "white world gear " .. it.name)
+            for _, k in ipairs(BONUS) do check(not st[k], "white gear has no bonus stats: " .. it.name .. " " .. k) end
+          end
+        end
+      end
+      check(whites >= 500 and (whiteBand[0] or 0) >= 20 and (whiteBand[1] or 0) >= 20 and (whiteBand[2] or 0) >= 20, "white gear in the world pools: " .. whites)
+      for _, l in pairs(TCF.TIER_POOL) do for _, it in ipairs(l) do check(it.q >= 2, "white gear in a zone pool: " .. it.name) end end
+      for _, bl in pairs(TCF.BOSS_LOOT) do for _, l in pairs(bl) do for _, it in ipairs(l) do check(it.q >= 2, "white gear in boss loot: " .. it.name) end end end
+      for _, cl in ipairs({ "WARRIOR", "MAGE", "ROGUE" }) do
+        TCF:SetClass(cl); cd = TCF:CD(); adv = cd.adv
+        for _, lvl in ipairs({ 1, 3, 6, 9, 14 }) do
+          cd.level = lvl; adv.tier, adv.best = 1, 0
+          for _, ch in ipairs(TCF.CHESTS) do
+            for r = 1, 5 do
+              for k = 1, 3 do local g = TCF:ChestGear(ch, r); check(not g or g.q >= 2, ch.key .. " rarity " .. r .. " at level " .. lvl .. " gave " .. gname(g)) end
+            end
+          end
+          for _, g in ipairs(openMany("pouch", 12)) do check(not g or g.q >= 2, "a level " .. lvl .. " Pouch gave " .. gname(g)) end
+          local w = TCF:RollWorldLoot(lvl, cl, { 0, 0, 0, common = 1 })
+          check(w and w.q == 1, "a white world roll at level " .. lvl .. " gives white gear: " .. gname(w))
+          for k = 1, 20 do
+            local g = TCF:RollWorldLoot(lvl, cl)
+            check(not g or g.q >= 2, "an ordinary world roll gave white gear: " .. gname(g))
+          end
+        end
+      end
+
+      -- 12e. random-suffix greens: names, stats and ids that never change
+      local SUF = { "of the Monkey", "of the Bear", "of the Eagle", "of the Owl", "of the Tiger", "of the Falcon", "of the Wolf",
+        "of the Boar", "of the Gorilla", "of the Whale", "of Strength", "of Agility", "of Stamina", "of Intellect", "of Spirit",
+        "of Healing", "of Fiery Wrath", "of Power", "of Marksmanship", "of Defense" }
+      local SUF_STATS = { { "agi", "sta" }, { "str", "sta" }, { "sta", "int" }, { "int", "spi" }, { "str", "agi" }, { "agi", "int" },
+        { "agi", "spi" }, { "str", "spi" }, { "str", "int" }, { "sta", "spi" }, { "str" }, { "agi" }, { "sta" }, { "int" }, { "spi" },
+        { "heal" }, { "sp" }, { "ap" }, { "rap" }, { "def" } }
+      check(TCF.SUFFIX_ID_BASE == 10000000, "suffix id base")
+      for k, name in ipairs(SUF) do check(TCF.GEAR_SUFFIXES[k] == name, "suffix " .. k .. " is still " .. name .. " (saved ids depend on it): " .. tostring(TCF.GEAR_SUFFIXES[k])) end
+      local inPool = {}
+      for _, l in pairs(TCF.WORLD_POOL) do for _, it in ipairs(l) do inPool[it] = true end end
+      for _, l in pairs(TCF.TIER_POOL) do for _, it in ipairs(l) do inPool[it] = true end end
+      for _, bl in pairs(TCF.BOSS_LOOT) do for _, l in pairs(bl) do for _, it in ipairs(l) do inPool[it] = true end end end
+      local nSuf, nRetired, seenId, perBase = 0, 0, {}, {}
+      for _, it in ipairs(TCF.GEAR_LIST) do
+        check(not seenId[it.id] and TCF.GEAR[it.id] == it, "gear id used once: " .. it.id); seenId[it.id] = true
+        if it.suffix then
+          nSuf = nSuf + 1
+          local b = TCF.GEAR[it.base]
+          check(it.id == TCF.SUFFIX_ID_BASE + it.base * 100 + it.suffix and it.suffix >= 1 and it.suffix <= 99, "suffix id scheme: " .. it.id)
+          check(b and b.retired and not b.suffix and it.name == b.name .. " " .. SUF[it.suffix], "suffix name: " .. it.name)
+          check(it.q == 2 and it.icon == b.icon and it.ilvl == b.ilvl and it.req == b.req and it.slot == b.slot and it.sub == b.sub
+            and it.cls == b.cls and not it.crafted and not it.retired, "a suffix item copies its base: " .. it.name)
+          local st, bst = TCF.GearStats(it), TCF.GearStats(b)
+          check(st.arm == bst.arm and st.dps == bst.dps and st.min == bst.min, "a suffix item keeps its base's armor and damage: " .. it.name)
+          for _, k in ipairs(SUF_STATS[it.suffix]) do
+            check((st[k] or 0) > (bst[k] or 0), it.name .. " has its suffix's " .. k)
+          end
+          check(inPool[it], "suffix item drops: " .. it.name)
+          perBase[it.base] = (perBase[it.base] or 0) + 1
+        else
+          check(it.id < 100000, "a real item id: " .. it.id)
+        end
+        if it.retired then nRetired = nRetired + 1; check(not inPool[it], "a random-suffix base no longer drops: " .. it.name) end
+      end
+      local nBase, nSingle = 0, 0
+      for id, n in pairs(perBase) do
+        nBase = nBase + 1
+        check(n >= 1 and n <= 4, "1 to 4 suffixes per base: " .. TCF.GEAR[id].name .. " " .. n)
+        if n == 1 then nSingle = nSingle + 1 end
+      end
+      check(nSingle <= 5, "almost every base has 2 to 4 suffixes; with one: " .. nSingle)
+      check(nSuf >= 4000 and nBase >= 1500 and nRetired >= nBase, string.format("suffix items %d on %d bases (%d retired)", nSuf, nBase, nRetired))
+      -- pinned ids: a saved "Bandit Cinch of the Monkey" must stay one forever
+      local cinch, sword = TCF.GEAR[10977501], TCF.GEAR[10072702]
+      check(cinch and cinch.name == "Bandit Cinch of the Monkey" and cinch.base == 9775 and cinch.slot == "WAIST", "pinned id 10977501: " .. gname(cinch))
+      check(sword and sword.name == "Notched Shortsword of the Bear" and sword.base == 727, "pinned id 10072702: " .. gname(sword))
+      -- the party look: suffix and white gear round-trip, and an unknown suffix shows its base
+      TCF:SetClass("WARRIOR"); cd = TCF:CD(); adv = cd.adv; cd.level = 60
+      local wbag, weq = TCF:Bag("WARRIOR"), TCF:GearEquipped("WARRIOR")
+      for k in pairs(weq) do weq[k] = nil end
+      local function pick(test)
+        for _, it in ipairs(TCF.GEAR_LIST) do if test(it) and TCF:GearUsable(it, "WARRIOR") then return it end end
+      end
+      local sMain = pick(function(it) return it.suffix and it.slot == "1H" and it.sub == "sword" end)
+      local sHead = pick(function(it) return it.suffix and it.slot == "HEAD" end)
+      local wChest = pick(function(it) return it.q == 1 and inPool[it] and it.slot == "CHEST" and it.sub == "mail" end)
+      for _, it in ipairs({ sMain, sHead, wChest }) do wbag[it.id] = (wbag[it.id] or 0) + 1 end
+      check(TCF:EquipGear(sMain.id, "MAINHAND", "WARRIOR") and TCF:EquipGear(sHead.id, "HEAD", "WARRIOR") and TCF:EquipGear(wChest.id, "CHEST", "WARRIOR"), "equip suffix and white gear")
+      local payload = TCF:PartyPayload("WARRIOR")
+      -- suffix gear is sent as its base (it draws the same, and older versions know the base)
+      check(payload and #payload <= 240 and payload:find("#" .. sMain.base, 1, true) and not payload:find("#" .. sMain.id, 1, true)
+        and payload:find("#" .. wChest.id, 1, true), "party payload: " .. tostring(payload))
+      local kind, pclass, plevel, look = TCF.PartyParse("H1;" .. payload)
+      check(kind == "H1" and pclass == "WARRIOR" and plevel == 60, "party header")
+      check(look.main and look.main.id == "gear:" .. sMain.base, "a suffix weapon arrives as its base: " .. tostring(look.main and look.main.id))
+      check(look.head and look.head.id == "gear:" .. sHead.base, "a suffix helmet arrives as its base: " .. tostring(look.head and look.head.id))
+      check(look.chest and look.chest.id == "gear:" .. wChest.id, "a white chest round-trips: " .. tostring(look.chest and look.chest.id))
+      local own = TCF:GetAppearance("WARRIOR")
+      local function same(a, b)
+        return a and b and a.art == b.art and a.c1[1] == b.c1[1] and a.c1[2] == b.c1[2] and a.c1[3] == b.c1[3]
+          and a.c2[1] == b.c2[1] and a.c2[2] == b.c2[2] and a.c2[3] == b.c2[3]
+      end
+      check(same(own.main, look.main) and same(own.head, look.head) and own.chest and own.chest.id == look.chest.id,
+        "a friend sees the same drawing for suffix and white gear")
+      -- every suffix version of a held off-hand draws like its base (shape and colours)
+      local orb
+      for _, it in ipairs(TCF.GEAR_LIST) do if it.suffix and it.slot == "HOLD" then orb = it; break end end
+      if orb then
+        local proxy = setmetatable({ GearEquipped = function() return { OFFHAND = orb.id } end }, { __index = TCF })
+        local proxyB = setmetatable({ GearEquipped = function() return { OFFHAND = orb.base } end }, { __index = TCF })
+        local a, b = TCF.GearAppearance(proxy, "MAGE"), TCF.GearAppearance(proxyB, "MAGE")
+        check(same(a.off, b.off), "a suffix off-hand draws like its base: " .. gname(orb))
+      end
+      check(TCF.GearModelId(sMain.id) == sMain.base and TCF.GearModelId(sMain.base) == sMain.base
+        and TCF.GearModelId(TCF.SUFFIX_ID_BASE + sMain.base * 100 + 99) == sMain.base, "3D models use the base item id")
+      local newer = TCF.SUFFIX_ID_BASE + sMain.base * 100 + 99
+      local _, _, _, look2 = TCF.PartyParse("H1;WARRIOR;60;;;;m=#" .. newer)
+      check(look2 and look2.main and look2.main.id == "gear:" .. sMain.base, "an unknown suffix shows its base: " .. tostring(look2 and look2.main and look2.main.id))
+
+      -- 12f. sell, junk, tooltip, compare and notice for white and suffix gear
+      local function tipLines(fn)
+        local lines = {}
+        GameTooltip.AddLine = function(_, t, r, g, b) lines[#lines + 1] = { tostring(t), r, g, b } end
+        GameTooltip.AddDoubleLine = function(_, a, b2) lines[#lines + 1] = { tostring(a) .. " " .. tostring(b2) } end
+        local ok, err = pcall(fn)
+        GameTooltip.AddLine, GameTooltip.AddDoubleLine = nil, nil
+        check(ok, "tooltip: " .. tostring(err))
+        local text = {}
+        for i, l in ipairs(lines) do text[i] = l[1] end
+        return lines, table.concat(text, "\n")
+      end
+      local sChest = pick(function(it) return it.suffix and it.slot == "CHEST" and it.sub == "mail" and it.ilvl >= wChest.ilvl + 5 and it.ilvl <= wChest.ilvl + 25 end)
+      check(sChest, "a mail suffix chest above " .. wChest.name)
+      check(TCF.GearLink(wChest):find("|cffffffff[" .. wChest.name .. "]", 1, true) and TCF.GearLink(sChest):find("|cff1eff00[", 1, true), "link colours")
+      local lines, tip = tipLines(function() TCF:GearTooltip(GameTooltip, wChest, "WARRIOR") end)
+      check(lines[1][1] == wChest.name and lines[1][2] == 1 and lines[1][3] == 1 and lines[1][4] == 1, "white tooltip title is white")
+      check(tip:find(" Armor", 1, true) and tip:find("World drop", 1, true) and not tip:find("\n%+%d+ %a") and not tip:find("Equip:", 1, true), "white tooltip: " .. tip)
+      lines, tip = tipLines(function() TCF:GearTooltip(GameTooltip, sChest, "WARRIOR") end)
+      local want = ({ str = "Strength", agi = "Agility", sta = "Stamina", int = "Intellect", spi = "Spirit" })[SUF_STATS[sChest.suffix][1]]
+      check(lines[1][1] == sChest.name and math.abs(lines[1][2] - 0.12) < 0.01, "suffix tooltip title is green")
+      check(tip:find(" Armor", 1, true) and (not want or tip:find("%+%d+ " .. want)) and (want or tip:find("Equip:", 1, true)), "suffix tooltip: " .. tip)
+      -- compare: the white against the worn suffix chest, the suffix chest against an empty slot
+      weq.CHEST = nil
+      _, tip = tipLines(function() TCF:GearCompareLines(GameTooltip, sChest, "WARRIOR") end)
+      check(tip:find("empty Chest slot", 1, true) and tip:find("+", 1, true), "compare with an empty slot: " .. tip)
+      wbag[sChest.id] = (wbag[sChest.id] or 0) + 1
+      check(TCF:EquipGear(sChest.id, "CHEST", "WARRIOR"), "equip the suffix chest")
+      _, tip = tipLines(function() TCF:GearCompareLines(GameTooltip, wChest, "WARRIOR") end)
+      check(tip:find("Instead of", 1, true) and tip:find(sChest.name, 1, true) and tip:find("Power", 1, true), "compare a white with a worn suffix piece: " .. tip)
+      check((TCF:GearUpgrade(wChest, "WARRIOR") or 0) < 0, "the white is worse than the suffix piece")
+      _, tip = tipLines(function() TCF:GearTooltip(GameTooltip, wChest, "WARRIOR") end)   -- with the side-by-side compare
+      check(tip:find("Compared with what you're wearing", 1, true), "a white's full tooltip compares: " .. tip)
+      -- sell: whites are worth a little, suffix greens a little more
+      local vw, cw = TCF:GearSellValue(wChest)
+      local vs, cs = TCF:GearSellValue(sChest)
+      check(cw == "coins" and cs == "coins" and vw >= 1 and vw <= math.max(1, math.floor(wChest.ilvl * 0.05)) and vs > vw, "sell values " .. vw .. " " .. vs)
+      wbag[wChest.id] = (wbag[wChest.id] or 0) + 1
+      local coins0 = TCF.db.coins
+      local paidC = TCF:SellGear(wChest.id)
+      check(paidC == vw and TCF.db.coins == coins0 + vw and _chat[#_chat]:find(wChest.name, 1, true), "sell a white: " .. tostring(_chat[#_chat]))
+      -- junk: unworn whites worse than the worn piece are junk, the worn suffix piece is not
+      weq.CHEST = sChest.id
+      wbag[wChest.id] = (wbag[wChest.id] or 0) + 2
+      wbag[sChest.id] = (wbag[sChest.id] or 0)
+      local junk = TCF:JunkGear("WARRIOR")
+      check((junk[wChest.id] or 0) >= 2 and not junk[sMain.id] and (junk[sChest.id] or 0) < wbag[sChest.id], "junk: whites yes, worn suffix gear no")
+      TCF:SellJunk()
+      check(not wbag[wChest.id] and weq.CHEST == sChest.id and wbag[sChest.id] and wbag[sChest.id] >= 1, "Sell junk sold the whites and kept what is worn")
+      -- the small notice for a found piece: names it, says when it fills an empty slot
+      weq.CHEST = nil
+      TCF:Bag("WARRIOR")[sChest.id] = nil
+      if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
+      local toastFrom = #_frames
+      TCF:GrantGear(wChest, "Found on Kobold Vermin")
+      TCF:GrantGear(sHead, "Found on Kobold Vermin")
+      local nameShown, emptyShown = false, false
+      for _, f in ipairs(_frames) do
+        if f.kind == "FontString" and type(f.text) == "string" and f.shown then
+          if f.text:find(wChest.name, 1, true) == 1 then nameShown = true end
+          if f.text:find("for your empty Chest slot", 1, true) then emptyShown = true end
+        end
+      end
+      check(nameShown and emptyShown, "a found white gets a notice that names it and its empty slot")
+      check(not (TapCatForeverLootReveal and TapCatForeverLootReveal:IsShown()), "found gear: no loot box")
+      check(_chat[#_chat]:find("Found on Kobold Vermin", 1, true), "found gear chat line")
+      -- the Gear page lists them
+      if win then win:Show(); win:SelectTab(1); win:Refresh(true); win.gearSlot = "CHEST"; win:Refresh(); win.gearSlot = nil; win:Refresh() end
+
+      -- 12g. small finds
+      TCF.CHEST_SKIN_CHANCE, TCF.RollSkinSource, TCF.CHEST_GEAR_CHANCE = skinChance, skinRoll, gearChance
+      TCF.openingAll = nil
+      local SF = TCF.SMALL_FIND
+      local findClass = TCF.CLASSES[_seed % #TCF.CLASSES + 1].key
+      TCF:SetClass(findClass); cd = TCF:CD(); adv = cd.adv
+      local fbag, feq = TCF:Bag(findClass), TCF:GearEquipped(findClass)
+      -- start bare: gear this class got in earlier checks would fill its slots and leave
+      -- little to find (that depends on the seed)
+      for k in pairs(fbag) do fbag[k] = nil end
+      for k in pairs(feq) do feq[k] = nil end
+      local origGrant = TCF.GrantGear
+      local grants, bad = 0, {}
+      TCF.GrantGear = function(self, it, reason, ...)
+        grants = grants + 1
+        if not (type(reason) == "string" and reason:find("^Found on ")) then bad[#bad + 1] = "reason " .. tostring(reason) end
+        if it.crafted or it.retired or not TCF:GearUsable(it, findClass) or it.req > cd.level or (it.q ~= 1 and it.q ~= 2) then bad[#bad + 1] = gname(it) end
+        return origGrant(self, it, reason, ...)
+      end
+      local found0 = TCF.db.stats.gearFound or 0
+      for lvl = 1, 60, 6 do
+        cd.level = lvl
+        for k = 1, 150 do adv.findClock = nil; TCF:TrashSmallFind({ name = "Kobold Vermin" }, TCF.TIERS[1]) end
+      end
+      TCF.GrantGear = origGrant
+      check(grants >= 15 and #bad == 0, findClass .. " small finds: " .. grants .. ", wrong: " .. table.concat(bad, ", ", 1, math.min(5, #bad)))
+      check((TCF.db.stats.gearFound or 0) == found0 + grants, "small finds count as gear found")
+      -- a plate wearer finds the heaviest armor there is for its level, not cloth
+      do
+        local plate, chests = 0, 0
+        for k = 1, 200 do
+          local it = TCF:RollSmallFind("WARRIOR", 45, { "CHEST" })
+          if it and it.slot == "CHEST" then chests = chests + 1; if it.sub == "plate" then plate = plate + 1 end end
+        end
+        check(chests >= 100 and plate >= 0.8 * chests, "a level 45 Warrior's chest finds are plate: " .. plate .. " of " .. chests)
+        local leather, n = 0, 0
+        for k = 1, 200 do
+          local it = TCF:RollSmallFind("ROGUE", 30, { "LEGS" })
+          if it and it.slot == "LEGS" then n = n + 1; if it.sub == "leather" then leather = leather + 1 end end
+        end
+        check(n >= 100 and leather >= 0.8 * n, "a level 30 Rogue's leg finds are leather: " .. leather .. " of " .. n)
+      end
+      -- they favour empty slots: half the slots filled, most finds go to the other half
+      for k in pairs(fbag) do fbag[k] = nil end
+      for k in pairs(feq) do feq[k] = nil end
+      cd.level = 30
+      local function fillSlot(s)
+        for k = 1, 60 do
+          local it = TCF:RollSmallFind(findClass, 30, { s })
+          for _, ts in ipairs(it and TCF:GearTargetSlots(it, findClass) or {}) do
+            if ts == s then fbag[it.id] = (fbag[it.id] or 0) + 1; TCF:EquipGear(it.id, s, findClass); return it end
+          end
+        end
+      end
+      for _, s in ipairs({ "HEAD", "CHEST", "LEGS", "FEET", "HANDS", "WRIST", "SHOULDER" }) do fillSlot(s) end
+      local empty, nSlots = TCF:SmallFindNeed(findClass)
+      local isEmpty = {}
+      for _, s in ipairs(empty) do isEmpty[s] = true end
+      local toEmpty, rolled = 0, 0
+      for k = 1, 300 do
+        local it = TCF:RollSmallFind(findClass, 30, empty)
+        if it then
+          rolled = rolled + 1
+          for _, s in ipairs(TCF:GearTargetSlots(it, findClass)) do if isEmpty[s] then toEmpty = toEmpty + 1; break end end
+        end
+      end
+      check(#empty >= 4 and #empty < nSlots and rolled >= 200 and toEmpty >= 0.75 * rolled,
+        string.format("finds favour the %d empty slots of %d: %d of %d", #empty, nSlots, toEmpty, rolled))
+      -- and they get rare once every slot is covered
+      local function findRate(n)
+        local got = 0
+        TCF.GrantGear = function() got = got + 1 end   -- counted, not kept: the bag stays as it is
+        for k = 1, n do adv.findClock = nil; TCF:TrashSmallFind({ name = "Defias Thug" }, TCF.TIERS[2]) end
+        TCF.GrantGear = origGrant
+        return got / n
+      end
+      local rateHalf = findRate(3000)
+      for _, s in ipairs(empty) do fillSlot(s) end
+      local empty2 = TCF:SmallFindNeed(findClass)
+      local rateFull = findRate(3000)
+      check(#empty2 <= 1 and rateHalf > 4 * rateFull and rateFull < 0.02,
+        string.format("finds slow down as slots fill: %.4f with %d empty, %.4f with %d empty", rateHalf, #empty, rateFull, #empty2))
+      -- a find waits out the gap after the last one (the gap clock is saved per class)
+      for k in pairs(feq) do feq[k] = nil end
+      for k in pairs(fbag) do fbag[k] = nil end
+      adv.findClock, adv.smallFinds = 1, 0
+      local g0 = TCF.db.stats.gearFound
+      for k = 1, 300 do TCF:TrashSmallFind({ name = "Kobold Vermin" }, TCF.TIERS[1]) end
+      check(TCF.db.stats.gearFound == g0, "no find within " .. SF.GAP_MIN .. " seconds of the last")
+      adv.findClock = SF.GAP_MIN + 1
+      for k = 1, 300 do TCF:TrashSmallFind({ name = "Kobold Vermin" }, TCF.TIERS[1]) end
+      check(TCF.db.stats.gearFound == g0 + 1 and adv.findClock == 0 and adv.smallFinds == 1,
+        "one find after the gap, then the gap again")
+      -- selling every find doesn't keep them coming fast: a naked cat that has already had
+      -- plenty of finds waits the long gap
+      for k in pairs(fbag) do fbag[k] = nil end
+      adv.findClock, adv.smallFinds = 600, 100
+      g0 = TCF.db.stats.gearFound
+      for k = 1, 300 do TCF:TrashSmallFind({ name = "Kobold Vermin" }, TCF.TIERS[1]) end
+      check(TCF.db.stats.gearFound == g0, "a naked cat with 100 finds behind it waits the long gap")
+      adv.findClock, adv.smallFinds = 20, 0
+      for k = 1, 300 do TCF:TrashSmallFind({ name = "Kobold Vermin" }, TCF.TIERS[1]) end
+      check(TCF.db.stats.gearFound == g0 + 1, "a naked new cat gets a find after a short gap")
+      adv.findClock, adv.smallFinds = nil, nil
+      -- a new cat in Adventure: about an hour fills most of the slots it shows
+      local VIS = { "HEAD", "CHEST", "BACK", "WAIST", "NECK", "FINGER1", "MAINHAND", "OFFHAND" }
+      local function hourOfAdventure(name, class, startLevel, minutes)
+        login(name)
+        TCF:SetClass(class)
+        local c = TCF:CD()
+        if startLevel > 1 then c.level = startLevel end
+        local eq = TCF:GearEquipped(class)
+        local finds = 0
+        TCF.GrantGear = function(self, it, reason, ...)
+          local slot = TCF:BestGearSlot(it, class)
+          local wasEmpty = slot and not eq[slot]
+          local r = origGrant(self, it, reason, ...)
+          if type(reason) == "string" and reason:find("^Found on ") then finds = finds + 1 end
+          -- the player equips whatever helps (finds, boss drops)
+          if slot and TCF:CanEquipGear(it, class) and (wasEmpty or (TCF:GearUpgrade(it, class) or 0) > 0) then TCF:EquipGear(it.id, slot, class) end
+          return r
+        end
+        if win then win:Hide() end
+        TCF:AdvStart()
+        local kbf = TapCatForeverKeyListener
+        local t, nextKey = 0, 0
+        while t < minutes * 60 do
+          _clock = _clock + 0.25; t = t + 0.25
+          if TCF.inFrenzy and GetTime() > (TCF.frenzyUntil or 0) then TCF.inFrenzy = false end
+          TCF:AdvTick(0.25)
+          if t >= nextKey then kbf.scripts.OnKeyDown(kbf, "Q"); nextKey = nextKey + 1 end
+        end
+        TCF.GrantGear = origGrant
+        TCF:AdvRetreat()
+        -- the shown slots the cat could fill at its level (no rings or necks below about 12)
+        local mh = eq.MAINHAND and TCF.GEAR[eq.MAINHAND]
+        local worn, reach = 0, 0
+        for _, s in ipairs(VIS) do
+          if not (s == "OFFHAND" and mh and mh.slot == "2H") then
+            local ok = eq[s] ~= nil
+            for b = 0, math.floor(math.min(60, c.level) / 5) do
+              for _, it in ipairs(TCF.WORLD_POOL[b] or {}) do
+                if not ok and it.q <= 2 and it.req <= c.level and TCF:GearUsable(it, class) then
+                  for _, ts in ipairs(TCF:GearTargetSlots(it, class)) do if ts == s then ok = true end end
+                end
+              end
+            end
+            if ok then reach = reach + 1 end
+            if eq[s] then worn = worn + 1 end
+          end
+        end
+        -- the saved gap clock ran during the fights after the last find
+        check(finds == 0 or (type(c.adv.findClock) == "number" and c.adv.findClock > 0 and c.adv.smallFinds == finds),
+          "the small-find gap clock and count are saved per class: " .. tostring(c.adv.findClock) .. ", " .. tostring(c.adv.smallFinds))
+        return worn, reach, finds, c.level, c.adv.kills
+      end
+      local c1 = TCF.CLASSES[(_seed + 3) % #TCF.CLASSES + 1].key
+      local c2 = TCF.CLASSES[(_seed + 7) % #TCF.CLASSES + 1].key
+      local w1, r1, f1, l1, k1 = hourOfAdventure("Findcat", c1, 1, 60)
+      check(r1 >= 4 and w1 * 3 >= r1 * 2 and f1 >= 4 and f1 <= 25,
+        string.format("a new level 1 %s fills most shown slots in an hour: %d of %d, %d finds", c1, w1, r1, f1))
+      local w2, r2, f2, l2, k2 = hourOfAdventure("Findcat2", c2, 10, 75)
+      check(r2 >= 5 and w2 * 2 > r2 and f2 >= 3 and f2 <= 25,
+        string.format("a bare level 10 %s fills most shown slots in 75 minutes: %d of %d, %d finds", c2, w2, r2, f2))
+
+      -- 12h. the Compendium builds with every new item and shows white gear apart
+      login("Lootcheck")
+      if TCF.compendium then TCF.compendium:Hide() end
+      TCF.compendium = nil
+      local compFrom = #_frames
+      local comp = TCF:CreateCompendium()
+      local compTo = #_frames
+      comp.cat = "gear"; comp.filter = "all"; comp:Show()
+      local plainSecs, cellsShown = 0, 0
+      local nZones = #TCF.TIERS
+      for _, z in ipairs({ 0, 1, 2, firstRaid, nZones }) do
+        comp.gearZone, comp.gearSub, comp.page = z, 1, 1
+        comp:Refresh()
+        for sub = 1, 40 do
+          comp.gearSub, comp.page = sub, 1
+          comp:Refresh()
+        end
+      end
+      comp.gearZone, comp.page = 0, 1
+      for sub = 1, 40 do
+        comp.gearSub = sub; comp:Refresh()
+      end
+      for i = compFrom + 1, compTo do
+        local f = _frames[i]
+        if f.kind == "FontString" and type(f.text) == "string" and f.text:find("Plain gear, levels", 1, true) and f.shown then plainSecs = plainSecs + 1 end
+      end
+      check(plainSecs >= 3, "the Compendium lists plain (white) gear apart: " .. plainSecs)
+      -- hover the gear cells of the first plain section and the first world section
+      local hovered = 0
+      for _, sub in ipairs({ 1, 2 }) do
+        comp.gearZone, comp.gearSub, comp.page = 0, sub, 1
+        comp:Refresh()
+        for i = compFrom + 1, compTo do
+          local f = _frames[i]
+          if f.item and f.item.q and f.scripts and f.scripts.OnEnter and f.shown and hovered < 60 then
+            local _, t = tipLines(function() f.scripts.OnEnter(f) end)
+            check(t:find("How to get", 1, true), "Compendium gear tooltip: " .. t)
+            hovered = hovered + 1
+          end
+        end
+      end
+      check(hovered >= 10, "Compendium gear cells hovered: " .. hovered)
+      local how = table.concat(TCF:HowToGet(wChest), " / ")
+      check(how ~= "" and how:lower():find("white", 1, true), "how to get white gear: " .. how)
+      how = table.concat(TCF:HowToGet(sChest), " / ")
+      check(how:find("random bonuses", 1, true), "how to get a suffix item: " .. how)
+      how = table.concat(TCF:HowToGet(TCF.GEAR[sChest.base]), " / ")
+      check(how:find("No longer drops", 1, true), "how to get a retired base: " .. how)
+      comp:Hide()
+      login(mainChar)
+      print(string.format("more gear: %d suffix items on %d bases, %d whites in pools; legendaries only from Heroic Caches and Hoards; " ..
+        "small finds %.3f/%.4f per kill (half/all slots filled); new %s L1 60 min: %d finds, %d/%d shown slots, level %d; " ..
+        "bare %s L10 75 min: %d finds, %d/%d shown slots", nSuf, nBase, whites, rateHalf, rateFull, c1, f1, w1, r1, l1, c2, f2, w2, r2))
+    end)()
     print("class professions, crafted gear, party cats and loot notices: all checks passed")
     end
     -- every referenced art file must exist
