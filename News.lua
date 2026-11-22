@@ -20,14 +20,27 @@ function TCF:CurrentNews()
   end
 end
 
+-- the id a news entry is remembered by: its full version (1.5.1); saves from 1.5.0 stored
+-- just the major version ("1.5"), which still counts as having seen 1.5.0
+local function seenId(n) return n.version end
+local function wasSeen(db, n)
+  local seen = db.newsSeen
+  return seen == n.version or (seen == majorOf(n.version) and n.version == seen .. ".0")
+end
+-- what the strip calls the update: "1.5" for 1.5.0, "1.5.1" for later ones
+local function label(n)
+  local m = majorOf(n.version)
+  return n.version == m .. ".0" and m or n.version
+end
+
 function TCF:NewsPending()
   local n = self:CurrentNews()
-  return n and self.db and self.db.newsSeen ~= majorOf(n.version) or false
+  return n and self.db and not wasSeen(self.db, n) or false
 end
 
 function TCF:MarkNewsSeen()
   local n = self:CurrentNews()
-  if n and self.db then self.db.newsSeen = majorOf(n.version); self.db.newsShows = nil end
+  if n and self.db then self.db.newsSeen = seenId(n); self.db.newsShows = nil end
   if self.newsStrip then self.newsStrip:Hide() end
 end
 
@@ -71,12 +84,12 @@ function TCF:CheckNews()
   else
     strip:SetPoint("BOTTOM", win, "TOP", 0, 2)
   end
-  self.newsStrip.text:SetText("|cffffd100What's new in " .. majorOf(n.version) .. ":|r " .. n.highlight)
+  self.newsStrip.text:SetText("|cffffd100What's new in " .. label(n) .. ":|r " .. n.highlight)
   self.newsStrip:Show()
   self.db.newsShows = (self.db.newsShows or 0) + 1
   if self.db.newsShows >= STRIP_SHOWS then
     -- shown enough: this is the last time it appears (it stays up until the window closes)
-    self.db.newsSeen = majorOf(n.version); self.db.newsShows = nil
+    self.db.newsSeen = seenId(n); self.db.newsShows = nil
   end
 end
 
@@ -168,7 +181,7 @@ do
     -- brand-new players see the welcome tour, not "what's new"
     if db and not db.welcomed and (db.taps or 0) == 0 then
       local n = TCF:CurrentNews()
-      if n then db.newsSeen = majorOf(n.version) end
+      if n then db.newsSeen = seenId(n) end
     end
   end)
 end
