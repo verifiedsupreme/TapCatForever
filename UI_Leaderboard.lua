@@ -239,7 +239,8 @@ TCF.UI.Builders.leaderboard = function(page, win)
     return e[field]
   end
 
-  local NOTE = "Only players on your realm who joined are listed. You share with them when you are in a party, raid or " ..
+  local NOTE = "|cffff9933The leaderboard is still under construction: we're working on getting players to show up for each other.|r " ..
+    "Only players on your realm who joined are listed. You share with them when you are in a party, raid or " ..
     "guild together, and they pass on the players they know. Players not seen for 30 days drop off, and at most " ..
     TCF.LB_MAX_ENTRIES .. " are kept. Scroll with the mouse wheel."
   local SECTION_NOTE = {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.3.7
+
+**Realm leaderboard**
+- The leaderboard is still under construction. We're working on getting players to show up on each other's leaderboard, and the tab says so for now. Your own row and the opt-in work as before.
+
 ## 1.5.3.6
 
 **Realm leaderboard**
