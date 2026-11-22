@@ -1289,9 +1289,10 @@ function TCF:CreateWindow()
       "(checked by character name), and only while you are both online.\n\n" ..
       "Realm leaderboard: your character's name and realm, your cat's class and cat level, the level of each of " ..
       "your class cats, your total taps, achievements earned, Adventure zones cleared, Trade Gold earned, best " ..
-      "profession skills and addon version are sent on an addon channel that " ..
-      "TapCatForever players on your realm join when they turn this on. They pass it on to each other, so it can " ..
-      "reach players you are never online with. In return you see their cats on the leaderboard. Nothing else is sent.\n\n" ..
+      "profession skills and addon version are sent to TapCatForever players on your realm who turned this on when you are in a " ..
+      "party, raid or guild with them (and on an addon channel, where the game allows it). They pass it on to each " ..
+      "other, so it can reach players you are never grouped with. In return you see their cats on the leaderboard. " ..
+      "Nothing else is sent.\n\n" ..
       "This setting applies to every character on your account. Each of them joins the channel and shares its own " ..
       "name once it logs in, and because taps and achievements are shared by all your characters, other players " ..
       "may be able to tell your characters on the same realm belong together.\n\n" ..

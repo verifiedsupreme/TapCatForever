@@ -53,7 +53,7 @@ local RELAY_BATCH = 3                -- entries passed on at a time
 local RELAY_FRESH = 15 * 60          -- an entry heard on the channel this recently is not passed on again
 local RELAY_AGAIN = 60 * 60          -- and we pass on the same entry at most once an hour (newcomers aside)
 local HELLO_GAP = 2 * 60             -- at most one newcomer batch this often
-local SEND_GAP = 2                   -- seconds between our messages
+local SEND_GAP = 3                   -- seconds between our messages
 local SEND_BUDGET, SEND_WINDOW = 30, 600     -- at most 30 messages in 10 minutes (an L1 and its L2 are two)
 local READ_BUDGET, READ_WINDOW = 600, 60     -- at most 600 messages read a minute; the rest are ignored
 local SENDER_MSGS, SENDER_WINDOW = 40, 600   -- at most 40 messages read from one sender in 10 minutes
@@ -511,9 +511,45 @@ local function underBudget(t)
   return #sentAt < SEND_BUDGET
 end
 
-local function channel()
+-- Where our messages go (1.5.3.2): your party or raid and your guild, the same addon messages
+-- party cats use, plus the hidden channel when the game lets us join and use it (WoW: Forever may
+-- not allow addon messages on custom channels). Every route gets the same message.
+local function groupRoute()
+  if not IsInGroup then return nil end
+  local ok, g = pcall(IsInGroup)
+  if not ok or not g or isSecret(g) then return nil end
+  local inst = LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+  local home = LE_PARTY_CATEGORY_HOME and IsInGroup(LE_PARTY_CATEGORY_HOME)
+  if inst and not isSecret(inst) and not home then return "INSTANCE_CHAT" end
+  local okR, raid = pcall(function() return IsInRaid and IsInRaid() end)
+  if okR and raid and not isSecret(raid) then return "RAID" end
+  return "PARTY"
+end
+local function guildRoute()
+  if not IsInGuild then return false end
+  local ok, g = pcall(IsInGuild)
+  return ok and g and not isSecret(g) and true or false
+end
+local function routes()
+  local out = {}
   local id = TCF.DevChannelId and TCF.DevChannelId() or 0
-  return id > 0 and id or nil
+  if id > 0 then out[#out + 1] = { "CHANNEL", tostring(id) } end
+  local g = groupRoute()
+  if g then out[#out + 1] = { g } end
+  if guildRoute() then out[#out + 1] = { "GUILD" } end
+  return out
+end
+TCF.LeaderboardRoutes = routes
+-- true when there is somewhere to send (kept the old name: it used to mean "in the channel")
+local function channel() return #routes() > 0 end
+-- send on every route; true when at least one took it
+local function sendAll(text)
+  if not TCF.DevSendRaw then return false end
+  local okAny = false
+  for _, r in ipairs(routes()) do
+    if TCF.DevSendRaw(text, r[1], r[2]) then okAny = true end
+  end
+  return okAny
 end
 
 -- one message every SEND_GAP seconds, within the budget, only while sharing and in the channel
@@ -522,8 +558,7 @@ local function pump(t)
   if not optedIn() then wipe(queue); return end
   if t - lastSend < SEND_GAP or not underBudget(t) then return end
   if InCombatLockdown and InCombatLockdown() then return end   -- addon messages can be blocked in fights: after
-  local id = channel()
-  if not id or not TCF.DevSendRaw then return end   -- waiting for the channel
+  if not channel() or not TCF.DevSendRaw then return end   -- nowhere to send yet (no group, guild or channel)
   local item = table.remove(queue, 1)
   -- someone else passed this one on while ours waited: no need to send it again
   if item.key and not item.follow and heardAt[item.key] and heardAt[item.key] >= item.at then dropFollow(item); return pump(t) end
@@ -534,7 +569,7 @@ local function pump(t)
     local mk, shared = myKey(), accountTable("lbShared")
     if mk and shared then shared[mk] = true end
   end
-  if TCF.DevSendRaw(item.text, "CHANNEL", id) then
+  if sendAll(item.text) then
     sentAt[#sentAt + 1] = t
     if item.key and not item.follow then heardAt[item.key], relayedAt[item.key] = t, t end   -- the others online heard it from us
   else
@@ -592,14 +627,13 @@ end
 
 -- this character's "take me off", if the channel is there and the limits allow; true once it went out
 local function sendRemove(t)
-  local id = channel()
-  if not id or not TCF.DevSendRaw then return false end
+  if not channel() or not TCF.DevSendRaw then return false end
   if InCombatLockdown and InCombatLockdown() then return false end
   -- a second one within REMOVE_GAP only when our own summary went out after the last one
   if t - lastRemoveAt < REMOVE_GAP and lastOwnSentAt < lastRemoveAt then return false end
   if not underBudget(t) then return false end
   lastRemoveAt, lastSend = t, t
-  if not TCF.DevSendRaw("R1;" .. numStr(serverNow()), "CHANNEL", id) then return false end   -- tried again later
+  if not sendAll("R1;" .. numStr(serverNow())) then return false end   -- tried again later
   sentAt[#sentAt + 1] = t
   local mk, ui = myKey(), TCF.db and TCF.db.ui
   if mk and ui and type(ui.lbRemove) == "table" then
@@ -690,14 +724,16 @@ local function senderFull(s)
   return nil
 end
 
+-- the hidden channel, and (1.5.3.2) your party, raid, instance group and guild
+local ROUTE_OK = { CHANNEL = true, PARTY = true, RAID = true, INSTANCE_CHAT = true, GUILD = true }
 local function onAddon(prefix, text, chan, sender, chanName)
   if not optedIn() then return end                       -- opted out: nothing is read
   if isSecret(prefix) or prefix ~= PREFIX then return end
-  if not plain(text) or not plain(chan) or not plain(sender) or chan ~= "CHANNEL" then return end
+  if not plain(text) or not plain(chan) or not plain(sender) or not ROUTE_OK[chan] then return end
   local kind = text:sub(1, 3)
   if kind ~= "L1;" and kind ~= "L2;" and kind ~= "R1;" and kind ~= "X1;" then return end
   if isSecret(chanName) then return end
-  if type(chanName) == "string" and chanName ~= "" and not chanName:lower():find(CHANNEL:lower(), 1, true) then return end
+  if chan == "CHANNEL" and type(chanName) == "string" and chanName ~= "" and not chanName:lower():find(CHANNEL:lower(), 1, true) then return end
   local sk = keyOf(sender)
   if not sk then return end
   local mine = myKey()
@@ -940,7 +976,8 @@ end
 
 ---------------------------------------------------------------- events
 local ev = CreateFrame("Frame")
-for _, e in ipairs({ "CHAT_MSG_ADDON", "PLAYER_LOGIN" }) do pcall(ev.RegisterEvent, ev, e) end
+for _, e in ipairs({ "CHAT_MSG_ADDON", "PLAYER_LOGIN", "GROUP_ROSTER_UPDATE", "PLAYER_GUILD_UPDATE" }) do pcall(ev.RegisterEvent, ev, e) end
+local groupSize = 0
 
 local function onEvent(_, event, a1, a2, a3, a4, _, _, _, a8)
   if event == "PLAYER_LOGIN" then
@@ -962,6 +999,22 @@ local function onEvent(_, event, a1, a2, a3, a4, _, _, _, a8)
       signupPending = true
       ownAt = now() + FIRST_DELAY + random() * 15
       checkAt = now() + CHECK_GAP
+    end
+    return
+  end
+  if (event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_GUILD_UPDATE") and TCF.db then
+    -- someone joined your group (or you joined a guild): share your cat and pass on the board soon
+    local n = 0
+    if GetNumGroupMembers then
+      local ok, v = pcall(GetNumGroupMembers)
+      if ok and type(v) == "number" and not isSecret(v) then n = v end
+    end
+    local grew = event == "PLAYER_GUILD_UPDATE" or n > groupSize
+    groupSize = n
+    if grew and optedIn() then
+      local t = now()
+      if t - lastOwnAt >= 30 then ownAt = min(ownAt or 1e18, t + 3 + random() * 5) end
+      if not helloAt and t - lastHello >= 30 then helloAt, helloSince = t + 6 + random() * 8, t end
     end
     return
   end

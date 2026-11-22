@@ -52,10 +52,10 @@ TCF.UI.Builders.leaderboard = function(page, win)
     Para(96, "What is shared", "Your character's name and realm, your cat's class and cat level, the level of each of your " ..
       "class cats, your total taps, achievements earned, Adventure zones cleared, Trade Gold earned, your best profession " ..
       "skills and the addon version. Nothing else."),
-    Para(166, "Who sees it", "Only TapCatForever players on your realm who joined too. It goes from player to player inside " ..
-      "the game, through the addon, on a hidden addon channel: no internet, and nothing shows in your chat. Players pass " ..
-      "the list on to each other, so you also see players you are never online with. Anyone who joins that channel " ..
-      "could read what is shared there with an addon."),
+    Para(166, "Who sees it", "Only TapCatForever players on your realm who joined too. Your cat is shared with them when " ..
+      "you are in a party, raid or guild together, through the addon (the same way party cats work): no internet, and " ..
+      "nothing shows in your chat. They pass on the players they know, so the board grows as you group up. " ..
+      "Other addons in your group or guild could read what is shared."),
     Para(250, "Good to know", "Joining turns on Share my cat's progress in Settings > Help and info, for every character " ..
       "on your account. The same option lets the addon's developer see your addon version, cat class, cat level, zones " ..
       "cleared and TapCoins when they ask. You can leave at any time from this tab, and other players are then asked " ..
@@ -239,8 +239,8 @@ TCF.UI.Builders.leaderboard = function(page, win)
     return e[field]
   end
 
-  local NOTE = "Only players on your realm who joined are listed. Players pass the list on to each other inside the game, " ..
-    "so it fills up over time and can be a little behind. Players not seen for 30 days drop off, and at most " ..
+  local NOTE = "Only players on your realm who joined are listed. You share with them when you are in a party, raid or " ..
+    "guild together, and they pass on the players they know. Players not seen for 30 days drop off, and at most " ..
     TCF.LB_MAX_ENTRIES .. " are kept. Scroll with the mouse wheel."
   local SECTION_NOTE = {
     taps = " Taps count all of a player's characters. Click a heading to sort.",

@@ -3706,7 +3706,7 @@ def check_leaderboard(seed=1):
                     log.append((srv[0], c.name, msg, ch, target))
                     ck(p == "TapCatFvr", "prefix " + str(p))
                     if msg[:3] not in LB_KINDS: continue
-                    ck(ch == "CHANNEL" and target == 7, "leaderboard messages only go to the hidden channel: %s %s" % (ch, target))
+                    ck(ch == "CHANNEL" and target in (7, "7"), "leaderboard messages only go to the hidden channel when not grouped: %s %s" % (ch, target))
                     ck(len(msg) <= 255, "message too long")
                     for d in clients.values():   # everyone in the channel hears it, the sender too (echo)
                         if d.online and d.ev("_chanId") > 0:
@@ -4060,7 +4060,7 @@ def check_leaderboard(seed=1):
     ]
     for msg, sender in bad:
         D.lua.globals()._deliver("TapCatFvr", msg, sender)
-    D.lua.globals()._deliver("TapCatFvr", good, "Good-Forever", "PARTY")
+    D.lua.globals()._deliver("TapCatFvr", good, "Good-Forever", "WHISPER")   # 1.5.3.2: party, raid and guild count; whispers don't
     D.lua.globals()._deliver("TapCatFvr", good, "Good-Forever", "CHANNEL", "General")
     D.lua.globals()._deliver("OtherAddon", good, "Good-Forever")
     D.ex('_fire("CHAT_MSG_ADDON", _SECRET, "%s", "CHANNEL", "Good-Forever", "", 0, 7, "TapCatFvrShare", 0)' % good)
