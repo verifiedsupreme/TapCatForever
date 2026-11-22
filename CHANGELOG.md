@@ -2,6 +2,9 @@
 
 ## 1.5.3.7
 
+**Gear**
+- The Usable only box on the Gear page now also hides gear above your cat's level, so it only lists what your cat can put on now.
+
 **Realm leaderboard**
 - The leaderboard is still under construction. We're working on getting players to show up on each other's leaderboard, and the tab says so for now. Your own row and the opt-in work as before.
 

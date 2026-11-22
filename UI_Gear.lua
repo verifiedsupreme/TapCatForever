@@ -140,6 +140,10 @@ TCF.UI.Builders.gear = function(page, win)
   usable:SetSize(24, 24); usable:SetPoint("TOPRIGHT", -200, -10); usable:SetChecked(true)
   local ut = Text(page, "GameFontHighlightSmall", "Usable only"); ut:SetPoint("LEFT", usable, "RIGHT", 0, 1)
   usable:SetScript("OnClick", function(s) win.gearUsable = s:GetChecked() and true or false; win.gearPage = 1; win:Refresh() end)
+  TCF.UI.Tip(usable, function(tt)
+    tt:AddLine("Usable only", 1, 0.82, 0)
+    tt:AddLine("Only gear your cat can put on now: its class can use it and its level is high enough.", 1, 1, 1, true)
+  end)
 
   local ROWS = 8
   local rows = {}
@@ -250,7 +254,10 @@ TCF.UI.Builders.gear = function(page, win)
       -- 1.5.3.4: gear your cat is wearing shows on the slots around the cat, not in this list
       -- (a spare copy still shows); right-click a slot to take it off and it comes back here
       local spare = it and (n - TCF.GearEquippedCount(eq, id)) or 0
-      if it and spare > 0 and (not slot or matchesSlot(it, slot, class)) and (not win.gearUsable or TCF:GearUsable(it, class)) then
+      -- "Usable only": gear this cat can put on now (its class can use it and its level is high enough)
+      local wearNow = it and TCF:GearUsable(it, class) and not it.placeholder
+        and ((it.req or 0) <= (TCF:CD(class).level or 1) or TCF:IsStarterWeapon(it, class))
+      if it and spare > 0 and (not slot or matchesSlot(it, slot, class)) and (not win.gearUsable or wearNow) then
         list[#list + 1] = it
       end
     end

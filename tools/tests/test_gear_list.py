@@ -28,6 +28,20 @@ def check(seed, load_addon):
       if listed() then return "after selling the spare, the worn one is not listed" end
       T:UnequipGear("HEAD")
       if not listed() then return "taken off: listed again" end
+      -- "Usable only" hides gear above the cat's level (1.5.3.7)
+      local high
+      for _, g in ipairs(T.GEAR_LIST) do if g.q == 2 and T:GearUsable(g, class) and g.req > 45 and not g.crafted and not g.placeholder then high = g; break end end
+      T:GrantGear(high, "test")
+      T.window.gearUsable = true
+      T.window.gearSlot = nil
+      local function shown(x) T.window:Refresh(); for _, f in ipairs(_frames) do if f.item == x and f.shown and f.equip then return true end end return false end
+      local pages = 0
+      for p = 1, 50 do T.window.gearPage = p; if shown(high) then pages = p; break end end
+      if pages > 0 then return "a level " .. high.req .. " item shows with Usable only at level 40" end
+      T.window.gearUsable = false
+      local seen = false
+      for p = 1, 50 do T.window.gearPage = p; if shown(high) then seen = true; break end end
+      if not seen then return "the high-level item shows without Usable only" end
       return ""
     ''')
     if r:
