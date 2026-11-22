@@ -733,7 +733,7 @@ TEST = r'''
       w.renownEver = 60; w.lifetime = math.max(w.lifetime, 1e15); w.fish = { spot = 1, buddy = 1, bp = 0 }   -- Fishing learned (1.5.3.4: by Trade Gold earned)
       local odds = TCF.FISH_ODDS.buddyTreasure
       TCF.FISH_ODDS.buddyTreasure = 1
-      local chat0, pouch0, toasts0 = #_chat, TCF.db.keys.pouch or 0, (TapCatForeverLootToasts and TapCatForeverLootToasts:IsShown())
+      local chat0, pouch0, toasts0 = #_chat, TCF:ChestsOf("pouch", "WARRIOR"), (TapCatForeverLootToasts and TapCatForeverLootToasts:IsShown())
       w.last = time() - 600
       mg, wg = m.gold, w.gold
       TCF.AwardChest = function() error("no chest pop-up for a cat you aren't playing") end
@@ -742,7 +742,7 @@ TEST = r'''
       TCF.FISH_ODDS.buddyTreasure = odds
       check(w.gold > wg and w.last == time(), "the Warrior's foreman worked while you played the Mage")
       check(#_chat == chat0, "no chat lines for the Warrior: " .. tostring(_chat[#_chat]))
-      check((TCF.db.keys.pouch or 0) >= pouch0 + 4, "the Warrior's fishing buddy found chests quietly")
+      check(TCF:ChestsOf("pouch", "WARRIOR") >= pouch0 + 4, "the Warrior's fishing buddy found chests quietly (1.5.4: in the Warrior's own bag)")
       check(m.gold >= mg, "the Mage's own gold")
       -- the Mage's gold comes only from the Mage's own helpers
       local mOnly = m.gold
@@ -1991,7 +1991,7 @@ TEST = r'''
       TCF.bag = nil
       local bag = TCF:CreateBag(); bag:Show(); bag:Refresh()
       local hoardRow = false
-      for i, r in ipairs(bag.rows) do if TCF.CHESTS[i].key == "raid" and r:IsShown() then hoardRow = true end end
+      for i, r in ipairs(bag.rows) do if r.chest and r.chest.key == "raid" and r:IsShown() then hoardRow = true end end
       check(hoardRow, "the Treasure Bag shows a row for the Raider's Hoard")
       bag:Hide()
       TCF.db.keys.raid = 0
@@ -2823,9 +2823,10 @@ TEST = r'''
       check(rawget(TapCatForeverDB, "levelPaid") == TCF.db.levelPaid, "the record is account-wide")
       local function levelTo(L)
         local c = TCF:CD("HUNTER")
-        local coins, strong, heroic = TCF.db.coins, TCF.db.keys.strong or 0, TCF.db.keys.heroic or 0
+        -- (1.5.4: level chests go to the Hunter's own bag, even while another cat is played)
+        local coins, strong, heroic = TCF.db.coins, TCF:ChestsOf("strong", "HUNTER"), TCF:ChestsOf("heroic", "HUNTER")
         while c.level < L do c.xp = 0; TCF:AddClassXP("HUNTER", TCF.XPForLevel(c.level)) end
-        return TCF.db.coins - coins, (TCF.db.keys.strong or 0) - strong, (TCF.db.keys.heroic or 0) - heroic
+        return TCF.db.coins - coins, TCF:ChestsOf("strong", "HUNTER") - strong, TCF:ChestsOf("heroic", "HUNTER") - heroic
       end
       local want = 0
       for L = 2, 10 do want = want + TCF.LevelReward(L) end

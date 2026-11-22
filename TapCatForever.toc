@@ -33,6 +33,7 @@ Quests.lua
 Dungeons.lua
 UI.lua
 ChestReel.lua
+TreasureBag.lua
 LootToast.lua
 Party.lua
 DevView.lua

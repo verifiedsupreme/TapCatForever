@@ -261,7 +261,7 @@ local function gearLines(it, add)
       -- (a Dungeon Chest picks gear from 10 levels below to 3 above the cat's level, up to 60)
       local lv = req + 10 >= 60 and string.format("from about level %d", max(1, req - 3))
         or string.format("about level %d to %d", max(1, req - 3), req + 10)
-      add(string.format("Dungeon Chests can hold it once your cat has reached %s, while your cat is %s", t.name, lv))
+      add(string.format("Dungeon Chests can hold it once your cat has reached %s, when the chest is %s", t.name, lv))
     end
   elseif t then
     -- A first kill only falls back to zone loot when that boss has no loot list of its own.
@@ -274,10 +274,10 @@ local function gearLines(it, add)
       add(string.format("Adventure: zone loot from %s, a possible first-kill reward from bosses there that have no loot of their own", t.name))
     end
     local lv = t.min == t.max and tostring(t.min) or (t.min .. "-" .. t.max)
-    add(string.format("Adventure: zone loot from %s, rarely found in chests opened while your cat is level %s", t.name, lv))
+    add(string.format("Adventure: zone loot from %s, rarely found in chests of level %s", t.name, lv))
   else
     add(string.format("Adventure and chests: world drop around level %d", max(1, it.req or 1)))
-    add("Chests give gear close to your cat's class level, so open them around that level")
+    add("A chest holds gear for the level of the cat that earned it (the Treasure Bag shows each chest's level)")
     if it.q == 2 then add("Enemies in Adventure sometimes drop it too, mostly for slots your cat has empty") end
   end
 end

@@ -1777,9 +1777,11 @@ TCF.CHEST_SOURCES = {
 }
 
 -- A chest's odds per opening (TCF:ChestOdds), for the Shop and Treasure Bag tooltips.
-function TCF:ChestOddsTooltip(tt, ch, shop)
+-- level: a chest's level stamp (Treasure Bag rows); its odds and gear are for that level.
+function TCF:ChestOddsTooltip(tt, ch, shop, level)
   tt:AddLine(ch.name, 1, 0.82, 0)
-  for _, o in ipairs(self:ChestOdds(ch)) do
+  if level then tt:AddLine("Holds gear for about level " .. level .. ".", 1, 1, 1, true) end
+  for _, o in ipairs(self:ChestOdds(ch, level)) do
     tt:AddDoubleLine("|c" .. o[3] .. o[1] .. "|r", TCF.OddsText(o[2]), 1, 1, 1, 1, 1, 1)
   end
   if ch.raidLoot then
