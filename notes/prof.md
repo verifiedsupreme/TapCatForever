@@ -33,6 +33,6 @@
 
 ## For the developer: hand speed numbers
 - Cooldown = max(0.25, tool cooldown x (1/3)^(level/15)); the tool cooldown is the old one (1.5 x 0.985^tool level, at least 0.75).
-- Level n+1 costs 10K x 10^(0.5n + 0.0306n^2), two significant digits: 10K, 34K, 130K, 590K, 3.1M, 19M, 130M, 1B, 9.1B, 95B, 1.1T, 16T, 250T, 4.7Qa, 100Qa.
+- Level n+1 costs 10K x 10^(0.5n + 0.0306n^2), two significant digits: 10K, 34K, 130K, 600K, 3.1M, 18M, 130M, 1B, 9.1B, 95B, 1.1T, 16T, 250T, 4.7Qa, 99Qa.
 - tools/trade_sim.py --speed 2 56 (one cat, 2 h a day, selling whenever it doubles its Renown, buying a level when it costs at most a quarter of the gold in hand): levels 1-6 on day 0-1, 7 on day 4, 8 on day 11, 9 on day 17, 10 on day 26, 11 on day 32, 12 on day 45; 13-15 later than 8 weeks. Profession unlocks are where they were (First Aid day 22, Fishing day 31, Cooking day 48).
 - Clicking pays a share of a spot's cycle, so faster hands mean more gold for players who click a lot. Upper bound, clicking nonstop for the whole 2 hours every day (--clicker): 72T earned after 3 weeks with hand speed against 30T without. Helpers and idle income do not change.
