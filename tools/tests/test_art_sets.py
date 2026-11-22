@@ -95,7 +95,7 @@ def check(seed, load_addon):
       db.owned[dim.items[1].id] = 1; db.owned[dim.items[2].id] = 1
       have = T:CosmeticSetProgress("dim")
       ck(have == 2, "two owned pieces count: " .. have)
-      local line = T:HowToGet(dim.items[3])[2] or ""
+      local line = table.concat(T:HowToGet(dim.items[3]), " | ")
       ck(line:find("Dire Maul set (2/6)", 1, true), "progress in the set line: " .. line)
 
       -- 3. wearing each whole set: every layer runs, the paws lift, and it stays cheap
