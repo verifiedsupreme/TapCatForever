@@ -112,6 +112,8 @@ end
 
 function Cat:AnimLayout()
   if not self.aplace then return end
+  -- particles and glints come and go with the cat's size (SMALL): build them again when it crosses
+  if self.animLook and ((self.size < SMALL) ~= self.animSmall) then self:AnimApply(self.animLook); return end
   for t, p in pairs(self.aplace) do place(self, t, p.x, p.y, p.w, p.h, p.side) end
 end
 
@@ -265,6 +267,18 @@ KIND.glint = function(self, L, ctx)
     list[i] = { t = t, age = -rr(L.gap, 0.8) * i, life = L.life or 0.7 }
   end
   local spots = L.spots
+  if spots == "piece" or spots == "pieceSides" then
+    -- inside the worn piece's own drawing (inset, so glints land on the piece, not its empty corners);
+    -- "pieceSides": its outer thirds only (a pair of pauldrons drawn as one picture)
+    local e = ctx.mask and TCF.VEC[ctx.mask]
+    if not e then for _, p in ipairs(list) do p.t:Hide() end return nil end
+    local x0, y0, w, h = e[2], e[3], e[4], e[5]
+    if spots == "piece" then
+      spots = { { x0 + w * 0.2, y0 + h * 0.2, x0 + w * 0.8, y0 + h * 0.8 } }
+    else
+      spots = { { x0 + w * 0.08, y0 + h * 0.2, x0 + w * 0.3, y0 + h * 0.75 }, { x0 + w * 0.7, y0 + h * 0.2, x0 + w * 0.92, y0 + h * 0.75 } }
+    end
+  end
   return { update = function(st, now, dt)
     local s = self.size / CANVAS
     for _, p in ipairs(list) do
@@ -319,12 +333,30 @@ local function addLayers(self, layers, ctx)
   end
 end
 
+-- every cat that has shown a look, so the Appearance tab's "Animated cosmetics" box can redraw them all
+local CATS = setmetatable({}, { __mode = "k" })
+
+-- animations on unless the player turned them off (db.ui.anim, Appearance tab)
+function TCF:AnimEnabled()
+  local ui = self.db and self.db.ui
+  return not (ui and ui.anim == false)
+end
+
+function TCF:SetAnimEnabled(on)
+  if self.db and self.db.ui then self.db.ui.anim = on and true or false end
+  -- draw each cat's look again (undoing a colour-cycling skin's last tint); that calls AnimApply
+  for c in pairs(CATS) do if c.look and c.ApplyAppearance then c:ApplyAppearance(c.look) end end
+end
+
 -- look: what VecApply drew. Hides last look's layers and builds this one's.
 function Cat:AnimApply(look)
   local a = pool(self)
   for _, list in pairs(a.tex) do for _, t in ipairs(list) do t:Hide() end end
   for _, list in pairs(a.masks) do for _, m in ipairs(list) do m:Hide() end end
   wipe(a.used); wipe(a.mused); wipe(a.layers); wipe(self.aplace)
+  CATS[self] = true
+  self.animLook, self.animSmall = look, self.size < SMALL
+  if not TCF:AnimEnabled() then return end
   -- worn pieces
   local offIsWeapon = self.vt.offw_f:IsShown() or self.vt.offw_a:IsShown()
   for _, slot in ipairs({ "back", "chest", "shoulder", "head", "main", "off" }) do
@@ -376,4 +408,25 @@ function Cat:AnimUpdate(elapsed)
   if not a or #a.layers == 0 or not (self.vec and self.vec:IsShown()) then return end
   a.t = a.t + elapsed
   for _, st in ipairs(a.layers) do st:update(a.t, elapsed) end
+end
+
+---------------------------------------------------------------- Appearance tab: on or off
+-- "Animated cosmetics" check box right of the slot title (UI.lua calls this while building the page)
+TCF.UI = TCF.UI or {}
+function TCF.UI.AnimCheck(page)
+  local cb = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
+  cb:SetSize(22, 22); cb:SetPoint("TOPRIGHT", page, "TOPRIGHT", -132, -50)
+  local t = TCF.UI.Text(cb, "GameFontHighlight", "Animated cosmetics", "LEFT"); t:SetPoint("LEFT", cb, "RIGHT", 2, 1)
+  cb:SetScript("OnShow", function(s) s:SetChecked(TCF:AnimEnabled()) end)
+  cb:SetScript("OnClick", function(s)
+    TCF:SetAnimEnabled(s:GetChecked() and true or false)
+    TCF:PlaySound("click")
+  end)
+  TCF.UI.Tip(cb, function(tt)
+    tt:AddLine("Animated cosmetics", 1, 0.82, 0)
+    tt:AddLine("Moving effects on cosmetics and skins: flames, drifting stars, sparkles, embers and glows. Turn it off for still pictures. You keep everything either way.", 1, 1, 1, true)
+  end)
+  cb:SetChecked(TCF:AnimEnabled())
+  page.animCheck, TCF.UI.animCheckBox = cb, cb
+  return cb
 end

@@ -205,7 +205,7 @@ SET = {
              dict(EMBERS, n=4, box=[60, 300, 110, 430], vx=[-16, 4], vy=[-60, -30], life=[1.2, 2.0], size=[10, 16], sway=5, at="behind"),
              dict(EMBERS, n=4, box=[402, 300, 452, 430], vx=[-4, 16], vy=[-60, -30], life=[1.2, 2.0], size=[10, 16], sway=5, at="behind"),
          ]},
-        {"id": "set_mc_hammer", "slot": "main", "kind": "weapon", "art": "mc_hammer", "name": "Sulfuron Firehammer", "rarity": 5,
+        {"id": "set_mc_hammer", "slot": "main", "kind": "weapon", "art": "mc_hammer", "name": "Lucifron's Firehammer", "rarity": 5,
          "icon": "INV_Hammer_Unique_Sulfuras", "boss": "Lucifron", "word": "hammer",
          "svg": hammer(), "layers": dict(frames(4, hammer_flames), veins=hammer_veins()),
          "anim": [

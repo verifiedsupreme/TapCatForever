@@ -3,7 +3,7 @@ with the real addon code (tools/catrender.py). Nothing in the addon is changed.
 
 usage: python3 tools/fx_preview.py OUT_DIR
   skins_fx.gif         every skin with an effect, animated (grid)
-  cosmetics_fx.gif     Legendary cosmetics with their effects (grid)
+  cosmetics_fx.gif     Legendary and Epic cosmetics with their effects (grid)
   fx_<skin>.gif        a big animated preview of the top skins
   racial_slot.png      every racial accessory worn together with shades, a monocle or a bow tie
   shoulders_layer.png  the shoulder fallbacks for real gear (plate, mail, leather, cloth) with capes,
@@ -76,7 +76,12 @@ def main(out):
            ("Black Lotus", {"fur": "fur_lilac", "acc": "acc_blacklotus"}), ("Spectral fur", {"fur": "fur_spectral"}), ("Starlight fur", {"fur": "ach_fur"}),
            ("Titanforged look (shine)", {"fur": "fur_ginger", "head": "WARRIOR:head_greathelm:5", "chest": "WARRIOR:chest_plate:5", "main": "WARRIOR:wpn_sword:5"}),
            ("Ashbringer look (shine)", {"fur": "fur_cream", "chest": "PALADIN:chest_plate:5", "main": "PALADIN:wpn_hammer:5", "off": "PALADIN:off_kiteshield:5"}),
-           ("Arcanite Reaper (shine)", {"fur": "fur_silver", "main": "craft_arcanite_reaper"})]
+           ("Arcanite Reaper (shine)", {"fur": "fur_silver", "main": "craft_arcanite_reaper"}),
+           ("Epic: King's Crown (glints)", {"fur": "fur_ginger", "head": "head_crown"}),
+           ("Epic: Judgement look (glints)", {"fur": "fur_cream", "head": "PALADIN:head_winghelm:4", "chest": "PALADIN:chest_plate:4"}),
+           ("Epic: Spellfire look (glints)", {"fur": "fur_silver", "head": "MAGE:head_wizard:4", "chest": "MAGE:chest_robe:4"}),
+           ("Epic: Stormrage look (glints)", {"fur": "fur_chocolate", "head": "DRUID:head_antlers:4", "chest": "DRUID:chest_leaves:4"}),
+           ("Epic: Collector's Top Hat", {"fur": "fur_midnight", "head": "ach_tophat"})]
     grid_gif(r, cos, os.path.join(out, "cosmetics_fx.gif"), size=160, cols=5)
 
     # racial accessory next to an accessory

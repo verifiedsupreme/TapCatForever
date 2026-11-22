@@ -114,21 +114,21 @@ def check(seed, load_addon):
       local slots, bosses = {}, {}
       for _, it in ipairs(set.items) do
         ck(it.source == "set" and T.ITEMS[it.id] == it, "set piece registered: " .. it.id)
-        ck(mcBosses[it.boss], "boss is a Molten Core boss in Adventure: " .. tostring(it.boss))
-        ck(not bosses[it.boss], "one piece per boss: " .. tostring(it.boss)); bosses[it.boss] = true
+        ck(mcBosses[it.bossName], "boss is a Molten Core boss in Adventure: " .. tostring(it.bossName))
+        ck(not bosses[it.bossName], "one piece per boss: " .. tostring(it.bossName)); bosses[it.bossName] = true
         slots[it.slot] = true
-        local list = T.BOSS_COSMETICS[it.boss]
+        local list = T.BOSS_COSMETICS[it.bossName]
         local found = false
         for _, id in ipairs(list or {}) do if id == it.id then found = true end end
         ck(found, "BOSS_COSMETICS lists " .. it.id)
         if it.slot ~= "effect" then ck(T.VEC["cos:" .. it.art .. ":f"], "drawing for " .. it.id) end
         ck(T.AnimOf(it), "animated: " .. it.id)
         local how = table.concat(T:HowToGet(it), " | ")
-        ck(how:find("Molten Core set (", 1, true) and how:find(it.boss, 1, true) and how:find("always drops it", 1, true), "how to get " .. it.id .. ": " .. how)
+        ck(how:find("Molten Core set (", 1, true) and how:find("Adventure: " .. it.bossName .. " in Molten Core", 1, true), "how to get " .. it.id .. ": " .. how)
         ck(not how:find("!", 1, true), "plain text: " .. how)
       end
       for _, s in ipairs({ "head", "shoulder", "chest", "back", "main", "effect" }) do ck(slots[s], "set has a " .. s) end
-      ck(T.ITEMS.set_mc_crown.boss == "Ragnaros" and T.ITEMS.set_mc_cape.boss == "Magmadar" and T.ITEMS.set_mc_chest.boss == "Garr", "bosses as designed")
+      ck(T.ITEMS.set_mc_crown.bossName == "Ragnaros" and T.ITEMS.set_mc_cape.bossName == "Magmadar" and T.ITEMS.set_mc_chest.bossName == "Garr", "bosses as designed")
       -- set pieces never come from chests, the shop or random finds
       for i = 1, 200 do
         local it = T:RollItem(4, true) or T:RollItem(5, true)
@@ -157,8 +157,8 @@ def check(seed, load_addon):
         ck(next(zoneBosses), def.key .. ": zone " .. tostring(def.zone) .. " is an Adventure zone")
         local seen = {}
         for _, it in ipairs(def.items) do
-          ck(it.boss and zoneBosses[it.boss], def.key .. ": " .. it.id .. " comes from a boss of the zone (" .. tostring(it.boss) .. ")")
-          ck(not seen[it.boss], def.key .. ": one piece per boss"); seen[it.boss or "?"] = true
+          ck(it.bossName and zoneBosses[it.bossName], def.key .. ": " .. it.id .. " comes from a boss of the zone (" .. tostring(it.bossName) .. ")")
+          ck(not seen[it.bossName], def.key .. ": one piece per boss"); seen[it.bossName or "?"] = true
           ck(it.id:find("^set_" .. def.key .. "_"), def.key .. ": item ids start with set_" .. def.key .. "_")
           ck(it.slot == "effect" or T.VEC["cos:" .. it.art .. ":f"], def.key .. ": drawing for " .. it.id)
           ck(not it.name:find("!", 1, true), def.key .. ": plain name " .. it.name)

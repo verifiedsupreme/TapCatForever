@@ -64,11 +64,51 @@ def source(r, it):
     if g:
         if g.kind == "chest": return "%s, %g%%" % (CHEST.get(g.chest, g.chest), g.chance * 100)
         if g.kind == "quest": return "%s quest, %g%%" % (g.quest.capitalize(), g.chance * 100)
-        if g.kind == "expedition": return "Expedition (%s), %g%%" % (g.expedition, g.chance * 100)
+        if g.kind == "expedition": return "%s expedition, %g%%" % (zone_name(r, g.expedition), g.chance * 100)
         if g.kind == "realdungeon": return "Real WoW %s, %g%%" % ("dungeon" if g.run == "party" else "dungeon or raid", g.chance * 100)
         if g.kind == "craft": return "Crafted (%s %d)" % (g.prof, g.skill)
     if it.id == "skin_orange": return "Every cat starts with it"
     return "?"
+
+
+def zone_name(r, key):
+    """the player-facing name for an Adventure zone or expedition key (mc -> Molten Core)"""
+    for t in r.TCF.TIERS.values():
+        if t.key == key: return t.name
+    ex = r.TCF.EXPEDITION_BY_KEY and r.TCF.EXPEDITION_BY_KEY[key]
+    return ex.name if ex else key
+
+
+# cosmetics (not skins): proposed prices per rarity, like the skins above (TCF.RARITY, used by the
+# Shop's Daily Wares); salvage stays the same so TapCoins stay scarce
+COSMETIC_PRICES = {4: 2500, 5: 9000}
+
+
+def cosmetics_md(r):
+    TCF = r.TCF
+    names = ["", "Common", "Uncommon", "Rare", "Epic", "Legendary"]
+    slots = {}
+    fx = {4: 0, 5: 0}
+    n = {4: 0, 5: 0}
+    for it in TCF.ITEM_LIST.values():
+        if it.gear or it.slot in ("skin", "fur") or it.source == "set" or int(it.rarity or 0) < 4: continue
+        q = int(it.rarity)
+        n[q] += 1
+        slots.setdefault(q, {}).setdefault(it.slot, 0); slots[q][it.slot] += 1
+        if TCF.AnimOf(it) is not None: fx[q] += 1
+    L = ["## Cosmetics (not skins): effects and proposed prices", "",
+         "Epic and Legendary cosmetics are the expensive ones (the Shop's Daily Wares sell them at their rarity's price; chests can also drop them). What moves with 1.6:", "",
+         "- Legendary helms, chest pieces, shoulders, capes and held items: a shine sweeps across the piece (a few have their own effect: Ice Crown, Achiever's Crown, Wings, Felwings, Black Lotus).",
+         "- Epic helms, chest pieces and shoulders: two small glints now and then, lighter than the Legendary shine, so Legendary still stands out.",
+         "- Epic capes and held items stay still (a cape's picture is mostly the cat's body, and held items move with the paws). Accessories and patterns stay still. Auras and tap effects already move on their own.",
+         "- The dungeon set pieces have their own animations and are not sold.", "",
+         "If you would rather keep the Epic ones still, that is one line to take out (CosmeticFX.lua).", "",
+         "| Rarity | Pieces | With a 1.6 effect | Slots | Price now | Proposed |", "|---|---|---|---|---|---|"]
+    for q in (4, 5):
+        sl = ", ".join("%s %d" % (k, v) for k, v in sorted(slots.get(q, {}).items(), key=lambda kv: -kv[1]))
+        L.append("| %s | %d | %d | %s | %s | %s |" % (names[q], n[q], fx[q], sl, format(int(TCF.RARITY[q].price), ","), format(COSMETIC_PRICES[q], ",")))
+    L += ["", "At about 250-400 TapCoins a day, 2,500 is about a week and 9,000 about a month. Common (60), Uncommon (180) and Rare (500) stay as they are. Salvage values stay the same.", ""]
+    return L
 
 
 def main(out):
@@ -134,7 +174,8 @@ def write_md(r, rank, path):
         if it.skinPrice and it.id not in MOVES:
             fx = "yes" if r.TCF.AnimOf(it) is not None else ""
             L.append("| %d | %s | %s | %s | %s |" % (pos[it.id], it.name, fx, format(int(it.skinPrice), ","), format(PRICES.get(it.id, int(it.skinPrice)), ",")))
-    L += ["", "## Effects added in 1.6 (already built, shown in the previews)", "",
+    L += [""] + cosmetics_md(r)
+    L += ["## Effects added in 1.6 (already built, shown in the previews)", "",
           "Every Epic and Legendary skin now has an animated effect, drawn with the new animation layers: Diamond Cat sparkles with glints and a shine sweep, Galaxy Cat has stars and nebula clouds drifting inside its fur, Spectral Tiger glows and trails ghostly wisps, Golden Treasure Cat shimmers, fire cats give off embers (Primal Flamesaber has fire moving in its fur), frost cats have falling snow and frost glints, shadow cats trail wisps, Rainbow Cat's markings shift colour, Runebound Cat's runes pulse.", "",
           "## Full ranking", "", "| Rank | Skin | Rarity | Look | Effect | Now |", "|---|---|---|---|---|---|"]
     names = ["", "Common", "Uncommon", "Rare", "Epic", "Legendary"]

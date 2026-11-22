@@ -83,7 +83,7 @@ def main(out):
         for g in sorted(glob.glob(os.path.join(out, "fx_*.gif"))):
             parts.append(figure(os.path.basename(g), os.path.basename(g)[3:-4].replace("skin_", "").replace("_", " ").title()))
         if have("skins_fx.gif"): parts.append(figure("skins_fx.gif", "Every skin with an effect", True))
-        if have("cosmetics_fx.gif"): parts.append(figure("cosmetics_fx.gif", "Legendary cosmetics: their own sparkles, and a shine on the rest", True))
+        if have("cosmetics_fx.gif"): parts.append(figure("cosmetics_fx.gif", "Legendary cosmetics: their own sparkles, and a shine on the rest. Epic helms, chest pieces and shoulders: two small glints now and then", True))
         parts.append("</div>")
     if have("shoulders_sheet.png") or have("shoulders_layer.png"):
         parts.append("<h2>Shoulders</h2><div class='grid'>")

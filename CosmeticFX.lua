@@ -1,5 +1,6 @@
 -- TapCatForever: animated effects on the expensive skins and cosmetics (1.6), as CatAnim.lua layers
--- by item id. Every Legendary cosmetic piece without its own entry gets a shine sweeping across it.
+-- by item id. Every Legendary cosmetic piece without its own entry gets a shine sweeping across it,
+-- and Epic helms, chest pieces and shoulders a couple of glints.
 -- Positions are in the 512-unit canvas of CatVector.lua: the body is about x 114-398, y 256-460,
 -- the head x 123-389, y 64-288.
 local ADDON, TCF = ...
@@ -75,9 +76,16 @@ A.acc_blacklotus = { { kind = "glint", sprite = "a_spark", n = 2, spots = { { 33
 local SHINE = { { kind = "scroll", sprite = "a_shine", scale = 220, vx = 90, vy = 0, color = { 1, 0.95, 0.8 }, alpha = 0.7, blend = "ADD" } }
 local SHINE_SLOTS = { head = true, chest = true, back = true, shoulder = true, main = true, off = true }
 TCF.ANIM_LEGENDARY = SHINE
+-- Epic cosmetic helms, chest pieces and shoulders: a lighter touch, two glints on the piece now and then
+-- (not capes or held items: a cape's picture is mostly the cat's body, and held items move with the paws)
+local function epicGlint(spots) return { { kind = "glint", sprite = "a_spark", n = 2, spots = spots, size = { 26, 40 }, life = 0.8, gap = { 0.8, 2.2 }, color = { 1, 0.9, 1 }, blend = "ADD" } } end
+local EPIC = { head = epicGlint("piece"), chest = epicGlint("piece"), shoulder = epicGlint("pieceSides") }
+TCF.ANIM_EPIC = EPIC
 local animOf = TCF.AnimOf
 function TCF.AnimOf(it)
   local a = animOf(it)
   if a then return a end
-  if it and not it.gear and it.rarity == 5 and SHINE_SLOTS[it.slot] and it.source ~= "set" then return SHINE end
+  if not it or it.gear or it.source == "set" then return nil end
+  if it.rarity == 5 and SHINE_SLOTS[it.slot] then return SHINE end
+  if it.rarity == 4 then return EPIC[it.slot] end
 end

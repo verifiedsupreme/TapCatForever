@@ -808,12 +808,14 @@ function TCF:CreateWindow()
     b:SetScript("OnClick", function() win.slot = s.key; win.page = 1; win:RefreshWardrobe(); TCF:PlaySound("click") end)
     Tip(b, function(tt)
       tt:AddLine(s.name, 1, 0.82, 0)
-      tt:AddLine(s.look and "Shared by every class." or "Saved separately for each class. Shows over your real gear.", 0.8, 0.8, 0.8, true)
+      tt:AddLine(s.desc or (s.look and "Shared by every class." or "Saved separately for each class. Shows over your real gear."), 0.8, 0.8, 0.8, true)
     end)
     b.key = s.key
     slotBtns[i] = b
   end
   local slotTitle = Text(wd, "GameFontNormal", nil, "LEFT"); slotTitle:SetPoint("TOPLEFT", 14, -54)
+  -- animated cosmetics on or off (CatAnim.lua), right of the slot title
+  if TCF.UI.AnimCheck then TCF.UI.AnimCheck(wd) end
 
   local COLS, ROWS, CELL, GAP = 8, 6, 54, 5
   local cells = {}

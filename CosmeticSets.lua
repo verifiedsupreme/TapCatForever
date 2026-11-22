@@ -16,7 +16,8 @@ end
 -- shoulders: pauldrons drawn on both shoulders (real shoulder gear shows there too)
 addSlot({ key = "shoulder", name = "Shoulders", icon = "INV_Shoulder_02" }, "back")
 -- the racial heritage accessory has its own slot, so it can be worn together with an accessory
-addSlot({ key = "race", name = "Racial Accessory", icon = "Achievement_Character_Orc_Male" }, "acc")
+addSlot({ key = "race", name = "Racial", icon = "Achievement_Character_Orc_Male",
+  desc = "Your race's accessory (tusks, horns, ears...). Worn together with an accessory. Hide it with \"Show racial accessory\" in Settings." }, "acc")
 for _, it in ipairs(TCF.ITEM_LIST) do
   if it.source == "race" then it.slot = "race" end
 end
@@ -61,7 +62,8 @@ function TCF.AddCosmeticSet(def)
   for _, p in ipairs(def.pieces) do
     assert(not TCF.ITEMS[p.id], "duplicate item " .. p.id)
     local it = { id = p.id, slot = p.slot, art = p.art, name = p.name, rarity = p.rarity, c1 = { 1, 1, 1 }, c2 = { 1, 1, 1 },
-      icon = p.icon, source = "set", set = def.key, boss = p.boss, word = p.word or PIECE_WORD[p.slot] }
+      icon = p.icon, source = "set", set = def.key, bossName = p.boss, word = p.word or PIECE_WORD[p.slot] }
+    -- bossName, not boss: gear items use it.boss as a number (an index into a tier's bosses)
     it.price = TCF.RARITY[it.rarity].price
     if p.slot == "effect" then
       TCF.FX[p.art] = TCF.FX[p.art] or p.fx or { layer = "back", anim = "pulse" }
@@ -93,20 +95,22 @@ end
 
 -- how-to-get lines for a set piece (Compendium and tooltips):
 --   Adventure: Ragnaros in Molten Core always drops it until you own it
---   Molten Core set (2/6): helm from Ragnaros, shoulders from Golemagg the Incinerator, ...
+--   Molten Core set (2/6), cosmetic only: helm from Ragnaros, shoulders from Golemagg the Incinerator, ...
+-- The first line only when Adventure.lua does not give its own line for TCF.BOSS_COSMETICS
+-- (TCF:BossCosmeticSources), so a piece never lists its boss twice.
 function TCF:CosmeticSetLines(it)
   local def = it and TCF.COSMETIC_SET_BY_KEY[it.set]
   if not def then return {} end
   local zone
   for _, t in ipairs(TCF.TIERS or {}) do if t.key == def.zone then zone = t.name end end
   local out = {}
-  if it.boss then
-    out[1] = string.format("Adventure: %s%s always drops it until you own it", it.boss, zone and (" in " .. zone) or "")
+  if it.bossName and not self.BossCosmeticSources then
+    out[1] = string.format("Adventure: %s%s always drops it until you own it", it.bossName, zone and (" in " .. zone) or "")
   end
   local have, total = self:CosmeticSetProgress(def.key)
   local parts = {}
   for _, p in ipairs(def.items) do
-    parts[#parts + 1] = (self.db and self.db.owned[p.id] and "|cff40ff40" or "") .. p.word .. " from " .. (p.boss or "?")
+    parts[#parts + 1] = (self.db and self.db.owned[p.id] and "|cff40ff40" or "") .. p.word .. " from " .. (p.bossName or "?")
       .. (self.db and self.db.owned[p.id] and "|r" or "")
   end
   out[#out + 1] = string.format("%s set (%d/%d), cosmetic only: %s", def.name, have, total, table.concat(parts, ", "))

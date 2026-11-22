@@ -60,18 +60,20 @@ def check(seed, load_addon):
             ck(not ids[it.id], "unique item id " .. it.id); ids[it.id] = true
             ck(not names[it.name], "unique item name " .. it.name); names[it.name] = true
             ck(it.source == "set" and it.set == key, key .. ": " .. it.id .. " is a set piece")
-            ck(not bossesSeen[it.boss], "a boss gives one set piece: " .. tostring(it.boss)); bossesSeen[it.boss or "?"] = true
-            if it.slot == "head" then ck(it.boss == finalBoss, key .. ": the helm comes from the final boss") end
+            ck(not bossesSeen[it.bossName], "a boss gives one set piece: " .. tostring(it.bossName)); bossesSeen[it.bossName or "?"] = true
+            if it.slot == "head" then ck(it.bossName == finalBoss, key .. ": the helm comes from the final boss") end
             -- the hook Adventure reads: the exact boss display name lists this piece
             local hit = false
-            for _, id in ipairs(T.BOSS_COSMETICS[it.boss] or {}) do if id == it.id then hit = true end end
-            ck(hit, key .. ": TCF.BOSS_COSMETICS[" .. tostring(it.boss) .. "] lists " .. it.id)
+            for _, id in ipairs(T.BOSS_COSMETICS[it.bossName] or {}) do if id == it.id then hit = true end end
+            ck(hit, key .. ": TCF.BOSS_COSMETICS[" .. tostring(it.bossName) .. "] lists " .. it.id)
             local inZone = false
-            for _, b in ipairs(t and t.bosses or {}) do if b[1] == it.boss then inZone = true end end
-            ck(inZone, key .. ": " .. tostring(it.boss) .. " is a boss of " .. key)
+            for _, b in ipairs(t and t.bosses or {}) do if b[1] == it.bossName then inZone = true end end
+            ck(inZone, key .. ": " .. tostring(it.bossName) .. " is a boss of " .. key)
             -- Compendium and tooltips: where it drops, set progress, cosmetic only, plain English
             local how = table.concat(T:HowToGet(it), " | ")
-            ck(how:find("Adventure: " .. it.boss .. " in " .. t.name .. " always drops it until you own it", 1, true), "how to get " .. it.id .. ": " .. how)
+            local bossLine = "Adventure: " .. it.bossName .. " in " .. t.name
+            local _, nBoss = how:gsub((bossLine:gsub("%p", "%%%0")), "")
+            ck(nBoss == 1, "how to get " .. it.id .. " names its boss once: " .. how)
             ck(how:find(def.name .. " set (", 1, true) and how:find("cosmetic only", 1, true), "set line for " .. it.id .. ": " .. how)
             ck(not how:find("!", 1, true) and not it.name:find("!", 1, true), "no exclamation marks: " .. it.id)
             ck(T.SLOT_BY_KEY[it.slot], key .. ": real slot " .. it.slot)

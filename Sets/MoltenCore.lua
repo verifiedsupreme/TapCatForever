@@ -140,7 +140,7 @@ TCF.AddCosmeticSet({
       id = "set_mc_hammer",
       slot = "main",
       art = "mc_hammer",
-      name = "Sulfuron Firehammer",
+      name = "Lucifron's Firehammer",
       rarity = 5,
       icon = "INV_Hammer_Unique_Sulfuras",
       boss = "Lucifron",
