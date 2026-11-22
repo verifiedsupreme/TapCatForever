@@ -5,12 +5,13 @@
 # (fxLayer "back") and are tinted by the item colour, so draw them near-white with dark outlines
 # and let the tint colour them, like the existing Art/fx_*.tga.
 # When built, change the art field of the item in BossEffects.lua (TCF.BOSS_EFFECTS) to the new
-# name. Until then each one uses the stand-in art listed here.
+# name. Until then each one uses a simple glow stand-in of its own from tools/make_adv_fx.py
+# (Art/adv/fx_boss_*.tga), listed here.
 #
 # file            item id          name                  stand-in       anim      idea
-fx_storm_aura     fx_boss_storm    Storm Aura            fx_lightning   flicker   a ring of chunky zig-zag bolts around the cat, with 3-4 small storm clouds at the top corners and tiny sparks
-fx_firelord       fx_boss_fire     Firelord's Blaze      fx_flames      flicker   tall rounded flame tongues rising behind the cat like a bonfire crown, a few floating embers
-fx_frost_chill    fx_boss_frost    Frostwhisper Chill    fx_runes       spin      a slow ring of chunky six-point snowflakes and ice shards, with a frosty mist circle
-fx_shadow_shroud  fx_boss_shadow   Shadowflame Shroud    fx_aura        pulse     wispy dark-purple flame curls hugging the cat's outline, a few tiny skull-shaped wisps
-fx_holy_radiance  fx_boss_holy     Crusader's Radiance   fx_rays        spin      a sun-burst of wide soft rays with a halo ring and three little diamond sparkles
-fx_verdant_wisps  fx_boss_nature   Verdant Wisps         fx_wisps       spinslow  circling leafy vines with small leaves and 4-5 round glowing wisp orbs
+fx_storm_aura     fx_boss_storm    Storm Aura            adv\fx_boss_storm   flicker   a ring of chunky zig-zag bolts around the cat, with 3-4 small storm clouds at the top corners and tiny sparks
+fx_firelord       fx_boss_fire     Firelord's Blaze      adv\fx_boss_fire    flicker   tall rounded flame tongues rising behind the cat like a bonfire crown, a few floating embers
+fx_frost_chill    fx_boss_frost    Frostwhisper Chill    adv\fx_boss_frost   spinslow  a slow ring of chunky six-point snowflakes and ice shards, with a frosty mist circle
+fx_shadow_shroud  fx_boss_shadow   Umbral Shroud         adv\fx_boss_shadow  spin      wispy dark-purple smoke curls hugging the cat's outline, a few tiny skull-shaped wisps
+fx_holy_radiance  fx_boss_holy     Crusader's Radiance   adv\fx_boss_holy    pulse     a sun-burst of wide soft rays with a halo ring and three little diamond sparkles
+fx_verdant_wisps  fx_boss_nature   Verdant Wisps         adv\fx_boss_nature  spinslow  circling leafy vines with small leaves and 4-5 round glowing wisp orbs

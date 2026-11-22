@@ -11,8 +11,8 @@ local GUIDE = {
   { title = "How Adventure works: fights and zones", body =
     "|cffffd100Fights|r: press Start and your cat fights by itself with this class's gear, level and learned abilities. Every key you press lands a bonus paw strike. If it loses, it heals and tries again.\n\n" ..
     "|cffffd100Stages and zones|r: each zone has trash packs and bosses in turn, for example 12 stages in Shadowfang Keep. The last stage is the zone's final boss. Beating it clears the zone.\n\n" ..
-    "|cffffd100Auto-advance on|r: after each win your cat moves to the next stage. After the final boss it goes on to the next zone once it is within 2 levels of that zone's level (raids wait for level 60). Until then it runs the cleared zone again from the start and farms it. After 3 losses in a row it drops back to an easier pack.\n\n" ..
-    "|cffffd100Auto-advance off|r: your cat stays on its stage and farms it.\n\n" ..
+    "|cffffd100Auto-advance on|r: after each win your cat moves to the next stage. After the final boss it goes on to the next zone once it is within 2 levels of that zone's level (raids wait for level 60). Until then it runs the cleared zone again from the start and farms it. If it loses, it drops back to the last trash pack and works its way up again.\n\n" ..
+    "|cffffd100Auto-advance off|r: your cat stays on its stage and farms it. After 3 losses in a row it drops back to an easier pack.\n\n" ..
     "|cffffd100Going back or ahead|r: use < and > by the zone name to visit an earlier zone or go on to the next one (no level limit, but the enemies may be too strong), and < Stage and Stage > to pick a stage.\n\n" ..
     "The line under the fight always says what your cat is doing and what it waits for. Hover the zone name to see what is left to earn there." },
   { title = "How Adventure works: rewards", body =
@@ -23,9 +23,9 @@ local GUIDE = {
     "- Dungeons from level 45: two pieces, or a piece and a Dungeon Chest\n" ..
     "- Raids: two pieces with a chance of a Raider's Hoard. Final bosses: two or three pieces and a Hoard\n\n" ..
     "|cffffd100Zone clears|r: TapCoins and a chest the first time each cat clears a zone (a quarter of the TapCoins if another of your cats cleared it first).\n\n" ..
-    "|cffffd100Chests for fighting time|r: boss kills drop a Cat Treat Pouch about every 18 minutes of fighting (raids: a Raider's Hoard about every 3 hours). Finishing a dungeon again gives a Dungeon Chest about every 2 to 3 hours of dungeon fighting.\n\n" ..
+    "|cffffd100Chests for fighting time|r: boss kills drop a Cat Treat Pouch about every 18 minutes of fighting (raids: a Raider's Hoard a little over every 3 hours). Finishing a dungeon again gives a Dungeon Chest about every 2 to 3 hours of dungeon fighting.\n\n" ..
     "|cffffd100Small finds|r: regular enemies now and then drop plain gear, cloth and meat.\n\n" ..
-    "|cffffd100Farming|r: bosses can drop their real loot again on later kills, with a small chance each time (a typical piece about 1 in 500 kills, a few hours of farming). Open Bosses and loot, pick a piece and press Farm: your cat stays on that boss until it drops.\n\n" ..
+    "|cffffd100Farming|r: later kills of a boss have a small chance to drop its loot again. A piece usually takes 1 in 350 to 1 in 3,000 kills (2 to 15 hours of farming one boss). Bosses and loot shows each chance; press Farm to stay on a boss until the piece drops.\n\n" ..
     "Some bosses also drop cat skins and effects (Cosmetic only)." },
 }
 
@@ -247,6 +247,7 @@ TCF.UI.Builders.adventure = function(page, win)
   ------------------------------------------------ keeping it current
   local function update()
     local adv = TCF:CD().adv
+    TCF:AdvFarmCheckAuto()   -- Auto-advance turned on: farming ends now, not after the next pack
     local farming = adv.farm ~= nil
     status:SetText(TCF:AdvStatusText())
     status:SetWidth(farming and 420 or 524)

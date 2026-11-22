@@ -3,9 +3,10 @@
 -- killing a specific real WoW boss (RealBosses.lua) or from beating a late Adventure final boss.
 -- Only these unlocks show a short notice over the screen cat ("You unlocked Storm Aura", with the
 -- effect playing behind the cat) that fades after a few seconds. Nothing else pops up.
--- Art: they use the existing effect drawings in their own colours for now. New drawings are
--- specified in tools/art_specs_adv/boss_effects.txt (listed under "Art to build" in notes/adv.md);
--- when the art track has built them, only the art field below changes.
+-- Art: simple glow drawings of their own (Art/adv/, made by tools/make_adv_fx.py), each a shape
+-- no class effect uses. Full sticker-style drawings are specified in
+-- tools/art_specs_adv/boss_effects.txt (listed under "Art to build" in notes/adv.md); when the art
+-- track has built them, only the art field below changes.
 local ADDON, TCF = ...
 
 local sin, min, max = math.sin, math.min, math.max
@@ -13,12 +14,12 @@ local function c(r, g, b) return { r, g, b } end
 
 -- { id, name, art, anim, colour, icon }
 TCF.BOSS_EFFECTS = {
-  { "fx_boss_storm",  "Storm Aura",          "fx_lightning", "flicker",  c(0.55, 0.85, 1.00), "Spell_Nature_Lightning" },
-  { "fx_boss_fire",   "Firelord's Blaze",    "fx_flames",    "flicker",  c(1.00, 0.45, 0.10), "Spell_Fire_Fire" },
-  { "fx_boss_frost",  "Frostwhisper Chill",  "fx_runes",     "spin",     c(0.62, 0.90, 1.00), "Spell_Frost_FrostNova" },
-  { "fx_boss_shadow", "Shadowflame Shroud",  "fx_aura",      "pulse",    c(0.52, 0.20, 0.82), "Spell_Shadow_ShadowBolt" },
-  { "fx_boss_holy",   "Crusader's Radiance", "fx_rays",      "spin",     c(1.00, 0.90, 0.50), "Spell_Holy_HolyBolt" },
-  { "fx_boss_nature", "Verdant Wisps",       "fx_wisps",     "spinslow", c(0.40, 1.00, 0.45), "INV_Misc_Herb_10" },
+  { "fx_boss_storm",  "Storm Aura",          "adv\\fx_boss_storm",  "flicker",  c(0.55, 0.65, 1.00), "Spell_Nature_Lightning" },
+  { "fx_boss_fire",   "Firelord's Blaze",    "adv\\fx_boss_fire",   "flicker",  c(1.00, 0.55, 0.12), "Spell_Fire_Fire" },
+  { "fx_boss_frost",  "Frostwhisper Chill",  "adv\\fx_boss_frost",  "spinslow", c(0.70, 0.95, 1.00), "Spell_Frost_FrostNova" },
+  { "fx_boss_shadow", "Umbral Shroud",       "adv\\fx_boss_shadow", "spin",     c(0.55, 0.25, 0.85), "Spell_Shadow_ShadowBolt" },
+  { "fx_boss_holy",   "Crusader's Radiance", "adv\\fx_boss_holy",   "pulse",    c(1.00, 0.92, 0.55), "Spell_Holy_HolyBolt" },
+  { "fx_boss_nature", "Verdant Wisps",       "adv\\fx_boss_nature", "spinslow", c(0.45, 1.00, 0.55), "INV_Misc_Herb_10" },
 }
 for _, e in ipairs(TCF.BOSS_EFFECTS) do
   TCF.AddExtraItem({ id = e[1], name = e[2], slot = "effect", art = e[3], fxLayer = "back", fxAnim = e[4], rarity = 4,
@@ -74,6 +75,21 @@ end
 ---------------------------------------------------------------- the notice over the cat
 TCF.EFFECT_NOTICE = { LIFE = 5, FADE_IN = 0.35, FADE_OUT = 1.2 }
 
+-- where the notice's text sits: over the cat's own level and XP text when that is above the cat
+-- (the default), else over the cat; it rises a little while it shows
+local function placeText(n, lift)
+  local cat, hud = TCF.cat, TCF.hud
+  local size = cat.size or 128
+  n.text:ClearAllPoints()
+  local ui = TCF.db and TCF.db.ui or {}
+  local textUp = hud and hud.info and ui.textAbove and not ui.catOnly and hud.info.IsShown and hud.info:IsShown()
+  if textUp then
+    n.text:SetPoint("BOTTOM", hud, "TOP", 0, 4 + size * lift)
+  else
+    n.text:SetPoint("BOTTOM", cat.frame, "TOP", 0, size * (0.05 + lift))
+  end
+end
+
 local function startNotice(self, n, it)
   local cat = self.cat
   local size = cat.size or 128
@@ -84,7 +100,7 @@ local function startNotice(self, n, it)
   n.fx:ClearAllPoints(); n.fx:SetPoint("CENTER", cat.frame, "CENTER", 0, 0)
   n.fx:SetAlpha(0); n.fx:Show()
   n.text:SetText("|cffffffffYou unlocked|r\n" .. it.name)
-  n.text:ClearAllPoints(); n.text:SetPoint("BOTTOM", cat.frame, "TOP", 0, size * 0.05)
+  placeText(n, 0)
   n.text:SetAlpha(0); n.text:Show()
   n:Show()
 end
@@ -114,8 +130,7 @@ function TCF:ShowEffectNotice(it)
       if anim == "spin" then f.fx:SetRotation(t * 0.35) elseif anim == "spinslow" then f.fx:SetRotation(t * 0.15) else f.fx:SetRotation(0) end
       f.fx:SetAlpha(max(0, fxA))
       f.text:SetAlpha(a)
-      f.text:ClearAllPoints()
-      f.text:SetPoint("BOTTOM", TCF.cat.frame, "TOP", 0, (TCF.cat.size or 128) * (0.05 + 0.06 * min(1, f.age / N.LIFE)))
+      placeText(f, 0.06 * min(1, f.age / N.LIFE))
       if f.age >= N.LIFE then
         f.fx:Hide(); f.text:Hide()
         local nextIt = table.remove(f.queue, 1)

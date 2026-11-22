@@ -195,6 +195,64 @@ def check(seed, load_addon):
       T:CD().level = 19
       local s2 = T:AdvStatusText()
       ck(s2 == "Shadowfang Keep cleared. Next: Blackfathom Deeps opens at level 22 (your cat is 19). Farming here until then.", "cleared status: " .. s2)
+      ------------------------------------------------ review fixes
+      -- every farmable piece has a floor (1 in 5,000 kills) and no chance reads "0.00%"
+      local lowest = 1
+      for ti2 = 1, #T.TIERS do
+        for bi2 = 1, #T.TIERS[ti2].bosses do
+          local l2, tot2 = T:AdvFarmTable(ti2, bi2, cls)
+          ck(tot2 <= F.TOTAL_MAX + 1e-9, "total capped with the floor: " .. T.TIERS[ti2].name .. " " .. bi2)
+          for _, e2 in ipairs(l2) do lowest = math.min(lowest, e2[2]); ck(T.AdvPct(e2[2]) ~= "0.00%", "no 0.00%: " .. e2[1].name) end
+        end
+      end
+      ck(lowest >= F.ITEM_MIN - 1e-12, "the rarest farmable piece is at least 1 in 5,000 kills: " .. lowest)
+      ck(T.AdvPct(0.00001) == "under 0.01%" and T.AdvPct(0.0002) == "0.02%", "AdvPct for tiny chances: " .. T.AdvPct(0.00001))
+      -- a and an
+      local el = tierOf("elwynn")
+      adv.cleared[T.AdvStageCode(el, T:AdvStages(el))] = nil
+      local zl = table.concat(T:AdvZoneSummary(el), " / ")
+      ck(zl:find("and an Adventurer's Strongbox.", 1, true) and not zl:find(" a Adventurer", 1, true), "an Adventurer's Strongbox: " .. zl)
+      -- a first kill made while farming counts, and stops the farm when it is the wanted piece
+      adv.cleared[T.AdvStageCode(dm, 12)] = true
+      adv.best = math.max(adv.best, T.AdvStageCode(dm, 12))
+      local want3 = T:AdvFarmTable(dm, 3, cls)[1]
+      if want3 then
+        adv.cleared[T.AdvStageCode(dm, 6)] = nil
+        ck(T:AdvStartFarm(dm, 3, want3[1].id), "farming a boss not beaten yet")
+        local R = T.ADV_FIRST.early
+        local savedChance = R.chance
+        R.chance = 0   -- no Pouches, so the test runs only the gear part
+        -- beat the boss for the first time again and again until its first-kill piece is the wanted one
+        for tries = 1, 200 do
+          if not adv.farm then break end
+          adv.cleared[T.AdvStageCode(dm, 6)] = nil
+          adv.stage = 6
+          T:AdvMobKilled({ name = T.TIERS[dm].bosses[3][1], boss = 3, level = 20 })
+          if adv.farm then ck(adv.farm.kills == tries, "first kills while farming count: " .. adv.farm.kills .. " of " .. tries) end
+        end
+        R.chance = savedChance
+        ck(not adv.farm, "a wanted piece from a first kill stops the farm")
+      end
+      -- turning Auto-advance on ends farming at once and keeps Auto-advance on
+      T:AdvStartFarm(dm, 6, nil)
+      adv.auto = true
+      ck(not T:AdvStatusText():find("^Farming"), "the status stops saying Farming once Auto-advance is on")
+      T:AdvFarmCheckAuto()
+      ck(not adv.farm and adv.auto == true, "Auto-advance on ends farming and stays on")
+      -- the Compendium's first-kill line follows the zone's band
+      local piece = T:AdvFarmTable(dm, 6, cls)[1]
+      if piece then
+        local how2 = table.concat(T:HowToGet(piece[1]), " / ")
+        ck(how2:find("The first time your cat beats Edwin VanCleef it gives a piece of its loot", 1, true)
+          and not how2:find("always drops a piece of its own loot", 1, true), "Compendium first-kill line: " .. how2)
+      end
+      local cs = table.concat(T.CHEST_SOURCES, " / ")
+      ck(cs:find("first kills of Adventure bosses in dungeons from level 45", 1, true), "chest sources mention first kills: " .. cs)
+      -- the guide: the 3-loss drop-back is with Auto-advance off
+      local gt
+      for _, f in ipairs(_frames) do if f.kind == "FontString" and type(f.text) == "string" and f.text:find("Auto%-advance on") then gt = f.text end end
+      ck(gt and gt:find("If it loses, it drops back to the last trash pack", 1, true)
+        and gt:find("Auto%-advance off|r: your cat stays on its stage and farms it%. After 3 losses in a row"), "guide's Auto-advance text: " .. tostring(gt))
       return table.concat(bad, "; ")
     ''')
     if r:

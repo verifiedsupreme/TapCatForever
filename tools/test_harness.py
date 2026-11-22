@@ -4470,7 +4470,7 @@ def main():
         for _, n in ipairs(names) do bad[#bad + 1] = n end
       end
       return bad''')
-    gone = sorted(set(n for n in bad.values() if not os.path.exists(os.path.join(art, n + ".tga"))))
+    gone = sorted(set(n for n in bad.values() if not os.path.exists(os.path.join(art, n.replace("\\", "/") + ".tga"))))  # (adv track: Art/adv\\ paths)
     print("item art missing:", gone)
     print("items:", lua.eval("#TapCatForever.ITEM_LIST"))
     return 1 if (missing or gone) else 0

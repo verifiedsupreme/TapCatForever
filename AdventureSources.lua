@@ -36,11 +36,27 @@ local function extraLines(self, it)
 end
 TCF.AdvExtraSourceLines = extraLines
 
+-- Compendium.lua's gear lines still say every boss's first kill drops a piece of its loot;
+-- the reward now grows with the zone (AdventureRewards.lua), so that line says what it gives
+local OLD_FIRST_KILL = "Each Adventure boss always drops a piece of its own loot the first time you beat it"
+local function firstKillLine(self, it)
+  local t = it.tier and it.tier > 0 and TCF.TIERS[it.tier]
+  local b = t and it.boss and it.boss > 0 and t.bosses[it.boss]
+  if not b or not self.AdvFirstKillText then return nil end
+  return string.format("The first time your cat beats %s it gives %s, picked from what your cat's class can use",
+    b[1], self:AdvFirstKillText(it.tier, it.boss == #t.bosses))
+end
+
 do
   local how = TCF.HowToGet
   if how then
     function TCF:HowToGet(it)
       local out = how(self, it)
+      if it and it.q and not it.rarity then
+        for i, l in ipairs(out) do
+          if l == OLD_FIRST_KILL then out[i] = firstKillLine(self, it) or l end
+        end
+      end
       local extra = extraLines(self, it)
       if #extra > 0 then
         -- "Not available right now" no longer applies when the Adventure track has a source
@@ -59,6 +75,22 @@ do
     function TCF.SkinSourceTag(it)
       if TCF.RealBossRewardsFor and #TCF:RealBossRewardsFor(it.id) > 0 then return "WoW" end
       return tag(it)
+    end
+  end
+end
+
+-- the Treasure Bag's chest sources (UI.lua): first kills in Adventure now give chests too
+do
+  local ADD = {
+    ["Cat Treat Pouch:"] = "Also first kills of Adventure bosses in open-world zones and early dungeons.",
+    ["Adventurer's Strongbox:"] = "Also first kills of Adventure bosses in dungeons from level 30 (a chance).",
+    ["Dungeon Chest:"] = "Also first kills of Adventure bosses in dungeons from level 45.",
+  }
+  for i, line in ipairs(TCF.CHEST_SOURCES or {}) do
+    for prefix, more in pairs(ADD) do
+      if type(line) == "string" and line:sub(1, #prefix) == prefix and not line:find(more, 1, true) then
+        TCF.CHEST_SOURCES[i] = line .. " " .. more
+      end
     end
   end
 end

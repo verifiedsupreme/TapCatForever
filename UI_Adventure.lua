@@ -489,7 +489,7 @@ TCF.UI.Builders.adventure = function(page, win)
   end)
   nextTier:SetPoint("TOPRIGHT", -12, -12); prevTier:SetPoint("RIGHT", nextTier, "LEFT", -4, 0)
   local tierLabel = Text(page, "GameFontDisableSmall", "Zone", "RIGHT"); tierLabel:SetPoint("RIGHT", prevTier, "LEFT", -6, 0)
-  Tip(nextTier, function(tt) tt:AddLine("Next zone", 1, 0.82, 0); tt:AddLine("Unlocks when you've beaten every stage of this zone, including its final boss. You can go even if your cat is under-levelled. With Auto-advance on, your cat moves on by itself once it reaches the zone's level.", 1, 1, 1, true) end)
+  Tip(nextTier, function(tt) tt:AddLine("Next zone", 1, 0.82, 0); tt:AddLine("Unlocks when you've beaten every stage of this zone, including its final boss. You can go even if your cat is under-levelled. With Auto-advance on, your cat moves on by itself 2 levels before the zone's level (raids: at level 60).", 1, 1, 1, true) end)
 
   -- scene
   local scene = Panel(page, 532, 250, 1); scene:SetPoint("TOP", 0, -50)

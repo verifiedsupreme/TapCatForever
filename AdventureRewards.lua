@@ -5,9 +5,10 @@
 --    with the zone (ADV_FIRST below). Gear comes from the boss's real loot (class-usable, never
 --    Legendary), chests go to the Treasure Bag through TCF:AwardChest.
 --  * Repeat kills: every later kill of a boss has a small chance to drop a piece of its real
---    loot (ADV_FARM): each piece min(0.4%, real drop chance x 0.012), all together at most 0.6%.
---    A cat farming one boss kills it about 150-250 times an hour (no trash in between), so a
---    piece with a 16% real drop chance (Cruel Barb) takes about 3-4 hours of farming.
+--    loot (ADV_FARM): each piece min(0.4%, real drop chance x 0.012), all together at most 0.6%,
+--    and never under 1 in 5,000 kills. A cat farming one boss kills it about 150-250 times an
+--    hour (no trash in between), so a piece with a 16% real drop chance (Cruel Barb) takes about
+--    3-4 hours of farming, and the rarest pieces about a day.
 --  * Farming: "Farm this" keeps the cat on one boss's stage (Auto-advance off) until a wanted
 --    piece drops (one chat line) or the player stops it.
 --  * TCF.BOSS_COSMETICS: cosmetics an Adventure boss gives on every kill until owned.
@@ -52,10 +53,16 @@ TCF.ADV_FIRST = {
 }
 TCF.ADV_FIRST_FINAL_RAID_TEXT = "two or three pieces of its loot and a Raider's Hoard"
 
--- Repeat kills: chance per piece = min(ITEM_MAX, real drop chance x SCALE); all pieces together
--- at most TOTAL_MAX (scaled down evenly when a boss has many). Measured with
--- tools/tests/test_adv_farm.py: farming one boss is 150-250 kills an hour.
-TCF.ADV_FARM = { SCALE = 0.012, ITEM_MAX = 0.004, TOTAL_MAX = 0.006 }
+-- Repeat kills: chance per piece = min(ITEM_MAX, real drop chance x SCALE), at least ITEM_MIN;
+-- all pieces together at most TOTAL_MAX (the pieces above ITEM_MIN are scaled down evenly when a
+-- boss has many). Measured with tools/tests/test_adv_rewards.py: farming one boss is 150-250
+-- kills an hour, so ITEM_MIN (1 in 5,000) is about a day of farming.
+TCF.ADV_FARM = { SCALE = 0.012, ITEM_MAX = 0.004, TOTAL_MAX = 0.006, ITEM_MIN = 0.0002 }
+
+-- "a Cat Treat Pouch", "an Adventurer's Strongbox" (the same check as TCF:AwardChest)
+function TCF.WithArticle(name)
+  return (name:find("^[AEIOUaeiou]") and "an " or "a ") .. name
+end
 
 ---------------------------------------------------------------- loot picks
 local QDAMP = { 1, 1, 1, 0.35, 0 }  -- never a Legendary from a boss kill here
@@ -142,20 +149,23 @@ function TCF:AdvFirstKillReward(tier, m)
       chest = R.chest
     end
   end
-  local got, seen = {}, {}
+  local got, seen, items = {}, {}, {}
   for _ = 1, nPieces do
     local it = rollPiece(self, tier, m, class, R.minQ, seen)
     if it then
       seen[it.id] = true
       self:GrantGear(it, reason)
+      items[#items + 1] = it
       got[#got + 1] = TCF.GearLink and TCF.GearLink(it) or it.name
     end
   end
+  -- a first kill made while farming this boss counts too (and can be the wanted piece)
+  if self.CD and self:CD().adv.farm then self:AdvFarmKill(tier, m, nil, items) end
   -- a zone whose bosses have nothing this class can use: a Pouch instead of nothing
   if #got == 0 and not chest and not final then chest = "pouch" end
   if chest then
     self:AwardChest(chest, reason)
-    got[#got + 1] = "a " .. TCF.CHEST_BY_KEY[chest].name
+    got[#got + 1] = TCF.WithArticle(TCF.CHEST_BY_KEY[chest].name)
   end
   return table.concat(got, " and ")
 end
@@ -172,13 +182,23 @@ function TCF:AdvFarmTable(tier, boss, class)
   for _, it in ipairs(list) do
     if eligible(self, it, class) then
       local p = min(F.ITEM_MAX, (it.dc or 0) / 1000 * F.SCALE)
-      if p > 0 then out[#out + 1] = { it, p }; total = total + p end
+      if p > 0 then out[#out + 1] = { it, max(p, F.ITEM_MIN or 0) }; total = total + out[#out][2] end
     end
   end
-  if total > F.TOTAL_MAX then
-    local k = F.TOTAL_MAX / total
-    for _, e in ipairs(out) do e[2] = e[2] * k end
-    total = F.TOTAL_MAX
+  -- over the cap: scale the pieces above the floor down evenly (a few rounds, as a scaled piece
+  -- can reach the floor); the floor itself stays, so a wanted piece is never hopeless
+  local lo = F.ITEM_MIN or 0
+  for _ = 1, 6 do
+    if total <= F.TOTAL_MAX + 1e-12 then break end
+    local fixed, free = 0, 0
+    for _, e in ipairs(out) do if e[2] <= lo then fixed = fixed + e[2] else free = free + e[2] end end
+    if free <= 0 then break end
+    local k = max(0, F.TOTAL_MAX - fixed) / free
+    total = 0
+    for _, e in ipairs(out) do
+      if e[2] > lo then e[2] = max(lo, e[2] * k) end
+      total = total + e[2]
+    end
   end
   table.sort(out, function(a, b)
     if a[2] ~= b[2] then return a[2] > b[2] end
@@ -207,9 +227,10 @@ function TCF:AdvRepeatLoot(tier, m)
   end
 end
 
--- "4%", "0.3%", "0.15%" (two digits that mean something)
+-- "4%", "0.3%", "0.15%" (two digits that mean something); "under 0.01%" for less
 function TCF.AdvPct(p)
   p = (p or 0) * 100
+  if p > 0 and p < 0.01 then return "under 0.01%" end
   if p > 0 and p < 0.1 then return string.format("%.2f%%", p) end
   if p > 0 and p < 1 then return string.format("%.1f%%", p) end
   return string.format("%d%%", floor(p + 0.5))
@@ -225,8 +246,6 @@ end
 
 ---------------------------------------------------------------- farming
 local function bossStage(bi) return bi * 2 end
-
-function TCF:AdvFarming() local f = self:CD().adv.farm; return f end
 
 -- Starts farming boss bi of a zone, optionally for one piece (item id). The cat must have
 -- reached that boss. Turns Auto-advance off (it comes back on when farming stops).
@@ -276,12 +295,23 @@ function TCF:AdvFarmAfterClear()
   if adv.stage ~= f.stage then adv.stage = f.stage end
 end
 
--- called on every boss kill (TCF:AdvMobKilled) with the repeat-kill drop (or nil)
-function TCF:AdvFarmKill(tier, m, dropped)
+-- turning Auto-advance on ends farming at once (Auto-advance stays on); the page checks this
+-- twice a second, the pack-cleared step after every pack
+function TCF:AdvFarmCheckAuto()
+  local adv = self:CD().adv
+  if adv.farm and adv.auto then adv.farm = nil; self:MarkDirty(); return true end
+end
+
+-- called on every boss kill: repeat kills from TCF:AdvMobKilled with their drop (or nil), first
+-- kills from TCF:AdvFirstKillReward with the pieces they gave (gotList)
+function TCF:AdvFarmKill(tier, m, dropped, gotList)
   local adv = self:CD().adv
   local f = adv.farm
   if not f or f.tier ~= tier or f.boss ~= m.boss then return end
   f.kills = f.kills + 1
+  if f.item and not (dropped and dropped.id == f.item) then
+    for _, it in ipairs(gotList or {}) do if it.id == f.item then dropped = it end end
+  end
   if f.item and dropped and dropped.id == f.item then
     self:AdvLog(string.format("|cff20ff20%s dropped %s after %d kills. Farming stopped.|r", m.name, dropped.name, f.kills))
     self:AdvStopFarm(string.format("%s dropped %s after %d %s. Farming stopped.", m.name, TCF.GearLink and TCF.GearLink(dropped) or dropped.name,
@@ -353,7 +383,7 @@ function TCF:AdvZoneSummary(tier)
   local finalCode = TCF.AdvStageCode(tier, self:AdvStages(tier))
   local chestName = t.raid and "Raider's Hoard" or TCF.IsDungeonTier(t) and "Dungeon Chest" or "Adventurer's Strongbox"
   if not adv.cleared[finalCode] then
-    lines[#lines + 1] = string.format("Zone clear (first time for this cat): %s TapCoins and a %s.", TCF.Commas(self:AdvClearCoins(tier)), chestName)
+    lines[#lines + 1] = string.format("Zone clear (first time for this cat): %s TapCoins and %s.", TCF.Commas(self:AdvClearCoins(tier)), TCF.WithArticle(chestName))
   else
     lines[#lines + 1] = "Zone cleared."
   end
@@ -363,9 +393,9 @@ function TCF:AdvZoneSummary(tier)
   local clock = adv.chestClock or 0
   local chest = t.raid and "Raider's Hoard" or "Cat Treat Pouch"
   if clock < lo then
-    lines[#lines + 1] = string.format("Boss kills can drop a %s after about %d more minutes of fighting.", chest, math.ceil((lo - clock) / 60))
+    lines[#lines + 1] = string.format("Boss kills can drop %s after about %d more minutes of fighting.", TCF.WithArticle(chest), math.ceil((lo - clock) / 60))
   else
-    lines[#lines + 1] = string.format("Boss kills have a growing chance to drop a %s now.", chest)
+    lines[#lines + 1] = string.format("Boss kills have a growing chance to drop %s now.", TCF.WithArticle(chest))
   end
   if TCF.IsDungeonTier(t) then
     local dc = adv.dungeonClock or 0
@@ -392,7 +422,7 @@ function TCF:AdvStatusText()
   local adv = cd.adv
   local t = self:AdvTier(adv.tier)
   local f = adv.farm
-  if f then
+  if f and not adv.auto then
     local it = f.item and TCF.GEAR[f.item]
     local p = it and self:AdvFarmChance(f.tier, f.boss, f.item) or select(2, self:AdvFarmTable(f.tier, f.boss))
     return string.format("Farming %s for %s (about %s per kill), kills so far: %d.", f.name,

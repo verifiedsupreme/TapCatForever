@@ -16,6 +16,19 @@ def check(seed, load_addon):
         T:ItemTooltip({ AddLine = function(_, l) lines[#lines + 1] = l end }, it)
         ck(table.concat(lines, " "):find("Cosmetic", 1, true), e[1] .. " is labelled cosmetic")
       end
+      -- each has a drawing of its own (no class or other effect uses it) and a name unlike the class effects
+      local names = {}
+      for _, cl in ipairs(T.CLASSES) do for _, f in ipairs(cl.fx or {}) do names[#names + 1] = f[2] end end
+      for _, e in ipairs(T.BOSS_EFFECTS) do
+        local it = T.ITEMS[e[1]]
+        for _, o in ipairs(T.ITEM_LIST) do
+          ck(o == it or o.art ~= it.art, e[1] .. " shares its drawing with " .. o.id)
+        end
+        for _, nm in ipairs(names) do
+          local first = it.name:match("^(%S+)")
+          ck(not nm:find(first, 1, true) and not it.name:find(nm, 1, true), it.name .. " is too close to the class effect " .. nm)
+        end
+      end
       -- every Adventure source is a real final boss
       for boss, id in pairs(T.ADV_BOSS_EFFECTS) do
         local found = false
@@ -34,7 +47,16 @@ def check(seed, load_addon):
       local n = T.effectNotice
       ck(T.db.owned.fx_boss_fire and n and n.shown and n.text.shown, "Ragnaros unlocks Firelord's Blaze with a notice")
       ck(n and n.text:GetText() == "|cffffffffYou unlocked|r\nFirelord's Blaze", "notice text: " .. tostring(n and n.text:GetText()))
-      ck(n and n.fx.shown and tostring(n.fx.tex):find("fx_flames", 1, true), "the effect plays behind the cat during the notice")
+      ck(n and n.fx.shown and tostring(n.fx.tex):find("adv\\fx_boss_fire", 1, true), "the effect plays behind the cat during the notice")
+      -- it sits over the cat's own level and XP text (above the cat by default), not on it
+      local rel
+      if n then
+        local sp = n.text.SetPoint
+        n.text.SetPoint = function(self, a, r, ...) rel = r end
+        _update(0.2)
+        n.text.SetPoint = sp
+      end
+      ck(rel == T.hud, "the notice sits above the cat's own text")
       for i = 1, 30 do _update(0.2) end
       ck(n and not n.shown and not n.text.shown and not n.fx.shown, "the notice fades and hides after a few seconds")
       -- a second kill: nothing new, no notice
@@ -44,10 +66,10 @@ def check(seed, load_addon):
       _inInstance = "party"
       _fire("PLAYER_ENTERING_WORLD")
       _fire("ENCOUNTER_END", 1, "Baron Rivendare", 1, 5, 1)
-      ck(T.db.owned.fx_boss_shadow and n.shown and n.text:GetText():find("Shadowflame Shroud", 1, true), "the real Baron Rivendare unlocks Shadowflame Shroud with a notice")
+      ck(T.db.owned.fx_boss_shadow and n.shown and n.text:GetText():find("Umbral Shroud", 1, true), "the real Baron Rivendare unlocks Umbral Shroud with a notice")
       -- two at once: the second waits for the first
       _fire("ENCOUNTER_END", 2, "Ras Frostwhisper", 1, 5, 1)
-      ck(T.db.owned.fx_boss_frost and n.text:GetText():find("Shadowflame Shroud", 1, true) and #n.queue == 1, "a second unlock waits its turn")
+      ck(T.db.owned.fx_boss_frost and n.text:GetText():find("Umbral Shroud", 1, true) and #n.queue == 1, "a second unlock waits its turn")
       for i = 1, 30 do _update(0.2) end
       ck(n.shown and n.text:GetText():find("Frostwhisper Chill", 1, true), "then the second one shows")
       for i = 1, 30 do _update(0.2) end
@@ -70,7 +92,7 @@ def check(seed, load_addon):
       T:RefreshAll()
       if T.cat and T.cat.ApplyAppearance then T.cat:ApplyAppearance(T:GetAppearance()) end
       local back = T.cat and T.cat.tex and T.cat.tex.fxBack
-      ck(back and back.shown and tostring(back.tex):find("fx_lightning", 1, true), "Storm Aura draws on the back layer")
+      ck(back and back.shown and tostring(back.tex):find("adv\\fx_boss_storm", 1, true), "Storm Aura draws on the back layer")
       return table.concat(bad, "; ")
     ''')
     if r:
