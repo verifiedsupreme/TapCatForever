@@ -26,7 +26,7 @@
 
 **Other fixes**
 - Prices and sources on item squares (Appearance tab and Compendium) are readable again: the text sat under the faded item picture.
-- Send feedback is in Settings (and /tcf feedback) instead of the top of the window, and shows just the GitHub link.
+- Send feedback is in Settings (and /tcf feedback) instead of the top of the window.
 - Test mode: a Remove fake cats button, and fake party cats go away when you leave a group.
 
 ## 1.5.0
