@@ -23,6 +23,7 @@ VectorData.lua
 CatVector.lua
 Abilities.lua
 Adventure.lua
+AdventureRewards.lua
 Expeditions.lua
 Professions.lua
 Herbalism.lua
@@ -45,12 +46,14 @@ UI_RPS.lua
 Welcome.lua
 UI_Gear.lua
 UI_Adventure.lua
+UI_AdventureInfo.lua
 UI_Abilities.lua
 UI_Expeditions.lua
 UI_Professions.lua
 UI_Leaderboard.lua
 UI_Casino.lua
 Compendium.lua
+AdventureSources.lua
 Feedback.lua
 NewsData.lua
 News.lua

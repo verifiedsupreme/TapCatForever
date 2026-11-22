@@ -292,13 +292,21 @@ function TCF:AdvMobKilled(m)
         end
       end
     end
-    -- the first time you beat each boss it always drops a piece of its real loot
-    if first and self.RollBossLoot then
-      local loot = self:RollBossLoot(adv.tier, m.boss, self.db.class)
-      -- open-world zones have no loot tables: give gear for the zone's level, with better odds
-      if not loot and self.RollWorldLoot then loot = self:RollWorldLoot(max(t.min, m.level or t.min), self.db.class, { 55, 38, 7 }, adv.tier) end
-      if loot then self:GrantGear(loot, m.name .. " (first kill)", true) end
+    -- the first time you beat each boss it gives a reward that grows with the zone
+    -- (AdventureRewards.lua: gear from its real loot, and chests in bigger zones)
+    if first and self.AdvFirstKillReward then
+      local got = self:AdvFirstKillReward(adv.tier, m)
+      if got and got ~= "" then self:AdvLog("First kill: " .. got) end
+    elseif self.AdvRepeatLoot then
+      -- repeat kills: a small chance of a piece of its real loot (farming)
+      local drop = self:AdvRepeatLoot(adv.tier, m)
+      if drop then self:AdvLog("Loot: " .. (TCF.GearLink and TCF.GearLink(drop) or drop.name) .. " from " .. m.name) end
+      if self.AdvFarmKill then self:AdvFarmKill(adv.tier, m, drop) end
     end
+    -- cosmetics this boss gives on every kill until you have them (TCF.BOSS_COSMETICS)
+    if self.AdvBossCosmetics then self:AdvBossCosmetics(m) end
+    -- back effects some late final bosses unlock (BossEffects.lua: a short notice over the cat)
+    if self.AdvBossEffect then self:AdvBossEffect(m) end
     if m.final and first then
       local coins = self:AdvClearCoins(adv.tier)
       self.db.zonesCleared = self.db.zonesCleared or {}   -- account-wide: the first cat to clear it gets the full bonus
@@ -361,6 +369,8 @@ function TCF:AdvPackCleared()
       adv.stage = adv.stage + 1
     end
   end
+  -- farming one boss keeps the cat on its stage (AdventureRewards.lua)
+  if adv.farm and self.AdvFarmAfterClear then self:AdvFarmAfterClear() end
   self:AdvEvent("kill")
   run.pack = nil
   run.respawn = 1.2

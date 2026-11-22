@@ -1873,6 +1873,8 @@ TEST = r'''
       local zg = firstRaid
       cd.adv.tier, cd.adv.stage = zg, 1
       cd.adv.chestClock = 1e6
+      -- (adv track: first kills now give their own chests, so these are repeat kills)
+      cd.adv.cleared[TCF.AdvStageCode(zg, 1)], cd.adv.cleared[TCF.AdvStageCode(2, 1)] = true, true
       TCF:AdvMobKilled({ name = "High Priest Venoxis", boss = 1, level = 63 })
       cd.adv.tier, cd.adv.stage = 2, 1
       cd.adv.chestClock = 1e6

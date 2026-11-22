@@ -589,6 +589,7 @@ TCF.UI.Builders.adventure = function(page, win)
   logText:SetWidth(524); logText:SetSpacing(3); logText:SetJustifyV("TOP")
   local help = Text(page, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 10); help:SetWidth(524)
   help:SetText("Your cat fights with this class's gear, level and learned abilities. Every key you press lands a bonus paw strike. Bosses and zone clears drop chests that can hold the zone's real loot.")
+  page.advHelp = help  -- UI_AdventureInfo.lua turns this into the status line
 
   ------------------------------------------------ ability bar (under the fight) and spell effects
   local SPELL = TCF.SPELL_FX
