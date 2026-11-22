@@ -17,12 +17,15 @@ RECORDER = r'''
     f.SetScale = function(s, v) s._s = v end
     f.GetScale = function(s) return s._s or 1 end
     if name == "TapCatForeverWindow" then
-      -- on screen: its TOPLEFT point against UIParent's BOTTOMLEFT, or 100, 700 until placed
+      -- on screen: its TOPLEFT point against UIParent's BOTTOMLEFT, or 100, 900 until placed
       f.GetLeft = function(s) for _, p in ipairs(s._pts or {}) do if p[1] == "TOPLEFT" then return p[4] end end return 100 / (s._s or 1) end
-      f.GetTop = function(s) for _, p in ipairs(s._pts or {}) do if p[1] == "TOPLEFT" then return p[5] end end return 700 / (s._s or 1) end
+      f.GetTop = function(s) for _, p in ipairs(s._pts or {}) do if p[1] == "TOPLEFT" then return p[5] end end return 900 / (s._s or 1) end
     end
     return f
   end
+  -- a 1600 x 1000 screen (the mock's UIParent is 140 x 140)
+  function UIParent:GetWidth() return _sw or 1600 end
+  function UIParent:GetHeight() return _sh or 1000 end
   function _pt(f, which) for _, p in ipairs(f._pts or {}) do if p[1] == which then return p end end end
 '''
 
@@ -81,8 +84,11 @@ def check(seed, load_addon):
       ck(math.abs(sx() - x0) < 1e-6, "back from the Casino, the window is where it was: " .. sx() .. " " .. x0)
       -- the size grip still works in the narrow window
       local g = win.sizeGrip
-      GetCursorPosition = function() return x0 + 592 * 1.2, 700 - 620 * 1.2 end
-      g.scripts.OnMouseDown(g, "LeftButton"); g.scripts.OnUpdate(g, 0.02); g.scripts.OnMouseUp(g)
+      local gx, gy = x0 + 592, 900 - 620
+      GetCursorPosition = function() return gx, gy end
+      g.scripts.OnMouseDown(g, "LeftButton")
+      gx, gy = x0 + 592 * 1.2, 900 - 620 * 1.2
+      g.scripts.OnUpdate(g, 0.02); g.scripts.OnMouseUp(g)
       ck(math.abs(win:GetScale() - 1.2) < 0.011, "the grip scales the narrow window: " .. win:GetScale())
       ck(math.abs(sx() - x0) < 1e-6, "and keeps its corner")
       -- open it again
@@ -99,6 +105,55 @@ def check(seed, load_addon):
         ck(all:find(want, 1, true) and not all:find("!", 1, true), "pane tooltip: " .. all)
         pb.scripts.OnClick(pb)
       end
+      -- near the screen's left edge: the full-width Casino is pushed back on the screen, and
+      -- leaving it puts the narrow window back where it was (it used to creep right)
+      pb.scripts.OnClick(pb)
+      win:SetWindowScale(1)
+      local set = win.SetPoint
+      win.SetPoint = function(f, p, rel, rp, x, y)   -- clamped to the screen
+        if p == "TOPLEFT" and type(x) == "number" and x < 0 then x = 0 end
+        return set(f, p, rel, rp, x, y)
+      end
+      win:PlaceTopLeft(60, 900)
+      win:SelectTab(win.TAB_GEAR)
+      for _ = 1, 3 do
+        win:SelectTab(win.TAB_CASINO)
+        ck(win._w == 920 and sx() >= 0, "the Casino on the screen: " .. sx())
+        win:SelectTab(win.TAB_GEAR)
+        ck(math.abs(sx() - 60) < 1e-6, "back from the Casino near the edge, where it was: " .. sx())
+      end
+      -- moved by hand on the Casino tab: it goes back from the new place
+      win:SelectTab(win.TAB_CASINO)
+      win.scripts.OnDragStart(win)
+      win:PlaceTopLeft(200, 900)
+      win:SelectTab(win.TAB_GEAR)
+      ck(math.abs(sx() - (200 + T.WIN_PANE_W)) < 1e-6, "moved on the Casino tab: the tabs stay where they are: " .. sx())
+      win.SetPoint = set
+      -- try-on: with the column folded away, hovering an item shows it on a small cat beside the window
+      local stage = win.tryOnStage
+      local look = T:GetAppearance()
+      ck(stage and not stage:IsShown(), "no try-on cat to start")
+      local some
+      for _, it in ipairs(T.ITEM_LIST) do if it.slot == "hat" or it.slot == "head" then some = it; break end end
+      some = some or T.ITEM_LIST[1]
+      win.preview:ApplyAppearance(T:GetAppearance(nil, some))
+      ck(stage:IsShown() and stage.cat and stage.cat.look ~= nil, "hovering an item shows the try-on cat: " .. tostring(some.key))
+      local sp = _pt(stage, "TOPRIGHT") or _pt(stage, "TOPLEFT")
+      ck(sp and sp[2] == win, "beside the window")
+      win.preview:ApplyAppearance(T:GetAppearance())
+      ck(not stage:IsShown(), "leaving the item hides it")
+      pb.scripts.OnClick(pb)
+      win.preview:ApplyAppearance(T:GetAppearance(nil, some))
+      ck(not stage:IsShown(), "with the column open, the column's own cat tries it on")
+      win.preview:ApplyAppearance(T:GetAppearance())
+      -- buttons other parts add to the header find a place in the narrow header
+      local extra = CreateFrame("Button", nil, win)
+      win:AddHeaderButton(extra, function(b) b:SetPoint("RIGHT", win.layoutButton, "LEFT", -6, 0) end)
+      ck(_pt(extra, "RIGHT") and _pt(extra, "RIGHT")[2] == win.layoutButton, "an added button keeps its place in the full header")
+      pb.scripts.OnClick(pb)
+      ck(_pt(extra, "LEFT") and _pt(extra, "LEFT")[2] == win.compIcon, "and goes after the Compendium icon in the narrow header")
+      pb.scripts.OnClick(pb)
+      ck(_pt(extra, "RIGHT") and not _pt(extra, "LEFT"), "and back in the full header")
       return table.concat(fails, "; ")
     ''')
     if r:

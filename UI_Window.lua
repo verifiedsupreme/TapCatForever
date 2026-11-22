@@ -8,19 +8,43 @@ local floor, min, max = math.floor, math.min, math.max
 TCF.UI = TCF.UI or {}
 TCF.WIN_SCALE_MIN, TCF.WIN_SCALE_MAX, TCF.WIN_SCALE_STEP = 0.6, 1.4, 0.05
 
-local function clampScale(v)
+-- the screen (UIParent) size, or nil outside the game
+local function screenSize()
+  local w = UIParent and UIParent.GetWidth and UIParent:GetWidth()
+  local h = UIParent and UIParent.GetHeight and UIParent:GetHeight()
+  if type(w) ~= "number" or w <= 0 then w = nil end
+  if type(h) ~= "number" or h <= 0 then h = nil end
+  return w, h
+end
+-- the largest size a w x h window may have: it must fit on the screen (at the default UI scale
+-- the screen is 768 tall, less than 620 x 1.4); normal size is always allowed
+local function maxScale(w, h)
+  local m = TCF.WIN_SCALE_MAX
+  local sw, sh = screenSize()
+  if sw and w then m = min(m, (sw - 16) / w) end
+  if sh and h then m = min(m, (sh - 16) / h) end
+  return max(1, floor(m * 100) / 100)
+end
+-- w, h (optional): the window's layout size, to keep it on the screen
+local function clampScale(v, w, h)
   v = tonumber(v) or 1
   if v ~= v then v = 1 end
-  return max(TCF.WIN_SCALE_MIN, min(TCF.WIN_SCALE_MAX, v))
+  return max(TCF.WIN_SCALE_MIN, min(maxScale(w, h), v))
 end
 TCF.ClampWindowScale = clampScale
 
 local function uiDB() return TCF.db and TCF.db.ui end
+-- the full and narrow windows share one size, the compact window has its own (a compact window
+-- made bigger to read its small text would be too big as the full window)
+local function scaleKey()
+  local u = uiDB()
+  return (u and u.winCompact) and "winScaleCompact" or "winScale"
+end
 
 ---------------------------------------------------------------- window size
 -- Dragging the grip scales the whole window (every page keeps its layout); the top-left corner
 -- stays where it is on the screen. Double-click the grip to go back to normal size.
--- Remembered in db.ui.winScale (nil = 1).
+-- Remembered in db.ui.winScale (compact: db.ui.winScaleCompact; nil = 1).
 local function SetupSize(win)
   local U = TCF.UI
   -- move the window so its top-left corner is (x, y) in UIParent units
@@ -39,17 +63,22 @@ local function SetupSize(win)
   win.PlaceTopLeft = placeTopLeft
 
   function win:SetWindowScale(v)
-    v = clampScale(v)
+    v = clampScale(v, self.layoutW, self.layoutH)
     local x, y = self:ScreenTopLeft()
     self:SetScale(v)
     if x then placeTopLeft(self, x, y) end
+    self.casinoReturn = nil   -- (UI_Window's layouts) the narrow window's place is no longer known
     local ui = uiDB()
     if ui then
-      if math.abs(v - 1) < 0.001 then ui.winScale = nil else ui.winScale = v end   -- nil: normal size
+      if math.abs(v - 1) < 0.001 then ui[scaleKey()] = nil else ui[scaleKey()] = v end   -- nil: normal size
     end
     if self.OnWindowScale then self:OnWindowScale(v) end
   end
-  function win:GetWindowScale() return clampScale(uiDB() and uiDB().winScale or 1) end
+  -- the saved size of the current layout, kept on the screen
+  function win:GetWindowScale()
+    local u = uiDB()
+    return clampScale(u and u[scaleKey()] or 1, self.layoutW, self.layoutH)
+  end
   win:SetScale(win:GetWindowScale())
 
   local grip = CreateFrame("Button", nil, win)
@@ -71,12 +100,26 @@ local function SetupSize(win)
     if button ~= "LeftButton" then return end
     local x, y = win:ScreenTopLeft()
     if not x then return end
-    g.L, g.T, g.dragging = x, y, true
+    -- the size follows how far the cursor moves from where it grabbed the grip (a click without
+    -- moving changes nothing)
+    g.L, g.T, g.dragging, g.moved = x, y, true, nil
+    g.s0 = win:GetScale() or 1
+    g.cx0, g.cy0 = cursor()
     g:SetScript("OnUpdate", function()
       local cx, cy = cursor()
+      if not g.moved then
+        if math.abs(cx - g.cx0) + math.abs(cy - g.cy0) < 3 then return end
+        g.moved = true
+      end
       local w, h = win.layoutW or 920, win.layoutH or 620
-      local v = ((cx - g.L) / w + (g.T - cy) / h) / 2
-      v = floor(clampScale(v) * 100 + 0.5) / 100
+      local v = g.s0 + ((cx - g.cx0) / w + (g.cy0 - cy) / h) / 2
+      -- from where its corner is, the window must still fit above the screen's bottom edge and
+      -- left of its right edge
+      local sw = screenSize()
+      local room = g.T / h
+      if sw then room = min(room, (sw - g.L) / w) end
+      if room >= TCF.WIN_SCALE_MIN then v = min(v, room) end
+      v = floor(clampScale(v, w, h) * 100 + 0.5) / 100
       if math.abs(v - (win:GetScale() or 1)) >= 0.005 then
         win:SetWindowScale(v)
         -- the corner stays where the drag started, even if the screen edge nudged the window
@@ -149,7 +192,7 @@ local TAB_ICONS = {
   Professions = { "Trade_BlackSmithing", "Gathering and crafting." },
   Appearance = { "INV_Misc_Cape_02", "The cosmetics you collected. Cosmetic only." },
   Quests = { "INV_Misc_Note_01", "Quests and their rewards." },
-  Shop = { "INV_Misc_Bag_07", "Chests and cosmetics for TapCoins." },
+  Shop = { "INV_Box_01", "Chests and cosmetics for TapCoins." },   -- a chest: the Treasure Bag next to it is a bag
   Achievements = { "Achievement_Quests_Completed_08", "Achievements you earned and the ones still to get." },
   Leaderboard = { "INV_Crown_02", "Cats of players on your realm." },
 }
@@ -231,12 +274,12 @@ local function SetupLayout(win)
   local lay = CreateFrame("Button", nil, win)
   lay:SetSize(24, 24)
   lay.icon = lay:CreateTexture(nil, "ARTWORK"); lay.icon:SetAllPoints()
-  lay:SetHighlightTexture(ART .. "win\\tab_glow", "ADD")
+  lay:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
   lay:SetScript("OnClick", function() win:SetCompact(not win:IsCompact()); TCF:PlaySound("click") end)
   U.Tip(lay, function(tt)
     if win:IsCompact() then
       tt:AddLine("Full window", 1, 0.82, 0)
-      tt:AddLine("Back to the wide window with the character column.", 1, 1, 1, true)
+      tt:AddLine(win:PaneShown() and "Back to the wide window with the character column." or "Back to the wide window.", 1, 1, 1, true)
     else
       tt:AddLine("Compact window", 1, 0.82, 0)
       tt:AddLine("A narrow, tall window like a phone screen, with round tab buttons. Pages are shown smaller to fit.", 1, 1, 1, true)
@@ -294,6 +337,79 @@ local function SetupLayout(win)
   end)
   strip:Hide()
   win.compactStrip = strip
+
+  ------------------------------------------------ more header buttons
+  -- Buttons other parts add to the header register here, so the narrow and compact headers find a
+  -- place for them: win:AddHeaderButton(button, placeFull). placeFull(button) anchors it in the
+  -- full window's header (without it, where it is anchored when registered).
+  win.headerExtras = win.headerExtras or {}
+  function win:AddHeaderButton(b, placeFull)
+    if not b then return end
+    local e = { frame = b, placeFull = placeFull }
+    if not placeFull and b.GetNumPoints and b.GetPoint then
+      local pts = {}
+      local ok, n = pcall(b.GetNumPoints, b)
+      for k = 1, (ok and type(n) == "number" and n or 0) do pts[k] = { b:GetPoint(k) } end
+      e.points = pts
+    end
+    self.headerExtras[#self.headerExtras + 1] = e
+    if self.layoutMode then self:ApplyLayout() end
+  end
+
+  ------------------------------------------------ try-on preview with the character column hidden
+  -- The Appearance, Shop, Gear and Professions pages try items on the cat in the character column
+  -- (win.preview). With that column folded away or in compact, a small cat beside the window shows
+  -- the try-on while an item is hovered.
+  local tryOn = CreateFrame("Frame", nil, win, U.BT)
+  tryOn:SetSize(150, 166)
+  if tryOn.SetBackdrop then tryOn:SetBackdrop(U.BACKDROP_DIALOG) end
+  if tryOn.SetFrameLevel then tryOn:SetFrameLevel((win:GetFrameLevel() or 1) + 90) end
+  tryOn.label = U.Text(tryOn, "GameFontNormalSmall", "Trying on"); tryOn.label:SetPoint("TOP", 0, -12)
+  tryOn:Hide()
+  win.tryOnStage = tryOn
+  local function lookSig(look)
+    local t = {}
+    for k, v in pairs(look or {}) do
+      local id = v
+      if type(v) == "table" then id = v.id or v.key or v.name or tostring(v) end
+      t[#t + 1] = tostring(k) .. "=" .. tostring(id)
+    end
+    table.sort(t)
+    return table.concat(t, ";")
+  end
+  -- beside the window where there is room on the screen (left first, where the column was), else
+  -- inside its top-right corner
+  local function placeTryOn()
+    tryOn:ClearAllPoints()
+    local s = win:GetScale() or 1
+    local x = win:ScreenTopLeft()
+    local sw = screenSize()
+    local top = (win:IsCompact() and C.PAGE_Y or RIGHT_Y)
+    local tw = 150 + 4
+    if not x or x >= tw * s then tryOn:SetPoint("TOPRIGHT", win, "TOPLEFT", -4, top)
+    elseif sw and x + ((win.layoutW or 920) + tw) * s <= sw then tryOn:SetPoint("TOPLEFT", win, "TOPRIGHT", 4, top)
+    else tryOn:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, top) end
+  end
+  function win:MirrorPreview(look)
+    if left:IsShown() or not self:IsShown() then tryOn:Hide(); return end
+    if not look or lookSig(look) == lookSig(TCF:GetAppearance()) then tryOn:Hide(); return end
+    if not tryOn.cat then
+      tryOn.cat = TCF.CreateCat(tryOn, 128, { preview = true })
+      tryOn.cat.frame:SetPoint("BOTTOM", 0, 10)
+    end
+    placeTryOn()
+    tryOn:Show()
+    tryOn.cat:ApplyAppearance(look)
+  end
+  local pv = win.preview
+  if pv and pv.ApplyAppearance then
+    local apply = pv.ApplyAppearance
+    pv.ApplyAppearance = function(cat, look, ...)
+      local r = apply(cat, look, ...)
+      if win.MirrorPreview then win:MirrorPreview(look) end
+      return r
+    end
+  end
 
   ------------------------------------------------ state
   local ui = uiDB
@@ -353,11 +469,26 @@ local function SetupLayout(win)
     if compact then w, h = C.W, C.H end
     -- keep the top-left corner where it is, or with keepRight the right column (tabs and pages)
     local x, y = self:ScreenTopLeft()
+    local back = self.casinoReturn
+    if not (mode == "full" and self:IsCasinoTab() and not self:PaneShown()) then self.casinoReturn = nil end
     if x and keepRight and self.layoutPaneW and self.layoutPaneW ~= paneW and not compact and self.layoutMode ~= "compact" then
-      x = x + (self.layoutPaneW - paneW) * (self:GetScale() or 1)
+      if paneW < self.layoutPaneW and back then
+        -- back from the Casino: exactly where the narrow window was (the screen edge may have
+        -- nudged the full-width window)
+        x, y = back[1], back[2]
+      else
+        if paneW > self.layoutPaneW then self.casinoReturn = { x, y } end
+        x = x + (self.layoutPaneW - paneW) * (self:GetScale() or 1)
+      end
     end
     self:SetSize(w, h)
     self.layoutW, self.layoutH, self.layoutMode, self.layoutPaneW = w, h, mode, paneW
+    -- each layout's own size (the compact one is saved apart), kept on the screen
+    local sc = self:GetWindowScale()
+    if math.abs(sc - (self:GetScale() or 1)) >= 0.001 then
+      self:SetScale(sc)
+      if self.OnWindowScale then self:OnWindowScale(sc) end
+    end
     if x and self.layoutPlaced then self:PlaceTopLeft(x, y) end
     self.layoutPlaced = true
     if not compact then self.compactChar = nil end
@@ -392,18 +523,26 @@ local function SetupLayout(win)
 
     -- the header
     local narrow = mode == "narrow"
-    if P.bagLabel then P.bagLabel:SetShown(not narrow) end
+    if P.bagLabel then P.bagLabel:SetShown(not narrow and not compact) end
     P.compBtn:SetShown(not narrow); compIcon:SetShown(narrow)
     pane:ClearAllPoints(); compIcon:ClearAllPoints(); lay:ClearAllPoints(); P.compBtn:ClearAllPoints()
     if P.bagBtn then P.bagBtn:ClearAllPoints() end
+    if P.coins then P.coins:ClearAllPoints() end
     local iconRow = self.tabButtons and self.TAB_SETTINGS and self.tabButtons[self.TAB_SETTINGS] or P.ver
     if compact then
       -- a second row: [layout][cat][Compendium] on the left, the Treasure Bag on the right
       lay:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -45)
       pane:SetPoint("LEFT", lay, "RIGHT", 6, 0)
       P.compBtn:SetPoint("LEFT", pane, "RIGHT", 8, 0)
+      -- the TapCoins move down beside the Treasure Bag, so large numbers don't reach the
+      -- Casino and Settings icons by the title
       if P.bagBtn then P.bagBtn:SetPoint("TOPRIGHT", self, "TOPRIGHT", -20, -42) end
+      if P.coins then
+        if P.bagBtn then P.coins:SetPoint("RIGHT", P.bagBtn, "LEFT", -8, 0)
+        else P.coins:SetPoint("TOPRIGHT", self, "TOPRIGHT", -20, -48) end
+      end
     else
+      if P.coins then P.coins:SetPoint("TOPRIGHT", self, "TOPRIGHT", -44, -18) end
       if narrow then
         lay:SetPoint("LEFT", iconRow, "RIGHT", 18, 0)
         pane:SetPoint("LEFT", lay, "RIGHT", 6, 0)
@@ -415,6 +554,20 @@ local function SetupLayout(win)
       P.compBtn:SetPoint("TOP", self, "TOP", 0, -15)
       if P.bagBtn and P.coins then P.bagBtn:SetPoint("RIGHT", P.coins, "LEFT", -18, 0) end
     end
+    -- buttons other parts added (win:AddHeaderButton): in a row after the last header button
+    local prev = compact and P.compBtn or narrow and compIcon or nil
+    for _, e in ipairs(self.headerExtras) do
+      local b = e.frame
+      if prev then
+        b:ClearAllPoints(); b:SetPoint("LEFT", prev, "RIGHT", 6, 0); prev = b
+        e.moved = true
+      elseif e.moved or e.placeFull then
+        b:ClearAllPoints()
+        if e.placeFull then e.placeFull(b)
+        else for _, pt in ipairs(e.points or {}) do b:SetPoint(unpack(pt)) end end
+        e.moved = nil
+      end
+    end
     lay.icon:SetTexture(ART .. "win\\" .. (compact and "layout_wide" or "layout_compact"))
     -- the cat button's arrow points the way the column will move (no arrow in compact)
     local open = compact and charView or (not compact and self:PaneShown())
@@ -422,6 +575,7 @@ local function SetupLayout(win)
     local off = not compact and self:IsCasinoTab()
     pane.icon:SetDesaturated(off); pane.arrow:SetShown(not off)
     if compact then self:RefreshCompact() end
+    if left:IsShown() then tryOn:Hide() end
     TCF:FitNewsStrip()
     if self.OnLayout then self:OnLayout(mode) end
   end
@@ -454,6 +608,9 @@ local function SetupLayout(win)
     end
   end
 
+  -- moving the window by hand: the Casino goes back from where it is now
+  if win.HookScript then win:HookScript("OnDragStart", function(f) f.casinoReturn = nil end) end
+
   function win:OnTabSelected()
     self.compactChar = nil
     if self.layoutMode and self:LayoutMode() ~= self.layoutMode then self:ApplyLayout(true)
@@ -478,6 +635,25 @@ function TCF:FitNewsStrip()
       th = math.ceil(len * 6 / max(1, w - NEWS_SIDE)) * 14
     end
     strip:SetHeight(max(NEWS_H, th + 20))
+  end
+  -- News.lua places it above the window when 50 pixels fit there; the strip can now be taller and
+  -- the window scaled, so check again with its real height: above, else below, else just inside
+  -- the window's top edge
+  if strip.IsShown and strip:IsShown() then
+    local s = win:GetScale() or 1
+    local top, bottom = win.GetTop and win:GetTop(), win.GetBottom and win:GetBottom()
+    local ptop = UIParent.GetTop and UIParent:GetTop()
+    local sh = strip.GetHeight and strip:GetHeight()
+    if type(top) == "number" and type(bottom) == "number" and type(ptop) == "number" and type(sh) == "number" then
+      local need = (sh + 4) * s
+      strip:ClearAllPoints()
+      if top * s + need <= ptop then strip:SetPoint("BOTTOM", win, "TOP", 0, 2)
+      elseif bottom * s - need >= 0 then strip:SetPoint("TOP", win, "BOTTOM", 0, -2)
+      else
+        strip:SetPoint("TOP", win, "TOP", 0, -44)
+        if strip.SetFrameLevel and win.GetFrameLevel then pcall(strip.SetFrameLevel, strip, (win:GetFrameLevel() or 1) + 80) end
+      end
+    end
   end
 end
 

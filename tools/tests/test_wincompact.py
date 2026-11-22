@@ -22,6 +22,13 @@ def check(seed, load_addon):
       win:SelectTab(win.TAB_GEAR)
       local x0 = sx()
       local lay = win.layoutButton
+      -- the TapCoins text is a font string: record its points too
+      P.coins.ClearAllPoints = function(f) f._pts = {} end
+      P.coins.SetPoint = function(f, p, rel, rp, x, y)
+        f._pts = f._pts or {}
+        if type(rel) == "number" then rel, rp, x, y = nil, p, rel, rp end
+        f._pts[#f._pts + 1] = { p, rel, rp or p, x or 0, y or 0 }
+      end
       ck(lay and _pt(lay, "RIGHT") and _pt(lay, "RIGHT")[2] == win.paneButton, "the layout button sits left of the cat button")
       ck(lay.icon.tex and lay.icon.tex:find("layout_compact", 1, true), "it shows the phone icon")
       lay.scripts.OnClick(lay)
@@ -56,7 +63,10 @@ def check(seed, load_addon):
       ck(win.compactStrip.lvl:GetText():find("Level", 1, true) and win.compactStrip.power:GetText():find("Power", 1, true), "the bottom line: " .. tostring(win.compactStrip.lvl:GetText()))
       -- the header: second row
       ck(_pt(lay, "TOPLEFT") and _pt(win.paneButton, "LEFT")[2] == lay and _pt(P.compBtn, "LEFT")[2] == win.paneButton, "second header row: layout, cat, Compendium")
-      ck(P.compBtn:IsShown() and not win.compIcon:IsShown() and P.bagLabel:IsShown() and _pt(P.bagBtn, "TOPRIGHT"), "the Compendium button and the Treasure Bag on the second row")
+      -- (the TapCoins take the bag label's place, so big numbers don't reach the icons by the title)
+      ck(P.compBtn:IsShown() and not win.compIcon:IsShown() and not P.bagLabel:IsShown() and _pt(P.bagBtn, "TOPRIGHT"), "the Compendium button and the Treasure Bag on the second row")
+      ck(_pt(P.coins, "RIGHT") and _pt(P.coins, "RIGHT")[2] == P.bagBtn and not _pt(P.coins, "TOPRIGHT"), "the TapCoins sit left of the Treasure Bag")
+      ck(not win.roundTabs[8 - 0] or not (win.roundTabs[8].icon.tex or ""):find("Bag", 1, true), "the Shop's round tab is not a second bag icon: " .. tostring(win.roundTabs[8] and win.roundTabs[8].icon.tex))
       -- every round tab selects its page
       for i, b in pairs(win.roundTabs) do
         b.scripts.OnClick(b)
@@ -99,10 +109,14 @@ def check(seed, load_addon):
       ck(not win.compactChar and P.right:IsShown(), "a tab closes the character view")
       -- the grip measures the compact window
       ck(win.layoutW == 420 and win.layoutH == C.H, "the grip uses the compact size")
-      GetCursorPosition = function() return x0 + 420 * 1.3, 700 - C.H * 1.3 end
+      local gx, gy = x0 + 420, 900 - C.H
+      GetCursorPosition = function() return gx, gy end
       local g = win.sizeGrip
-      g.scripts.OnMouseDown(g, "LeftButton"); g.scripts.OnUpdate(g, 0.02); g.scripts.OnMouseUp(g)
+      g.scripts.OnMouseDown(g, "LeftButton")
+      gx, gy = x0 + 420 * 1.3, 900 - C.H * 1.3
+      g.scripts.OnUpdate(g, 0.02); g.scripts.OnMouseUp(g)
       ck(math.abs(win:GetScale() - 1.3) < 0.011 and near(sx(), x0), "the grip scales the compact window: " .. win:GetScale())
+      ck(T.db.ui.winScaleCompact == win:GetScale() and T.db.ui.winScale == nil, "the compact size is saved apart: " .. tostring(T.db.ui.winScaleCompact) .. " " .. tostring(T.db.ui.winScale))
       -- the quest count on the round Quests tab
       local qi
       for i, nme in ipairs(win.tabNames) do if nme == "Quests" then qi = i end end
@@ -115,6 +129,15 @@ def check(seed, load_addon):
       -- back to the full window
       lay.scripts.OnClick(lay)
       ck(T.db.ui.winCompact == nil and win.layoutMode == "full" and win._w == 920 and win._h == 620, "back to the full window")
+      ck(near(win:GetScale(), 1) and near(sx(), x0), "at its own size (normal), corner kept: " .. win:GetScale())
+      ck(_pt(P.coins, "TOPRIGHT") and not _pt(P.coins, "RIGHT") and P.bagLabel:IsShown(), "the TapCoins are back in the top row, with the bag label")
+      win:SetWindowScale(1.1)
+      ck(T.db.ui.winScale == 1.1 and math.abs(T.db.ui.winScaleCompact - 1.3) < 0.011, "the full window's size is its own")
+      lay.scripts.OnClick(lay)
+      ck(math.abs(win:GetScale() - 1.3) < 0.011 and near(sx(), x0), "compact again: its own size back: " .. win:GetScale())
+      lay.scripts.OnClick(lay)
+      ck(near(win:GetScale(), 1.1), "full again: 1.1")
+      win:SetWindowScale(1)
       ck(near(P.right:GetScale(), 1) and _pt(P.right, "TOPLEFT")[4] == 344 and P.left:IsShown() and near(P.left:GetScale(), 1), "the pages and pane are back")
       ck(not win.compactStrip:IsShown(), "no bottom line")
       for i, b in ipairs(win.tabButtons) do ck(b:IsShown(), "text tab " .. i .. " back") end
@@ -125,10 +148,29 @@ def check(seed, load_addon):
       -- compact, then back with the pane folded: the narrow window
       pb.scripts.OnClick(pb)
       lay.scripts.OnClick(lay)
+      do
+        local lines = {}
+        local add = GameTooltip.AddLine
+        GameTooltip.AddLine = function(_, t) lines[#lines + 1] = t end
+        lay.scripts.OnEnter(lay)
+        GameTooltip.AddLine = add
+        local all = table.concat(lines, " ")
+        ck(all:find("wide window", 1, true) and not all:find("character column", 1, true), "with the column folded, the Full window tooltip doesn't promise it: " .. all)
+      end
       ck(win.layoutMode == "compact" and T.db.ui.winPaneHidden, "compact keeps the folded choice")
       lay.scripts.OnClick(lay)
       ck(win.layoutMode == "narrow" and win._w == 592, "and leaving compact goes back to the narrow window")
       ck(near(sx(), x0), "the corner stayed put the whole time")
+      -- an added header button goes after the Compendium button in compact; the try-on cat shows
+      local extra = CreateFrame("Button", nil, win)
+      win:AddHeaderButton(extra, function(b) b:SetPoint("RIGHT", lay, "LEFT", -6, 0) end)
+      lay.scripts.OnClick(lay)
+      ck(win.layoutMode == "compact" and _pt(extra, "LEFT") and _pt(extra, "LEFT")[2] == P.compBtn, "an added header button sits after the Compendium button")
+      win.preview:ApplyAppearance(T:GetAppearance(nil, T.ITEM_LIST[1]))
+      ck(win.tryOnStage:IsShown(), "the try-on cat shows in compact")
+      win.preview:ApplyAppearance(T:GetAppearance())
+      ck(not win.tryOnStage:IsShown(), "and goes")
+      lay.scripts.OnClick(lay)
       -- every layout button tooltip, no exclamation marks
       for _, b in ipairs({ lay, pb, win.compactStrip, win.compIcon }) do
         local lines = {}
@@ -169,10 +211,26 @@ def check(seed, load_addon):
       ck(strip._w == 760 and strip.text._w == 520, "and is full width with the full window: " .. tostring(strip._w))
       win.paneButton.scripts.OnClick(win.paneButton)
       ck(strip._w == 592, "and narrow with the narrow window: " .. tostring(strip._w))
+      -- placed with its real height (it grows in narrow windows): above the window only if it fits
+      strip.GetHeight = function(f) return f._h or 46 end
+      function UIParent:GetTop() return 1000 end
+      win.GetBottom = function(f) return (f:GetTop() - 620) end
+      win:PlaceTopLeft(100, 960)
+      strip._h = 46; T:FitNewsStrip()
+      ck(_pt(strip, "TOP") and _pt(strip, "TOP")[3] == "BOTTOM", "a tall strip with no room above goes below: " .. tostring(strip._h))
+      win:PlaceTopLeft(100, 900)
+      T:FitNewsStrip()
+      ck(_pt(strip, "BOTTOM") and _pt(strip, "BOTTOM")[3] == "TOP", "with room above, above the window")
+      win:PlaceTopLeft(100, 970); win.GetBottom = function() return 5 end
+      T:FitNewsStrip()
+      ck(_pt(strip, "TOP") and _pt(strip, "TOP")[3] == "TOP", "no room either side: just inside the top edge")
+      win.GetBottom = nil; UIParent.GetTop = nil
+      _newsPlaced = true
       T:MarkNewsSeen()
       end
       return table.concat(fails, "; ")
     ''')
     if r:
         raise AssertionError("compact window (remembered): " + r)
+    assert lua.eval("_newsPlaced") or lua.eval("TapCatForever:CurrentNews() == nil"), "the news strip checks did not run"
     print("compact window section (narrow and tall, round tabs, pages scaled to fit, Casino scaled, character view, grip, quest count, back to full and narrow, remembered): all checks passed")
