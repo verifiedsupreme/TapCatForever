@@ -4441,6 +4441,13 @@ def main():
     lua.execute(TEST)
     check_capes_art()  # capes art section (see check_capes_art)
     check_leaderboard(seed)  # leaderboard section (see check_leaderboard)
+    # more sections, one file each: tools/tests/test_<name>.py with check(seed, load_addon);
+    # each loads its own copy of the addon (load_addon()) and raises/asserts on a failure
+    import importlib.util, glob
+    for path in sorted(glob.glob(os.path.join(ROOT, "tools", "tests", "test_*.py"))):
+        spec = importlib.util.spec_from_file_location(os.path.basename(path)[:-3], path)
+        mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+        mod.check(seed, load_addon)
     art = os.path.join(ROOT, "Art")
     missing = sorted(set(f for f in lua.globals()._artcheck.values() if not os.path.exists(os.path.join(art, f.replace("\\", "/") + ".tga"))))
     print("referenced textures:", len(list(lua.globals()._artcheck.values())), "missing:", missing)
