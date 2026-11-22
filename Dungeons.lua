@@ -90,7 +90,6 @@ function TCF:DungeonComplete(run, how)
   if blocked then
     -- boss TapCoins were already paid; repeats don't count as new runs
     self:Print(blocked .. " Bosses still give TapCoins.", true)
-    if self.cat and self.cat.Toast then self.cat:Toast("No chest this time", 1, 0.6, 0.2) end
     return
   end
   if run.id ~= -1 then paidLog(db)[run.type .. ":" .. run.id] = time() end

@@ -1084,6 +1084,18 @@ local function oldStarter(self, class)
   return best
 end
 function TCF:FixStarterWeapons()
+  -- hunters use bows: a hunter cat with no ranged weapon gets its bow (once), whatever it holds
+  local hcd = self:CD("HUNTER")
+  if hcd and not hcd.hunterBow then
+    hcd.hunterBow = true
+    local heq = self:GearEquipped("HUNTER")
+    local bow = self:StarterWeapon("HUNTER")
+    if bow and bow.slot == "RANGED" and not heq.RANGED then
+      local hbag = self:Bag("HUNTER")
+      hbag[bow.id] = (hbag[bow.id] or 0) + 1
+      heq.RANGED = bow.id
+    end
+  end
   for _, cl in ipairs(TCF.CLASSES) do
     local class = cl.key
     local cd = self:CD(class)
