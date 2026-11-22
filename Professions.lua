@@ -34,9 +34,14 @@
 --     TCF:ProfCatchUp()          the cats you aren't playing catch up their idle work to now
 --     TCF:TradeTotals()          Trade Gold earned by all this character's cats, best Renown of one
 --     TCF:ProfSkill(key)         1..300 for any profession, family or crafting key
---     TCF:ProfSkillUp(key, diff) WoW-style chance to gain a point
+--     TCF:ProfSkillUp(key, diff) WoW-style chance to gain a point (1.6 bands: TCF.SKILLUP_BANDS)
+--     TCF.SkillUpChance(skill, diff)  TCF.SkillUpColor(skill, diff)  TCF.SkillUpLine(skill, diff)
+--     TCF:StarterSet(craft) / TCF:StarterProgress(craft)   the white starter sets (CraftData.lua)
 --     TCF:EarnGold(n) / TCF:SpendGold(n)   Trade Gold (EarnGold applies Renown)
---   Gathering spots (veins / hunting grounds / cloth spots), i = 1..6
+--   Gathering spots (veins / hunting grounds / cloth spots), i = 1..9 (1.6: 7-9 open later)
+--     TCF:SpotCount()  TCF:SpotUnlocked(prof, i) -> ok, reason   TCF.SPOT_UNLOCKS[i]
+--     TCF.SpotDifficulty(i)  skill-up difficulty of a spot worked by hand
+--     TCF:Glitch() / TCF:GlitchClick(prof, i) / TCF:GlitchTick()   the 1.6 patch secret (see below)
 --     TCF:OpCost(prof, i, count)   TCF:OpMaxBuy(prof, i)   TCF:BuyOp(prof, i, count|"max")
 --     TCF:OpSpeedMult(prof, i)     TCF:OpCycleTime(prof, i)   TCF:OpRevenue(prof, i)
 --     TCF:OpMatsPerCycle(prof, i)  TCF:UpgradeMult(prof, i)   TCF:RunOp(prof, i)  (start one cycle)
@@ -996,6 +1001,8 @@ function TCF:BuyUpgrade(id)
   for _, k in ipairs(FAM_KEYS) do
     for _, u in ipairs(TCF.UPGRADES[k]) do
       if u.id == id then
+        -- (1.6) a spot that hasn't opened yet can't be upgraded
+        if u.op > 0 and not self:SpotUnlocked(k, u.op) then return false end
         if s.upgrades[id] or not self:SpendGold(u.cost) then return false end
         s.upgrades[id] = true
         self:MarkDirty()

@@ -252,6 +252,11 @@ check((ps.mats.wartorn or 0) > m0, "spot 9 gives Wartorn Cloth Scrap")
 local n9 = 0
 for _, u in ipairs(T.UPGRADES[fam]) do if u.op == 9 then n9 = n9 + 1 end end
 check(n9 == 3, "spot 9 has its profit upgrades")
+local sv = { ps.renownEver, ps.lifetime, ps.skill[fam] }
+ps.spotsOpen, ps.renownEver, ps.lifetime, ps.skill[fam] = { [7] = true }, 0, 0, 1
+check(not T:BuyUpgrade(fam .. "8_0"), "no profit upgrade for a spot that hasn't opened")
+ps.spotsOpen[8], ps.spotsOpen[9] = true, true
+ps.renownEver, ps.lifetime, ps.skill[fam] = sv[1], sv[2], sv[3]
 -- the page scrolls to the later spots
 ps.ops[fam][1].n = 3
 T:CreateWindow(); T.window:Show(); T.window:SelectTab(5)

@@ -511,7 +511,7 @@ TCF.UI.Builders.professions = function(page, win)
     local list, total = {}, 0
     for _, u in ipairs(TCF.UPGRADES[fam] or {}) do
       total = total + 1
-      if not s.upgrades[u.id] then list[#list + 1] = u end
+      if not s.upgrades[u.id] and (u.op == 0 or TCF:SpotUnlocked(fam, u.op)) then list[#list + 1] = u end
     end
     for i, r in ipairs(urows) do
       local u = list[i]; r.u = u
@@ -521,8 +521,10 @@ TCF.UI.Builders.professions = function(page, win)
         r.buy:SetText(TCF.GoldStr(u.cost, 10)); r.buy:SetEnabled(s.gold >= u.cost)
       end
     end
-    upgNote:SetText(#list == 0 and "|cff20ff20Every upgrade bought.|r"
-      or string.format("%d of %d upgrades bought.", total - #list, total))
+    local bought = 0
+    for _, u in ipairs(TCF.UPGRADES[fam] or {}) do if s.upgrades[u.id] then bought = bought + 1 end end
+    upgNote:SetText(bought >= total and "|cff20ff20Every upgrade bought.|r"
+      or string.format("%d of %d upgrades bought.%s", bought, total, #list + bought < total and " More come with the later spots." or ""))
   end
 
   ------------------------------------------------ Herbalism: garden
