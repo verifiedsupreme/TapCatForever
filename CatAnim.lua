@@ -228,8 +228,9 @@ KIND.particles = function(self, L, ctx)
     local s = self.size / CANVAS
     for _, p in ipairs(list) do
       p.age = p.age + dt
-      if p.age >= p.life then
-        p.age = p.age - p.life; p.life = rr(L.life, 1.5)
+      if p.age >= 0 and (not p.x or p.age >= p.life) then
+        if p.x then p.age = p.age - p.life end
+        p.life = rr(L.life, 1.5)
         p.x, p.y = spawnIn(L.box)
         p.vx, p.vy, p.size, p.spin, p.ph = rr(L.vx, 0), rr(L.vy, -50), rr(L.size, 14), rr(L.spin, 0), random() * 6.28
       end
@@ -269,7 +270,8 @@ KIND.glint = function(self, L, ctx)
     for _, p in ipairs(list) do
       p.age = p.age + dt
       if p.age >= p.life then
-        p.age = -rr(L.gap, 0.8)
+        p.age = -rr(L.gap, 0.8); p.x = nil
+      elseif p.age >= 0 and not p.x then
         p.x, p.y = spawnIn(spots[random(#spots)])
         p.size = rr(L.size, 26)
       end
