@@ -1,7 +1,7 @@
 -- TapCatForever: the Treasure Bag (1.5.4). Every class's cat has its own bag of unopened chests,
 -- each stamped with the level of the cat that earned it (Core.lua: TCF:AwardChest, TCF:ChestStamps).
--- One row per kind of chest and level ("Lv 20", the count on the icon), five rows a page. This replaces the one-row-
--- per-kind bag of UI.lua (TCF:CreateBag and TCF:OpenAllChests are defined again here).
+-- One row per kind of chest and level ("Lv 20", the count on the icon), five rows a page. TCF:CreateBag and
+-- TCF:OpenAllChests live here (UI.lua keeps TCF:ToggleBag).
 local ADDON, TCF = ...
 local floor, min, max = math.floor, math.min, math.max
 

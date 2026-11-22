@@ -161,6 +161,13 @@ def check(seed, load_addon):
       lay.scripts.OnClick(lay)
       ck(win.layoutMode == "narrow" and win._w == 592, "and leaving compact goes back to the narrow window")
       ck(near(sx(), x0), "the corner stayed put the whole time")
+      -- the round Professions button (UI_Professions.lua) stays by Casino and Settings in every
+      -- layout; the narrow header's layout button follows it
+      if win.profQuick then
+        local settingsIcon = win.tabButtons[win.TAB_SETTINGS]
+        ck(_pt(win.profQuick, "LEFT") and _pt(win.profQuick, "LEFT")[2] == settingsIcon and win.profQuick:IsShown(), "the Professions button sits after Settings")
+        ck(_pt(lay, "LEFT") and _pt(lay, "LEFT")[2] == win.profQuick, "narrow: the layout button follows the Professions button")
+      end
       -- an added header button goes after the Compendium button in compact; the try-on cat shows
       local extra = CreateFrame("Button", nil, win)
       win:AddHeaderButton(extra, function(b) b:SetPoint("RIGHT", lay, "LEFT", -6, 0) end)
@@ -233,4 +240,4 @@ def check(seed, load_addon):
     if r:
         raise AssertionError("compact window (remembered): " + r)
     assert lua.eval("_newsPlaced") or lua.eval("TapCatForever:CurrentNews() == nil"), "the news strip checks did not run"
-    print("compact window section (narrow and tall, round tabs, pages scaled to fit, Casino scaled, character view, grip, quest count, back to full and narrow, remembered): all checks passed")
+    print("compact window section (narrow and tall, round tabs, pages scaled to fit, Casino scaled, character view, grip, quest count, back to full and narrow, Professions button in the narrow header, remembered): all checks passed")

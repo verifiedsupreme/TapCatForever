@@ -528,7 +528,9 @@ local function SetupLayout(win)
     pane:ClearAllPoints(); compIcon:ClearAllPoints(); lay:ClearAllPoints(); P.compBtn:ClearAllPoints()
     if P.bagBtn then P.bagBtn:ClearAllPoints() end
     if P.coins then P.coins:ClearAllPoints() end
-    local iconRow = self.tabButtons and self.TAB_SETTINGS and self.tabButtons[self.TAB_SETTINGS] or P.ver
+    -- the round icons by the title: Casino, Settings and the Professions button (UI_Professions.lua,
+    -- anchored right of Settings in every layout); the narrow header's buttons follow the last one
+    local iconRow = self.profQuick or (self.tabButtons and self.TAB_SETTINGS and self.tabButtons[self.TAB_SETTINGS]) or P.ver
     if compact then
       -- a second row: [layout][cat][Compendium] on the left, the Treasure Bag on the right
       lay:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -45)
