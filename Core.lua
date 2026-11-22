@@ -176,6 +176,9 @@ end
 function TCF:InitDB()
   TapCatForeverDB = TapCatForeverDB or {}
   local char = bindCharacter(TapCatForeverDB)
+  -- 1.5.4 care package (CarePackage.lua): only for an account and a character that existed before
+  self.saveExisted = rawget(TapCatForeverDB, "version") ~= nil
+  self.charExisted = self.saveExisted and not (char.fresh and not char.started)
   local db = copyDefaults(DEFAULTS, TapCatForeverDB)
   self.db = db
   -- 1.3: the level text moved above the cat (once, for saves made before that)

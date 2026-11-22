@@ -21,3 +21,10 @@
 - Hover a row for "Holds gear for about level 20" and that chest's odds.
 - Open opens one chest of that row's level. All opens every chest of that kind. Open everything empties this cat's bag.
 - The title says whose bag it is, and a line lists chests waiting in your other cats' bags.
+
+## A care package for players who were already playing
+- The first time a character that played before this update logs in, every class cat on it that has been played gets a plain white piece for each empty gear slot it can use at its level.
+- The pieces go into that cat's gear bag. Nothing is equipped for you.
+- Once per account there are also 150 TapCoins.
+- One chat line says what you got. No pop-up, and it never comes twice.
+- Brand-new characters and accounts don't get one.
