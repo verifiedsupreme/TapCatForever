@@ -73,6 +73,39 @@ TCF.UI.AddTeachLine = addTeachLine
 -- (Art/v/k_wpn_fishpole_f, main hand, resting paw lifted by 44 units)
 local POLE_TIP_X, POLE_TIP_Y, PAW_LIFT = 470, 108, 44
 
+-- 1.6: the round Professions button in the main window's header, next to the Casino (coin) and
+-- Settings (cog) icons. It shows the cat's own profession (Mining, Skinning or Tailoring) and opens
+-- the Professions tab. A glitched spot (the patch secret) makes it flicker purple.
+function TCF.UI.ProfQuickButton(win, after, open)
+  local b = CreateFrame("Button", nil, win)
+  b:SetSize(26, 26)
+  b:SetPoint("LEFT", after, "RIGHT", 6, 0)
+  b.ic = b:CreateTexture(nil, "ARTWORK"); b.ic:SetAllPoints(); b.ic:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetPoint("TOPLEFT", -3, 3); b.sel:SetPoint("BOTTOMRIGHT", 3, -3)
+  b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD"); b.sel:Hide()
+  local function update()
+    local f = TCF.db and TCF.FAMILIES[TCF:MainProf()]
+    local icon = f and f.icon or "Trade_Mining"
+    if b.icon ~= icon then b.icon = icon; b.ic:SetTexture(TCF.Icon(icon)) end
+    local onTab = win.tab and win.tabNames and win.tabNames[win.tab] == "Professions"
+    if (b.sel:IsShown() and true or false) ~= (onTab and true or false) then b.sel:SetShown(onTab) end
+    local g = TCF.Glitch and TCF:Glitch()
+    b.ic:SetVertexColor(1, g and (0.5 + 0.5 * math.sin(GetTime() * 10)) or 1, 1)
+  end
+  local acc = 0
+  b:SetScript("OnUpdate", function(_, e) acc = acc + e; if acc > 0.1 then acc = 0; update() end end)
+  b:SetScript("OnShow", update)
+  b:SetScript("OnClick", function() open(); TCF:PlaySound("click"); update() end)
+  TCF.UI.Tip(b, function(tt)
+    local f = TCF.FAMILIES[TCF:MainProf()]
+    tt:AddLine("Professions", 1, 0.82, 0)
+    tt:AddLine(string.format("Your %s, %s, Herbalism, First Aid, Fishing and Cooking.", f.name, f.craftName), 1, 1, 1, true)
+  end)
+  update()
+  return b
+end
+
 TCF.UI.Builders.professions = function(page, win)
   local U = TCF.UI
   local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel
@@ -158,18 +191,22 @@ TCF.UI.Builders.professions = function(page, win)
 
   ------------------------------------------------ main profession: gathering spots
   -- Veins (ore icon), Hunting Grounds and Cloth Spots (the creature's 3D model in its box)
+  -- 1.6: up to 9 spots per family in 6 rows; the mouse wheel (or the arrows below) scrolls them.
+  -- Each row shows spot r.spot (set in refreshSpots from win.spotScroll).
   local spotView = View()
   local rows = {}
   local BOX_W, BOX_H = 92, 54
-  for i = 1, 6 do
+  local SPOT_ROWS = 6
+  for i = 1, SPOT_ROWS do
     local r = Panel(spotView, 532, 58, 0.85); r:SetPoint("TOP", 0, -(i - 1) * 61)
+    r.spot = i
     -- the picture box: click it to run one cycle
     r.box = CreateFrame("Button", nil, r, U.BT); r.box:SetSize(BOX_W, BOX_H); r.box:SetPoint("LEFT", 2, 0)
     if r.box.SetBackdrop then
       r.box:SetBackdrop(U.BACKDROP_PANEL); r.box:SetBackdropColor(0.10, 0.12, 0.16, 1); r.box:SetBackdropBorderColor(0.45, 0.40, 0.55, 1)
     end
     r.box:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    r.box:SetScript("OnClick", function() TCF:RunOp(FAM(), i); TCF:PlaySound("click"); win:Refresh() end)
+    r.box:SetScript("OnClick", function() TCF:RunOp(FAM(), r.spot); TCF:PlaySound("click"); win:Refresh() end)
     r.icon = r.box:CreateTexture(nil, "ARTWORK"); r.icon:SetSize(44, 44); r.icon:SetPoint("CENTER")
     -- the model fills the box (inside its border) and is pulled back so the whole creature fits:
     -- WoW cuts a model off at its frame's edges
@@ -186,8 +223,15 @@ TCF.UI.Builders.professions = function(page, win)
     r.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); r.sel:SetBlendMode("ADD"); r.sel:Hide()
     Tip(r.box, function(tt)
       local f = FT()
+      local i = r.spot
       local o, st = f.ops[i], TCF:ProfState().ops[FAM()][i]
       tt:AddLine(o[1], 1, 0.82, 0)
+      local open, why = TCF:SpotUnlocked(FAM(), i)
+      if not open then tt:AddLine(why, 1, 0.5, 0.3, true); tt:AddLine("Gives " .. o[3] .. ".", 0.8, 0.8, 0.8); return end
+      local g = TCF:Glitch()
+      if g and g.fam == FAM() and g.i == i then
+        tt:AddLine(string.format("Something is wrong with it. Work it by hand while it lasts (%ds).", TCF:GlitchLeft()), 0.8, 0.4, 1, true)
+      end
       tt:AddLine(string.format("Gives %s. You own %d.", o[3], st.n), 1, 1, 1)
       addTeachLine(tt, TCF:ProfSkill(FAM()), TCF.SpotDifficulty(i))
       if st.n > 0 and not st.mgr then tt:AddLine(string.format("Click to %s one cycle.", f.verb:lower()), 0, 1, 0) end
@@ -196,7 +240,7 @@ TCF.UI.Builders.professions = function(page, win)
     r.name = Text(r, "GameFontNormal", nil, "LEFT"); r.name:SetPoint("TOPLEFT", r.box, "TOPRIGHT", 8, -2); r.name:SetWidth(258)
     if r.name.SetWordWrap then r.name:SetWordWrap(false) end
     r.bar = Bar(r, 258, 16, 0.25, 0.75, 0.3); r.bar:SetPoint("LEFT", r.box, "RIGHT", 8, 0)
-    r.bar:EnableMouse(true); r.bar:SetScript("OnMouseUp", function() TCF:RunOp(FAM(), i); win:Refresh() end)
+    r.bar:EnableMouse(true); r.bar:SetScript("OnMouseUp", function() TCF:RunOp(FAM(), r.spot); win:Refresh() end)
     r.info = Text(r, "GameFontDisableSmall", nil, "LEFT"); r.info:SetPoint("BOTTOMLEFT", r.box, "BOTTOMRIGHT", 8, 2); r.info:SetWidth(258)
     if r.info.SetWordWrap then r.info:SetWordWrap(false) end
     -- the hand tool: click to gather by hand
@@ -215,7 +259,7 @@ TCF.UI.Builders.professions = function(page, win)
     end)
     r.pick.cd = CreateFrame("Cooldown", nil, r.pick, "CooldownFrameTemplate"); r.pick.cd:SetAllPoints()
     r.pick:SetScript("OnClick", function()
-      local fam = FAM()
+      local fam, i = FAM(), r.spot
       if TCF:GatherClick(fam, i) then
         -- one tool per family: every spot's button shows the same cooldown
         for _, row in ipairs(rows) do if row.pick.cd.SetCooldown then row.pick.cd:SetCooldown(GetTime(), TCF:ToolCooldown(fam)) end end
@@ -228,7 +272,7 @@ TCF.UI.Builders.professions = function(page, win)
       end
     end)
     Tip(r.pick, function(tt)
-      local fam, f = FAM(), FT()
+      local fam, f, i = FAM(), FT(), r.spot
       tt:AddLine(TCF:ToolName(fam), 1, 0.82, 0)
       -- show what a click really pays against a full cycle (the first spot's starter floor can beat the share)
       local cycle = TCF:OpRevenue(fam, i)
@@ -242,14 +286,16 @@ TCF.UI.Builders.professions = function(page, win)
       addTeachLine(tt, TCF:ProfSkill(fam), TCF.SpotDifficulty(i))
       tt:AddLine(string.format("Upgrade your %s with the button below the %s.", f.toolNoun:lower(), f.spotNounPlural), 0.7, 0.7, 0.7, true)
     end)
-    r.buy = Button(r, "Buy", 112, 22, function() TCF:BuyOp(FAM(), i, TCF:ProfState().buy); win:Refresh() end)
+    r.buy = Button(r, "Buy", 112, 22, function() TCF:BuyOp(FAM(), r.spot, TCF:ProfState().buy); win:Refresh() end)
     r.buy:SetPoint("TOPRIGHT", -6, -6)
     Tip(r.buy, function(tt)
       local f = FT()
-      tt:AddLine("Buy " .. f.ops[i][1], 1, 0.82, 0)
+      tt:AddLine("Buy " .. f.ops[r.spot][1], 1, 0.82, 0)
+      local open, why = TCF:SpotUnlocked(FAM(), r.spot)
+      if not open then tt:AddLine(why, 1, 0.5, 0.3, true) end
       tt:AddLine("Each one you own adds to the gold of every cycle here. Owning 25, 50, 100 and more makes the cycle twice as fast each time.", 1, 1, 1, true)
     end)
-    r.mgr = Button(r, "", 112, 20, function() TCF:HireForeman(FAM(), i); win:Refresh() end)
+    r.mgr = Button(r, "", 112, 20, function() TCF:HireForeman(FAM(), r.spot); win:Refresh() end)
     r.mgr:SetPoint("BOTTOMRIGHT", -6, 6)
     Tip(r.mgr, function(tt)
       local f = FT()
@@ -329,9 +375,43 @@ TCF.UI.Builders.professions = function(page, win)
       end
     end
   end)
+  -- which spots the rows show: rows start at spot win.spotScroll + 1
+  local function spotTotal() return TCF:SpotCount() end
+  local function placeRows(fam, force)
+    local f = TCF.FAMILIES[fam]
+    local off = min(max(0, win.spotScroll or 0), max(0, spotTotal() - SPOT_ROWS))
+    win.spotScroll = off
+    for k, r in ipairs(rows) do
+      local i = off + k
+      if force or r.spot ~= i or r.spotFam ~= fam then
+        r.spot, r.spotFam = i, fam
+        setSpotPicture(r, f.ops[i]); r.pick.tex:SetTexture(TCF.Icon(toolIcon(fam)))
+        r.popT = nil; r.pop:Hide()
+      end
+    end
+  end
+  local spotPage = Text(spotView, "GameFontHighlightSmall", nil, "CENTER")
+  local spotUp = Button(spotView, "<", 26, 22, function() win.spotScroll = (win.spotScroll or 0) - 3; TCF:PlaySound("click"); win:Refresh() end)
+  local spotDown = Button(spotView, ">", 26, 22, function() win.spotScroll = (win.spotScroll or 0) + 3; TCF:PlaySound("click"); win:Refresh() end)
+  spotDown:SetPoint("TOPRIGHT", spotView, "TOPRIGHT", -14, -6 * 61 - 2)
+  spotPage:SetPoint("RIGHT", spotDown, "LEFT", -4, 0); spotPage:SetWidth(84)
+  spotUp:SetPoint("RIGHT", spotPage, "LEFT", -4, 0)
+  for _, b in ipairs({ spotUp, spotDown }) do
+    Tip(b, function(tt)
+      tt:AddLine("More " .. FT().spotNounPlural, 1, 0.82, 0)
+      tt:AddLine("Scroll with the mouse wheel too. The later ones open up as your business grows.", 1, 1, 1, true)
+    end)
+  end
+  spotView:EnableMouseWheel(true)
+  spotView:SetScript("OnMouseWheel", function(_, d) win.spotScroll = (win.spotScroll or 0) - d; win:Refresh() end)
   local function enterSpots(fam)
     local f = TCF.FAMILIES[fam]
-    for i, r in ipairs(rows) do setSpotPicture(r, f.ops[i]); r.pick.tex:SetTexture(TCF.Icon(toolIcon(fam))) end
+    -- open on the newest spot this cat owns
+    local s, top = TCF:ProfState(), 1
+    for i = 1, spotTotal() do if s.ops[fam][i] and s.ops[fam][i].n > 0 then top = i end end
+    if top < spotTotal() and TCF:SpotUnlocked(fam, top + 1) then top = top + 1 end
+    win.spotScroll = max(0, top - SPOT_ROWS)
+    placeRows(fam, true)
     spotView.clickHint = f.clickHint or ""
   end
 
@@ -354,16 +434,35 @@ TCF.UI.Builders.professions = function(page, win)
     end
     local lvl = TCF:ToolLevel(fam)
     local gskill = TCF:ProfSkill(fam)
-    for i, r in ipairs(rows) do
+    placeRows(fam)
+    local total = spotTotal()
+    vis(spotPage, total > SPOT_ROWS); vis(spotUp, total > SPOT_ROWS); vis(spotDown, total > SPOT_ROWS)
+    spotPage:SetText(string.format("%d-%d of %d", win.spotScroll + 1, win.spotScroll + SPOT_ROWS, total))
+    spotUp:SetEnabled(win.spotScroll > 0); spotDown:SetEnabled(win.spotScroll < total - SPOT_ROWS)
+    local glitch = TCF:Glitch()
+    for _, r in ipairs(rows) do
+      local i = r.spot
       local o, st = f.ops[i], s.ops[fam][i]
+      local open, why = TCF:SpotUnlocked(fam, i)
+      local glitched = glitch and glitch.fam == fam and glitch.i == i
       if r.icon:IsShown() then r.icon:SetDesaturated(st.n == 0) end
       if r.model:IsShown() and r.model.SetAlpha then r.model:SetAlpha(st.n == 0 and 0.5 or 1) end
       r.count:SetText(st.n > 0 and st.n or "")
-      r.name:SetText(skillColor(gskill, TCF.SpotDifficulty(i)) .. o[1] .. "|r")
+      if glitched then
+        -- the patch secret: the row's name flickers while the spot is glitched
+        r.name:SetText((math.sin(GetTime() * 18) > 0 and "|cffcc66ff" or "|cff66ffee") .. o[1] .. "?|r")
+      elseif not open then r.name:SetText("|cff777777" .. o[1] .. "|r")
+      else r.name:SetText(skillColor(gskill, TCF.SpotDifficulty(i)) .. o[1] .. "|r") end
       local ct = TCF:OpCycleTime(fam, i)
       r.bar:SetMinMaxValues(0, 1)
       local idle = false
-      if st.n > 0 then
+      if glitched then
+        r.bar:SetValue(TCF:GlitchLeft() / TCF.GLITCH_SECONDS)
+        r.bar.text:SetText(string.format("|cffcc66ffWork it by hand: %ds|r", TCF:GlitchLeft()))
+      elseif not open then
+        r.bar:SetValue(0)
+        r.bar.text:SetText("|cff999999Opens later (hover for how)|r")
+      elseif st.n > 0 then
         r.bar:SetValue(st.mgr and (ct < 0.3 and 1 or st.p) or (st.run and st.p or 0))
         idle = not st.mgr and not st.run
         if idle then
@@ -387,7 +486,8 @@ TCF.UI.Builders.professions = function(page, win)
       r.pick.count:SetText(lvl > 0 and lvl or "")
       local count = s.buy == "max" and max(1, TCF:OpMaxBuy(fam, i)) or s.buy
       local bcost = TCF:OpCost(fam, i, count)
-      r.buy:SetText("x" .. count .. "  " .. TCF.GoldStr(bcost, 10)); r.buy:SetEnabled(s.gold >= bcost)
+      if open then r.buy:SetText("x" .. count .. "  " .. TCF.GoldStr(bcost, 10)); r.buy:SetEnabled(s.gold >= bcost)
+      else r.buy:SetText("|cff888888Locked|r"); r.buy:SetEnabled(false) end
       local fcost = TCF.PROF_OPS[i].foreman
       if st.mgr then r.mgr:SetText("|cff20ff20Automated|r"); r.mgr:SetEnabled(false)
       else r.mgr:SetText(f.hire .. " " .. TCF.GoldStr(fcost, 10)); r.mgr:SetEnabled(st.n > 0 and s.gold >= fcost) end

@@ -540,7 +540,7 @@ TEST = r'''
     ps.upgrades.mining1_0, ps.upgrades.skinning1_0, ps.upgrades.cloth1_0 = true, true, true
     for _, k in ipairs(TCF.FAMILY_KEYS) do
       local F = TCF.FAMILIES[k]
-      check(#F.ops == 6 and F.tab == TAB[k] and F.craft == CRAFT[k], k .. " family table")
+      check(#F.ops == 9 and F.tab == TAB[k] and F.craft == CRAFT[k], k .. " family table")  -- (1.6: 9 spots)
       check(#TCF.UPGRADES[k] == #TCF.UPGRADES.mining, k .. " upgrade count")
       for j, u in ipairs(TCF.UPGRADES[k]) do
         local m = TCF.UPGRADES.mining[j]

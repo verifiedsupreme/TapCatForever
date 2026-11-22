@@ -46,3 +46,31 @@
 - Professions.lua TCF.COSMETIC_MAT_MULT by item rarity { 3, 5, 10, 20, 40 }; kept materials in TCF.COSMETIC_MAT_KEEP plus every d_ (dish) and b_ (bandage) key. Applied once at load to every cosmetic recipe; a skin's recipe shares its table with the skin's get.mats, so the Compendium shows the same amounts.
 - Examples: Linen Scarf 300 linen, Runestitched Cat 5000 mageweave + 9000 runecloth, Felcloth Wings 16000 felcloth + 48000 runecloth, Lotus Bloom 24000 dreamfoil + 60 Black Lotus.
 - tools/trade_sim.py --speed 2 28 (a Mage that sells; it keeps all its cloth, nothing else spends it): materials for the Linen Scarf on day 0, Silk Wizard Hat day 1, Runestitched Cat day 6, Runecloth Top Hat day 7, Felcloth Wings day 19. Real players also spend cloth on crafting levels and First Aid, so expect later. Herbalism and Fishing cosmetics were checked by hand from the garden and fishing buddy rates (Lotus Bloom and Pinchy's gift: about one to two weeks of a full garden or the best buddy at Azshara).
+
+## A Professions button by the title
+- A round button with your profession's icon now sits next to the Casino and Settings buttons at the top of the window. Click it to open Professions.
+
+## More spots
+- Every gathering profession has three more spots, after the first six. They open up as your business grows and stay open once you have them:
+  - Mining: Dark Iron Deposit (Blackrock Depths) at Renown 100, Elementium Vein (Blackwing Lair) at Renown 500 and Mining 250, Obsidian Chunk (Ahn'Qiraj) at 1Qa Trade Gold earned in total and Mining 300.
+  - Skinning: Zul'Gurub Bats (Primal Bat Leather), Molten Core Hounds (Core Leather) and Silithid Swarm in Ahn'Qiraj (Heavy Silithid Carapace), opening the same way.
+  - Tailoring: Moonwell in Felwood (Mooncloth), Ironweb Spiders in Blackrock Spire (Ironweb Spider Silk) and the Cult of the Damned in Naxxramas (Wartorn Cloth Scrap).
+- Renown here means the highest Renown your cat has ever had. Skill means your gathering skill, which you raise by working spots by hand.
+- They cost more and earn more than the first six, with their own helpers and profit upgrades. Selling the business resets them like the other spots.
+- Scroll the spots with the mouse wheel or the arrows under them.
+
+## Patch notes hint (the only player-facing line about the secret)
+- Some miners swear their veins act strangely at sixteen past the hour.
+
+## For the developer: the patch secret (keep it out of player-facing text)
+- While 1.6.x is installed (TCF.GLITCH_PATCH = "1.6"; it switches itself off in 1.7), working a gathering spot by hand can make that spot glitch for 60 seconds. Every click by hand on the glitched spot then pays an extra 5 seconds of all that profession's spots' income (at least 10 normal clicks) and 3 more of its material.
+- How it starts: the first click by hand at sixteen minutes past the hour on the player's clock (for patch "1.6"), or by luck, 1 in 3000 clicks by hand at any other time.
+- Limits: once a day per character, only the cat you are playing, only by hand (helpers and the cats you are not playing never glitch). So at most 60 seconds a day: about 20 minutes of the profession's income at 4 clicks a second, about 3 minutes at the starting speed.
+- What the player sees: a purple chat line, "Something is wrong with this Copper Vein. It is giving far too much. Better be quick.", the spot's name flickering with a question mark and "Work it by hand: 42s" on its bar, the round Professions button flickering, then "The Copper Vein is back to normal. While it lasted it paid ... Trade Gold and ... Copper Ore." No pop-ups.
+- Counted in db.stats.profGlitches (no achievement for it, so it stays a secret). Code: Professions.lua TCF:GlitchClick / TCF:GlitchTick, settings at TCF.GLITCH_*.
+
+## For the developer: spot numbers and pacing
+- Spots 7-9 (TCF.PROF_OPS): cost 45M / 1.6B / 58B, price growth 1.13 each, cycle 768 / 1536 / 3072 s, 1.87M / 5M / 12.4M gold a cycle, helpers 500M / 20B / 800B. Per spot owned they earn 1.5x / 2x / 2.5x what spot 6 earns a second, for far more gold, so they add to a big business without rushing it. Unlocks in TCF.SPOT_UNLOCKS.
+- tools/trade_sim.py --speed 2 56 (one cat, 2 h a day, selling whenever it doubles its Renown), without spots 7-9 (--nospots) and with them: First Aid day 23 and 23, Fishing day 33 and 30, Cooking day 51 and 47; spot 7 opens on day 9, spot 8 on day 26, spot 9 on day 30.
+- Material icons and 3D models are existing game assets (Dark Iron Ore, Elementium Ore, Large Obsidian Shard, Primal Bat Leather, Core Leather, Heavy Silithid Carapace, Mooncloth, Ironweb Spider Silk, Wartorn Cloth Scrap; Frenzied Bloodseeker Bat, Core Hound, Vekniss Warrior, Spire Spider, Naxxramas Follower). The Moonwell and the veins show their material icon.
+- No icon on the cat's own screen HUD: the design rule keeps everything away from the cat, and the header button already opens Professions in one click.

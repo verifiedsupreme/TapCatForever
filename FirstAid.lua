@@ -102,7 +102,7 @@ TCF.MEDIC_STOCK = 100
 local function ownsClothSpots(s)
   local ops = s.ops and s.ops.cloth
   if not ops then return false end
-  for i = 1, 6 do if ops[i] and (ops[i].n or 0) > 0 then return true end end
+  for i = 1, #ops do if ops[i] and (ops[i].n or 0) > 0 then return true end end
   return false
 end
 local function stocked(self, s, b)

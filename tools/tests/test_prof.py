@@ -213,6 +213,138 @@ end
 '''
 
 
+SPOTS = r'''
+local T = TapCatForever
+T:SetClass("MAGE")
+local ps = T:ProfState()
+local fam = T:MainProf()
+check(T:SpotCount() == 9, "9 spots per family")
+for _, k in ipairs(T.FAMILY_KEYS) do
+  check(#T.FAMILIES[k].ops == 9, k .. " has 9 spots")
+  for i, o in ipairs(T.FAMILIES[k].ops) do check(T.MAT_BY_KEY[o[2]] and o[4], k .. " spot " .. i .. " material") end
+  check(#ps.ops[k] == 9, "trade has 9 spot states for " .. k)
+end
+ps.renownEver, ps.renown, ps.lifetime, ps.spotsOpen = 0, 0, 0, nil
+ps.skill[fam] = 1
+local ok, why = T:SpotUnlocked(fam, 7)
+check(T:SpotUnlocked(fam, 6) and not ok and why:find("Renown 100", 1, true), "spot 7 opens at Renown 100: " .. tostring(why))
+ps.gold = 1e30
+check(not T:BuyOp(fam, 7, 1) and T:OpMaxBuy(fam, 7) == 0, "a closed spot can't be bought")
+ps.renownEver = 100
+check(T:SpotUnlocked(fam, 7) and T:BuyOp(fam, 7, 1) and ps.ops[fam][7].n == 1, "Renown 100 opens spot 7")
+ps.renownEver = 0
+check(T:SpotUnlocked(fam, 7), "an open spot stays open")
+ps.renownEver = 600
+ok, why = T:SpotUnlocked(fam, 8)
+check(not ok and why:find("skill 250", 1, true), "spot 8 also needs the gathering skill: " .. tostring(why))
+ps.skill[fam] = 250
+check(T:SpotUnlocked(fam, 8), "spot 8 open")
+ok, why = T:SpotUnlocked(fam, 9)
+check(not ok and why:find("Trade Gold earned", 1, true) and why:find("skill 300", 1, true), "spot 9 needs 1Qa earned and skill 300: " .. tostring(why))
+ps.lifetime, ps.skill[fam] = 1e15, 300
+check(T:SpotUnlocked(fam, 9) and T:BuyOp(fam, 9, 1), "spot 9 open")
+check(T:GatherIncome(fam) > 0 and T:OpRevenue(fam, 9) > T:OpRevenue(fam, 6) * 0, "later spots earn")
+check(T:HireForeman(fam, 9) and ps.ops[fam][9].mgr, "a helper for spot 9")
+local m0 = ps.mats.wartorn or 0
+T:ProfAdvance(T:OpCycleTime(fam, 9) + 1)
+check((ps.mats.wartorn or 0) > m0, "spot 9 gives Wartorn Cloth Scrap")
+-- later spots have upgrades too
+local n9 = 0
+for _, u in ipairs(T.UPGRADES[fam]) do if u.op == 9 then n9 = n9 + 1 end end
+check(n9 == 3, "spot 9 has its profit upgrades")
+-- the page scrolls to the later spots
+ps.ops[fam][1].n = 3
+T:CreateWindow(); T.window:Show(); T.window:SelectTab(5)
+T.window.profView = "main"; T.window:Refresh()
+local function texts()
+  local all = {}
+  for _, f in ipairs(_frames) do local t = f.GetText and f:GetText(); if type(t) == "string" then all[#all + 1] = t end end
+  return table.concat(all, "\n")
+end
+local tx = texts()
+check(tx:find("4-9 of 9", 1, true) and tx:find("Cult of the Damned (Naxxramas)", 1, true), "the page opens on the newest spots")
+T.window.spotScroll = 0; T.window:Refresh()
+check(texts():find("1-6 of 9", 1, true), "scrolled back to the first spots")
+-- selling resets them like the others, the spots stay open
+ps.lifetime = math.max(ps.lifetime, 1e15)
+T:PrestigeTrade()
+check(ps.ops[fam][9].n == 0 and not ps.ops[fam][9].mgr and T:SpotUnlocked(fam, 9), "selling resets spot 9, it stays open")
+-- the round Professions button in the header
+check(T.window.profQuick and T.window.profQuick:IsShown(), "a Professions icon button by the title")
+T.window:SelectTab(1)
+T.window.profQuick:GetScript("OnClick")(T.window.profQuick)
+check(T.window.tab == 5, "it opens the Professions tab")
+'''
+
+GLITCH = r'''
+local T = TapCatForever
+T:SetClass("MAGE")
+local ps = T:ProfState()
+local fam = T:MainProf()
+local function chat(pat) for k = #_chat, 1, -1 do if tostring(_chat[k]):find(pat, 1, true) then return _chat[k] end end end
+-- tied to the patch
+local saveV = T.version
+T.version = "1.6.0"; check(T:GlitchPatchActive(), "on in 1.6.x")
+T.version = "1.6.2"; check(T:GlitchPatchActive(), "on in 1.6.2")
+T.version = "1.7.0"; check(not T:GlitchPatchActive(), "off in 1.7")
+T.version = "1.16.0"; check(not T:GlitchPatchActive(), "off in 1.16")
+T.version = saveV
+-- off: never happens
+T.glitchForce = false
+T.GLITCH_ODDS = 1
+T.toolNext = {}
+for k = 1, 20 do _clock = _clock + 2; T:GatherClick(fam, 1) end
+check(not T:Glitch() and not chat("Something is wrong"), "no glitch outside the patch")
+-- on: a click can start it (odds forced to 1 here)
+T.glitchForce = true
+T.db.profGlitchDay = nil
+ps.ops[fam][1].n = 50
+_clock = _clock + 2
+check(T:GatherClick(fam, 1) and T:Glitch(), "a click by hand started a glitch")
+local line = chat("Something is wrong with this")
+check(line and not line:find("!", 1, true), "one quiet chat line: " .. tostring(line))
+local g0, m0 = ps.gold, ps.mats.linen or 0
+_clock = _clock + 2
+check(T:GatherClick(fam, 1), "click the glitched spot")
+check(ps.gold - g0 >= T:ToolGold(fam, 1) * 10 and (ps.mats.linen or 0) - m0 >= 3, "a glitched click pays far more")
+-- only that spot
+ps.ops[fam][2].n = 5
+local gl = T:Glitch()
+check(gl.i == 1 and gl.clicks == 1, "the glitch is on spot 1")
+-- the page shows it (flickering name, time left)
+T:CreateWindow(); T.window:Show(); T.window:SelectTab(5); T.window.profView = "main"; T.window.spotScroll = 0; T.window:Refresh()
+local shown = false
+for _, f in ipairs(_frames) do local t = f.GetText and f:GetText(); if type(t) == "string" and t:find("Work it by hand", 1, true) then shown = true end end
+check(shown, "the glitched row says to work it by hand")
+-- it ends after a minute with a summary line
+_clock = _clock + T.GLITCH_SECONDS + 1
+T:ProfessionsTick(false, 0.25)
+check(not T:Glitch() and chat("is back to normal. While it lasted it paid"), "a line when it ends")
+-- once a day
+local n = 0
+for k = 1, 30 do _clock = _clock + 2; T:GatherClick(fam, 1); if T:Glitch() then n = n + 1 end end
+check(n == 0, "only once a day")
+-- sixteen past the hour: the first click starts it, without luck
+T.db.profGlitchDay = nil
+T.GLITCH_ODDS = 1e9
+local realDate = date
+date = function(fmt, ...) if fmt == "%M" then return "16" end return realDate(fmt, ...) end
+_clock = _clock + 2
+T:GatherClick(fam, 1)
+check(T:Glitch(), "sixteen past the hour starts it")
+date = function(fmt, ...) if fmt == "%M" then return "17" end return realDate(fmt, ...) end
+T.profGlitch = nil; T.db.profGlitchDay = nil
+for k = 1, 30 do _clock = _clock + 2; T:GatherClick(fam, 1) end
+check(not T:Glitch(), "not at seventeen past without luck")
+date = realDate
+-- helpers and other cats never glitch
+T.db.profGlitchDay = nil; T.GLITCH_ODDS = 1
+T:WithTradeClass("WARRIOR", function(self) self.toolNext = {}; self:GatherClick("mining", 1) end)
+check(not T:Glitch(), "a cat you aren't playing never glitches")
+T.glitchForce, T.GLITCH_ODDS = nil, 3000
+'''
+
+
 def run(lua, code, name):
     lua.execute(PRE)
     lua.execute(code)
@@ -221,13 +353,20 @@ def run(lua, code, name):
         raise AssertionError(name + ": " + "; ".join(fails[:12]))
 
 
+SECTIONS = [
+    (CURVE, "professions skill-up curve", "orange 100%, yellow 50%, green 20%/5%, grey 0, every list reaches 300, colours"),
+    (STARTER, "professions starter sets", "a white piece for every armour slot per craft, cheap, wearable, progress, shown first"),
+    (SPEED, "professions hand speed", "separate upgrade per family, steep costs, 1.5s to 0.25s, kept when selling, page"),
+    (COSMETIC, "professions cosmetic costs", "Cosmetic only recipes cost 3x-40x by rarity, rare inputs and gear recipes unchanged"),
+    (SPOTS, "professions later spots", "spots 7-9 open with Renown, skill and Trade Gold earned, buy, helpers, scroll, reset on sale, header button"),
+    (GLITCH, "professions patch secret", "a glitched spot: only in 1.6, by hand, once a day, sixteen past the hour, quiet lines"),
+]
+
+
 def check(seed, load_addon):
-    lua = load_addon()
-    run(lua, CURVE, "professions skill-up curve")
-    print("professions skill-up curve section (orange 100%, yellow 50%, green 20%/5%, grey 0, every list reaches 300, colours): all checks passed")
-    run(lua, STARTER, "professions starter sets")
-    run(lua, COSMETIC, "professions cosmetic costs")
-    print("professions cosmetic costs section (Cosmetic only recipes cost 3x-40x by rarity, rare inputs and gear recipes unchanged): all checks passed")
-    run(lua, SPEED, "professions hand speed")
-    print("professions hand speed section (separate upgrade per family, steep costs, 1.5s to 0.25s, kept when selling, page): all checks passed")
-    print("professions starter sets section (a white piece for every armour slot per craft, cheap, wearable, progress, shown first): all checks passed")
+    # each section on a fresh copy of the addon, so one can't change what the next one sees
+    for code, name, what in SECTIONS:
+        lua = load_addon()
+        lua.execute("math.randomseed(%d)" % (seed % 2147483647))
+        run(lua, code, name)
+        print("%s section (%s): all checks passed" % (name, what))

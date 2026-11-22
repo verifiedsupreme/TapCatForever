@@ -87,6 +87,12 @@ local OPS = {
   { cost = 8640,    mult = 1.15, time = 48,  rev = 4320,   foreman = 2.5e6 },
   { cost = 103680,  mult = 1.14, time = 96,  rev = 51840,  foreman = 6e6 },
   { cost = 1244160, mult = 1.13, time = 384, rev = 622080, foreman = 5e7 },
+  -- 1.6: spots 7-9 open up later (TCF.SPOT_UNLOCKS). Bigger and slower, and dearer for what they
+  -- earn than the first six, so they add to a big business without breaking the pace of the
+  -- later profession unlocks (tools/trade_sim.py --speed against --nospots).
+  { cost = 4.5e7,   mult = 1.13, time = 768,  rev = 1.87e6, foreman = 5e8 },
+  { cost = 1.6e9,   mult = 1.13, time = 1536, rev = 5e6,    foreman = 2e10 },
+  { cost = 5.8e10,  mult = 1.13, time = 3072, rev = 1.24e7, foreman = 8e11 },
 }
 TCF.PROF_OPS = OPS
 
@@ -117,6 +123,9 @@ TCF.FAMILIES = {
       { "Mithril Deposit", "mithril", "Mithril Ore", "INV_Ore_Mithril_02" },
       { "Thorium Vein", "thorium", "Thorium Ore", "INV_Ore_Thorium_02" },
       { "Arcane Crystal Geode", "arcane", "Arcane Crystal", "INV_Misc_Gem_Crystal_01" },
+      { "Dark Iron Deposit (Blackrock Depths)", "darkiron", "Dark Iron Ore", "INV_Ore_Mithril_01" },
+      { "Elementium Vein (Blackwing Lair)", "elementium", "Elementium Ore", "INV_Stone_SharpeningStone_01" },
+      { "Obsidian Chunk (Ahn'Qiraj)", "obsidian", "Large Obsidian Shard", "INV_Stone_15" },
     },
   },
   skinning = {
@@ -136,6 +145,9 @@ TCF.FAMILIES = {
       { "Feralas Yetis",            "thickleather",  "Thick Leather",     "INV_Misc_LeatherScrap_08", 3220 },  -- Rage Scar Yeti
       { "Winterspring Frostsabers", "ruggedleather", "Rugged Leather",    "INV_Misc_LeatherScrap_02", 9953 },  -- Frostsaber
       { "Un'Goro Devilsaurs",       "devilsaur",     "Devilsaur Leather", "INV_Misc_Pelt_03",         5239 },  -- Devilsaur
+      { "Zul'Gurub Bats",           "primalbat",     "Primal Bat Leather", "INV_Misc_Pelt_01",       14562 }, -- Frenzied Bloodseeker Bat
+      { "Molten Core Hounds",       "coreleather",   "Core Leather",      "INV_Ammo_FireTar",         12168 }, -- Core Hound
+      { "Silithid Swarm (Ahn'Qiraj)", "silithid",    "Heavy Silithid Carapace", "INV_Misc_MonsterScales_05", 15334 }, -- Vekniss Warrior
     },
   },
   cloth = {
@@ -155,6 +167,9 @@ TCF.FAMILIES = {
       { "Gordunni Camp (Feralas)",            "mageweave", "Mageweave Cloth", "INV_Fabric_Mageweave_01",  11558 }, -- Gordunni Ogre Mage
       { "Scourge Camp (Eastern Plaguelands)", "runecloth", "Runecloth",       "INV_Fabric_PurpleFire_01", 7847 },  -- Scourge Champion
       { "Jadefire Satyrs (Felwood)",          "felcloth",  "Felcloth",        "INV_Fabric_Felrag",        2019 },  -- Jadefire Satyr
+      { "Moonwell (Felwood)",                 "mooncloth", "Mooncloth",       "INV_Fabric_MoonRag_01" },
+      { "Ironweb Spiders (Blackrock Spire)",  "ironweb",   "Ironweb Spider Silk", "Spell_Nature_Web",       9755 },  -- Spire Spider
+      { "Cult of the Damned (Naxxramas)",     "wartorn",   "Wartorn Cloth Scrap", "INV_Misc_WartornScrap_Cloth", 16605 }, -- Naxxramas Follower
     },
   },
 }
@@ -228,6 +243,16 @@ local function famOf(self, prof)
 end
 
 TCF.MILESTONES = { 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 }
+
+-- 1.6: spots 7-9 open up with milestones (this cat's highest Renown ever, Trade Gold earned in
+-- total, and the gathering skill from working spots by hand). Once open, a spot stays open
+-- (selling the business resets what you own there, as with the other spots).
+TCF.SPOT_UNLOCKS = {
+  [7] = { renown = 100 },
+  [8] = { renown = 500, skill = 250 },
+  [9] = { lifetime = 1e15, skill = 300 },
+}
+
 local MILESTONE_CHEST = { [25] = "pouch", [100] = "strong", [300] = "heroic" }
 
 -- your own hand tool: one per family, for every spot of that family, upgraded level by level
@@ -323,7 +348,7 @@ local function repair(s, class)
     migrateFamily(s, TCF:MainProf(class))
   end
   for _, k in ipairs(FAM_KEYS) do
-    for i = 1, 6 do
+    for i = 1, #OPS do
       local st = s.ops[k][i]
       if type(st) ~= "table" then s.ops[k][i] = freshOp()
       else st.n, st.p = st.n or 0, st.p or 0 end
@@ -349,7 +374,7 @@ local function famId(k, fam)
 end
 
 local function familyProgress(s, fam)
-  for i = 1, 6 do local st = s.ops[fam][i]; if st.n > 0 or st.mgr then return true end end
+  for i = 1, #OPS do local st = s.ops[fam][i]; if st.n > 0 or st.mgr then return true end end
   if (s.tools[fam] or 0) > 0 then return true end
   for k in pairs(s.upgrades) do if famId(k, fam) then return true end end
   for k in pairs(s.milestones) do if famId(k, fam) then return true end end
@@ -361,7 +386,7 @@ end
 -- materials in the set keep (by key) stay in src
 local function moveFamily(src, dst, fam, keep)
   local f = TCF.FAMILIES[fam]
-  for i = 1, 6 do
+  for i = 1, #OPS do
     local a, b = src.ops[fam][i], dst.ops[fam][i]
     b.n = b.n + a.n
     b.mgr = (b.mgr or a.mgr) and true or false
@@ -444,7 +469,7 @@ local function splitShared(self)
   local curFam = TCF:MainProf(cur)
   -- 1.5.0 paid each milestone chest once per spot for all families together, keyed by the
   -- family that made the buy: every family with spots there has had that chest
-  for i = 1, 6 do
+  for i = 1, #OPS do
     for ms in pairs(MILESTONE_CHEST) do
       local had = false
       for _, k in ipairs(FAM_KEYS) do if old.milestones[k .. i .. "_" .. ms] then had = true end end
@@ -655,6 +680,29 @@ local function opState(self, prof, i)
   return S(self).ops[famOf(self, prof)][i]
 end
 
+-- how many spots a family has (TCF.PROF_SPOTS_CAP: a simulation can play with fewer)
+function TCF:SpotCount() return min(#OPS, TCF.PROF_SPOTS_CAP or #OPS) end
+-- Is spot i open for this cat? Returns ok, and a plain reason when it is not.
+function TCF:SpotUnlocked(prof, i)
+  if not OPS[i] or i > self:SpotCount() then return false, "Not available." end
+  local u = TCF.SPOT_UNLOCKS[i]
+  if not u then return true end
+  local s = S(self)
+  if type(s.spotsOpen) == "table" and s.spotsOpen[i] then return true end
+  local fam = famOf(self, prof)
+  local need = {}
+  if u.renown and (s.renownEver or 0) < u.renown then need[#need + 1] = string.format("Renown %d (highest so far %d)", u.renown, s.renownEver or 0) end
+  if u.lifetime and (s.lifetime or 0) < u.lifetime then need[#need + 1] = string.format("%s Trade Gold earned (so far %s)", TCF.FormatBig(u.lifetime), TCF.FormatBig(s.lifetime or 0)) end
+  if u.skill and (s.skill[fam] or 1) < u.skill then
+    need[#need + 1] = string.format("%s skill %d (now %d)", TCF.FAMILIES[fam].skillName, u.skill, s.skill[fam] or 1)
+  end
+  if #need > 0 then return false, "Opens at " .. table.concat(need, " and ") .. "." end
+  -- remembered, so changing the numbers later never closes a spot someone has
+  s.spotsOpen = type(s.spotsOpen) == "table" and s.spotsOpen or {}
+  s.spotsOpen[i] = true
+  return true
+end
+
 -- Prices, speed milestones and milestone chests count only this cat's own spots: every class
 -- has its own trade, so switching class can't stack or repeat anything.
 function TCF:OpCost(prof, i, count)
@@ -667,6 +715,7 @@ end
 
 function TCF:OpMaxBuy(prof, i)
   local o = OPS[i]
+  if not self:SpotUnlocked(prof, i) then return 0 end
   local n = opState(self, prof, i).n
   local base = o.cost * o.mult ^ n
   return max(0, floor(math.log(S(self).gold * (o.mult - 1) / base + 1) / math.log(o.mult)))
@@ -700,7 +749,7 @@ function TCF:GatherIncome(prof)
   local s, g = S(self), 0
   for _, k in ipairs(FAM_KEYS) do
     if prof == nil or k == famOf(self, prof) then
-      for i = 1, 6 do
+      for i = 1, #OPS do
         if s.ops[k][i].n > 0 then g = g + self:OpRevenue(k, i) / self:OpCycleTime(k, i) end
       end
     end
@@ -799,8 +848,75 @@ function TCF:GatherClick(prof, i)
   for _ = 1, self:ToolRolls(f) do if random() < TCF.PICK_ORE_CHANCE then got = got + 1 end end
   s.mats[op[2]] = (s.mats[op[2]] or 0) + got
   self:ProfSkillUp(f, TCF.SpotDifficulty(i))
+  -- 1.6 patch secret (TCF:GlitchClick below): a glitched spot pays far too much for a minute
+  if self.GlitchClick then
+    local g2, m2 = self:GlitchClick(f, i)
+    gold, got = gold + g2, got + m2
+  end
   self.lastMineOre, self.lastMineMat, self.lastMineGold, self.lastMineFamily = got, op[2], gold, f
   return true
+end
+
+---------------------------------------------------------------- 1.6 patch secret: the glitched spot
+-- DEVELOPER NOTE (kept out of the game's own text; the patch notes only hint at it):
+-- While this patch is installed (TCF.version starts with TCF.GLITCH_PATCH), working a gathering
+-- spot by hand can make that spot "glitch" for TCF.GLITCH_SECONDS: every click by hand on it pays
+-- an extra TCF.GLITCH_GOLD_SECONDS seconds of all of this family's spots' income (at least 10
+-- normal clicks) and three more of its material. It starts on a click:
+--   * any minute: a 1 in TCF.GLITCH_ODDS chance per click by hand
+--   * at sixteen minutes past the hour (the player's clock, "1.6"): the first click by hand
+-- At most once a day per character (db.profGlitchDay), only for the cat you play, only by hand
+-- (helpers never glitch). One chat line when it starts and one when it ends with what it paid.
+-- No pop-ups. While it lasts the spot's row flickers purple on the Professions page.
+TCF.GLITCH_PATCH, TCF.GLITCH_SECONDS, TCF.GLITCH_GOLD_SECONDS, TCF.GLITCH_ODDS, TCF.GLITCH_MINUTE = "1.6", 60, 5, 3000, 16
+function TCF:GlitchPatchActive()
+  if self.glitchForce ~= nil then return self.glitchForce end
+  local v = tostring(TCF.version or "")
+  return v:sub(1, #TCF.GLITCH_PATCH + 1) == TCF.GLITCH_PATCH .. "."
+end
+local function today() local ok, d = pcall(date, "%Y-%m-%d"); return ok and d or "?" end
+local function clockMinute() local ok, m = pcall(date, "%M"); return ok and tonumber(m) or -1 end
+-- the glitch going on now ({ fam, i, ends, gold, mats, class }) or nil
+function TCF:Glitch()
+  local g = self.profGlitch
+  if g and g.class == (self.db and self.db.class) and GetTime() < g.ends then return g end
+end
+function TCF:GlitchLeft() local g = self:Glitch(); return g and max(0, g.ends - GetTime()) or 0 end
+-- called by every successful click by hand: the bonus while glitched, else maybe start one
+function TCF:GlitchClick(f, i)
+  if self.tradeQuiet or not self.db or (self.tradeClass and self.tradeClass ~= self.db.class) then return 0, 0 end
+  local g = self:Glitch()
+  if g then
+    if g.fam ~= f or g.i ~= i then return 0, 0 end
+    local s = S(self)
+    local op = TCF.FAMILIES[f].ops[i]
+    local bonus = self:EarnGold(max(self:GatherIncome(f) * TCF.GLITCH_GOLD_SECONDS, self:ToolGold(f, i) * 10))
+    s.mats[op[2]] = (s.mats[op[2]] or 0) + 3
+    g.gold, g.mats, g.clicks = g.gold + bonus, g.mats + 3, g.clicks + 1
+    return bonus, 3
+  end
+  if not self:GlitchPatchActive() or self.db.profGlitchDay == today() then return 0, 0 end
+  if clockMinute() ~= TCF.GLITCH_MINUTE and random(TCF.GLITCH_ODDS) ~= 1 then return 0, 0 end
+  self.db.profGlitchDay = today()
+  self.db.stats.profGlitches = (self.db.stats.profGlitches or 0) + 1
+  self.profGlitch = { fam = f, i = i, ends = GetTime() + TCF.GLITCH_SECONDS, gold = 0, mats = 0, clicks = 0, class = self.db.class }
+  local name = TCF.FAMILIES[f].ops[i][1]
+  self:Print(string.format("|cffcc66ffSomething is wrong with this %s. It is giving far too much. Better be quick.|r", name), true)
+  self:MarkDirty()
+  return 0, 0
+end
+-- ends the glitch (one chat line with what it paid); run from the professions tick
+function TCF:GlitchTick()
+  local g = self.profGlitch
+  if not g or GetTime() < g.ends then return end
+  self.profGlitch = nil
+  if g.clicks > 0 or g.gold > 0 then
+    local f = TCF.FAMILIES[g.fam]
+    self:Print(string.format("|cffcc66ffThe %s is back to normal. While it lasted it paid %s Trade Gold and %d %s.|r",
+      f.ops[g.i][1], TCF.GoldStr(g.gold), g.mats, f.ops[g.i][3]), true)
+  else
+    self:Print(string.format("|cffcc66ffThe %s is back to normal.|r", TCF.FAMILIES[g.fam].ops[g.i][1]), true)
+  end
 end
 
 -- old names (Mining only before families existed); prof defaults to the current class's family
@@ -839,6 +955,7 @@ end
 function TCF:BuyOp(prof, i, count)
   local f = famOf(self, prof)
   local s = S(self)
+  if not self:SpotUnlocked(f, i) then return false end
   if count == "max" then count = self:OpMaxBuy(f, i) end
   if not count or count < 1 then return false end
   local cost = self:OpCost(f, i, count)
@@ -983,6 +1100,7 @@ function TCF:ProfessionsTick(login, dt)
     return
   end
   self:ProfAdvance(dt or 0.25)
+  if self.profGlitch then self:GlitchTick() end
   self.profCatchT = (self.profCatchT or 0) + (dt or 0.25)
   if self.profCatchT >= TCF.PROF_CATCHUP_EVERY then
     self.profCatchT = 0
@@ -1010,7 +1128,7 @@ function TCF:PrestigeTrade()
   s.upgrades = {}
   for _, f in ipairs(FAM_KEYS) do
     s.tools[f] = 0
-    for i = 1, 6 do s.ops[f][i] = freshOp() end
+    for i = 1, #OPS do s.ops[f][i] = freshOp() end
   end
   for _, mod in ipairs(TCF.PROF_MODULES) do if mod.reset then mod.reset(self, s) end end
   local coins = min(1000, gain * 3)
