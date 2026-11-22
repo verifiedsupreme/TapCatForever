@@ -243,7 +243,8 @@ ok, why = T:SpotUnlocked(fam, 9)
 check(not ok and why:find("Trade Gold earned", 1, true) and why:find("skill 300", 1, true), "spot 9 needs 1Qa earned and skill 300: " .. tostring(why))
 ps.lifetime, ps.skill[fam] = 1e15, 300
 check(T:SpotUnlocked(fam, 9) and T:BuyOp(fam, 9, 1), "spot 9 open")
-check(T:GatherIncome(fam) > 0 and T:OpRevenue(fam, 9) > T:OpRevenue(fam, 6) * 0, "later spots earn")
+check(T:GatherIncome(fam) > 0 and T:OpRevenue(fam, 9) > 0, "later spots earn")
+for i = 7, 9 do check(T.PROF_OPS[i].rev > T.PROF_OPS[i - 1].rev, "spot " .. i .. " earns more per spot than spot " .. (i - 1)) end
 check(T:HireForeman(fam, 9) and ps.ops[fam][9].mgr, "a helper for spot 9")
 local m0 = ps.mats.wartorn or 0
 T:ProfAdvance(T:OpCycleTime(fam, 9) + 1)
@@ -279,6 +280,33 @@ check(T.window.profQuick and T.window.profQuick:IsShown(), "a Professions icon b
 T.window:SelectTab(1)
 T.window.profQuick:GetScript("OnClick")(T.window.profQuick)
 check(T.window.tab == 5, "it opens the Professions tab")
+-- review fixes: the button's tooltip names the cloth cat's gathering skill once, and only what it has learned
+local function tipOf(owner)
+  local lines = {}
+  GameTooltip.AddLine = function(_, t) lines[#lines + 1] = tostring(t) end
+  owner:GetScript("OnEnter")(owner)
+  GameTooltip.AddLine = nil
+  return table.concat(lines, "\n")
+end
+local tip = tipOf(T.window.profQuick)
+check(not tip:find("Tailoring, Tailoring", 1, true) and tip:find("Your Cloth Scavenging, Tailoring", 1, true), "header tooltip: " .. tip)
+check(tip:find("Learned later:", 1, true), "header tooltip lists the professions not learned yet apart: " .. tip)
+-- the later spots say their material has no recipe yet; the early ones don't
+check(T.MatUsedInRecipe("linen") and not T.MatUsedInRecipe("wartorn"), "linen is used in recipes, Wartorn Cloth Scrap not yet")
+T.window.profView = "main"; T.window.spotScroll = 3; T.window:Refresh()
+local row9
+for _, f in ipairs(_frames) do if f.spot == 9 and f.box then row9 = f end end
+check(row9, "a row shows spot 9 after scrolling")
+if row9 then
+  tip = tipOf(row9.box)
+  check(tip:find("not used in any recipe yet", 1, true), "spot 9 tooltip: " .. tip)
+end
+ps.ops[fam][1].n = math.max(1, ps.ops[fam][1].n)
+T.window.spotScroll = 0; T.window:Refresh()
+-- the hand speed line reads as clicks a second, not as a level number
+local hint
+for _, f in ipairs(_frames) do local t = f.GetText and f:GetText(); if type(t) == "string" and t:find("By hand:", 1, true) and f.shown then hint = t end end
+check(hint and hint:find("with the next Hand speed level)", 1, true), "hand speed hint: " .. tostring(hint))
 '''
 
 GLITCH = r'''
@@ -302,12 +330,15 @@ for k = 1, 20 do _clock = _clock + 2; T:GatherClick(fam, 1) end
 check(not T:Glitch() and not chat("Something is wrong"), "no glitch outside the patch")
 -- on: a click can start it (odds forced to 1 here)
 T.glitchForce = true
-T.db.profGlitchDay = nil
+T:SetGlitchDay(nil)
 ps.ops[fam][1].n = 50
 _clock = _clock + 2
 check(T:GatherClick(fam, 1) and T:Glitch(), "a click by hand started a glitch")
-local line = chat("Something is wrong with this")
+local line = chat("Something is wrong at your Defias Hideout (Westfall) spot.")
 check(line and not line:find("!", 1, true), "one quiet chat line: " .. tostring(line))
+-- review fix: once a day per WoW character, kept in that character's own data
+check(rawget(TapCatForeverDB, "profGlitchDay") == nil and T.charData and T.charData.profGlitchDay == date("%Y-%m-%d"),
+  "the glitch day is saved per character, not for the account")
 local g0, m0 = ps.gold, ps.mats.linen or 0
 _clock = _clock + 2
 check(T:GatherClick(fam, 1), "click the glitched spot")
@@ -324,13 +355,39 @@ check(shown, "the glitched row says to work it by hand")
 -- it ends after a minute with a summary line
 _clock = _clock + T.GLITCH_SECONDS + 1
 T:ProfessionsTick(false, 0.25)
-check(not T:Glitch() and chat("is back to normal. While it lasted it paid"), "a line when it ends")
+check(not T:Glitch() and chat("Your Defias Hideout (Westfall) spot is back to normal. While it lasted it paid"), "a line when it ends")
 -- once a day
 local n = 0
 for k = 1, 30 do _clock = _clock + 2; T:GatherClick(fam, 1); if T:Glitch() then n = n + 1 end end
 check(n == 0, "only once a day")
+-- another character on the account has its own glitch that day; back on this one, still used up
+local mine = T.charData
+T.charData = {}
+_clock = _clock + 2
+T:GatherClick(fam, 1)
+check(T:Glitch(), "an alt can still find its own glitch the same day")
+T.profGlitch = nil
+T.charData = mine
+for k = 1, 10 do _clock = _clock + 2; T:GatherClick(fam, 1) end
+check(not T:Glitch(), "this character's glitch stays used up")
+-- with chat lines off, the end line shows only while you still play that cat
+local function countBack() local c = 0; for _, l in ipairs(_chat) do if tostring(l):find("back to normal", 1, true) then c = c + 1 end end; return c end
+T.db.ui.chat = false
+T:SetGlitchDay(nil); _clock = _clock + 2; T:GatherClick(fam, 1)
+check(T:Glitch(), "glitch for the chat-off check")
+local before = countBack()
+_clock = _clock + T.GLITCH_SECONDS + 1; T:ProfessionsTick(false, 0.25)
+check(countBack() == before + 1, "the end line answers your clicks even with chat lines off")
+T:SetGlitchDay(nil); _clock = _clock + 2; T:GatherClick(fam, 1)
+check(T:Glitch(), "glitch for the class switch check")
+T:SetClass("ROGUE")
+before = countBack()
+_clock = _clock + T.GLITCH_SECONDS + 1; T:ProfessionsTick(false, 0.25)
+check(not T.profGlitch and countBack() == before, "no end line for a cat you switched away from, with chat lines off")
+T:SetClass("MAGE")
+T.db.ui.chat = true
 -- sixteen past the hour: the first click starts it, without luck
-T.db.profGlitchDay = nil
+T:SetGlitchDay(nil)
 T.GLITCH_ODDS = 1e9
 local realDate = date
 date = function(fmt, ...) if fmt == "%M" then return "16" end return realDate(fmt, ...) end
@@ -338,12 +395,12 @@ _clock = _clock + 2
 T:GatherClick(fam, 1)
 check(T:Glitch(), "sixteen past the hour starts it")
 date = function(fmt, ...) if fmt == "%M" then return "17" end return realDate(fmt, ...) end
-T.profGlitch = nil; T.db.profGlitchDay = nil
+T.profGlitch = nil; T:SetGlitchDay(nil)
 for k = 1, 30 do _clock = _clock + 2; T:GatherClick(fam, 1) end
 check(not T:Glitch(), "not at seventeen past without luck")
 date = realDate
 -- helpers and other cats never glitch
-T.db.profGlitchDay = nil; T.GLITCH_ODDS = 1
+T:SetGlitchDay(nil); T.GLITCH_ODDS = 1
 T:WithTradeClass("WARRIOR", function(self) self.toolNext = {}; self:GatherClick("mining", 1) end)
 check(not T:Glitch(), "a cat you aren't playing never glitches")
 T.glitchForce, T.GLITCH_ODDS = nil, 3000

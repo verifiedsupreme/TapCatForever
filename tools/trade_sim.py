@@ -27,7 +27,7 @@
       No prestige is modelled (a prestige resets the spots, so a player who sells the business
       levels more slowly) and nothing else spends the materials (cosmetics, First Aid, Cooking).
 
-  python3 tools/trade_sim.py --speed [hours_online_per_day] [days] [--nospots] [--noglitch]
+  python3 tools/trade_sim.py --speed [hours_online_per_day] [days] [--nospots] [--clicker] [--nospeed]
       The long game with selling (1.6): one cat online N hours a day (default 2) for D days (default
       42), idle the rest, buying greedily every 5 s, and selling the business at the end of a day
       whenever the sale would at least double its Renown. Hand speed levels are bought when one

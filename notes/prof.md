@@ -26,7 +26,8 @@
 
 ## Hand speed
 - A new upgrade on the gathering page, next to your tool: Hand speed. Each level makes your clicks by hand come faster, on every spot of your profession.
-- It goes from one click every 1.5 seconds (0.75 with a well upgraded tool) down to 0.25 seconds: 4 clicks a second at level 15.
+- It goes from one click every 1.5 seconds (0.75 with a well upgraded tool) down to 0.25 seconds: 4 clicks a second at level 15 with a well upgraded tool.
+- Your tool starts again when you sell the business, so right after a sale level 15 gives 2 clicks a second until the tool is upgraded again.
 - The first levels are cheap. Each level costs a lot more than the last, and the last ones take many business sales to afford.
 - Hand speed is kept when you sell the business, like your skills.
 - The page shows how many clicks a second you make now and with the next level.
@@ -38,7 +39,7 @@
 - Clicking pays a share of a spot's cycle, so faster hands mean more gold for players who click a lot. Upper bound, clicking nonstop for the whole 2 hours every day (--clicker): 72T earned after 3 weeks with hand speed against 30T without. Helpers and idle income do not change.
 
 ## Crafted cosmetics cost more
-- Cosmetic only recipes (fur colours and the other cosmetics in every profession) now need a lot more of the materials they are made from: 5 times as much for uncommon ones, 10 times for rare ones and fur colours, 20 times for epic and 40 times for legendary ones.
+- Cosmetic only recipes (fur colours and the other cosmetics in every profession) now need a lot more of the materials they are made from: 5 times as much for uncommon ones, 10 times for rare ones, 20 times for epic and 40 times for legendary ones. Fur colours cost 10 times or more, by rarity.
 - Rare ingredients stay as they were: Black Lotus, Mr. Pinchy, bandages, dishes and bought spices.
 - Gear recipes cost the same as before.
 
@@ -58,6 +59,7 @@
 - Renown here means the highest Renown your cat has ever had. Skill means your gathering skill, which you raise by working spots by hand.
 - They cost more and earn more than the first six, with their own helpers and profit upgrades. Selling the business resets them like the other spots.
 - Scroll the spots with the mouse wheel or the arrows under them.
+- Their materials are not used in any recipe yet. The spot's tooltip says so.
 
 ## Patch notes hint (the only player-facing line about the secret)
 - Some miners swear their veins act strangely at sixteen past the hour.
@@ -65,8 +67,8 @@
 ## For the developer: the patch secret (keep it out of player-facing text)
 - While 1.6.x is installed (TCF.GLITCH_PATCH = "1.6"; it switches itself off in 1.7), working a gathering spot by hand can make that spot glitch for 60 seconds. Every click by hand on the glitched spot then pays an extra 5 seconds of all that profession's spots' income (at least 10 normal clicks) and 3 more of its material.
 - How it starts: the first click by hand at sixteen minutes past the hour on the player's clock (for patch "1.6"), or by luck, 1 in 3000 clicks by hand at any other time.
-- Limits: once a day per character, only the cat you are playing, only by hand (helpers and the cats you are not playing never glitch). So at most 60 seconds a day: about 20 minutes of the profession's income at 4 clicks a second, about 3 minutes at the starting speed.
-- What the player sees: a purple chat line, "Something is wrong with this Copper Vein. It is giving far too much. Better be quick.", the spot's name flickering with a question mark and "Work it by hand: 42s" on its bar, the round Professions button flickering, then "The Copper Vein is back to normal. While it lasted it paid ... Trade Gold and ... Copper Ore." No pop-ups.
+- Limits: once a day per WoW character (saved in that character's own data, TCF.charData.profGlitchDay, so alts have their own), only the cat you are playing, only by hand (helpers and the cats you are not playing never glitch). So at most 60 seconds a day: about 20 minutes of the profession's income at 4 clicks a second, about 3 minutes at the starting speed.
+- What the player sees: a purple chat line, "Something is wrong at your Copper Vein spot. It is giving far too much. Better be quick.", the spot's name flickering with a question mark and "Work it by hand: 42s" on its bar, the round Professions button flickering, then "Your Copper Vein spot is back to normal. While it lasted it paid ... Trade Gold and ... Copper Ore." No pop-ups. Both lines show even with chat lines turned off in Settings, because they answer the player's own click; the end line follows the chat setting if the player switched to another cat meanwhile.
 - Counted in db.stats.profGlitches (no achievement for it, so it stays a secret). Code: Professions.lua TCF:GlitchClick / TCF:GlitchTick, settings at TCF.GLITCH_*.
 
 ## For the developer: spot numbers and pacing
@@ -74,3 +76,8 @@
 - tools/trade_sim.py --speed 2 56 (one cat, 2 h a day, selling whenever it doubles its Renown), without spots 7-9 (--nospots) and with them: First Aid day 23 and 23, Fishing day 33 and 30, Cooking day 51 and 47; spot 7 opens on day 9, spot 8 on day 26, spot 9 on day 30.
 - Material icons and 3D models are existing game assets (Dark Iron Ore, Elementium Ore, Large Obsidian Shard, Primal Bat Leather, Core Leather, Heavy Silithid Carapace, Mooncloth, Ironweb Spider Silk, Wartorn Cloth Scrap; Frenzied Bloodseeker Bat, Core Hound, Vekniss Warrior, Spire Spider, Naxxramas Follower). The Moonwell and the veins show their material icon.
 - No icon on the cat's own screen HUD: the design rule keeps everything away from the cat, and the header button already opens Professions in one click.
+
+## For the developer: things the other tracks should know when merging
+- Loot track: Light Chain Gloves, Rough Leather Gloves, Knitted Gloves and Knitted Bracers are now crafted (it.crafted, CraftData.lua), so Gear.lua leaves them out of the loot pools and selling them pays Trade Gold.
+- Any track that adds a craft skin or a Cosmetic only recipe: Professions.lua multiplies every cosmetic recipe's materials once at load (TCF.COSMETIC_MAT_MULT), including get.mats on Data.lua craft skins. Write the base amounts; they are multiplied by rarity afterwards.
+- Window track: the round Professions button hangs off the iconPrev local in UI.lua (after the Casino and Settings icons). Keep that local, or lay out win.profQuick with the other header icons.

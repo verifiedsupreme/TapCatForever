@@ -870,7 +870,7 @@ end
 -- normal clicks) and three more of its material. It starts on a click:
 --   * any minute: a 1 in TCF.GLITCH_ODDS chance per click by hand
 --   * at sixteen minutes past the hour (the player's clock, "1.6"): the first click by hand
--- At most once a day per character (db.profGlitchDay), only for the cat you play, only by hand
+-- At most once a day per WoW character (TCF.charData.profGlitchDay), only for the cat you play, only by hand
 -- (helpers never glitch). One chat line when it starts and one when it ends with what it paid.
 -- No pop-ups. While it lasts the spot's row flickers purple on the Professions page.
 TCF.GLITCH_PATCH, TCF.GLITCH_SECONDS, TCF.GLITCH_GOLD_SECONDS, TCF.GLITCH_ODDS, TCF.GLITCH_MINUTE = "1.6", 60, 5, 3000, 16
@@ -887,6 +887,16 @@ function TCF:Glitch()
   if g and g.class == (self.db and self.db.class) and GetTime() < g.ends then return g end
 end
 function TCF:GlitchLeft() local g = self:Glitch(); return g and max(0, g.ends - GetTime()) or 0 end
+-- the day this WoW character last had a glitch: kept in this character's own saved data
+-- (TCF.charData), so alts don't share one, without making it a new per-character db key
+function TCF:GlitchDay()
+  local c = TCF.charData or self.db
+  return c and c.profGlitchDay
+end
+function TCF:SetGlitchDay(d)
+  local c = TCF.charData or self.db
+  if c then c.profGlitchDay = d end
+end
 -- called by every successful click by hand: the bonus while glitched, else maybe start one
 function TCF:GlitchClick(f, i)
   if self.tradeQuiet or not self.db or (self.tradeClass and self.tradeClass ~= self.db.class) then return 0, 0 end
@@ -900,13 +910,13 @@ function TCF:GlitchClick(f, i)
     g.gold, g.mats, g.clicks = g.gold + bonus, g.mats + 3, g.clicks + 1
     return bonus, 3
   end
-  if not self:GlitchPatchActive() or self.db.profGlitchDay == today() then return 0, 0 end
+  if not self:GlitchPatchActive() or self:GlitchDay() == today() then return 0, 0 end
   if clockMinute() ~= TCF.GLITCH_MINUTE and random(TCF.GLITCH_ODDS) ~= 1 then return 0, 0 end
-  self.db.profGlitchDay = today()
+  self:SetGlitchDay(today())
   self.db.stats.profGlitches = (self.db.stats.profGlitches or 0) + 1
   self.profGlitch = { fam = f, i = i, ends = GetTime() + TCF.GLITCH_SECONDS, gold = 0, mats = 0, clicks = 0, class = self.db.class }
   local name = TCF.FAMILIES[f].ops[i][1]
-  self:Print(string.format("|cffcc66ffSomething is wrong with this %s. It is giving far too much. Better be quick.|r", name), true)
+  self:Print(string.format("|cffcc66ffSomething is wrong at your %s spot. It is giving far too much. Better be quick.|r", name), true)
   self:MarkDirty()
   return 0, 0
 end
@@ -915,13 +925,29 @@ function TCF:GlitchTick()
   local g = self.profGlitch
   if not g or GetTime() < g.ends then return end
   self.profGlitch = nil
+  -- shown even with chat lines off only while you still play that cat (it answers your clicks)
+  local force = self.db and g.class == self.db.class or false
   if g.clicks > 0 or g.gold > 0 then
     local f = TCF.FAMILIES[g.fam]
-    self:Print(string.format("|cffcc66ffThe %s is back to normal. While it lasted it paid %s Trade Gold and %d %s.|r",
-      f.ops[g.i][1], TCF.GoldStr(g.gold), g.mats, f.ops[g.i][3]), true)
+    self:Print(string.format("|cffcc66ffYour %s spot is back to normal. While it lasted it paid %s Trade Gold and %d %s.|r",
+      f.ops[g.i][1], TCF.GoldStr(g.gold), g.mats, f.ops[g.i][3]), force)
   else
-    self:Print(string.format("|cffcc66ffThe %s is back to normal.|r", TCF.FAMILIES[g.fam].ops[g.i][1]), true)
+    self:Print(string.format("|cffcc66ffYour %s spot is back to normal.|r", TCF.FAMILIES[g.fam].ops[g.i][1]), force)
   end
+end
+
+-- 1.6: whether any recipe uses this material (the later spots' materials have no recipe yet)
+function TCF.MatUsedInRecipe(key)
+  if not TCF.matUsedCache then
+    local used = {}
+    for _, list in pairs(TCF.RECIPES or {}) do
+      for _, r in ipairs(list) do
+        if type(r.mats) == "table" then for k in pairs(r.mats) do used[k] = true end end
+      end
+    end
+    TCF.matUsedCache = used
+  end
+  return TCF.matUsedCache[key] or false
 end
 
 -- old names (Mining only before families existed); prof defaults to the current class's family

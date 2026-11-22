@@ -100,7 +100,18 @@ function TCF.UI.ProfQuickButton(win, after, open)
   TCF.UI.Tip(b, function(tt)
     local f = TCF.FAMILIES[TCF:MainProf()]
     tt:AddLine("Professions", 1, 0.82, 0)
-    tt:AddLine(string.format("Your %s, %s, Herbalism, First Aid, Fishing and Cooking.", f.name, f.craftName), 1, 1, 1, true)
+    -- only what this cat has learned (the gathering skill's own name, so cloth cats don't read "Tailoring" twice)
+    local have, later = { f.skillName or f.name }, {}
+    if f.craftName and f.craftName ~= have[1] then have[#have + 1] = f.craftName end
+    for _, p in ipairs(TCF.PROFESSIONS) do
+      if not p.family then
+        local list = TCF:ProfUnlocked(p.key) and have or later
+        list[#list + 1] = p.name
+      end
+    end
+    local function join(t) return #t > 1 and (table.concat(t, ", ", 1, #t - 1) .. " and " .. t[#t]) or (t[1] or "") end
+    tt:AddLine("Your " .. join(have) .. ".", 1, 1, 1, true)
+    if #later > 0 then tt:AddLine("Learned later: " .. join(later) .. ".", 0.7, 0.7, 0.7, true) end
   end)
   update()
   return b
@@ -183,6 +194,33 @@ TCF.UI.Builders.professions = function(page, win)
     tt:AddLine("Click to switch between buying 1, 10, 100 or as many as you can afford with each Buy button.", 1, 1, 1, true)
   end)
 
+  -- a label that would run past its button (or set width) switches to the small font; measured in
+  -- the client's own font, so nothing changes where it already fits
+  -- the text's full width on one line (GetUnboundedStringWidth where the client has it)
+  local function textWidth(fs)
+    if not fs then return nil end
+    local w = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+    if type(w) ~= "number" then w = fs.GetStringWidth and fs:GetStringWidth() end
+    return w
+  end
+  local function fitText(obj)
+    local btn = obj.GetFontString and true or false
+    local fs = btn and obj:GetFontString() or obj
+    local w = textWidth(fs)
+    local room = obj.GetWidth and obj:GetWidth()
+    if type(w) ~= "number" or type(room) ~= "number" or room <= 0 then return end
+    if obj.fitSmall then w = w * 1.2 end   -- the normal font is about 12/10 of the small one
+    local small = w > room - (btn and 14 or 2)
+    if small == (obj.fitSmall or false) then return end
+    obj.fitSmall = small
+    if btn then
+      obj:SetNormalFontObject(small and "GameFontNormalSmall" or "GameFontNormal")
+      obj:SetHighlightFontObject(small and "GameFontHighlightSmall" or "GameFontHighlight")
+      obj:SetDisabledFontObject(small and "GameFontDisableSmall" or "GameFontDisable")
+    else
+      obj:SetFontObject(small and "GameFontNormalSmall" or "GameFontNormal")
+    end
+  end
   local function View() local f = CreateFrame("Frame", nil, page); f:SetPoint("TOPLEFT", 0, -76); f:SetPoint("BOTTOMRIGHT"); f:Hide(); return f end
 
   ------------------------------------------------ locked
@@ -233,6 +271,7 @@ TCF.UI.Builders.professions = function(page, win)
         tt:AddLine(string.format("Something is wrong with it. Work it by hand while it lasts (%ds).", TCF:GlitchLeft()), 0.8, 0.4, 1, true)
       end
       tt:AddLine(string.format("Gives %s. You own %d.", o[3], st.n), 1, 1, 1)
+      if TCF.MatUsedInRecipe and not TCF.MatUsedInRecipe(o[2]) then tt:AddLine(o[3] .. " is not used in any recipe yet.", 0.7, 0.7, 0.7, true) end
       addTeachLine(tt, TCF:ProfSkill(FAM()), TCF.SpotDifficulty(i))
       if st.n > 0 and not st.mgr then tt:AddLine(string.format("Click to %s one cycle.", f.verb:lower()), 0, 1, 0) end
       if st.mgr then tt:AddLine(string.format("Your %s works it on its own.", f.hire:lower()), 0.6, 1, 0.6) end
@@ -305,23 +344,23 @@ TCF.UI.Builders.professions = function(page, win)
     rows[i] = r
   end
   -- one hand tool for every spot of the family, upgraded forever
-  local toolBtn = Button(spotView, "", 176, 24, function() TCF:UpgradeTool(FAM()); win:Refresh() end)
+  local toolBtn = Button(spotView, "", 196, 24, function() TCF:UpgradeTool(FAM()); win:Refresh() end)
   toolBtn:SetPoint("TOPLEFT", 14, -6 * 61 - 2)
   -- 1.6 Hand speed: its own upgrade, kept when the business is sold
-  local speedBtn = Button(spotView, "", 176, 24, function() if TCF:UpgradeSpeed(FAM()) then TCF:PlaySound("buy") end; win:Refresh() end)
+  local speedBtn = Button(spotView, "", 180, 24, function() if TCF:UpgradeSpeed(FAM()) then TCF:PlaySound("buy") end; win:Refresh() end)
   speedBtn:SetPoint("LEFT", toolBtn, "RIGHT", 6, 0)
   Tip(speedBtn, function(tt)
     local fam, f = FAM(), FT()
     local lvl = TCF:SpeedLevel(fam)
     tt:AddLine(string.format("Hand speed (level %d of %d)", lvl, TCF.SPEED_MAX), 1, 0.82, 0)
-    tt:AddLine(string.format("Your %s works faster by hand, on every %s: one click every %.2fs (%.1f a second).",
-      f.toolNoun:lower(), f.spotNoun, TCF:ToolCooldown(fam), TCF:ClicksPerSecond(fam)), 1, 1, 1, true)
+    tt:AddLine(string.format("You work faster by hand on every %s: one click every %.2fs (%.1f a second).",
+      f.spotNoun, TCF:ToolCooldown(fam), TCF:ClicksPerSecond(fam)), 1, 1, 1, true)
     local cost = TCF:SpeedCost(fam)
     if cost then
       tt:AddLine(string.format("Next level: one click every %.2fs (%.1f a second) for %s.", TCF:ToolCooldown(fam, nil, lvl + 1),
         TCF:ClicksPerSecond(fam, nil, lvl + 1), TCF.GoldStr(cost)), 0.2, 1, 0.2, true)
     else tt:AddLine("Fully upgraded.", 0.2, 1, 0.2) end
-    tt:AddLine(string.format("Each level costs a lot more than the last. Upgrading your %s also shortens the click a little, down to 0.25s at most together.", f.toolNoun:lower()), 0.7, 0.7, 0.7, true)
+    tt:AddLine(string.format("Each level costs a lot more than the last. Upgrading your %s also shortens the click a little. With a well upgraded %s, clicks can get down to 0.25s.", f.toolNoun:lower(), f.toolNoun:lower()), 0.7, 0.7, 0.7, true)
     tt:AddLine("Kept when you sell the business.", 1, 0.82, 0, true)
   end)
   local spotHint = Text(spotView, "GameFontDisableSmall", nil, "LEFT")
@@ -394,7 +433,7 @@ TCF.UI.Builders.professions = function(page, win)
   local spotUp = Button(spotView, "<", 26, 22, function() win.spotScroll = (win.spotScroll or 0) - 3; TCF:PlaySound("click"); win:Refresh() end)
   local spotDown = Button(spotView, ">", 26, 22, function() win.spotScroll = (win.spotScroll or 0) + 3; TCF:PlaySound("click"); win:Refresh() end)
   spotDown:SetPoint("TOPRIGHT", spotView, "TOPRIGHT", -14, -6 * 61 - 2)
-  spotPage:SetPoint("RIGHT", spotDown, "LEFT", -4, 0); spotPage:SetWidth(84)
+  spotPage:SetPoint("RIGHT", spotDown, "LEFT", -4, 0); spotPage:SetWidth(64)
   spotUp:SetPoint("RIGHT", spotPage, "LEFT", -4, 0)
   for _, b in ipairs({ spotUp, spotDown }) do
     Tip(b, function(tt)
@@ -419,17 +458,20 @@ TCF.UI.Builders.professions = function(page, win)
     local f = TCF.FAMILIES[fam]
     local s = TCF:ProfState()
     local cost = TCF:ToolCost(fam)
-    toolBtn:SetText(string.format("Upgrade %s  %s", f.toolNoun, TCF.GoldStr(cost, 10)))
+    -- the last word of the tool ("Knife" for the Skinning Knife) keeps the label inside the button
+    toolBtn:SetText(string.format("Upgrade %s  %s", f.toolNoun:match("(%S+)$") or f.toolNoun, TCF.GoldStr(cost, 10)))
+    fitText(toolBtn)
     toolBtn:SetEnabled(s.gold >= cost)
     local slvl, scost = TCF:SpeedLevel(fam), TCF:SpeedCost(fam)
     if scost then speedBtn:SetText(string.format("Hand speed %d  %s", slvl + 1, TCF.GoldStr(scost, 10))); speedBtn:SetEnabled(s.gold >= scost)
     else speedBtn:SetText("|cff20ff20Hand speed max|r"); speedBtn:SetEnabled(false) end
+    fitText(speedBtn)
     -- a new cat sees how spots work; after that, how fast it clicks by hand
     local owned = false
     for i = 1, #s.ops[fam] do if s.ops[fam][i].n > 0 then owned = true; break end end
     if not owned then spotHint:SetText(spotView.clickHint or "")
     else
-      local nextTxt = scost and string.format(", next hand speed level %.1f", TCF:ClicksPerSecond(fam, nil, slvl + 1)) or ""
+      local nextTxt = scost and string.format(" (%.1f with the next Hand speed level)", TCF:ClicksPerSecond(fam, nil, slvl + 1)) or ""
       spotHint:SetText(string.format("By hand: %.1f clicks a second%s. Hand speed is kept when you sell the business.", TCF:ClicksPerSecond(fam), nextTxt))
     end
     local lvl = TCF:ToolLevel(fam)
@@ -1028,8 +1070,10 @@ TCF.UI.Builders.professions = function(page, win)
   -- Scroll with the mouse wheel or the arrow buttons.
   local craftView = View()
   local CROWS = 7
-  local craftHead = Text(craftView, "GameFontNormal", nil, "LEFT"); craftHead:SetPoint("TOPLEFT", 14, -2); craftHead:SetWidth(250)
-  local craftLegend = Text(craftView, "GameFontDisableSmall", nil, "RIGHT"); craftLegend:SetPoint("TOPRIGHT", -14, -4); craftLegend:SetWidth(280)
+  local craftHead = Text(craftView, "GameFontNormal", nil, "LEFT"); craftHead:SetPoint("TOPLEFT", 14, -2); craftHead:SetWidth(282)
+  if craftHead.SetWordWrap then craftHead:SetWordWrap(false) end
+  local craftLegend = Text(craftView, "GameFontDisableSmall", nil, "RIGHT"); craftLegend:SetPoint("TOPRIGHT", -14, -4); craftLegend:SetWidth(240)
+  if craftLegend.SetWordWrap then craftLegend:SetWordWrap(false) end
   local crafts = {}
   local craftList = {}
   local powerCache = {}
@@ -1177,16 +1221,20 @@ TCF.UI.Builders.professions = function(page, win)
       local f = TCF.FAMILIES[fam]
       if starterFirst(key) then
         local done, total = TCF:StarterProgress(key)
-        craftHead:SetText(string.format("%s |cffffffff%d / 300|r    %sStarter set %d/%d made|r", f.craftName, skill,
+        craftHead:SetText(string.format("%s |cffffffff%d / 300|r   %sStarter set %d/%d made|r", f.craftName, skill,
           done >= total and "|cff20ff20" or "|cffffd100", done, total))
       else
         craftHead:SetText(string.format("%s |cffffffff%d / 300|r    |cffaaaaaa%s %d / 300|r", f.craftName, skill, f.skillName or f.tab, TCF:ProfSkill(fam)))
       end
-      craftLegend:SetText("Teaches: |cffff8040always|r  |cffffff00often|r  |cff40c040sometimes|r  |cff70a070rarely|r  |cff808080no longer|r")
+      local legend = "|cffff8040always|r  |cffffff00often|r  |cff40c040sometimes|r  |cff70a070rarely|r  |cff808080no longer|r"
+      craftLegend:SetText("Teaches: " .. legend)
+      local lw = textWidth(craftLegend)
+      if type(lw) == "number" and lw > 238 then craftLegend:SetText(legend) end
     else
       craftHead:SetText(string.format("%s crafting  |cffffffff(skill %d / 300)|r", p and p.name or key, skill))
       craftLegend:SetText("Cosmetics change your cat's look only.")
     end
+    fitText(craftHead)
     local maxScroll = max(0, #craftList - CROWS)
     win.craftScroll = min(max(0, win.craftScroll or 0), maxScroll)
     local off = win.craftScroll
