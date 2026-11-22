@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.3.5
+
+**Gear**
+- Gear your cat is wearing no longer shows in the Gear page's list. It is on the slots around your cat; right-click a slot to take the piece off and it goes back into the list. A spare copy of something you wear still shows, marked Also worn.
+
 ## 1.5.3.4
 
 **Professions**

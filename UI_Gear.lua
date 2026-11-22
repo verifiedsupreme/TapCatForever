@@ -247,7 +247,10 @@ TCF.UI.Builders.gear = function(page, win)
     local eq = TCF:GearEquipped(class)
     for id, n in pairs(TCF:Bag()) do
       local it = TCF.GEAR[id]
-      if it and n > 0 and (not slot or matchesSlot(it, slot, class)) and (not win.gearUsable or TCF:GearUsable(it, class)) then
+      -- 1.5.3.4: gear your cat is wearing shows on the slots around the cat, not in this list
+      -- (a spare copy still shows); right-click a slot to take it off and it comes back here
+      local spare = it and (n - TCF.GearEquippedCount(eq, id)) or 0
+      if it and spare > 0 and (not slot or matchesSlot(it, slot, class)) and (not win.gearUsable or TCF:GearUsable(it, class)) then
         list[#list + 1] = it
       end
     end
@@ -266,13 +269,13 @@ TCF.UI.Builders.gear = function(page, win)
         r:Show()
         r.btn:SetGear(it)
         local n = TCF:Bag()[it.id]
-        r.btn.count:SetText(n > 1 and n or "")
         local worn = TCF.GearEquippedCount(eq, it.id)
+        r.btn.count:SetText((n - worn) > 1 and (n - worn) or "")
         -- a second ring/trinket/one-hander can be worn too, if you own another copy
         local canWearMore = worn == 0 or (worn < n and #TCF:GearTargetSlots(it, class) > 1)
         local col = TCF.RARITY[it.q]
         local notIdeal = not TCF:GearSuits(it, class) and TCF:GearUsable(it, class)
-        local tag = (worn > 0 and "|cff20ff20Equipped|r" or "")
+        local tag = (worn > 0 and "|cff20ff20Also worn|r" or "")
           .. (notIdeal and ((worn > 0 and "  " or "") .. "|cffff9933Not ideal|r") or "")
         r.tag:SetText(tag)
         r.name:SetWidth(330 - (tag ~= "" and ((r.tag:GetStringWidth() or 90) + 8) or 0))
@@ -295,7 +298,7 @@ TCF.UI.Builders.gear = function(page, win)
       end
     end
     pageText:SetText(#list > 0 and string.format("Page %d / %d  (%d items)", win.gearPage, pagesN, #list)
-      or "|cff888888No gear here yet. Enemies and bosses in Adventure, chests and expeditions drop real items, and your crafting profession makes them.|r")
+      or "|cff888888No spare gear here. What your cat wears is on the slots around it (right-click one to take it off). Enemies and bosses in Adventure, chests and expeditions drop real items, and your crafting profession makes them.|r")
     prev:SetEnabled(win.gearPage > 1); nextB:SetEnabled(win.gearPage < pagesN)
   end
 end
