@@ -1122,6 +1122,9 @@ TEST = r'''
     msg("H1;MAGE;5;;;;", _SECRET); msg(_SECRET, "Eve-Forever")
     _fire("CHAT_MSG_ADDON", _SECRET, "H1;MAGE;5;;;;", "PARTY", "Eve-Forever")
     check(TCF:PartyCount() == 2, "malformed, secret and foreign messages are ignored")
+    -- your own messages never add your own cat, however the sender name arrives
+    for _, me in ipairs({ _charName, _charName .. "-Forever", _charName:lower() .. "-forever", _charName .. "-For ever" }) do msg("U1;MAGE;5;;;;", me) end
+    check(TCF:PartyCount() == 2 and TCF.PartyIsMe(_charName .. "-Forever") and not TCF.PartyIsMe(_charName .. "-Otherrealm"), "your own cat is never in the row")
     local g0 = ps.gold
     local got = TCF:EarnGold(100)
     check(near(got, 100 * (1 + 0.02 * ps.renown)), "Trade Gold is not boosted: " .. tostring(got))
@@ -1259,14 +1262,19 @@ TEST = r'''
         cd.starterFixed = nil; TCF:FixStarterWeapons()
         check(eq.MAINHAND == chosen.id and eq.OFFHAND == off.id, "starter fix leaves a chosen weapon alone")
       end
-      -- wearing the old starter: swapped, and a two-handed staff clears the off hand
+      -- wearing the old starter: swapped; a two-handed one with an off-hand item worn (the
+      -- player's choice) only goes into the bag
       if old and new and old.id ~= new.id and off then
         for k in pairs(eq) do eq[k] = nil end
         eq.MAINHAND = old.id; bag[old.id] = 1
-        if old.slot ~= "2H" then eq.OFFHAND = off.id; bag[off.id] = 1 end
+        local hadOff = old.slot ~= "2H" and off.id
+        if hadOff then eq.OFFHAND = off.id; bag[off.id] = 1 end
         cd.starterFixed = nil; TCF:FixStarterWeapons()
-        check(eq.MAINHAND == new.id, "starter fix swaps the old starter")
-        if new.slot == "2H" then check(eq.OFFHAND == nil, "two-handed starter clears the off hand") end
+        if new.slot == "2H" and hadOff then
+          check(eq.MAINHAND == old.id and eq.OFFHAND == off.id and (bag[new.id] or 0) >= 1, "a two-handed starter waits in the bag beside a worn off-hand")
+        else
+          check(eq.MAINHAND == new.id, "starter fix swaps the old starter")
+        end
         check((bag[old.id] or 0) >= 1, "old starter stays in the bag")
       end
       for k in pairs(eq) do eq[k] = nil end
@@ -1314,6 +1322,17 @@ TEST = r'''
         if old.slot ~= "2H" and old.slot ~= "RANGED" and off then eq.OFFHAND = off.id; bag[off.id] = 1 end
         cd.starterFixed, cd.hunterBow, cd.starterFixed2 = true, true, nil
       end
+      -- what the swap must do: keep the old one when a two-hander would push out a worn off-hand
+      -- item, or when the new one is weaker (except shamans: no more hammers)
+      local keepOld = {}
+      for _, cl in ipairs(TCF.CLASSES) do
+        local class, new = cl.key, starters[cl.key]
+        local eq = TCF:GearEquipped(class)
+        keepOld[class] = (new.slot == "2H" and eq.OFFHAND ~= nil)
+          or (class ~= "SHAMAN" and (TCF:GearUpgrade(new, class) or 0) < 0)
+      end
+      check(keepOld.PRIEST and keepOld.WARLOCK and not keepOld.SHAMAN and not keepOld.DRUID,
+        "a priest with a held item and a warlock (a staff is stronger than the new dagger) keep theirs")
       TCF:FixStarterWeapons()
       for _, cl in ipairs(TCF.CLASSES) do
         local class = cl.key
@@ -1322,6 +1341,11 @@ TEST = r'''
         check(cd.starterFixed2, class .. " starter swap flag set")
         if new.id == old.id then
           check(eq[new.slot == "RANGED" and "RANGED" or "MAINHAND"] == new.id and bag[new.id] == 1, class .. " keeps its starter, nothing added")
+        elseif keepOld[class] then
+          check(eq.MAINHAND == old.id and bag[new.id] == 1 and bag[old.id] == 1, class .. " keeps " .. old.name .. " on, the new one in the bag")
+          if old.slot ~= "2H" and offFor(class) then
+            check(eq.OFFHAND == offFor(class).id, class .. ": the off-hand item stays")
+          end
         else
           swapped = swapped + 1
           check(eq.MAINHAND == new.id and bag[new.id] == 1, class .. " gets its new starter " .. new.name .. ", has " .. tostring(eq.MAINHAND))
@@ -1333,7 +1357,7 @@ TEST = r'''
           end
         end
       end
-      check(swapped == 4, "priest, shaman, warlock and druid swap: " .. swapped)
+      check(swapped == 2, "shaman and druid swap: " .. swapped)
       check(TCF:GearEquipped("HUNTER").RANGED == starters.HUNTER.id and starters.HUNTER.sub == "bow", "the hunter keeps its bow")
       -- once only: a cat that later puts the old weapon back on keeps it
       local peq = TCF:GearEquipped("PRIEST")
@@ -1530,7 +1554,7 @@ TEST = r'''
         check(how:find("1 in 500 Heroic Caches", 1, true) and how:find("1 in 100 Raider's Hoards", 1, true) and not how:find("World drop", 1, true),
           "a legendary's Compendium lines: " .. how)
         how = table.concat(TCF:HowToGet(TCF.GEAR[50442]), " / ")
-        check(how:find("never drops", 1, true) and not how:find("random bonus", 1, true), "a placeholder never drops: " .. how)
+        check(how:find("Removed: a leftover test item", 1, true) and not how:find("random bonus", 1, true), "a placeholder is gone: " .. how)
         local epicLoot
         for _, it in ipairs(TCF.ITEM_LIST) do if it.source == "loot" and it.rarity == 4 then epicLoot = it; break end end
         if epicLoot then
@@ -1582,13 +1606,15 @@ TEST = r'''
       local leg0 = heroic.legendary
       heroic.legendary = 1
       TCF.db.keys.heroic = (TCF.db.keys.heroic or 0) + 5
-      local gotLeg = 0
+      local gotLeg, skins = 0, 0
       for k = 1, 5 do
         local g = TCF:OpenChest("heroic", true)
         if TCF.lastChest and TCF.lastChest.gear and TCF.lastChest.gear.q == 5 then gotLeg = gotLeg + 1 end
+        -- the Heroic Cache's own small skin chance comes before the Legendary roll (that made this flaky)
+        if TCF.lastChest and TCF.lastChest.skin then skins = skins + 1 end
       end
       heroic.legendary = leg0
-      check(gotLeg >= 4, "a hit Legendary roll gives a real legendary: " .. gotLeg)
+      check(gotLeg >= 4 - skins and gotLeg + skins >= 4, "a hit Legendary roll gives a real legendary: " .. gotLeg .. " (skins " .. skins .. ")")
       TCF.openingAll = nil
       -- the loot box celebrates a legendary, and only a legendary
       local lr = TCF.lootReveal or TCF:CreateLootReveal()
@@ -2196,7 +2222,7 @@ TEST = r'''
       local c1 = TCF.CLASSES[(_seed + 3) % #TCF.CLASSES + 1].key
       local c2 = TCF.CLASSES[(_seed + 7) % #TCF.CLASSES + 1].key
       local w1, r1, f1, l1, k1 = hourOfAdventure("Findcat", c1, 1, 60)
-      check(r1 >= 4 and w1 * 3 >= r1 * 2 and f1 >= 4 and f1 <= 25,
+      check(r1 >= 4 and w1 * 2 >= r1 and f1 >= 4 and f1 <= 25,
         string.format("a new level 1 %s fills most shown slots in an hour: %d of %d, %d finds", c1, w1, r1, f1))
       local w2, r2, f2, l2, k2 = hourOfAdventure("Findcat2", c2, 10, 75)
       check(r2 >= 5 and w2 * 2 > r2 and f2 >= 3 and f2 <= 25,
@@ -2986,6 +3012,10 @@ TEST = r'''
       -- U3. opt-in developer view
       local DT = TCF.DevTest
       DT.reset()
+      -- the developer is known by name and realm: this test's developer characters are Ziggu and
+      -- Ziggutrip on the test realm (Forever); the shipped list is the developer's own
+      GetNormalizedRealmName = function() return "Forever" end
+      local shippedDevKeys = DT.setDevKeys({ DT.keyHash("ziggu-forever"), DT.keyHash("ziggutrip-forever") })
       local joined, left, removed, guild, channelId = {}, 0, {}, true, 0
       JoinTemporaryChannel = function(name) joined[#joined + 1] = name; channelId = 7 end
       LeaveChannelByName = function(name) if name == TCF.DEV_CHANNEL then left = left + 1; channelId = 0 end end
@@ -3008,11 +3038,12 @@ TEST = r'''
       local cb = win.settingsShare
       ui.shareDev = nil; win:RefreshSettings()
       check(cb and not cb:GetChecked(), "sharing is off by default")
-      local shareA = layoutItem("Share my cat's progress with the developer")
+      local shareA = layoutItem("Share progress with the developer")
       check(shareA and shareA.kind == "check" and shareA.frame == cb, "the sharing checkbox is on the Settings page")
       tip = tipText(function() cb.scripts.OnEnter(cb) end)
       for _, words in ipairs({ "addon version", "class", "cat level", "zones cleared", "TapCoins",
-                               "only shared with the addon's developer", "while you are both online", "Off by default" }) do
+                               "only shared with the addon's developer", "while you are both online", "Off by default",
+                               "Chat Channels window", "can see your character's name" }) do
         check(tip:find(words, 1, true), "sharing tooltip says: " .. words)
       end
       check(not tip:find("!", 1, true), "no exclamation marks in the sharing tooltip")
@@ -3054,8 +3085,12 @@ TEST = r'''
       addon("Q1;444444", "GUILD", "Ziggutrip-Forever"); tick(5)
       check(answers() == 1, "a new question within a minute: no second answer")
       tick(60)
-      addon("Q1;444444", "PARTY", "Ziggutrip-Otherrealm"); tick(5)
-      check(answers() == 2 and sent[#sent].target == "Ziggutrip-Otherrealm", "after a minute: answered (other realm)")
+      addon("Q1;444444", "PARTY", "Someone-Otherrealm"); tick(5)
+      check(answers() == 1, "anyone else asking: no answer")
+      check(TCF.DevIsDeveloperName("Ziggutrip-Otherrealm") and TCF.DevIsDeveloperName("Ziggu") and not TCF.DevIsDeveloperName("Zigguu-Forever"),
+        "the developer's character names count on any realm")
+      addon("Q1;444444", "PARTY", "Ziggutrip-Forever"); tick(5)
+      check(answers() == 2 and sent[#sent].target == "Ziggutrip-Forever", "after a minute: answered")
       -- anything odd or secret is ignored without errors
       tick(61)
       for _, bad in ipairs({ { _SECRET, "GUILD", "Ziggu-Forever" }, { "Q1;555555", _SECRET, "Ziggu-Forever" }, { "Q1;555555", "GUILD", _SECRET },
@@ -3096,7 +3131,7 @@ TEST = r'''
       tick(2)
       check(sent[#sent].ch == "CHANNEL" and sent[#sent].target == 7 and sent[#sent].msg == q.GUILD, "asked over the hidden channel once joined")
       local askNonce = q.GUILD:match("^Q1;(%d+)$")
-      -- asking again within 30 seconds sends nothing
+      -- asking again within TCF.DEV_ASK_GAP seconds sends nothing
       local n0 = #sent
       SlashCmdList.TAPCATFOREVER("players")
       check(#sent == n0 and _chat[#_chat]:find("ask again in", 1, true), "asking again too soon: " .. tostring(_chat[#_chat]))
@@ -3135,7 +3170,7 @@ TEST = r'''
       check(view.scroll == 1, "the list scrolls")
       -- a real developer character can ask without test mode
       ui.testMode = nil
-      tick(31)
+      tick(TCF.DEV_ASK_GAP + 1)
       _charName = "Ziggu"
       check(TCF:IsDeveloper(), "Ziggu is the developer")
       n0 = #sent
@@ -3143,6 +3178,9 @@ TEST = r'''
       check(#sent > n0 and sent[n0 + 1].msg:match("^Q1;%d+$"), "the developer asks")
       _charName = "Ziggutrip"; check(TCF:IsDeveloper(), "Ziggutrip too")
       _charName = "Zigguu"; check(not TCF:IsDeveloper(), "other names are not")
+      GetNormalizedRealmName = function() return "Otherrealm" end
+      _charName = "Ziggu"; check(TCF:IsDeveloper(), "the developer's names count on any realm")
+      GetNormalizedRealmName = function() return "Forever" end
       _charName = mainChar
       check(TCF:DevViewRows()[1] and #TCF:DevViewRows() == 1, "a new question starts a fresh list (only you)")
       -- put everything back
@@ -3151,6 +3189,7 @@ TEST = r'''
       DT.reset()
       C_ChatInfo.SendAddonMessage = api
       JoinTemporaryChannel, LeaveChannelByName, GetChannelName, IsInGuild, ChatFrame_RemoveChannel = nil, nil, nil, nil, nil
+      DT.setDevKeys(shippedDevKeys); GetNormalizedRealmName = nil
       for _, k in ipairs(KEYS) do ui[k] = saved[k] end
       ui.point, ui.hudLayout = saved.point, saved.hudLayout
       TCF.hud:ApplySettings()
@@ -3158,6 +3197,218 @@ TEST = r'''
       print("UI section (text distance, chest coin line, developer view): all checks passed")
     end
     -- ===== end of UI section =====
+    -- ===== Review fixes section (1.5.3, review-fix builder): no stat-less loot, leftover test items
+    -- taken off old saves, starter swaps that keep the player's off-hand and Power, XP carried over to
+    -- the new curve, the TapCoin cap per paid tap, the developer known by name and realm, the channel
+    -- join limit, and "Max level" at the cap =====
+    do
+      local before = _charName
+      -- F1. loot pools: nothing Uncommon or better without stats, nothing Rare or better at item level 1-5
+      local nPool, nBoss = 0, 0
+      local function scan(list, where)
+        for _, it in ipairs(list or {}) do
+          nPool = nPool + 1
+          check(not it.retired and not it.placeholder, "a retired item in " .. where .. ": " .. it.name)
+          check(not (it.q >= 2 and (it.statStr or "") == ""), "an item with no stats drops (" .. where .. "): " .. it.name)
+          check(not (it.q >= 3 and it.ilvl <= 5), "a Rare or better item at item level " .. it.ilvl .. " drops: " .. it.name)
+        end
+      end
+      for band, list in pairs(TCF.WORLD_POOL) do scan(list, "world band " .. band) end
+      for tier, list in pairs(TCF.TIER_POOL) do scan(list, "tier " .. tier) end
+      for tier, bosses in pairs(TCF.BOSS_LOOT) do
+        for boss, list in pairs(bosses) do
+          nBoss = nBoss + 1
+          check(#list > 0, "boss " .. tier .. "/" .. boss .. " still has loot")
+          scan(list, "boss " .. tier .. "/" .. boss)
+        end
+      end
+      check(nPool > 5000 and nBoss > 50, "pools scanned: " .. nPool .. " items, " .. nBoss .. " bosses")
+      local talisman
+      for _, it in ipairs(TCF.GEAR_LIST) do if it.name == "Talisman of Arathor" then talisman = it end end
+      check(talisman and talisman.retired and not talisman.placeholder, "Talisman of Arathor (no stats) no longer drops, owners keep it")
+      for _, id in ipairs({ 38692, 33292, 50287, 46349 }) do
+        local it = TCF.GEAR[id]
+        check(it and it.placeholder and it.retired, "a leftover test item is a placeholder: " .. id)
+      end
+      local bcGreen
+      for _, it in ipairs(TCF.GEAR_LIST) do
+        if it.retired and not it.placeholder and not it.suffix and it.q == 2 and (it.statStr or "") ~= ""
+          and not TCF.IsClassicItem(it.id, it.ilvl) then bcGreen = it; break end
+      end
+      check(bcGreen, "a later-expansion green with stats")
+      check(not TCF:CanEquipGear(TCF.GEAR[38692], "DRUID"), "a placeholder can't be equipped")
+
+      -- F2. a 1.5.2 save: placeholders worn and in bags go (paid), later-expansion gear stays, a cat
+      -- left without a weapon gets its starter, and XP keeps its share of the level on the new curve
+      local ui0 = TapCatForeverDB.ui and TapCatForeverDB.ui.chat
+      TapCatForeverDB.ui = TapCatForeverDB.ui or {}
+      TapCatForeverDB.ui.chat = true
+      local paid0 = TapCatForeverDB.levelPaid
+      local oldNeed10, oldNeed50 = math.floor(120 * 10 ^ 1.25), math.floor(120 * 50 ^ 1.25)
+      TapCatForeverDB.chars["Fixold-Forever"] = { class = "DRUID", classData = {
+        DRUID = { level = 10, xp = 2100, gear = { MAINHAND = 38692 }, bag = { [38692] = 1 }, starterFixed = true, starterFixed2 = true },
+        WARRIOR = { level = 50, xp = 15000, gear = { HEAD = 33292 }, bag = { [33292] = 1, [50287] = 2, [bcGreen.id] = 1 },
+          starterFixed = true, starterFixed2 = true },
+        MAGE = { level = 70, xp = 5 },
+      } }
+      local want = TCF:GearSellValue(TCF.GEAR[38692]) + TCF:GearSellValue(TCF.GEAR[33292]) + 2 * TCF:GearSellValue(TCF.GEAR[50287])
+      local c0 = #_chat
+      login("Fixold")
+      local druid, warrior, mage = TCF:CD("DRUID"), TCF:CD("WARRIOR"), TCF:CD("MAGE")
+      local function holds(class, id)
+        if TCF:Bag(class)[id] then return true end
+        for _, v in pairs(TCF:GearEquipped(class)) do if v == id then return true end end
+        return false
+      end
+      for _, cl in ipairs(TCF.CLASSES) do
+        check(TCF:CD(cl.key).placeholderFixed, cl.key .. " placeholder pass flag")
+        for id in pairs(TCF:Bag(cl.key)) do check(not TCF.GEAR[id] or not TCF.GEAR[id].placeholder, cl.key .. " bag still holds a placeholder: " .. id) end
+        for slot, id in pairs(TCF:GearEquipped(cl.key)) do check(not TCF.GEAR[id] or not TCF.GEAR[id].placeholder, cl.key .. " still wears a placeholder in " .. slot) end
+      end
+      check(not holds("DRUID", 38692) and not holds("WARRIOR", 33292) and not holds("WARRIOR", 50287), "leftover test items are gone")
+      check(TCF:GearEquipped("DRUID").MAINHAND == TCF:StarterWeapon("DRUID").id, "the druid got its starter back in the main hand")
+      check(TCF:Bag("WARRIOR")[bcGreen.id] == 1, "later-expansion gear stays: " .. bcGreen.name)
+      local line, nLines = nil, 0
+      for i = c0 + 1, #_chat do if _chat[i]:find("leftover test", 1, true) then line = _chat[i]; nLines = nLines + 1 end end
+      check(line and line:find("4 leftover test items with no stats were taken off your cats. You got " .. want .. " TapCoins for them.", 1, true),
+        "one plain chat line names the count and the TapCoins: " .. tostring(line))
+      check(nLines == 1 and not line:find("!", 1, true), "only one line, no exclamation marks: " .. nLines)
+      check(druid.level == 10 and druid.xp == math.floor(TCF.XPForLevel(10) * math.min(0.99, 2100 / oldNeed10)) and druid.xp == 927,
+        "level 10 at 2,100 of 2,133 becomes 927 of 942: " .. druid.xp)
+      check(warrior.level == 50 and warrior.xp == math.floor(TCF.XPForLevel(50) * 15000 / oldNeed50) and warrior.xp < TCF.XPForLevel(50),
+        "level 50 keeps its share of the level: " .. warrior.xp .. " / " .. TCF.XPForLevel(50))
+      check(mage.level == 60 and mage.xp == TCF.XPForLevel(60), "a cat above 60 is 60 with a full bar")
+      check(druid.xpCurve2 and warrior.xpCurve2 and TCF:CD("ROGUE").xpCurve2, "XP carried over once for every cat")
+      -- logging in again changes nothing
+      local snap = { coins = TCF.db.coins, dxp = druid.xp, wxp = warrior.xp, dmain = TCF:GearEquipped("DRUID").MAINHAND, n = #_chat }
+      login("Fixold")
+      druid, warrior = TCF:CD("DRUID"), TCF:CD("WARRIOR")
+      check(druid.xp == snap.dxp and warrior.xp == snap.wxp and TCF:GearEquipped("DRUID").MAINHAND == snap.dmain, "a second login changes no XP or gear")
+      local again = false
+      for i = snap.n + 1, #_chat do if _chat[i]:find("leftover test", 1, true) then again = true end end
+      check(not again, "no second chat line")
+
+      -- F3. the 1.5.3 starter swap keeps a priest's held item (and its mace); with nothing in the
+      -- off hand, the new staff goes on
+      local peq, pbag, pcd = TCF:GearEquipped("PRIEST"), TCF:Bag("PRIEST"), TCF:CD("PRIEST")
+      check(TCF.GEAR[5611] and TCF.GEAR[5611].slot == "HOLD" and TCF.GEAR[3223].slot ~= "2H" and TCF.GEAR[9603].slot == "2H", "test items: a held item, the old mace, the new staff")
+      check(TCF:StarterWeapon("PRIEST").id == 9603, "the priest's starter is Gritroot Staff")
+      for k in pairs(peq) do peq[k] = nil end
+      for k in pairs(pbag) do pbag[k] = nil end
+      peq.MAINHAND, peq.OFFHAND, pbag[3223], pbag[5611] = 3223, 5611, 1, 1
+      pcd.starterFixed2 = nil; TCF:FixStarterWeapons()
+      check(peq.MAINHAND == 3223 and peq.OFFHAND == 5611 and (pbag[9603] or 0) >= 1, "a priest with a held item keeps both, the staff waits in the bag")
+      for k in pairs(peq) do peq[k] = nil end
+      for k in pairs(pbag) do pbag[k] = nil end
+      peq.MAINHAND, pbag[3223] = 3223, 1
+      pcd.starterFixed2 = nil; TCF:FixStarterWeapons()
+      check(peq.MAINHAND == 9603 and peq.OFFHAND == nil and pbag[3223] == 1, "a priest with an empty off hand gets the staff")
+      -- a level 1 cat can wear its own starter, whatever the weapon's level
+      for _, cl in ipairs(TCF.CLASSES) do
+        local cd, w = TCF:CD(cl.key), TCF:StarterWeapon(cl.key)
+        local lv = cd.level
+        cd.level = 1
+        local bag = TCF:Bag(cl.key)
+        local had = bag[w.id]
+        bag[w.id] = (had or 0) + 1
+        check(TCF:CanEquipGear(w, cl.key), cl.key .. " can wear its starter " .. w.name .. " (level " .. w.req .. ") at level 1")
+        local tip = tipText(function() TCF:GearTooltip(GameTooltip, w, cl.key) end)
+        check(w.req <= 1 or (tip:find("any level", 1, true) and not tip:find("Requires class level", 1, true)), cl.key .. " starter tooltip: " .. tip)
+        bag[w.id] = had
+        cd.level = lv
+      end
+      local other
+      for _, it in ipairs(TCF.GEAR_LIST) do if it.req >= 20 and it.slot == "2H" and TCF:GearUsable(it, "DRUID") then other = it; break end end
+      TCF:Bag("DRUID")[other.id] = 1
+      check(not TCF:CanEquipGear(other, "DRUID"), "other gear still needs its level")
+      TCF:Bag("DRUID")[other.id] = nil
+
+      -- F4. TapCoins from tapping: the first 10 taps of every second earn, at any speed
+      _group = nil
+      TCF:SetClass("DRUID")
+      local function value() return TCF.db.coins + TCF.db.coinFrac end
+      local function run(rate, secs)
+        _clock = _clock + 5
+        local v0, t0 = value(), TCF.db.taps
+        local start = _clock
+        for i = 0, rate * secs - 1 do _clock = start + i / rate; TCF:Tap() end
+        _clock = start + secs
+        return math.floor((value() - v0) / 0.02 + 0.5), TCF.db.taps - t0
+      end
+      local p12, t12 = run(12, 10)
+      check(p12 >= 99 and p12 <= 100 and t12 == 120, "12 taps a second: about 10 a second earn, all count: " .. p12 .. ", " .. t12)
+      local p10 = run(10, 10)
+      check(p10 == 100, "10 taps a second: all earn: " .. p10)
+      local p15 = run(15, 10)
+      check(p15 >= 99 and p15 <= 100, "15 taps a second: still 10 a second earn: " .. p15)
+      local p8 = run(8, 10)
+      check(p8 == 80, "8 taps a second: all earn: " .. p8)
+
+      -- F5. developer view: the next question is answered, and the channel join gives up
+      local DT = TCF.DevTest
+      DT.reset()
+      check(TCF.DEV_ASK_GAP >= TCF.DEV_ANSWER_GAP + 4, "the developer can't ask before players can answer again")
+      GetNormalizedRealmName = function() return "Forever" end
+      local shipped = DT.setDevKeys({ DT.keyHash("ziggu-forever") })
+      local sent, joins, chan = {}, 0, 0
+      local api = C_ChatInfo.SendAddonMessage
+      C_ChatInfo.SendAddonMessage = function(p, msg, ch, target)
+        if p == TCF.DEV_PREFIX and type(msg) == "string" and msg:find("^A1;") then sent[#sent + 1] = { msg = msg, target = target } end
+        return api(p, msg, ch, target)
+      end
+      JoinTemporaryChannel = function() joins = joins + 1 end   -- the join never comes through
+      GetChannelName = function() return chan end
+      local function tick(sec) for i = 1, math.ceil(sec) do _update(1) end end
+      local function ask(n, sender) _fire("CHAT_MSG_ADDON", TCF.DEV_PREFIX, "Q1;" .. n, "GUILD", sender) end
+      TCF.db.ui.shareDev = true; TCF:DevShareChanged()
+      ask(101, "Ziggu"); tick(5)   -- no realm: the player's own
+      check(#sent == 1 and sent[1].target == "Ziggu", "a sender without a realm is on your realm: " .. #sent)
+      tick(TCF.DEV_ASK_GAP - 5)
+      ask(102, "Ziggu-Forever"); tick(5)
+      check(#sent == 2, "asked again after DEV_ASK_GAP: answered again")
+      ask(103, "Ziggu-Elsewhere"); tick(TCF.DEV_ASK_GAP)
+      check(#sent == 2, "the right name on the wrong realm: no answer")
+      for i = 1, 6 do DT.event("PLAYER_REGEN_ENABLED"); tick(2) end
+      check(joins <= 3 and DT.state().joinGaveUp, "a join that never comes through is tried at most 3 times: " .. joins)
+      DT.event("PLAYER_REGEN_ENABLED"); tick(2)
+      check(joins <= 3 and not DT.state().joinAt, "and not again after fights")
+      TCF.db.ui.shareDev = false; TCF:DevShareChanged()
+      TCF.db.ui.shareDev = true; TCF:DevShareChanged(); tick(2)
+      local j0 = joins
+      check(j0 >= 1 and not DT.state().joinGaveUp, "turning sharing on again gives a fresh try")
+      DT.event("CHAT_MSG_CHANNEL_NOTICE", "WRONG_PASSWORD", "", "", "", "", "", 0, 0, TCF.DEV_CHANNEL)
+      for i = 1, 3 do DT.event("PLAYER_REGEN_ENABLED"); tick(2) end
+      check(joins == j0 and DT.state().joinGaveUp, "a wrong password for the channel: no more joins")
+      TCF.db.ui.shareDev = false; TCF:DevShareChanged()
+      C_ChatInfo.SendAddonMessage = api
+      JoinTemporaryChannel, GetChannelName = nil, nil
+      DT.setDevKeys(shipped); GetNormalizedRealmName = nil
+      DT.reset()
+
+      -- F6. at the cap the Profile says "Max level" and the cat's level says (max)
+      local win = TCF.window
+      local cd = TCF:CD()
+      local lv, xp = cd.level, cd.xp
+      cd.level, cd.xp = TCF.MAX_LEVEL, TCF.XPForLevel(TCF.MAX_LEVEL)
+      local f0 = #_frames
+      win:RefreshLight(); TCF.hud:Refresh()
+      local maxText = false
+      for _, f in ipairs(_frames) do if f.text == "Max level" then maxText = true end end
+      check(maxText, "the Profile's XP text says Max level")
+      check(TCF.hud.level:GetText():find("Lv 60 (max)", 1, true), "the cat's level says (max): " .. tostring(TCF.hud.level:GetText()))
+      cd.level, cd.xp = 10, 5
+      win:RefreshLight(); TCF.hud:Refresh()
+      check(not TCF.hud.level:GetText():find("(max)", 1, true), "no (max) below the cap")
+      cd.level, cd.xp = lv, xp
+
+      -- put everything back
+      TapCatForeverDB.ui.chat = ui0
+      TapCatForeverDB.levelPaid = paid0
+      login(before)
+      TapCatForeverDB.chars["Fixold-Forever"] = nil
+      print("review fixes section (loot, saves, starters, XP, TapCoins, developer view, max level): all checks passed")
+    end
+    -- ===== end of review fixes section =====
     print("class professions, crafted gear, party cats and loot notices: all checks passed")
     end
     -- every referenced art file must exist

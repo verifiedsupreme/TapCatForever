@@ -2,6 +2,14 @@
 
 ## 1.5.3
 
+**Levels**
+- Cat levels now stop at 60, like Classic. A cat above 60 becomes 60 and keeps its gear, abilities and titles. A cat at 60 no longer gains XP, and its XP bar says Max level.
+- Early levels are faster than before: up to about level 30 each level needs less XP. After about 30 each level takes longer than before, up to about twice as long near 60. Playing about 2 hours a day, a new cat reaches level 10 in about an hour and level 60 in a few months.
+- Your cats keep the same share of their current level when the new XP amounts come in, so no cat skips levels or loses its progress toward the next one.
+- The last two level titles and achievements moved to levels you can reach: Legendary Lap Cat at level 55 and Eternal Tapper at level 60. Achievements you already have are kept.
+- The Growing Up daily quest is no longer offered when all your cats are level 60.
+- Level-up TapCoins and level chests are now paid once per class and level for your whole account. A new character, or one you reset, gets them again only above the highest level your account already reached with that class. Reset this character says so before you confirm.
+
 **Dungeon Chest**
 - New chest: the Dungeon Chest. It always holds gear: boss loot from the Adventure dungeons your cat has reached (Ragefire Chasm if it has reached none), close to your cat's level. Mostly Rare, some Uncommon, a little Epic, never Legendary. When those dungeons have nothing of that quality near your cat's level, it gives gear of that quality from around the world at your cat's level instead.
 - The first clear of each dungeon in Adventure gives a Dungeon Chest instead of an Adventurer's Strongbox. After that, finishing a dungeon again gives one about every 2 to 3 hours of dungeon fighting. Open-world zones still give a Strongbox for the first clear.
@@ -12,21 +20,38 @@
 - New achievements: Spoils of the Deep and Dungeon Crawler (open 1 and 25 Dungeon Chests).
 
 **Loot**
+- Chests now and then hold a few TapCoins on top of their contents. Most hold none, about a third hold a few (2 to 15, by chest) and about 1 in 20 holds a bigger handful (40 to 300, by chest). The loot box shows them as one plain line, such as +12 TapCoins, and a small find from a chest shows them on its slim line.
 - Small finds now go to your cat's weapon (a ranged weapon for Hunters) and the gear you can see (head, chest, belt, cloak, neck, rings and off-hand) well ahead of hands, feet, wrists, legs and shoulders.
 - Burning Crusade and later items no longer drop anywhere, including Outland quest greens, Gnomish goggles, Jewelcrafting rings and blood elf and draenei starting gear. You keep any you already have.
+- Uncommon or better items with no stats at all, such as on-use trinkets like Talisman of Arathor, no longer drop. They did nothing for your cat. You keep any you already have.
+- Leftover test items that older versions let drop, such as Warbranch of Cenarius (a blue staff at item level 1 with no stats), no longer drop. Any your cats had are taken off them once, and you get their sell value in TapCoins. A cat left without a weapon gets its class weapon back.
+
+**Gear and looks**
+- Every class starts with a weapon of its own: a sword for Warriors, a mace for Paladins, a bow for Hunters, a dagger for Rogues and Warlocks, an axe for Shamans, and a different staff each for Priests, Mages and Druids.
+- A cat can always wear its class's starter weapon, whatever the weapon's level. A cat still holding the weapon an older version gave it gets the new one, unless that would push out an off-hand item you chose or lower its Power. Then the new one waits in its bag. Hunters keep their bow, and a weapon you picked yourself is left alone.
+- Capes and cloaks now hang down both sides of your cat and tuck in behind it, with no band across the bottom under the paws. Cosmetic capes use the same shape.
+
+**Professions**
+- Herbalism, First Aid, Fishing and Cooking now unlock as each cat earns Trade Gold: 25M, 2.5B, 250B and 2T earned in total. Selling your business for Renown never lowers this, and Renown makes the gold come faster. The old Renown amounts still unlock them too, and professions you already unlocked stay unlocked.
+- When a cat can learn a new profession you get one chat line, once. A cat you aren't playing hears about it the next time you play it.
+- The Professions page shows how much Trade Gold a locked profession needs and how far along this cat is, for example So far: 5.00M (20%).
 
 **Adventure**
 - Enemies are measured and sized to fit the fight scene, so big ones such as the Foe Reaper 4000 are no longer cut off, and every enemy stands on the ground.
 
 **Settings**
 - The Settings page is sorted into clear groups: Cat and display, Chat and sounds, Position, Help and info, and Progress.
+- A new Text distance slider sets the space between the cat and its level, XP bar and counters. It works with the text above or below the cat, and the cat stays where it is.
+- A new option, Share progress with the developer, is off by default. When it is on and the developer asks, your addon answers with five things: the addon version, your cat's class, cat level, zones cleared and TapCoins. Nothing else is sent. It only answers the developer, only while you are both online, and nothing from it prints in your chat. To hear the question your addon joins an addon channel, which the game still lists in its Chat Channels window.
 - Help and info has the Welcome tour, Patch notes, Send feedback and a new Compendium button side by side.
 - The minimap button says whether it will show or hide the icon.
 - The two reset buttons sit on their own at the bottom, in red, so they are hard to click by accident. Both still ask first.
-- Scroll the mouse wheel over a slider to move it one step at a time.
+- Scroll the mouse wheel over a slider to move it one step at a time. The Ctrl and Shift mouse wheel tips for the cat are now in the Cat size and Opacity slider tooltips.
 
 **Other fixes**
+- Party cats: your own cat no longer shows up in the little row beside your cat.
 - Messages, notices and achievement names use plainer wording, without exclamation marks.
+- Up to 10 taps every second earn TapCoins, however fast you tap. Faster taps still count as taps and XP.
 
 ## 1.5.2
 

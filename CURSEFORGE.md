@@ -2,7 +2,7 @@
 
 ## Summary (under 256 characters)
 
-A cartoon cat taps along with every key you press. Level a cat for each class, dress it in real WoW gear, fight through dungeons and raids for chests and legendaries, craft gear, collect 64 cat skins and play with friends. Made for WoW: Forever.
+A cartoon cat taps along with every key you press. Level a cat for each class to 60, dress it in real WoW gear, fight through dungeons and raids for chests and legendaries, craft gear, collect 64 cat skins and play with friends. Made for WoW: Forever.
 
 ## Description
 
@@ -21,24 +21,19 @@ Features
 --------
 
 **What's new in 1.5.3**
+- Cat levels now stop at 60, like Classic. Early levels come faster: about 2 hours a day gets a new cat to level 10 in about an hour, and to 60 in a few months. Existing cats keep their share of the current level.
 - New Dungeon Chest, full of dungeon boss gear near your cat's level, mostly blue. The first clear of each dungeon in Adventure gives one, repeat clears give one about every 2 to 3 hours of dungeon fighting, and real WoW dungeons give one (up to 2 a day).
-- Small finds from regular Adventure enemies now bring your cat's weapon and the gear you can see before the rest.
-- The Settings page is sorted into clear groups, and you can scroll over a slider to move it one step at a time.
-- Adventure enemies are sized to fit the fight scene, so big ones are no longer cut off.
-- Only Classic items drop now: Burning Crusade and later items that had slipped into the loot are gone.
+- Herbalism, First Aid, Fishing and Cooking unlock as each cat earns Trade Gold, and the Professions page shows how far along it is.
+- Chests now and then hold a few TapCoins on top of their contents.
+- Every class starts with a weapon of its own, and capes now hang down both sides of your cat.
+- Burning Crusade items, greens and blues with no stats, and leftover test items no longer drop.
+- A Text distance slider and a tidier Settings page, and Adventure enemies sized to fit the fight scene.
+- A new option, off by default, to share your cat's class, level, zones cleared, TapCoins and addon version with the developer.
 
-**New in 1.5.1**
-- Every class's cat now has its own Trade Gold and professions.
-- Lots more gear: plain whites and real "of the Monkey" style greens for every level and slot, and small finds from regular Adventure enemies that fill your empty slots first.
-- Real legendaries, such as Thunderfury and Sulfuras, can now drop: very rarely from a Heroic Cache, and a little more often from the new Raider's Hoard.
-- New Raider's Hoard, earned only from raids and full of epic raid boss loot.
-- Clearing a zone for the first time pays a few hundred TapCoins, and hovering gear shows what your cat wears beside it.
-
-**New in 1.5**
-- Professions by class: Mining and Blacksmithing, Skinning and Leatherworking, or Tailoring, each crafting real Classic gear with stats.
-- Play with friends: party members who also have TapCatForever show up as little cats beside yours, and your taps count up to 50% more.
-- A fishing dock where your cat fishes, with its fishing buddy beside it.
-- 33 new cat skins, the Compendium of every item and how to get it, and quieter loot.
+**Also new in 1.5**
+- Professions by class, each crafting real Classic gear with stats, and every class's cat has its own Trade Gold and Renown.
+- Real legendaries, the Raider's Hoard from raids, and lots more gear: plain whites, "of the Monkey" style greens and small finds from regular Adventure enemies.
+- Party cats with a tap bonus, a fishing dock, 33 new cat skins and the Compendium.
 
 **A cat that taps with you**
 - Left paw on A, left arrow and left-click; right paw on D, right arrow and right-click; every other key alternates.
@@ -46,7 +41,7 @@ Features
 - Drag it anywhere, resize it, fade it, or hide everything but the cat.
 
 **A cat for every class**
-- Each class has its own cat that levels from 1, with its own gear, abilities, professions, Trade Gold and progress.
+- Each class has its own cat that levels from 1 to 60, with its own gear, abilities, professions, Trade Gold and progress.
 - Your cat wears the real WoW items you equip, drawn in the cartoon style: about 4,800 different helms, chests, capes, belts, necklaces, rings, weapons, shields and off-hands have their own drawing.
 - Every class starts with its own weapon (a bow for hunters, a dagger for rogues, a staff for mages) and learns class abilities with TapCoins, from Heroic Strike to Pyroblast.
 - Hover any piece of gear to see what your cat wears in that slot right beside it, with the Power change.
@@ -65,8 +60,8 @@ Features
 - Your cat's class picks its main profession: Mining with Blacksmithing (Warrior, Paladin), Skinning with Leatherworking (Rogue, Druid, Hunter, Shaman) or Tailoring (Mage, Priest, Warlock).
 - Each is an idle gathering business: veins, hunting grounds with real beasts, or cloth spots at humanoid camps, with hired helpers and an endless tool upgrade.
 - Craft real Classic gear with stats, 45 recipes per craft from skill 1 to 300. Cosmetic-only recipes are clearly marked.
-- Herbalism, First Aid, Fishing and Cooking unlock later: a garden that grows in real time, bandages that heal your cat in fights, a fishing dock with a fishing buddy, and recipes you discover by experimenting.
-- Sell your business for Renown to grow faster and unlock new professions.
+- Herbalism, First Aid, Fishing and Cooking unlock as your cat earns Trade Gold: a garden that grows in real time, bandages that heal your cat in fights, a fishing dock with a fishing buddy, and recipes you discover by experimenting.
+- Sell your business for Renown to make your Trade Gold come faster.
 - Every class's cat runs its own business with its own Trade Gold and Renown, and the helpers of all your cats keep working while you play another.
 - Each profession has a short "How it works" guide (the Help button next to its name).
 
@@ -76,10 +71,10 @@ Features
 - The addons find each other on their own, so there is nothing to set up. Invite a friend and play together.
 
 **Chests, shop and collecting**
-- Cat Treat Pouches, Adventurer's Strongboxes and Heroic Caches, opened with a spinning reel that lands on your reward. Pouches can hold a blue now and then, and Heroic Caches have a tiny chance of a real legendary.
+- Cat Treat Pouches, Adventurer's Strongboxes and Heroic Caches, opened with a spinning reel that lands on your reward. Pouches can hold a blue now and then, Heroic Caches have a tiny chance of a real legendary, and any chest may hold a few TapCoins.
 - The Raider's Hoard can't be bought: you earn it from raids, in Adventure, on raid expeditions and in real WoW. It always holds epic raid boss loot and is the best place to find a legendary.
 - The Dungeon Chest can't be bought either: you earn it from dungeons, in Adventure, on dungeon expeditions and in real WoW. It always holds gear close to your cat's level, mostly from dungeon bosses.
-- Gear you find outside chests goes straight into your bags with a small notice you can hover.
+- Gear you find outside chests goes straight into your bags, with a slim line under the window you can hover.
 - Daily shop wares, daily and weekly quests, and 81 achievements.
 - 64 cat skins: tabbies and tuxedos, Bengals and Maine Coons, a Galaxy Cat, Frostsabers, the Spectral Tiger, boss-drop cats, chest-only cats, quest and expedition cats, crafted cats, and achievement cats like Mr. Bigglesworth.
 - Hats, capes, wings, fur patterns, effects and racial heritage items for your character's race.
@@ -122,6 +117,9 @@ Yes, all of them are in Settings (right-click the cat, then the Settings tab). S
 
 **Where are the patch notes?**
 In Settings > Patch notes, or type /tcf news.
+
+**Does it send anything about me?**
+Only if you turn on Share progress with the developer in Settings, which is off by default. Then, when the developer asks, it answers with your addon version, cat class, cat level, zones cleared and TapCoins, and nothing else.
 
 **Can I start over?**
 Settings has "Reset this character" and "Reset ALL progress".

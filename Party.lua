@@ -75,6 +75,27 @@ local function myKey()
   return nameKey(n)
 end
 
+-- true when a message's sender is you. Your own party messages come back to you, and the sender
+-- can arrive as "Name-Realm" while Ambiguate keeps the realm on some clients, so compare the name
+-- and (when there is one) the realm with yours, ignoring spaces, hyphens, apostrophes and case.
+local function isMe(sender)
+  if type(sender) ~= "string" or isSecret(sender) or sender == "" then return false end
+  local me = UnitName and UnitName("player")
+  if type(me) ~= "string" or isSecret(me) or me == "" then return false end
+  local n, r = sender:match("^([^%-]+)%-?(.*)$")
+  if not n or n:lower() ~= me:lower() then return false end
+  if not r or r == "" then return true end
+  local mine
+  if GetNormalizedRealmName then local ok, v = pcall(GetNormalizedRealmName); if ok then mine = v end end
+  if (type(mine) ~= "string" or isSecret(mine) or mine == "") and GetRealmName then
+    local ok, v = pcall(GetRealmName); if ok then mine = v end
+  end
+  if type(mine) ~= "string" or isSecret(mine) or mine == "" then return true end
+  local function norm(x) return (x:gsub("[%s%-']", "")):lower() end
+  return norm(r) == norm(mine)
+end
+TCF.PartyIsMe = isMe
+
 -- the current group's names; complete = false when some name could not be read (secret)
 local function roster()
   local names, complete = {}, true
@@ -267,7 +288,7 @@ local function onMessage(prefix, text, channel, sender)
   if isSecret(channel) or (channel ~= "PARTY" and channel ~= "RAID" and channel ~= "INSTANCE_CHAT") then return end
   if isSecret(sender) or isSecret(text) then return end
   local name = nameKey(sender)
-  if not name or name == myKey() then return end
+  if not name or name == myKey() or isMe(sender) then return end   -- never your own cat
   local kind, class, level, look = parse(text)
   if not kind then return end
   local m = known[name]

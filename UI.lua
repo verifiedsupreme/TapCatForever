@@ -379,7 +379,11 @@ function TCF:GearTooltip(tt, it, class)
   if it.cls then tt:AddLine("Classes: " .. it.cls:gsub(",", ", "):lower():gsub("(%a)(%a*)", function(a, b) return a:upper() .. b end), 1, 1, 1) end
   if it.req > 0 then
     local ok = self:CD(class).level >= it.req
-    tt:AddLine("Requires class level " .. it.req, ok and 1 or 1, ok and 1 or 0.2, ok and 1 or 0.2)
+    if not ok and self.IsStarterWeapon and self:IsStarterWeapon(it, class) then
+      tt:AddLine("Starter weapon: your cat can wear it at any level", 1, 1, 1)   -- Gear.lua TCF:CanEquipGear
+    else
+      tt:AddLine("Requires class level " .. it.req, ok and 1 or 1, ok and 1 or 0.2, ok and 1 or 0.2)
+    end
   end
   for _, l in ipairs(EQUIP_LINES) do if st[l[1]] then tt:AddLine(string.format(l[2], st[l[1]]), 0.12, 1, 0) end end
   if it.crafted then
@@ -567,7 +571,8 @@ function TCF:CreateHUD()
     local db = TCF.db
     local cd = TCF:CD()
     local cl = TCF.CLASS_BY_KEY[db.class]
-    self.level:SetText(string.format("Lv %d |cff%02x%02x%02x%s|r", cd.level, cl.color[1] * 255, cl.color[2] * 255, cl.color[3] * 255, cl.name))
+    self.level:SetText(string.format("Lv %d%s |cff%02x%02x%02x%s|r", cd.level, cd.level >= TCF.MAX_LEVEL and " (max)" or "",
+      cl.color[1] * 255, cl.color[2] * 255, cl.color[3] * 255, cl.name))
     self.xp:SetMinMaxValues(0, TCF.XPForLevel(cd.level))
     self.xp:SetValue(cd.xp)
     local parts = {}
@@ -1243,11 +1248,14 @@ function TCF:CreateWindow()
     end, "Minimap icon", "Show or hide the TapCatForever button on the minimap.")
     -- opt-in, off by default (DevView.lua). Not in win.settingsChecks: it also joins or leaves
     -- the hidden channel, and RefreshSettings sets it on its own.
-    local shareCB = Check("Share my cat's progress with the developer", "shareDev", COL[1], gy + 24, 528,
+    -- (the left half's width, like the Chat and sounds heading, so the label stays out of the Position column)
+    local shareCB = Check("Share progress with the developer", "shareDev", COL[1], gy + 24, COL[3] - 8 - COL[1],
       "When the developer of TapCatForever asks, your addon answers with these five things: the addon version, " ..
       "your cat's class, cat level, zones cleared and TapCoins. Nothing else is sent.\n\n" ..
-      "It is only shared with the addon's developer, and only while you are both online. To hear the question your " ..
-      "addon joins a hidden addon channel that never shows in your chat. Off by default.",
+      "It is only shared with the addon's developer (checked by character name and realm), and only while you are " ..
+      "both online. To hear the question, your addon joins an addon channel. Nothing from it prints in your chat, " ..
+      "but the game lists it in the Chat Channels window, and other players who join that channel can see your " ..
+      "character's name in it. Off by default.",
       function() if TCF.DevShareChanged then TCF:DevShareChanged() end end)
     table.remove(checks)
     win.settingsShare = shareCB
@@ -1318,8 +1326,8 @@ function TCF:CreateWindow()
     local resetNote = Text(st, "GameFontDisableSmall", "Both ask before they reset anything.", "LEFT"); resetNote:SetWidth(210)
     Place(resetNote, 16, gy + 6, 210, 12, "text", "reset note")
     PageButton("|cffff5555Reset this character|r", 244, gy, 146, function()
-      ConfirmReset("char", "Reset TapCatForever progress for THIS character?\n\nGear, cosmetics, professions, cat levels, abilities and adventures go back to the start. TapCoins, quests and achievements are kept.\n\nYour UI will reload.")
-    end, "Reset this character", "Start this character over. TapCoins, quests and achievements are kept.")
+      ConfirmReset("char", "Reset TapCatForever progress for THIS character?\n\nGear, cosmetics, professions, cat levels, abilities and adventures go back to the start. TapCoins, quests and achievements are kept.\n\nLevel-up TapCoins and level chests are paid once per class for your account, so this character's cats get them again only above the highest level your account already reached with that class.\n\nYour UI will reload.")
+    end, "Reset this character", "Start this character over. TapCoins, quests and achievements are kept. Level-up rewards come again only above the highest level your account reached with each class.")
     PageButton("|cffff5555Reset ALL progress|r", 398, gy, 146, function()
       ConfirmReset("all", "Reset ALL TapCatForever progress on EVERY character?\n\nEverything goes back to level 1: TapCoins, gear, cosmetics, professions, renown, quests and achievements. Your settings are kept.\n\nThis cannot be undone. Your UI will reload.")
     end, "Reset ALL progress", "Start over on every character. Your settings are kept. This cannot be undone.")
@@ -1350,7 +1358,8 @@ function TCF:CreateWindow()
     lvl:SetText(string.format("Level %d  |cffbbbbbb%s|r", cd.level, TCF:GetTitle()))
     local need = TCF.XPForLevel(cd.level)
     xp:SetMinMaxValues(0, need); xp:SetValue(cd.xp)
-    xpText:SetText(TCF.Commas(cd.xp) .. " / " .. TCF.Commas(need))
+    if TCF:IsMaxLevel() then xpText:SetText("Max level")   -- the cap: a full bar, no more XP
+    else xpText:SetText(TCF.Commas(cd.xp) .. " / " .. TCF.Commas(need)) end
     local n, total = TCF:CountOwned()
     local cs = TCF:CombatStats()
     local nGear = 0

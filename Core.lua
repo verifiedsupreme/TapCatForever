@@ -234,6 +234,16 @@ function TCF:InitDB()
     adv.newStages = adv.newStages or 0
     -- 1.5.3: levels stop at 60. A cat above it becomes 60 and keeps everything else.
     if cd.level >= TCF.MAX_LEVEL then cd.level, cd.xp = TCF.MAX_LEVEL, TCF.XPForLevel(TCF.MAX_LEVEL) end
+    -- 1.5.3: the XP curve changed. A cat keeps the same share of its current level (never a full
+    -- bar, so no free levels): 2,100 of 1.5.2's 2,133 at level 10 becomes 927 of 942. Once per cat;
+    -- a cat made later gets the flag with 0 XP, so it is never rescaled.
+    if not cd.xpCurve2 then
+      if cd.level < TCF.MAX_LEVEL and cd.xp > 0 then
+        local oldNeed = floor(120 * cd.level ^ 1.25)
+        cd.xp = floor(TCF.XPForLevel(cd.level) * min(0.99, cd.xp / max(1, oldNeed)))
+      end
+      cd.xpCurve2 = true
+    end
   end
   -- 1.5.3: level-up rewards are paid once per class and level for the whole account. Every
   -- level any character's cat already reached was paid, so it starts from the highest of them.
@@ -443,10 +453,13 @@ local TAP_CAP = 20          -- max counted taps per second (anti-macro)
 local FRENZY_TPS = 7        -- taps/second to trigger frenzy face
 local DROP_CHANCE = 1 / 3000
 local COINS_PER_TAP = 0.02  -- 1 TapCoin per 50 taps (quests and Adventure are the main income)
-TCF.TAP_COIN_CAP = 10       -- taps beyond this many in one second still count (up to TAP_CAP) but earn no TapCoins
+TCF.TAP_COIN_CAP = 10       -- at most this many taps in any one second earn TapCoins; the rest still count (up to TAP_CAP)
 
 local recent, recentHead = {}, 0     -- ring buffer of tap times
 for i = 1, 32 do recent[i] = 0 end
+-- times of the last TAP_COIN_CAP taps that earned TapCoins: a tap earns while fewer than
+-- TAP_COIN_CAP taps earned in the last second, so the first 10 taps of every second always earn
+local paid, paidHead, paidCap = {}, 0, 0
 local lastInput = 0
 
 function TCF:TapsLastSecond(now)
@@ -479,7 +492,14 @@ function TCF:Tap(side)
     cd.xp = cd.xp + (self.FoodBuff and self:FoodBuff("xp") or 1) * mult
     self:SettleXP()
   end
-  if tps <= TCF.TAP_COIN_CAP then
+  local cap = TCF.TAP_COIN_CAP
+  if paidCap ~= cap then   -- (re)built when the cap changes
+    paid, paidHead, paidCap = {}, 0, cap
+    for i = 1, cap do paid[i] = -10 end
+  end
+  local nextSlot = paidHead % cap + 1   -- the oldest of the last `cap` paid taps
+  if now - paid[nextSlot] >= 0.999 then   -- (a hair under 1: steady 10 a second all earn despite timer rounding)
+    paidHead = nextSlot; paid[nextSlot] = now
     db.coinFrac = db.coinFrac + COINS_PER_TAP * mult
     if db.coinFrac >= 1 then
       local whole = floor(db.coinFrac)

@@ -10,8 +10,8 @@ TCF.BOSS_LOOT = {}   -- [tier][boss] = { item, ... }
 TCF.TIER_POOL = {}   -- [tier] = { item, ... } (zone drops, other bosses)
 TCF.WORLD_POOL = {}  -- [level band (req level // 5)] = { item, ... }
 
--- Blizzard's placeholder/test items that leaked into the data. They stay known (so old
--- saves still show them) but never drop.
+-- Blizzard's placeholder/test items that leaked into the data. They never drop, and
+-- TCF:RemovePlaceholderGear takes copies that older versions gave out off the cats (once, paid).
 -- also: leftover test/holiday items in the data that are Rare or better at item level 1-5 (such as
 -- "Warbranch of Cenarius", a blue staff with no stats at item level 1), and greens at item level 1-2
 local function isPlaceholder(name, ilvl, q)
@@ -67,8 +67,13 @@ function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss,
   TCF.GEAR_LIST[#TCF.GEAR_LIST + 1] = it
   if crafted then it.crafted, it.tier, it.boss, it.dc = crafted, 0, 0, 0; return end
   -- placeholders and later-expansion items (TCF.IsClassicItem) are marked retired too, so code that scans
-  -- TCF.GEAR_LIST with a "not it.retired" filter skips them as well
-  if isPlaceholder(name, ilvl, q) or not TCF.IsClassicItem(id, ilvl) then it.retired = true; return end
+  -- TCF.GEAR_LIST with a "not it.retired" filter skips them as well. Placeholders are also marked
+  -- placeholder: they are taken off the cats that have them. Later-expansion items stay with their owners.
+  if isPlaceholder(name, ilvl, q) then it.retired, it.placeholder = true, true; return end
+  -- Uncommon or better items with no stats at all (on-use trinkets such as Talisman of Arathor, rings
+  -- and held items whose only effect is a spell) do nothing for a cat, so they never drop either.
+  -- Players who have one keep it. Weapons always have damage in their stats, so this never takes one.
+  if not TCF.IsClassicItem(id, ilvl) or (q and q >= 2 and (stats or "") == "") then it.retired = true; return end
   if tier > 0 then
     if boss > 0 then
       TCF.BOSS_LOOT[tier] = TCF.BOSS_LOOT[tier] or {}
@@ -355,7 +360,8 @@ function TCF:GearOwned(id, class) return (self:Bag(class)[id] or 0) > 0 end
 function TCF:CanEquipGear(it, class, slotKey)
   class = class or self.db.class
   if not self:GearUsable(it, class) then return false, "Your " .. TCF.CLASS_BY_KEY[class].name .. " can't use this." end
-  if self:CD(class).level < it.req then return false, "Requires class level " .. it.req .. "." end
+  if it.placeholder then return false, "This item is no longer available." end
+  if self:CD(class).level < it.req and not self:IsStarterWeapon(it, class) then return false, "Requires class level " .. it.req .. "." end
   if not self:GearOwned(it.id, class) then return false, "You don't have this item." end
   if slotKey then
     local ok = false
@@ -1085,6 +1091,17 @@ end
 function TCF:StarterWeapon(class)
   return self:StarterWeapons()[class]
 end
+-- Is this item this class's own starter weapon? A cat can always wear its starter, whatever the
+-- weapon's level (some classes' plainest weapon of their kind needs class level 6 to 8).
+local starterIds   -- class -> starter id (the loot pools are fixed once the files have loaded)
+function TCF:IsStarterWeapon(it, class)
+  if not it then return false end
+  if not starterIds then
+    starterIds = {}
+    for cl, w in pairs(self:StarterWeapons()) do starterIds[cl] = w.id end
+  end
+  return starterIds[class or self.db.class] == it.id
+end
 -- The weapon 1.5.0 to 1.5.2 gave a new cat of this class
 local function oldClassStarter(self, class)
   return plainestWeapon(self, class, OLD_STARTER_WEAPONS[class])
@@ -1147,15 +1164,19 @@ function TCF:FixStarterWeapons()
         elseif wearingOld and eq.RANGED == old.id and slot == "MAINHAND" then
           eq.RANGED = nil
         end
-        eq[slot] = new.id
-        if new.slot == "2H" then eq.OFFHAND = nil end   -- a two-hander can't share with an off-hand
+        -- a two-hander can't share with an off-hand: with one worn (the player's choice), it waits in the bag
+        if slot == "RANGED" or new.slot ~= "2H" or not eq.OFFHAND then eq[slot] = new.id end
       end
     end
   end
   -- 1.5.3: every class has its own starter. A cat still holding exactly the weapon 1.5.0 to
   -- 1.5.2 gave it (a priest's mace, a shaman's hammer, the staff druids and warlocks shared)
   -- gets its new class weapon; the old one stays in the bag. Hunters keep the bow rule above.
-  -- Anything the player chose is left alone. Runs once per character and class.
+  -- Anything the player chose is left alone: with an off-hand item worn beside the old one-hander
+  -- (a priest's held item), a two-handed new starter only goes into the bag. A swap that would lower
+  -- the cat's Power (a warlock's two-handed staff for a dagger) only puts the new one in the bag too,
+  -- except for shamans, whose old hammer always goes (shamans don't start with a hammer any more).
+  -- Runs once per character and class.
   local starters = self:StarterWeapons()
   for _, cl in ipairs(TCF.CLASSES) do
     local class = cl.key
@@ -1166,15 +1187,69 @@ function TCF:FixStarterWeapons()
       local eq = self:GearEquipped(class)
       if new and old and new.id ~= old.id and class ~= "HUNTER" and eq.MAINHAND == old.id then
         local bag = self:Bag(class)
+        local keepsOff = new.slot == "2H" and eq.OFFHAND
+        local weaker = class ~= "SHAMAN" and (self:GearUpgrade(new, class) or 0) < 0
         bag[new.id] = (bag[new.id] or 0) + 1
         if (bag[old.id] or 0) < 1 then bag[old.id] = 1 end
         if new.slot == "RANGED" then
           eq.RANGED = new.id
-        else
+        elseif not keepsOff and not weaker then
           eq.MAINHAND = new.id
-          if new.slot == "2H" then eq.OFFHAND = nil end   -- a two-hander can't share with an off-hand
         end
       end
     end
   end
+  self:RemovePlaceholderGear()
+end
+
+-- Placeholder items (see isPlaceholder: leftover test and holiday items such as Warbranch of
+-- Cenarius, a blue staff with no stats at item level 1) that older versions let drop are taken off
+-- every cat, worn or in the bag, and paid for at their sell value. A cat left with no weapon gets its
+-- class starter. One plain chat line says what happened, only when something was taken. Runs once
+-- per character and class (after the starter swaps above, so a fresh starter is never taken).
+function TCF:RemovePlaceholderGear()
+  local removed, coins = 0, 0
+  for _, cl in ipairs(TCF.CLASSES) do
+    local class = cl.key
+    local cd = self:CD(class)
+    if cd and not cd.placeholderFixed then
+      cd.placeholderFixed = true
+      local bag = self:Bag(class)   -- first: older bag repairs top the bag up to what is worn
+      local eq = self:GearEquipped(class)
+      local tookWeapon, worn = false, {}
+      for slot, id in pairs(eq) do
+        local it = TCF.GEAR[id]
+        if it and it.placeholder then
+          eq[slot] = nil
+          worn[id] = (worn[id] or 0) + 1
+          if slot == "MAINHAND" or slot == "RANGED" then tookWeapon = true end
+        end
+      end
+      local count = {}
+      for id, n in pairs(bag) do
+        local it = TCF.GEAR[id]
+        if it and it.placeholder then bag[id] = nil; count[id] = max(0, tonumber(n) or 0) end
+      end
+      for id, n in pairs(worn) do count[id] = max(count[id] or 0, n) end   -- a worn copy the bag lost count of
+      for id, n in pairs(count) do
+        removed = removed + n
+        coins = coins + self:GearSellValue(TCF.GEAR[id]) * n
+      end
+      if tookWeapon and not eq.MAINHAND and not eq.RANGED then
+        local w = self:StarterWeapon(class)
+        if w then
+          bag[w.id] = (bag[w.id] or 0) + 1
+          if w.slot == "RANGED" then eq.RANGED = w.id
+          elseif w.slot ~= "2H" or not eq.OFFHAND then eq.MAINHAND = w.id end
+        end
+      end
+    end
+  end
+  if removed > 0 then
+    self:AddCoins(coins)
+    self:Print(string.format("%d leftover test %s with no stats %s taken off your cats. You got %d TapCoins for %s.",
+      removed, removed == 1 and "item" or "items", removed == 1 and "was" or "were", coins, removed == 1 and "it" or "them"))
+    if self.MarkDirty then self:MarkDirty() end
+  end
+  return removed, coins
 end

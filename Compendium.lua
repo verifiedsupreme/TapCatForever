@@ -212,7 +212,13 @@ local function gearLines(it, add)
       if TCF.GEAR[(TCF.SUFFIX_ID_BASE or 0) + it.id * 100 + k] then kinds[#kinds + 1] = name end
     end
     if #kinds == 0 then
-      -- a placeholder or later-expansion item: known, but never loot
+      if it.placeholder then
+        -- a leftover test item (Gear.lua TCF:RemovePlaceholderGear takes it off the cats)
+        add("Removed: a leftover test item with no stats")
+        add("Cats that had it were paid its sell value")
+        return
+      end
+      -- a later-expansion item, or one with no stats: known, but never loot
       add("This item never drops")
       add("Players who have it keep it")
       return

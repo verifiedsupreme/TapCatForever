@@ -1,33 +1,46 @@
--- TapCatForever: developer view (opt-in). Players who tick "Share my cat's progress with the
+-- TapCatForever: developer view (opt-in). Players who tick "Share progress with the
 -- developer" in Settings answer a short question from the addon's developer with five things:
 -- addon version, cat class, cat level, zones cleared and TapCoins. Nothing is sent by anyone who
 -- has not ticked it, answers only ever go to the developer (a whisper addon message to the
--- developer's own characters), and only while both are online.
+-- developer's own characters, known by name and realm together), and only while both are online.
 --
 -- How the question reaches players, all without the player doing anything:
 --   * GUILD and PARTY / RAID / INSTANCE_CHAT addon messages, when the developer is in a guild or group;
 --   * a hidden custom channel (CHANNEL addon messages). Only players who opted in join it, with
 --     JoinTemporaryChannel (never saved), and it is taken out of every chat window and its notices
---     are filtered, so it never shows in chat. Leaving the option off never joins it.
+--     are filtered, so nothing from it prints in chat. The game still lists it in the Chat Channels
+--     window, and anyone else in the channel can see the names of the characters in it (the Settings
+--     tooltip says so). Leaving the option off never joins it. A join that keeps failing (a password
+--     or ban set by whoever holds the name, or too many channels) is tried at most 3 times a session.
 --
 -- Protocol (Party.lua's prefix "TapCatFvr", which every version since 1.4 ignores unless a message
 -- starts H1 or U1; every field checked, anything else ignored):
 --   Q1;<nonce>                                              the developer asks (rate limited)
 --   A1;<nonce>;<version>;<class>;<level>;<zones>;<coins>    an answer, whispered to the developer
--- The developer (character names checked by hash, as Core.lua's test mode does, or test mode)
--- asks with /tcf players and sees who answered in a small window.
+-- The developer (name and realm checked by hash, or test mode) asks with /tcf players and sees who
+-- answered in a small window.
 local ADDON, TCF = ...
 local floor, min, max, random = math.floor, math.min, math.max, math.random
 
 local PREFIX = "TapCatFvr"         -- shared with Party.lua (one prefix for the addon)
 local CHANNEL = "TapCatFvrShare"   -- the hidden channel's name
-local ASK_GAP = 30                 -- seconds between the developer's questions
 local ANSWER_GAP = 60              -- seconds between our answers, whoever asks
+local ASK_GAP = ANSWER_GAP + 5     -- seconds between the developer's questions: longer than ANSWER_GAP, so
+                                   -- everyone who answered the last question can answer the next one
+local MAX_JOIN_TRIES = 3           -- channel joins per session before the channel route is given up
 local JOIN_DELAY = 20              -- seconds after login before joining (the game's own channels go first)
 local MAX_KEPT = 200               -- answers kept in the window
 local ROWS = 12                    -- rows shown at once (the mouse wheel scrolls)
--- the developer's character names, hashed like Core.lua's test mode (lower case)
-local DEV_HASH = { [282723659] = true, [1306739114] = true }
+-- The developer's characters: hashes (keyHash below) of the lower-case "name-realm", with the realm as
+-- GetNormalizedRealmName gives it (no spaces or hyphens). A name alone is not enough: names are only
+-- unique on one realm. To add a character, turn on test mode on it and type /tcf devkey.
+-- Until this holds the developer's characters, nobody counts as the developer (test mode still
+-- works for trying the window) and no player answers anyone.
+local DEV_HASH = {}
+-- The developer's character names on their own (lower case, any realm): Ziggu and Ziggutrip. Realm
+-- keys above can be added later with /tcf devkey; until then the names are enough. Someone else with
+-- the same name could see the same short summaries opted-in players already agreed to share.
+local DEV_NAME_HASH = { [282723659] = true, [1306739114] = true }
 
 TCF.DEV_PREFIX, TCF.DEV_CHANNEL, TCF.DEV_ASK_GAP, TCF.DEV_ANSWER_GAP = PREFIX, CHANNEL, ASK_GAP, ANSWER_GAP
 
@@ -49,11 +62,41 @@ local function shortName(full)
   return n
 end
 
-local function isDevName(full)
+local function myRealm()
+  local r
+  if GetNormalizedRealmName then
+    local ok, v = pcall(GetNormalizedRealmName)
+    if ok then r = v end
+  end
+  if not plain(r) or r == "" then
+    local ok, v = pcall(function() return GetRealmName and GetRealmName() end)
+    r = ok and v or nil
+  end
+  if not plain(r) or r == "" then return nil end
+  return r
+end
+
+-- "name-realm" in lower case, the realm without spaces, hyphens or apostrophes; a sender without a
+-- realm is on your own realm. nil when the realm isn't known (then nobody is the developer).
+local function fullKey(full)
   local n = shortName(full)
-  return n and DEV_HASH[keyHash(n:lower())] or false
+  if not n then return nil end
+  local realm = full:match("^[^%-]+%-(.+)$")
+  if not realm or realm == "" then realm = myRealm() end
+  if not realm then return nil end
+  realm = realm:gsub("[%s%-']", "")
+  if realm == "" or #realm > 64 then return nil end
+  return (n .. "-" .. realm):lower()
+end
+
+local function isDevName(full)
+  local k = fullKey(full)
+  if k and DEV_HASH[keyHash(k)] then return true end
+  local n = shortName(full)
+  return n and DEV_NAME_HASH[keyHash(n:lower())] or false
 end
 TCF.DevIsDeveloperName = isDevName
+TCF.DevFullKey = fullKey
 
 local function myName()
   local n = UnitName and UnitName("player")
@@ -150,6 +193,7 @@ end
 
 ---------------------------------------------------------------- the hidden channel
 local joinAt, joinSent, hideAt = nil, false, nil
+local joinTries, joinGaveUp = 0, false   -- joins sent this session; true once the channel route is given up
 local devListening = false   -- the developer asked this session: stay in the channel to ask again
 
 local function channelId()
@@ -180,6 +224,9 @@ local function join()
   if channelId() > 0 then hideChannel(); return true end
   if not JoinTemporaryChannel then return false end
   if InCombatLockdown and InCombatLockdown() then return false end
+  if joinGaveUp then return true end   -- the channel can't be joined this session: guild and group only
+  joinTries = joinTries + 1
+  if joinTries >= MAX_JOIN_TRIES then joinGaveUp = true end
   -- no chat window given, so the game adds it to none; taken out of all of them again below
   pcall(JoinTemporaryChannel, CHANNEL, nil, nil, false)
   joinSent = true
@@ -216,7 +263,8 @@ end
 -- Settings checkbox changed (UI.lua)
 function TCF:DevShareChanged()
   if self.db.ui.shareDev then
-    joinAt = now()   -- a click: join now (out of combat)
+    joinTries, joinGaveUp = 0, false   -- a click: a fresh try
+    joinAt = now()   -- join now (out of combat)
   elseif not devListening then
     leave()
   end
@@ -231,11 +279,12 @@ local function onQuestion(text, chan, sender)
   if chan ~= "GUILD" and chan ~= "PARTY" and chan ~= "RAID" and chan ~= "INSTANCE_CHAT" and chan ~= "CHANNEL" then return end
   if not isDevName(sender) then return end                -- only ever the developer
   local me = myName()
-  if me and shortName(sender) == me then return end       -- the developer's own question
+  if me and fullKey(sender) == fullKey(me) then return end   -- the developer's own question
   local nonce = parseQuestion(text)
   if not nonce or nonce == lastNonce then return end
   if pendingAnswer or now() - lastAnswer < ANSWER_GAP then return end
   lastNonce = nonce
+  lastAnswer = now()   -- the gap runs from the question, so the developer's next one (ASK_GAP) is answered
   -- a moment later, so many answers don't all arrive at once
   pendingAnswer = { target = sender, nonce = nonce, at = now() + 0.5 + random() * 3 }
 end
@@ -244,7 +293,6 @@ local function sendAnswer()
   local p = pendingAnswer
   pendingAnswer = nil
   if not p or not (TCF.db and TCF.db.ui.shareDev) then return end
-  lastAnswer = now()
   local text = TCF:DevAnswerText(p.nonce)
   if text then sendRaw(text, "WHISPER", p.target) end
 end
@@ -423,6 +471,12 @@ local function wrapSlash()
   SlashCmdList.TAPCATFOREVER = function(msg, ...)
     local cmd = type(msg) == "string" and msg:lower():match("^%s*(%S*)") or ""
     if cmd == "players" and TCF.db and TCF:IsDeveloper() then TCF:DevAsk(); return end
+    -- test mode: the key that makes this character one of the developer's (DEV_HASH above)
+    if cmd == "devkey" and TCF.db and TCF.db.ui.testMode then
+      local k = fullKey(myName() or "")
+      TCF:Print(k and ("Developer key for this character: " .. keyHash(k)) or "Your realm isn't known yet. Try again in a moment.", true)
+      return
+    end
     return inner(msg, ...)
   end
 end
@@ -443,6 +497,11 @@ local function onEvent(_, event, a1, a2, a3, a4, _, _, _, _, a9)
   elseif event == "CHAT_MSG_CHANNEL_NOTICE" then
     if isOurChannel(a4) or isOurChannel(a9) then
       hideChannel()
+      if a1 == "WRONG_PASSWORD" or a1 == "BANNED" or a1 == "INVALID_NAME" or a1 == "NOT_ALLOWED" or a1 == "THROTTLED" then
+        joinGaveUp = true   -- someone holds the channel, or the server said no: guild and group only
+      elseif a1 == "YOU_JOINED" then
+        joinTries = 0
+      end
       -- our own join came through after sharing was turned off again: leave at once
       if joinSent and (a1 == "YOU_JOINED" or a1 == "YOU_CHANGED") then
         joinSent = false
@@ -450,7 +509,7 @@ local function onEvent(_, event, a1, a2, a3, a4, _, _, _, _, a9)
       end
     end
   elseif event == "PLAYER_REGEN_ENABLED" then
-    if wantChannel() and channelId() == 0 and not joinAt then joinAt = now() end
+    if wantChannel() and channelId() == 0 and not joinAt and not joinGaveUp then joinAt = now() end
   end
 end
 ev:SetScript("OnEvent", onEvent)
@@ -478,13 +537,23 @@ end)
 -- test hooks (the harness)
 TCF.DevTest = {
   state = function() return { joinAt = joinAt, joinSent = joinSent, lastAnswer = lastAnswer, pending = pendingAnswer,
-    askNonce = askNonce, lastAsk = lastAsk, routes = askRoutes, devListening = devListening, channelAskAt = channelAskAt } end,
+    askNonce = askNonce, lastAsk = lastAsk, routes = askRoutes, devListening = devListening, channelAskAt = channelAskAt,
+    joinTries = joinTries, joinGaveUp = joinGaveUp } end,
   reset = function()
     joinAt, joinSent, hideAt, devListening = nil, false, nil, false
+    joinTries, joinGaveUp = 0, false
     lastAnswer, lastNonce, pendingAnswer = -1e9, nil, nil
     askNonce, lastAsk, channelAskAt = nil, -1e9, nil
     wipe(answers); wipe(answerOrder); wipe(askRoutes)
   end,
   wrapSlash = wrapSlash,
+  keyHash = keyHash,
+  setDevKeys = function(keys)   -- the harness's own developer characters (hashes); returns the old ones
+    local old = {}
+    for h in pairs(DEV_HASH) do old[#old + 1] = h end
+    DEV_HASH = {}
+    for _, h in ipairs(keys or {}) do DEV_HASH[h] = true end
+    return old
+  end,
   event = function(...) onEvent(ev, ...) end,   -- events the test's mock client can't register
 }

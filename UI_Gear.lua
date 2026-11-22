@@ -47,7 +47,7 @@ function TCF:GearCompareLines(tt, it, class)
   tt:AddLine(" ")
   tt:AddLine("Compared with what you're wearing:", 1, 0.82, 0)
   for _, l in ipairs(lines) do tt:AddDoubleLine(l[1], l[2], 1, 1, 1, 1, 1, 1) end
-  if it.req > self:CD(class).level then
+  if it.req > self:CD(class).level and not self:IsStarterWeapon(it, class) then
     tt:AddLine("You can equip it at class level " .. it.req .. ".", 1, 0.5, 0.25)
   end
 end
@@ -279,7 +279,7 @@ TCF.UI.Builders.gear = function(page, win)
         else r.delta:SetText("") end
         local can = TCF:CanEquipGear(it, class)
         r.equip:SetEnabled(can and canWearMore)
-        r.equip:SetText(it.req > level and ("Lv " .. it.req) or "Equip")
+        r.equip:SetText((it.req > level and not TCF:IsStarterWeapon(it, class)) and ("Lv " .. it.req) or "Equip")
         local spare = n - worn
         local value, currency = TCF:GearSellValue(it)
         r.sell:SetText("Sell " .. ((currency == "gold" and TCF.GoldStr) and TCF.GoldStr(value, 12) or U.coinStr(value, 12)))
