@@ -41,6 +41,7 @@ SpellKitData.lua
 Adventure.lua
 AdventureRewards.lua
 Expeditions.lua
+ClassAchievements.lua
 Professions.lua
 Herbalism.lua
 FirstAid.lua
@@ -58,6 +59,7 @@ ItemSets.lua
 ItemSources.lua
 LootToast.lua
 Party.lua
+PartyExpeditions.lua
 DevView.lua
 Leaderboard.lua
 Casino.lua
@@ -73,6 +75,7 @@ UI_AdventureInfo.lua
 UI_DungeonBanner.lua
 UI_Abilities.lua
 UI_Expeditions.lua
+UI_PartyExpeditions.lua
 UI_Professions.lua
 UI_Leaderboard.lua
 UI_Casino.lua

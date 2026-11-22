@@ -40,10 +40,16 @@ local function state(self)
   return self.db.expeditions
 end
 
-function TCF:IsOnExpedition(class)
+-- a cat on a solo expedition (its expedition), or nil
+function TCF:SoloExpeditionOf(class)
   for _, ex in ipairs(state(self).active) do
     for _, m in ipairs(ex.members) do if m == class then return ex end end
   end
+end
+
+-- away on a solo expedition or a party expedition (PartyExpeditions.lua), or about to go on one
+function TCF:IsOnExpedition(class)
+  return self:SoloExpeditionOf(class) or (self.GroupExpBusy and self:GroupExpBusy(class)) or nil
 end
 
 function TCF:PartyPower(members)
@@ -94,6 +100,8 @@ function TCF:ClaimExpedition(index)
   local e = TCF.EXPEDITION_BY_KEY[ex.key]
   st.done = (st.done or 0) + 1
   self.db.stats.expeditions = (self.db.stats.expeditions or 0) + 1
+  -- class achievements: expeditions finished by each class's cat (ClassAchievements.lua)
+  if self.ClassCount then for _, c in ipairs(ex.members) do self:ClassCount(c, "exp", 1) end end
   -- every cat that went earns a little XP (5 per minute away; half if it failed)
   local won = random() <= ex.chance
   local xp = floor(e.dur / 60 * 5 * (won and 1 or 0.5))

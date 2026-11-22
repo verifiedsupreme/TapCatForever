@@ -1131,10 +1131,13 @@ function TCF:CreateWindow()
     rows[i] = r
   end
   local acPage = Text(ac, "GameFontHighlightSmall"); acPage:SetPoint("BOTTOM", 0, 12)
+  -- class achievements (ClassAchievements.lua): the Account / This class filter and class picker
+  if TCF.ClassAchBuild then TCF:ClassAchBuild(win, ac, rows, acHeader, acPage, ROWS_A) end
   ac:EnableMouseWheel(true)
   ac:SetScript("OnMouseWheel", function(_, d) win.acScroll = max(0, (win.acScroll or 0) - d); win:RefreshAchievements() end)
 
   function win:RefreshAchievements()
+    if TCF.ClassAchRefresh and TCF:ClassAchRefresh(self) then return end
     local list, done = {}, 0
     for _, a in ipairs(TCF.ACHIEVEMENTS) do
       list[#list + 1] = a
