@@ -15,7 +15,8 @@
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel only, every field checked; v = 1):
 --   G1;v;id;place;len;diff;power;cats           invite (the starter's Power and cats)
---   G2;v;id;answer;power;cats                   y accept (with my Power and cats), n decline, b busy
+--   G2;v;id;answer;power;cats                   y accept (with my Power and cats), n decline, b busy,
+--                                               s seen (I got it and will answer: the starter waits for me)
 --   G3;v;id;place;len;diff;start;seed;players   start: players = name:power:cats,name:power:cats...
 --   G4;v;id;reason                              called off: x withdrawn, n nobody joined
 --   G5;v;id                                     I accepted but never saw the start: please send it again
@@ -33,9 +34,13 @@ GX.INVITE_TIME = 60         -- an invite waits this long for an answer (no answe
 GX.MAX_PLAYERS = 5
 GX.MAX_CATS = 3             -- cats per player
 local START_WAIT = 30       -- after the invite ran out: how long an accepted player waits for the start
+local LATE_MAX = 240        -- the starter keeps trying to send the start this long after the invite ran out
+local LATE_KEEP = 300       -- an accepted player still takes a late start this long after the invite ran out
+local ACK_GRACE = 5         -- seconds the starter waits for "seen" answers before counting who is still to answer
+local MAX_ASKS = 6          -- G5 asks per accepted player (and per player on the starter's side)
 local RESEND_AT = { 4, 12 } -- the starter sends the start again this many seconds later (lost messages)
 local IN_WINDOW, IN_MAX = 10, 20
-local OUT_RETRY, OUT_TRIES, OUT_MAX = 2, 10, 8
+local OUT_RETRY, OUT_TRIES, OUT_MAX = 2, 60, 8   -- refused sends are tried again for about 2 minutes
 local MUTE_AFTER_NO = 20    -- after you decline, that player's invites wait this long
 
 GX.LENGTHS = { { 15 * 60, "15 min" }, { 30 * 60, "30 min" }, { 3600, "1 h" }, { 2 * 3600, "2 h" }, { 4 * 3600, "4 h" } }
@@ -111,7 +116,9 @@ end
 -- the chance of success in permille (the same on every client: integers in, integer out)
 function TCF.GroupExpChance(power, need)
   local r = (power or 0) / max(1, need or 1)
-  return floor(1000 * max(0.05, min(0.97, 0.2 + 0.77 * r * r)) + 0.5)
+  -- from 5% with no Power at all up to 97% at the Power needed (a group with no progress can't farm
+  -- Heroic raids)
+  return floor(1000 * min(0.97, 0.05 + 0.92 * r * r) + 0.5)
 end
 
 -- success or not, from the shared seed: every client gets the same answer
@@ -286,18 +293,27 @@ local function rawSend(text)
   return ok and (res == nil or res == true or res == 0 or
     (Enum and Enum.SendAddonMessageResult and res == Enum.SendAddonMessageResult.Success)) and true or false
 end
-local function send(kind, ...)
+-- sends now, or queues it while sending is refused; onSent runs once it has really gone out
+local function sendThen(onSent, kind, ...)
   local text = table.concat({ kind, VER, ... }, ";")
   if #text > 250 then return false end
-  if rawSend(text) then return true end
-  if #outQ < OUT_MAX then outQ[#outQ + 1] = { text = text, at = now() + OUT_RETRY, tries = 1 } end
+  if rawSend(text) then
+    if onSent then onSent() end
+    return true
+  end
+  if #outQ < OUT_MAX then outQ[#outQ + 1] = { text = text, at = now() + OUT_RETRY, tries = 1, onSent = onSent } end
   return false
 end
+local function send(kind, ...) return sendThen(nil, kind, ...) end
 local function flushQueue()
   if #outQ == 0 then return end
   local q = outQ[1]
   if now() < q.at then return end
-  if rawSend(q.text) then table.remove(outQ, 1); return end
+  if rawSend(q.text) then
+    table.remove(outQ, 1)
+    if q.onSent then q.onSent() end
+    return
+  end
   q.tries, q.at = q.tries + 1, now() + OUT_RETRY
   if q.tries > OUT_TRIES or not inGroup() then table.remove(outQ, 1) end
 end
@@ -318,7 +334,9 @@ GX.Describe = describe
 
 ---------------------------------------------------------------- starting one (the starter)
 -- GX.out = { id, place, len, diff, cats, power, expires, answers = { base = { name, ans, power, cats, at } },
---   order = { base... } (accepts in the order they came), expected = number of addon friends }
+--   order = { base... } (accepts in the order they came), seen = { base = true } (players whose client
+--   said it got the invite: only they are waited for, so members on an older version don't hold it up),
+--   sentAt (when the invite really went out), startNow (start as soon as the group can hear it) }
 local function busy(self)
   if store(self).group then return "Your cats are already on a party expedition. Claim it first." end
   if GX.out then return "You already sent an invite." end
@@ -337,9 +355,13 @@ function TCF:GroupExpInvite(placeKey, len, diff, cats)
   if not list then return false, err end
   local id = newId()
   local power = self:GroupExpPower(list)
-  GX.out = { id = id, place = placeKey, len = len, diff = diff, cats = list, power = power,
-    expires = now() + GX.INVITE_TIME + 3, answers = {}, order = {}, expected = #addonFriends() }
-  send("G1", id, placeKey, len, diff, power, codesOf(list))
+  local o = { id = id, place = placeKey, len = len, diff = diff, cats = list, power = power,
+    expires = now() + GX.INVITE_TIME + 3, answers = {}, order = {}, seen = {} }
+  GX.out = o
+  -- the 60 seconds count from when the invite really went out (sending can be refused for a while)
+  sendThen(function()
+    if GX.out == o then o.sentAt = now(); o.expires = o.sentAt + GX.INVITE_TIME + 3 end
+  end, "G1", id, placeKey, len, diff, power, codesOf(list))
   self:Print(string.format("You invited your group: |cffffd100%s|r. Waiting for answers.", describe(placeKey, len, diff)), true)
   notify()
   return true
@@ -384,6 +406,9 @@ local function begin(self, id, placeKey, len, diff, start, seed, players, mine)
   return g
 end
 
+-- Sends the start and saves it. When the group can't get messages right now (sending refused, as in
+-- combat in an instance) nothing is saved: it returns false, why, true and sets off as soon as it can,
+-- so the starter never has an expedition the others don't know about.
 function TCF:GroupExpStartNow()
   local out = GX.out
   if not out then return false end
@@ -400,11 +425,14 @@ function TCF:GroupExpStartNow()
     table.remove(players)
     text = encodePlayers(players)
   end
+  if not rawSend(table.concat({ "G3", VER, out.id, out.place, out.len, out.diff, start, seed, text }, ";")) then
+    out.startNow = true
+    return false, "Your group can't get addon messages right now (in combat, for example). It sets off as soon as they can.", true
+  end
   GX.out = nil
   local g = begin(self, out.id, out.place, out.len, out.diff, start, seed, players, list)
   g.starter = true
-  send("G3", out.id, out.place, out.len, out.diff, start, seed, text)
-  GX.resend = { id = out.id, at = now(), n = 0, text = { out.place, out.len, out.diff, start, seed, text } }
+  GX.resend = { id = out.id, at = now(), n = 0, asked = {}, text = { out.place, out.len, out.diff, start, seed, text } }
   local names = {}
   for i = 2, #players do names[#names + 1] = players[i].name end
   self:Print(string.format("Your party expedition set out: |cffffd100%s|r with %s (back in %s, %d%% chance).",
@@ -439,12 +467,18 @@ function TCF:GroupExpAnswer(yes, cats)
   send("G2", inv.id, "y", inv.power, codesOf(list))
   notify()
   if again then return true end     -- a new choice of cats: no second chat line
+  GX.repickAt = nil
   local names = {}
   for _, c in ipairs(list) do names[#names + 1] = TCF.CLASS_BY_KEY[c].name end
   self:Print(string.format("You joined %s's party expedition with your %s cat%s. It starts when %s sends it off.",
     inv.from, table.concat(names, ", "), #list == 1 and "" or "s", inv.from), true)
-  notify()
   return true
+end
+
+-- the cats picked in the Party view changed after accepting: tell the starter once the clicking stops
+function TCF:GroupExpRepick()
+  local inv = GX.inv
+  if inv and inv.state == "accepted" then GX.repickAt = now() + 1.5 end
 end
 
 -- the pending invite, for the prompt and the Expeditions tab
@@ -478,6 +512,7 @@ local function onInvite(sender, id, place, len, diff, power, codes)
   end
   GX.inv = { id = id, from = shortName(m.name), fromBase = b, place = place, len = len, diff = diff, power = power, cats = nil,
     theirCats = cats, expires = now() + GX.INVITE_TIME, state = "invited" }
+  send("G2", id, "s", 0, "-")                 -- "I got it": the starter waits for my answer
   if TCF.PlaySound then TCF:PlaySound("click") end
   notify()
 end
@@ -488,6 +523,7 @@ local function onAnswer(sender, id, ans, power, codes)
   local m = friendNamed(sender)
   if not m then return end
   local b = base(sender)
+  if ans == "s" then out.seen[b] = true; return end
   local a = out.answers[b]
   if ans == "y" then
     power = tonumber(power)
@@ -511,9 +547,17 @@ local function onAnswer(sender, id, ans, power, codes)
   notify()
 end
 
+-- a player name from a message: no colour codes, links or textures, no realm
+local function cleanName(s)
+  s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", ""):gsub("|A.-|a", "")
+    :gsub("|H.-|h", ""):gsub("|K.-|k", "")
+  return shortName(s)
+end
+GX.CleanName = cleanName
+
 local function parsePlayers(text)
   if type(text) ~= "string" then return nil end
-  local list, n = {}, 0
+  local list, n, names = {}, 0, {}
   for entry in text:gmatch("[^,]+") do
     n = n + 1
     if n > GX.MAX_PLAYERS then return nil end
@@ -521,6 +565,10 @@ local function parsePlayers(text)
     power = tonumber(power)
     local cats = catsOf(codes)
     if not name or not power or power > 1e7 or not cats or #name > 48 then return nil end
+    name = cleanName(name)
+    local b = base(name)
+    if name == "?" or not b or names[b] then return nil end   -- an empty name, or a player twice
+    names[b] = true
     list[#list + 1] = { name = name, power = power, cats = cats }
   end
   if #list < 2 then return nil end
@@ -532,20 +580,23 @@ local function onStart(sender, id, place, len, diff, start, seed, playersText)
   local g = store(TCF).group
   if g and g.id == id then return end          -- already have it (a resent start)
   if not inv or inv.id ~= id or base(sender) ~= inv.fromBase then return end
+  if g then return end                         -- busy with another one (can't happen when accepted)
   if inv.state == "invited" then
     -- it set off before you answered: the invite goes away
     inv.state, inv.result = "over", "full"
     notify()
     return
   end
-  if inv.state ~= "accepted" then return end
+  -- a start that came after we stopped waiting (the starter couldn't send for a while) still counts
+  local late = inv.state == "over" and inv.result == "nostart"
+  if inv.state ~= "accepted" and not late then return end
   len, diff, start, seed = tonumber(len), tonumber(diff), tonumber(start), tonumber(seed)
   if place ~= inv.place or len ~= inv.len or diff ~= inv.diff then return end
   if not start or not seed or start ~= floor(start) or seed ~= floor(seed) then return end
   local t = serverNow()
   if t > 0 and math.abs(start - t) > 3600 then return end   -- a start time that makes no sense
   local players = parsePlayers(playersText)
-  if not players then return end
+  if not players or base(players[1].name) ~= inv.fromBase then return end   -- the starter comes first
   local mine = base(myName())
   local found
   for _, p in ipairs(players) do if base(p.name) == mine then found = p end end
@@ -556,9 +607,20 @@ local function onStart(sender, id, place, len, diff, start, seed, playersText)
     notify()
     return
   end
-  -- our own cats are the ones we accepted with (a cat that left meanwhile still counts here)
+  -- our own cats are the ones we accepted with (a cat that left meanwhile still counts here); after a
+  -- late start only the ones still free go
+  local cats = inv.cats
+  if late then
+    cats = {}
+    for _, c in ipairs(inv.cats or {}) do if validCats(TCF, { c }) then cats[#cats + 1] = c end end
+    if #cats == 0 then
+      TCF:Print(string.format("%s's party expedition set out late, and your cats had already gone elsewhere.", inv.from), true)
+      notify()
+      return
+    end
+  end
   inv.result = "started"
-  local g2 = begin(TCF, id, place, len, diff, start, seed, players, inv.cats)
+  local g2 = begin(TCF, id, place, len, diff, start, seed, players, cats)
   g2.from = inv.from
   local names = {}
   for _, p in ipairs(players) do if p ~= found then names[#names + 1] = p.name end end
@@ -576,12 +638,14 @@ local function onCancel(sender, id, reason)
 end
 
 local function onAsk(sender, id)
-  -- someone who accepted missed the start: send it again (at most a few times)
+  -- someone who accepted missed the start: send it again (at most a few times for each player)
   local g = store(TCF).group
   local r = GX.resend
   if not g or g.id ~= id or not g.starter or not r or r.id ~= id then return end
-  r.asked = (r.asked or 0) + 1
-  if r.asked > 6 then return end
+  local b = base(sender)
+  if not b then return end
+  r.asked[b] = (r.asked[b] or 0) + 1
+  if r.asked[b] > MAX_ASKS then return end
   local x = r.text
   send("G3", id, x[1], x[2], x[3], x[4], x[5], x[6])
 end
@@ -647,9 +711,10 @@ function TCF:GroupExpClaim()
     canLevel and string.format(", +%d XP for each cat", xp) or ""), true)
   local main, extra = TCF.GroupExpChests(g.place, g.diff)
   for _ = 1, rolls do
-    if random() < chance then self:AwardChest(main, label, true) end
+    if random() < chance then self:AwardChest(main, label, true, g.mine and g.mine[1]) end
   end
-  if extra and random() < extraChance then self:AwardChest(extra, label, true) end
+  -- (the 4th argument: the cat the chest goes to, once chests belong to a class cat; ignored before)
+  if extra and random() < extraChance then self:AwardChest(extra, label, true, g.mine and g.mine[1]) end
   if self.RollSkinSource then
     self:RollSkinSource("expedition", function(x) return x.expedition == "any" end, "Your party brought it home from " .. name, true)
   end
@@ -659,9 +724,11 @@ end
 
 ---------------------------------------------------------------- the invite above your cat
 -- the one allowed pop-up for this: a small Accept / Decline box just above the screen cat. It never
--- takes the keyboard, waits during combat (the invite is in the Expeditions tab too) and sits above
--- a casino invite when both are open.
+-- takes the keyboard, shrinks to a smaller box during combat (so the 60 seconds never run out
+-- unseen; the invite is in the Expeditions tab too) and sits next to a casino invite when both are
+-- open (above it, or below it when the casino invite sits below the cat).
 local prompt
+local SIZE = { full = { 260, 72, 20 }, small = { 196, 56, 18 } }   -- width, button width, button height
 local function buildPrompt()
   local U = TCF.UI
   local f = CreateFrame("Frame", "TapCatForeverGroupExpPrompt", UIParent, U and U.BT)
@@ -687,18 +754,42 @@ local function buildPrompt()
   return f
 end
 
-local function placePrompt()
+local function setSize(small)
+  local z = small and SIZE.small or SIZE.full
+  prompt.small = small
+  prompt:SetWidth(z[1])
+  prompt.text:SetWidth(z[1] - 14)
+  prompt.yes:SetSize(z[2], z[3]); prompt.no:SetSize(z[2], z[3])
+  prompt.yes:ClearAllPoints(); prompt.yes:SetPoint("BOTTOMLEFT", 10, small and 6 or 8)
+  prompt.left:ClearAllPoints(); prompt.left:SetPoint("BOTTOMRIGHT", -12, small and 10 or 12)
+end
+
+local function num(v) return type(v) == "number" and not isSecret(v) and v or nil end
+
+local function placePrompt(minH)
   prompt:ClearAllPoints()
   local th = prompt.text.GetStringHeight and prompt.text:GetStringHeight()
-  local h = (type(th) == "number" and th > 0) and floor(th + 0.5) + 40 or 66
-  prompt:SetHeight(max(66, h))
-  local dr = _G.TapCatForeverDeathRollPrompt
-  if dr and dr:IsShown() then prompt:SetPoint("BOTTOM", dr, "TOP", 0, 4); prompt.over = "casino"; return end
-  prompt.over = "cat"
+  local h = (type(th) == "number" and th > 0) and floor(th + 0.5) + (prompt.small and 34 or 40) or minH
+  h = max(minH, h)
+  prompt:SetHeight(h)
   local hud = TCF.hud
+  local dr = _G.TapCatForeverDeathRollPrompt
+  if dr and dr:IsShown() then
+    -- next to the casino invite: below it when it sits below the cat (the cat is near the top of the
+    -- screen), so neither covers the cat
+    local drTop = num(dr.GetTop and dr:GetTop())
+    local hudTop = hud and hud:IsShown() and num(hud.GetTop and hud:GetTop())
+    if drTop and hudTop and drTop < hudTop then
+      prompt:SetPoint("TOP", dr, "BOTTOM", 0, -4); prompt.over = "casino-below"
+    else
+      prompt:SetPoint("BOTTOM", dr, "TOP", 0, 4); prompt.over = "casino"
+    end
+    return
+  end
+  prompt.over = "cat"
   if hud and hud:IsShown() then
-    local top, ptop = hud.GetTop and hud:GetTop(), UIParent.GetTop and UIParent:GetTop()
-    if type(top) == "number" and type(ptop) == "number" and top + 22 + h > ptop then
+    local top, ptop = num(hud.GetTop and hud:GetTop()), num(UIParent.GetTop and UIParent:GetTop())
+    if top and ptop and top + 22 + h > ptop then
       prompt:SetPoint("TOP", hud, "BOTTOM", 0, -8)
     else
       prompt:SetPoint("BOTTOM", hud, "TOP", 0, 22)
@@ -710,20 +801,26 @@ local function inCombat() return InCombatLockdown and InCombatLockdown() and tru
 
 local function updatePrompt()
   local inv = GX.inv
-  local show = inv and inv.state == "invited" and not inCombat()
+  local show = inv and inv.state == "invited"
   if not show then
     if prompt then prompt:Hide() end
     return
   end
   if not prompt then prompt = buildPrompt() end
-  local cl = TCF.CLASS_BY_KEY[TCF.db.class]
-  local cats = TCF:GroupExpDefaultCats()
-  local catText = #cats == 1 and string.format("Sends your %s cat", TCF.CLASS_BY_KEY[cats[1]].name)
-    or string.format("Sends %d of your cats", #cats)
-  prompt.text:SetText(string.format("%s invites your cat: %s\n|cffaaaaaa%s. More cats: Expeditions tab.|r",
-    inv.from, describe(inv.place, inv.len, inv.diff), catText))
+  local small = inCombat()
+  setSize(small)
+  if small then
+    -- in combat: one short line and smaller buttons
+    prompt.text:SetText(string.format("%s invites your cat", inv.from))
+  else
+    local cats = TCF:GroupExpDefaultCats()
+    local catText = #cats == 1 and string.format("Sends your %s cat", TCF.CLASS_BY_KEY[cats[1]].name)
+      or string.format("Sends %d of your cats", #cats)
+    prompt.text:SetText(string.format("%s invites your cat: %s\n|cffaaaaaa%s. More cats: Expeditions tab.|r",
+      inv.from, describe(inv.place, inv.len, inv.diff), catText))
+  end
   prompt.left:SetText(string.format("%d s", max(0, floor(inv.expires - now()))))
-  placePrompt()
+  placePrompt(small and 46 or 66)
   prompt:Show()
 end
 GX.UpdatePrompt = updatePrompt
@@ -734,6 +831,10 @@ local function tick()
   local t = now()
   local inv = GX.inv
   if inv then
+    if inv.state == "accepted" and (inCombat() or #outQ > 0) then
+      -- we may not hear the start (or our answer is still waiting to go out): keep waiting
+      inv.waitUntil = max(inv.waitUntil, t + 5)
+    end
     if inv.state == "invited" and t >= inv.expires then
       -- no answer in time counts as a decline
       inv.state, inv.result = "over", "timeout"
@@ -744,25 +845,43 @@ local function tick()
       inv.state, inv.result = "over", "nostart"
       TCF:Print(string.format("%s's party expedition didn't start.", inv.from), true)
       notify()
-    elseif inv.state == "accepted" and t >= inv.expires + 8 and (inv.asked or 0) < 3 and t >= (inv.askAt or 0) then
+    elseif inv.state == "accepted" and t >= inv.expires + 8 and (inv.asked or 0) < MAX_ASKS and t >= (inv.askAt or 0)
+      and not inCombat() and #outQ == 0 then
       inv.asked, inv.askAt = (inv.asked or 0) + 1, t + 8
       send("G5", inv.id)
-    elseif inv.state == "over" and t >= (inv.expires or 0) + START_WAIT + 30 then
+    elseif inv.state == "over" and t >= (inv.expires or 0) + (inv.result == "nostart" and LATE_KEEP or START_WAIT + 30) then
       GX.inv = nil
       notify()
+    end
+    if GX.repickAt and t >= GX.repickAt then
+      GX.repickAt = nil
+      if inv.state == "accepted" then TCF:GroupExpAnswer(true, TCF:GroupExpDefaultCats()) end
     end
   end
   local out = GX.out
   if out then
-    local accepted, answered = 0, 0
+    local accepted, waiting = 0, 0
     for _, a in pairs(out.answers) do
-      answered = answered + 1
       if a.ans == "y" then accepted = accepted + 1 end
     end
-    local all = answered >= out.expected or accepted >= GX.MAX_PLAYERS - 1
-    if (all and accepted > 0) or (t >= out.expires and accepted > 0) then
-      local ok, err = TCF:GroupExpStartNow()
-      if not ok then
+    local heard = 0
+    for _ in pairs(out.answers) do heard = heard + 1 end
+    for b in pairs(out.seen) do if not out.answers[b] then waiting, heard = waiting + 1, heard + 1 end end
+    -- everyone answered: all who said they got the invite (members on an older version never do; a
+    -- few seconds for the "seen" answers, unless every addon friend has been heard from already)
+    local acked = out.sentAt and (t >= out.sentAt + ACK_GRACE or heard >= #addonFriends())
+    local all = (acked and waiting == 0) or accepted >= GX.MAX_PLAYERS - 1
+    if out.startNow or (all and accepted > 0) or (t >= out.expires and accepted > 0) then
+      local ok, err, wait = TCF:GroupExpStartNow()
+      if not ok and wait then
+        -- the group can't hear us right now: try again, up to a few minutes
+        if t >= out.expires + LATE_MAX or not inGroup() then
+          GX.out = nil
+          send("G4", out.id, "n")
+          TCF:Print("Your group couldn't get your messages for a few minutes, so the party expedition didn't start.", true)
+          notify()
+        end
+      elseif not ok then
         GX.out = nil
         send("G4", out.id, "n")
         if err then TCF:Print(err, true) end
@@ -771,7 +890,11 @@ local function tick()
     elseif (all and accepted == 0) or t >= out.expires or not inGroup() then
       GX.out = nil
       send("G4", out.id, "n")
-      TCF:Print("Nobody joined your party expedition.", true)
+      if next(out.seen) == nil and next(out.answers) == nil and out.sentAt then
+        TCF:Print("Nobody joined your party expedition. Group members need the newest TapCatForever to join.", true)
+      else
+        TCF:Print("Nobody joined your party expedition.", true)
+      end
       notify()
     end
   end

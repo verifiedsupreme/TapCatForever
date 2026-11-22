@@ -89,11 +89,7 @@ TCF.UI.BuildPartyExpeditions = function(page, win)
         if n < GX.MAX_CATS then GX.picked[cl.key] = true end
       end
       -- after accepting, a new choice goes to the starter until the expedition sets off
-      local x = GX.inv
-      if x and x.state == "accepted" then
-        local cats = TCF:GroupExpDefaultCats()
-        TCF:GroupExpAnswer(true, cats)
-      end
+      TCF:GroupExpRepick()
       TCF:PlaySound("click"); win:Refresh()
     end)
     Tip(b, function(tt)
@@ -132,8 +128,12 @@ TCF.UI.BuildPartyExpeditions = function(page, win)
     b:SetPoint("TOPLEFT", 110 + (i - 1) * 84, -297)
     Tip(b, function(tt)
       tt:AddLine(D.name, 1, 0.82, 0)
-      tt:AddLine(string.format("Needs %s the Power of Normal. Rewards: %s.", i == 1 and "the" or (D.req .. " times"),
-        i == 1 and "the usual" or string.format("%d%% more XP, TapCoins and chest chance", floor((D.reward - 1) * 100 + 0.5))), 1, 1, 1, true)
+      if i == 1 then
+        tt:AddLine("Needs the usual Power. Usual rewards.", 1, 1, 1, true)
+      else
+        tt:AddLine(string.format("Needs %s times the Power of Normal. Rewards: %d%% more XP, TapCoins and chest chance.", D.req,
+          floor((D.reward - 1) * 100 + 0.5)), 1, 1, 1, true)
+      end
       if i == 3 then tt:AddLine("Heroic also has a chance of a Dungeon Chest (dungeons) or a Raider's Hoard (raids).", 0.8, 0.8, 0.8, true) end
     end)
     diffBtns[i] = b
@@ -152,6 +152,7 @@ TCF.UI.BuildPartyExpeditions = function(page, win)
   Tip(go, function(tt)
     tt:AddLine("Invite my group", 1, 0.82, 0)
     tt:AddLine("Group members with TapCatForever get a small invite above their cat for 60 seconds. It sets off when everyone has answered, or after 60 seconds with at least one player.", 1, 1, 1, true)
+    tt:AddLine("Group members on an older TapCatForever can't join.", 0.7, 0.7, 0.7, true)
   end)
   local note = Text(page, "GameFontDisableSmall", nil, "LEFT"); note:SetPoint("LEFT", go, "RIGHT", 10, 0); note:SetWidth(360)
 

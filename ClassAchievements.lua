@@ -32,7 +32,7 @@ TCF.CLASS_ACHIEVEMENTS = {
   { id = "c_lvl40",    name = "Veteran Whiskers",      stat = "level",      goal = 40, coins = 25, chest = "strong",  icon = "Spell_Holy_SealOfWisdom" },
   { id = "c_lvl50",    name = "Old Hand",              stat = "level",      goal = 50, coins = 30, chest = "strong",  icon = "Spell_Holy_SealOfSalvation" },
   { id = "c_lvl60",    name = "Top of the Class",      stat = "level",      goal = 60, coins = 50, chest = "heroic",  icon = "Spell_Holy_DivineIntervention", legend = true },
-  { id = "c_world",    name = "Out and About",         stat = "world",      goal = 2,  coins = 10, chest = "pouch",   icon = "INV_Misc_Map_01" },
+  { id = "c_world",    name = "Out and About",         stat = "world",      goal = "all", coins = 10, chest = "pouch",   icon = "INV_Misc_Map_01" },
   { id = "c_dung1",    name = "First Delve",           stat = "dungeons",   goal = 1,  coins = 10, chest = "pouch",   icon = "INV_Misc_Key_03" },
   { id = "c_dung5",    name = "Dungeon Delver",        stat = "dungeons",   goal = 5,  coins = 20, chest = "dungeon", icon = "INV_Misc_Key_03" },
   { id = "c_dung10",   name = "Deep Delver",           stat = "dungeons",   goal = 10, coins = 25, chest = "dungeon", icon = "INV_Misc_Key_10" },
@@ -55,18 +55,34 @@ for _, a in ipairs(TCF.CLASS_ACHIEVEMENTS) do TCF.CLASS_ACH_BY_ID[a.id] = a end
 
 local DESC = {
   level = "Reach level %s.",
-  world = "Clear Elwynn Forest and Westfall in Adventure.",
-  dungeons = "Clear %s Adventure dungeon(s).",
-  raids = "Clear %s Adventure raid(s).",
+  dungeons = "Clear %s Adventure dungeons.",
+  raids = "Clear %s Adventure raids.",
   abilities = "Learn every ability of this class.",
   rareSet = "Wear Rare or better gear on head, shoulders, chest, wrists, hands, waist, legs, feet and main hand.",
   epicSet = "Wear Epic gear on head, shoulders, chest, wrists, hands, waist, legs, feet and main hand.",
   craftSkill = "Reach %s skill in this cat's crafting profession.",
   craftedWorn = "Wear %s pieces of crafted gear at once.",
-  exp = "Finish %s expeditions with this cat in the party.",
-  party = "Finish %s party expedition(s) with this cat.",
+  exp = "Finish %s expeditions (solo or party) with this cat.",
+  party = "Finish %s party expeditions with this cat.",
 }
+local DESC_ONE = { dungeons = "Clear an Adventure dungeon.", raids = "Clear an Adventure raid.",
+  exp = "Finish an expedition (solo or party) with this cat.", party = "Finish a party expedition with this cat.",
+  craftedWorn = "Wear a piece of crafted gear." }
 local DESC_ALL = { dungeons = "Clear every Adventure dungeon.", raids = "Clear every Adventure raid." }
+
+-- "Clear Elwynn Forest and Westfall in Adventure.": the open-world Adventure zones, by name
+local worldDesc
+local function worldText()
+  if worldDesc then return worldDesc end
+  local names = {}
+  for _, t in ipairs(TCF.TIERS or {}) do
+    if not t.raid and not (TCF.IsDungeonTier and TCF.IsDungeonTier(t)) then names[#names + 1] = t.name end
+  end
+  local list = #names <= 1 and (names[1] or "every zone")
+    or table.concat(names, ", ", 1, #names - 1) .. " and " .. names[#names]
+  worldDesc = "Clear " .. list .. " in Adventure."
+  return worldDesc
+end
 
 -- tier counts, worked out once the tier data has loaded
 local counts
@@ -92,7 +108,9 @@ function TCF:ClassAchGoal(a, class)
 end
 
 function TCF:ClassAchDesc(a, class)
+  if a.stat == "world" then return worldText() end
   if a.goal == "all" then return DESC_ALL[a.stat] or DESC[a.stat] end
+  if a.goal == 1 and DESC_ONE[a.stat] then return DESC_ONE[a.stat] end
   return string.format(DESC[a.stat] or "%s", BreakUpLargeNumbers and BreakUpLargeNumbers(a.goal) or tostring(a.goal))
 end
 
@@ -138,18 +156,35 @@ local function cleared(cd, ti, t)
   return best >= ti * 100 + #t.bosses * 2
 end
 
-function TCF:ClassStat(stat, class)
+-- zones, dungeons and raids cleared, in one pass over the tiers
+local function clearedCounts(cd)
+  local c = { world = 0, dungeons = 0, raids = 0 }
+  for ti, t in ipairs(TCF.TIERS or {}) do
+    if cleared(cd, ti, t) then
+      local kind = t.raid and "raids" or ((TCF.IsDungeonTier and TCF.IsDungeonTier(t)) and "dungeons" or "world")
+      c[kind] = c[kind] + 1
+    end
+  end
+  return c
+end
+
+-- cache: a table filled during one check, so each stat is read once per class
+function TCF:ClassStat(stat, class, cache)
+  if cache and cache[stat] ~= nil then return cache[stat] end
+  local v = self:ClassStatRaw(stat, class, cache)
+  if cache then cache[stat] = v end
+  return v
+end
+
+function TCF:ClassStatRaw(stat, class, cache)
   class = class or self.db.class
   local cd = self.db.classData[class]
   if not cd then return 0 end
   if stat == "level" then return cd.level or 1
   elseif stat == "world" or stat == "dungeons" or stat == "raids" then
-    local n = 0
-    for ti, t in ipairs(TCF.TIERS or {}) do
-      local kind = t.raid and "raids" or ((TCF.IsDungeonTier and TCF.IsDungeonTier(t)) and "dungeons" or "world")
-      if kind == stat and cleared(cd, ti, t) then n = n + 1 end
-    end
-    return n
+    local c = clearedCounts(cd)
+    if cache then for k, v in pairs(c) do cache[k] = v end end
+    return c[stat]
   elseif stat == "abilities" then
     local n = 0
     for _, ab in ipairs(TCF.ABILITIES and TCF.ABILITIES[class] or {}) do
@@ -191,7 +226,7 @@ local function deliver(self, class)
   for _, id in ipairs(list) do
     local a = TCF.CLASS_ACH_BY_ID[id]
     if a and a.chest and TCF.CHEST_BY_KEY[a.chest] then
-      self:AwardChest(a.chest, TCF.CLASS_BY_KEY[class].name .. " achievement " .. a.name)
+      self:AwardChest(a.chest, TCF.CLASS_BY_KEY[class].name .. " achievement " .. a.name, nil, class)
     end
   end
 end
@@ -206,8 +241,9 @@ function TCF:CheckClassAchievements(quiet)
   for _, cl in ipairs(TCF.CLASSES) do
     local class = cl.key
     earned[class] = earned[class] or {}
+    local cache = {}
     for _, a in ipairs(TCF.CLASS_ACHIEVEMENTS) do
-      if not earned[class][a.id] and self:ClassStat(a.stat, class) >= self:ClassAchGoal(a, class) then
+      if not earned[class][a.id] and self:ClassStat(a.stat, class, cache) >= self:ClassAchGoal(a, class) then
         earned[class][a.id] = time()
         n = n + 1
         if a.coins and a.coins > 0 then self:AddCoins(a.coins) end
@@ -219,7 +255,7 @@ function TCF:CheckClassAchievements(quiet)
         local extra = ""
         if it and not self.db.owned[it.id] then
           self.db.owned[it.id] = 1
-          extra = " and " .. TCF.ItemLink(it) .. " (cosmetic only)"
+          extra = " and " .. TCF.ItemLink(it) .. " (Cosmetic only)"
         end
         if not quiet then
           local wait = (a.chest and class ~= self.db.class) and string.format(" Its chest waits until you play your %s cat.", cl.name) or ""
@@ -377,7 +413,7 @@ function TCF:ClassAchRefresh(win)
       local rw = coinStr(a.coins or 0, 12)
       if ch then rw = rw .. " + " .. ch.name end
       local it = self:ClassAchItem(a, class)
-      if it then rw = rw .. " + " .. TCF.ItemLink(it) end
+      if it then rw = rw .. " + " .. TCF.ItemLink(it) .. " |cffaaaaaa(Cosmetic only)|r" end
       r.reward:SetText(rw)
       if r.SetBackdropBorderColor then
         if got then r:SetBackdropBorderColor(1, 0.82, 0.2, 1) else r:SetBackdropBorderColor(0.45, 0.40, 0.55, 1) end
@@ -394,7 +430,7 @@ function TCF:ClassAchRefresh(win)
             ch.name:find("^[AEIOU]") and "an" or "a", ch.name, cl.name), 0.8, 0.8, 0.8, true)
           if waiting then GameTooltip:AddLine("The chest waits until you play this cat.", 1, 0.6, 0.2, true) end
         end
-        if it then GameTooltip:AddLine(it.name .. ": cosmetic only.", 0.8, 0.8, 0.8, true) end
+        if it then GameTooltip:AddLine(it.name .. ": Cosmetic only. It changes how your cat looks, not its Power.", 0.8, 0.8, 0.8, true) end
         if got then GameTooltip:AddLine("Earned for your account: no other " .. cl.name .. " cat can earn it again.", 0.6, 0.8, 1, true) end
         GameTooltip:Show()
       end)

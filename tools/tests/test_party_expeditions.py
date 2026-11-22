@@ -1,7 +1,7 @@
 # Party expeditions (PartyExpeditions.lua, UI_PartyExpeditions.lua): group members with the addon send
 # their cats out together. 3-5 simulated clients pass addon messages through the party/raid channel.
 # Checks: the invite prompt above the screen cat (text, Accept / Decline, 60 s timeout that counts as
-# a decline, waits during combat, sits above a casino invite), one pending invite at a time, the
+# a decline, smaller during combat, sits above a casino invite), one pending invite at a time, the
 # start (everyone stores the same expedition: id, start, length, difficulty, seed, players, Power,
 # chance), it keeps running after the group breaks up and through a /reload, everyone gets the same
 # result and claims their own rewards once (XP, TapCoins, chests, class achievement counts), its own
@@ -126,7 +126,7 @@ def _numbers(load_addon):
       -- more players and harder difficulties need more
       local p = places[5].key
       if not (T.GroupExpNeed(p, 1, 2) < T.GroupExpNeed(p, 1, 3) and T.GroupExpNeed(p, 1, 3) < T.GroupExpNeed(p, 2, 3) and T.GroupExpNeed(p, 2, 3) < T.GroupExpNeed(p, 3, 3)) then return "need order" end
-      if T.GroupExpChance(0, 100) ~= 200 or T.GroupExpChance(100, 100) ~= 970 or T.GroupExpChance(1e9, 100) ~= 970 then return "chance curve" end
+      if T.GroupExpChance(0, 100) ~= 50 or T.GroupExpChance(100, 100) ~= 970 or T.GroupExpChance(1e9, 100) ~= 970 then return "chance curve" end
       -- rewards grow with length, difficulty and players; TapCoins stay scarce
       local function coins(l, d, n) local _, c = T.GroupExpRewards(p, l, d, n); return c end
       if not (coins(1, 1, 2) < coins(5, 1, 2) and coins(5, 1, 2) < coins(5, 3, 2) and coins(5, 3, 2) < coins(5, 3, 5)) then return "rewards grow" end
@@ -269,7 +269,7 @@ def _edges(seed, load_addon):
     net.pump(4)
     ck(not net.ev("Bob", "_prompt()") and net.ev("Bob", "_inv('result')") == "timeout", "gone after 60 s")
     ck(net.ev("Alice", "TapCatForever.GX.out == nil") and net.ev("Alice", "_g('id')") is None, "nothing started")
-    ck(len(net.gmsgs("G2")) == 2 and len(net.gmsgs("G4")) == 1, "two declines, one call-off")
+    ck(len([m for m in net.gmsgs("G2") if m.split(";")[3] == "n"]) == 2 and len(net.gmsgs("G4")) == 1, "two declines, one call-off")
     net.pump(30)
     # a player you declined waits a little before inviting you again
     net.ex("Bob", 'TapCatForever:GroupExpInvite("sm", 1, 1)'); net.pump(1)
@@ -283,9 +283,9 @@ def _edges(seed, load_addon):
     # combat: the prompt waits, the invite is still there; after combat it shows
     net.ex("Bob", "_combat = true")
     net.ex("Alice", 'TapCatForever:GroupExpInvite("sm", 1, 1)'); net.pump(1)
-    ck(net.ev("Bob", "_inv('state')") == "invited" and not net.ev("Bob", "_prompt()"), "no prompt in combat")
+    ck(net.ev("Bob", "_inv('state')") == "invited" and net.ev("Bob", "_prompt() and TapCatForeverGroupExpPrompt.small"), "a small prompt in combat")
     net.ex("Bob", '_combat = false; _fire("PLAYER_REGEN_ENABLED")')
-    ck(net.ev("Bob", "_prompt()"), "prompt after combat")
+    ck(net.ev("Bob", "_prompt() and not TapCatForeverGroupExpPrompt.small"), "the full prompt after combat")
     # above a casino invite when both are open
     net.ex("Bob", 'local f = CreateFrame("Frame", "TapCatForeverDeathRollPrompt"); f:Show(); TapCatForever.GX.UpdatePrompt()')
     ck(net.ev("Bob", "TapCatForeverGroupExpPrompt.over") == "casino", "above the casino invite")
