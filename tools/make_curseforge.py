@@ -34,7 +34,7 @@ FEATURES = [
         "Drag it anywhere, resize it, fade it, or hide everything but the cat.",
     ]),
     ("A cat for every class", [
-        "Each class has its own cat that levels from 1, with its own gear, abilities, profession and progress.",
+        "Each class has its own cat that levels from 1, with its own gear, abilities, professions, Trade Gold and progress.",
         "Your cat wears real WoW items: every helm, chest, belt, necklace, ring, weapon, shield and off-hand has its own hand-drawn cartoon version, about 4,500 items in all.",
         "Every class starts with its own weapon (a bow for hunters, a dagger for rogues, a staff for mages) and learns class abilities with TapCoins, from Heroic Strike to Pyroblast.",
         "Hover any piece of gear to see how it compares with what your cat is wearing.",
@@ -53,6 +53,7 @@ FEATURES = [
         "Craft real Classic gear with stats, 45 recipes per craft from skill 1 to 300. Cosmetic-only recipes are clearly marked.",
         "Herbalism, First Aid, Fishing and Cooking unlock later: a garden that grows in real time, bandages that heal your cat in fights, a fishing dock with a fishing buddy, and recipes you discover by experimenting.",
         "Sell your business for Renown to grow faster and unlock new professions.",
+        "Every class's cat runs its own business with its own Trade Gold and Renown, and the helpers of all your cats keep working while you play another.",
     ]),
     ("Play with friends", [
         "Group up with friends who also have TapCatForever and their cats sit in a little row beside yours. Hover one to see whose cat it is.",
@@ -68,7 +69,7 @@ FEATURES = [
         "The Compendium lists every skin, cosmetic, effect and piece of gear, what you own, and how to get the rest.",
     ]),
     ("Account and character", [
-        "Gear, cosmetics, professions and cat levels belong to each character; TapCoins, quests and achievements are shared across your account.",
+        "Gear, cosmetics and cat levels belong to each character, and each class's cat has its own Trade Gold and professions. TapCoins, quests and achievements are shared across your account.",
     ]),
 ]
 

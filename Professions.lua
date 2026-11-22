@@ -1,5 +1,6 @@
--- TapCatForever: Professions. Every cat has one main profession picked by its CURRENT class,
--- then four shared ones it unlocks with Renown (the prestige reset). All share Trade Gold.
+-- TapCatForever: Professions. Every cat has one main profession picked by its class, then four
+-- more it unlocks with Renown (the prestige reset). Each class's cat has its own trade: its own
+-- Trade Gold, Renown, spots, skills, materials and helpers (db.classData[class].trade).
 --   Main (free)       one of three "families" with identical numbers (idle tycoon + hand tool):
 --                       mining   (Warrior, Paladin)                  Mining    -> Blacksmithing
 --                       skinning (Rogue, Druid, Hunter, Shaman)      Skinning  -> Leatherworking
@@ -22,7 +23,11 @@
 --     TCF.PROF_BY_KEY[key]       row by key; also has the crafting keys (name, icon, craft = true, family)
 --     TCF:ProfUnlocked(key)      learned? (families are always learned; crafting keys too)
 --   State and skill
---     TCF:ProfState()            db.trade (gold, renown, mats, ops[fam][i], tools[fam], upgrades, skill, ...)
+--     TCF:ProfState(class)       a cat's trade, default the current class's (gold, lifetime, renown, mats,
+--                                ops[fam][i], tools[fam], upgrades, milestones, skill, garden, aid, fish, cook)
+--     TCF:WithTradeClass(cl, fn, ...)  run fn with every profession call on class cl's cat (quiet)
+--     TCF:ProfCatchUp()          the cats you aren't playing catch up their idle work to now
+--     TCF:TradeTotals()          Trade Gold earned by all this character's cats, best Renown of one
 --     TCF:ProfSkill(key)         1..300 for any profession, family or crafting key
 --     TCF:ProfSkillUp(key, diff) WoW-style chance to gain a point
 --     TCF:EarnGold(n) / TCF:SpendGold(n)   Trade Gold (EarnGold applies Renown)
@@ -31,7 +36,7 @@
 --     TCF:OpSpeedMult(prof, i)     TCF:OpCycleTime(prof, i)   TCF:OpRevenue(prof, i)
 --     TCF:OpMatsPerCycle(prof, i)  TCF:UpgradeMult(prof, i)   TCF:RunOp(prof, i)  (start one cycle)
 --     TCF:HireForeman(prof, i)     hire the family's helper (Foreman/Trapper/Scavenger); TCF:HireHelper alias
---     TCF:GatherIncome(prof)       gold/second of a family's spots; nil = all three families
+--     TCF:GatherIncome(prof)       gold/second of a family's spots; nil = every family this cat has
 --     TCF:MiningIncome()           = GatherIncome() of all families (old name)
 --     TCF.PROF_OPS[i]              economics (cost, mult, time, rev, foreman), identical for every family
 --     TCF.UPGRADES[fam]            upgrade rows { id, kind, op, mult, cost, name, icon }; TCF:BuyUpgrade(id)
@@ -180,7 +185,7 @@ for _, k in ipairs(FAM_KEYS) do
 end
 
 function TCF:MainProf(class)
-  class = class or (self.db and self.db.class)
+  class = class or self.tradeClass or (self.db and self.db.class)
   return CLASS_FAMILY[class] or "mining"
 end
 function TCF:MainFamily(class) return TCF.FAMILIES[self:MainProf(class)] end
@@ -210,11 +215,20 @@ TCF.PICK_BOOST, TCF.PICK_COST, TCF.PICK_COST_GROWTH = 1.15, 25, 1.55
 TCF.PICK_SECONDS, TCF.PICK_ORE_CHANCE = 0.5, 0.25
 
 ---------------------------------------------------------------- state
+-- Every class's cat has its own trade: Trade Gold, Renown, gathering spots, tools, upgrades,
+-- milestones, skills, materials, garden, bandages, fishing and cooking all live in
+-- db.classData[class].trade (classData is per character). TCF:ProfState() is the current
+-- class's. TCF.tradeClass, set only inside TCF:WithTradeClass, points every profession call at
+-- another class's cat, which is how idle work runs for the cats you aren't playing.
 local function freshOp() return { n = 0, p = 0, run = false, mgr = false } end
+local function freshTrade()
+  return { gold = 0, lifetime = 0, renown = 0, prestiges = 0, ops = {}, upgrades = {}, milestones = {},
+    mats = {}, skill = {}, tools = {}, last = time(), buy = 1, famMoved = true }
+end
 
--- Once per save: the old single Mining progress moves to the family of the character's
--- current class (Warriors and Paladins keep it as Mining). Ore turns into that family's
--- materials tier by tier. Nothing else changes.
+-- Once per save (1.4 and older): the old single Mining progress moves to the family of the
+-- character's class at the time (Warriors and Paladins keep it as Mining). Ore turns into
+-- that family's materials tier by tier. Nothing else changes.
 local function migrateFamily(s, fam)
   if fam == "mining" or not TCF.FAMILIES[fam] then return end
   local target = s.ops[fam]
@@ -246,22 +260,17 @@ local function migrateFamily(s, fam)
   end
 end
 
+-- fills in missing fields of a trade table (older saves) for a cat of this class
 local checked = setmetatable({}, { __mode = "k" })  -- trade tables already repaired this session
-local function S(self)
-  local db = self.db
-  if not db.trade then
-    db.trade = { gold = 0, lifetime = 0, renown = 0, prestiges = 0, ops = {}, upgrades = {}, milestones = {},
-      mats = {}, last = time(), buy = 1, famMoved = true }
-  end
-  local s = db.trade
+local function repair(s, class)
   s.renownEver = max(s.renownEver or 0, s.renown or 0)
   if checked[s] then return s end
   s.gold, s.lifetime, s.renown, s.prestiges = s.gold or 0, s.lifetime or 0, s.renown or 0, s.prestiges or 0
   s.ops = type(s.ops) == "table" and s.ops or {}
-  s.upgrades = s.upgrades or {}
-  s.milestones = s.milestones or {}
-  s.mats = s.mats or {}
-  s.skill = s.skill or {}
+  s.upgrades = type(s.upgrades) == "table" and s.upgrades or {}
+  s.milestones = type(s.milestones) == "table" and s.milestones or {}
+  s.mats = type(s.mats) == "table" and s.mats or {}
+  s.skill = type(s.skill) == "table" and s.skill or {}
   s.buy = s.buy or 1
   -- older saves had a pickaxe per vein: keep the best one as the overall level
   if type(s.pick) == "table" then
@@ -276,18 +285,217 @@ local function S(self)
     s.ops[k] = type(s.ops[k]) == "table" and s.ops[k] or {}
     s.tools[k] = s.tools[k] or 0
   end
-  if not s.famMoved and db.class then
+  if not s.famMoved then
     s.famMoved = true
-    migrateFamily(s, TCF:MainProf(db.class))
+    migrateFamily(s, TCF:MainProf(class))
   end
   for _, k in ipairs(FAM_KEYS) do
-    for i = 1, 6 do s.ops[k][i] = s.ops[k][i] or freshOp() end
+    for i = 1, 6 do
+      local st = s.ops[k][i]
+      if type(st) ~= "table" then s.ops[k][i] = freshOp()
+      else st.n, st.p = st.n or 0, st.p or 0 end
+    end
   end
-  if s.famMoved then checked[s] = true end
+  checked[s] = true
   return s
 end
+
+---------------------------------------------------------------- 1.5.1: one trade per class
+-- Up to 1.5.0 a character had one trade (db.trade) shared by all its cats. On the first login
+-- with 1.5.1 it is split (db.tradeSplit) and db.trade is removed: everything goes to the current class's cat, except the progress of another
+-- family (spots, tool, upgrades, milestones, skills and that family's materials, except cloth
+-- when this cat uses First Aid, which needs the same cloth), which goes to the cat of that
+-- family this character played most, with no Trade Gold of its own.
+-- Milestone keys move with their spots, so no milestone chest can be earned twice.
+
+-- an upgrade or milestone id of family fam ("cloth3_1", "cloth_all0", "mining1_25")
+local function famId(k, fam)
+  if type(k) ~= "string" or k:sub(1, #fam) ~= fam then return false end
+  local rest = k:sub(#fam + 1)
+  return (rest:match("^%d+_%d+$") or rest:match("^_all%d+$")) and true or false
+end
+
+local function familyProgress(s, fam)
+  for i = 1, 6 do local st = s.ops[fam][i]; if st.n > 0 or st.mgr then return true end end
+  if (s.tools[fam] or 0) > 0 then return true end
+  for k in pairs(s.upgrades) do if famId(k, fam) then return true end end
+  for k in pairs(s.milestones) do if famId(k, fam) then return true end end
+  local f = TCF.FAMILIES[fam]
+  return (s.skill[fam] or 1) > 1 or (s.skill[f.craft] or 1) > 1
+end
+
+-- moves family fam's progress from trade src to trade dst (counts add up, levels keep the best);
+-- materials in the set keep (by key) stay in src
+local function moveFamily(src, dst, fam, keep)
+  local f = TCF.FAMILIES[fam]
+  for i = 1, 6 do
+    local a, b = src.ops[fam][i], dst.ops[fam][i]
+    b.n = b.n + a.n
+    b.mgr = (b.mgr or a.mgr) and true or false
+    b.run = (b.run or a.run) and true or false
+    b.p = max(b.p or 0, a.p or 0)
+    src.ops[fam][i] = freshOp()
+  end
+  dst.tools[fam] = max(dst.tools[fam] or 0, src.tools[fam] or 0); src.tools[fam] = 0
+  for _, t in ipairs({ "upgrades", "milestones" }) do
+    local moves = {}
+    for k, v in pairs(src[t]) do if famId(k, fam) then moves[k] = v end end
+    for k, v in pairs(moves) do dst[t][k] = dst[t][k] or v; src[t][k] = nil end
+  end
+  for _, k in ipairs({ fam, f.craft }) do
+    if src.skill[k] then dst.skill[k] = max(dst.skill[k] or 1, src.skill[k]); src.skill[k] = nil end
+  end
+  for _, o in ipairs(f.ops) do
+    if not (keep and keep[o[2]]) then
+      local n = src.mats[o[2]]
+      if type(n) == "number" and n > 0 then dst.mats[o[2]] = (dst.mats[o[2]] or 0) + n end
+      src.mats[o[2]] = nil
+    end
+  end
+end
+
+-- the cat of family fam this character played most (level, then XP, then ever played)
+local function familyClass(self, fam)
+  local db = self.db
+  local played = db.stats and db.stats.classesPlayed or {}
+  local best, bestScore
+  for _, cl in ipairs(TCF.FAMILIES[fam].classes) do
+    local cd = db.classData[cl]
+    if type(cd) == "table" then
+      local score = (tonumber(cd.level) or 1) * 1e9 + (tonumber(cd.xp) or 0) * 10 + (played[cl] and 1 or 0)
+      if not bestScore or score > bestScore then best, bestScore = cl, score end
+    end
+  end
+  return best
+end
+
+-- adds everything in trade src to trade dst (only needed if a class already had its own trade)
+local function mergeTrade(src, dst)
+  for _, fam in ipairs(FAM_KEYS) do moveFamily(src, dst, fam) end
+  dst.gold, dst.lifetime = dst.gold + src.gold, dst.lifetime + src.lifetime
+  dst.renown = max(dst.renown, src.renown); dst.renownEver = max(dst.renownEver, src.renownEver)
+  dst.prestiges = max(dst.prestiges, src.prestiges)
+  for t, v in pairs(src.upgrades) do dst.upgrades[t] = dst.upgrades[t] or v end
+  for t, v in pairs(src.milestones) do dst.milestones[t] = dst.milestones[t] or v end
+  for k, v in pairs(src.skill) do dst.skill[k] = max(dst.skill[k] or 1, v) end
+  for k, n in pairs(src.mats) do if type(n) == "number" then dst.mats[k] = (dst.mats[k] or 0) + n end end
+  for _, k in ipairs({ "garden", "aid", "fish", "cook" }) do
+    local a, b = src[k], dst[k]
+    if b == nil then dst[k] = a
+    elseif type(a) == "table" and type(b) == "table" then
+      -- keep every upgrade, plot, buddy level and known dish either one had
+      for _, t in ipairs({ "up", "known" }) do
+        if type(a[t]) == "table" then
+          b[t] = type(b[t]) == "table" and b[t] or {}
+          for key, v in pairs(a[t]) do if v then b[t][key] = v end end
+        end
+      end
+      if type(a.n) == "number" then b.n = max(b.n or 0, a.n) end
+      if type(a.buddy) == "number" then b.buddy = max(b.buddy or 0, a.buddy) end
+    end
+  end
+end
+
+local function splitShared(self)
+  local db = self.db
+  local old = db.trade
+  db.trade = nil
+  db.tradeSplit = true   -- a record that this character's trade was split
+  if type(old) ~= "table" then return end
+  -- Only an older version of the addon writes db.trade, so a trade found here is always
+  -- progress the cats don't have yet (also after going back to 1.5.0 and up again): it is
+  -- added to theirs, never dropped and never counted twice.
+  local cur = db.class
+  repair(old, cur)
+  local curFam = TCF:MainProf(cur)
+  -- 1.5.0 paid each milestone chest once per spot for all families together, keyed by the
+  -- family that made the buy: every family with spots there has had that chest
+  for i = 1, 6 do
+    for ms in pairs(MILESTONE_CHEST) do
+      local had = false
+      for _, k in ipairs(FAM_KEYS) do if old.milestones[k .. i .. "_" .. ms] then had = true end end
+      if had then
+        for _, k in ipairs(FAM_KEYS) do if old.ops[k][i].n > 0 then old.milestones[k .. i .. "_" .. ms] = true end end
+      end
+    end
+  end
+  -- First Aid uses the same cloth as the cloth family: a cat that has First Aid keeps it
+  local aidCloth
+  if (old.renownEver or 0) >= TCF.PROF_BY_KEY.firstaid.renown or type(old.aid) == "table" then
+    aidCloth = {}
+    for _, c in ipairs(TCF.CLOTH or {}) do aidCloth[c[1]] = true end
+  end
+  for _, fam in ipairs(FAM_KEYS) do
+    if fam ~= curFam and familyProgress(old, fam) then
+      local cl = familyClass(self, fam)
+      local cd = cl and db.classData[cl]
+      if cd then
+        local isNew = type(cd.trade) ~= "table"
+        if isNew then cd.trade = freshTrade(); cd.trade.last = old.last or time() end
+        moveFamily(old, repair(cd.trade, cl), fam, fam == "cloth" and aidCloth or nil)
+      end
+    end
+  end
+  local cd = db.classData[cur]
+  if type(cd) ~= "table" then return end
+  if type(cd.trade) ~= "table" then cd.trade = old
+  else mergeTrade(old, repair(cd.trade, cur)) end
+end
+
+local scratch = {}   -- a class with no class data (never happens in a real save): not saved
+local function S(self, class)
+  local db = self.db
+  if db.trade ~= nil then splitShared(self) end
+  class = class or self.tradeClass or db.class
+  local cd = db.classData and db.classData[class]
+  local s
+  if type(cd) == "table" then
+    if type(cd.trade) ~= "table" then cd.trade = freshTrade() end
+    s = cd.trade
+  else
+    scratch[class or "?"] = scratch[class or "?"] or freshTrade()
+    s = scratch[class or "?"]
+  end
+  return repair(s, class)
+end
 TCF.TradeState = S
-function TCF:ProfState() return S(self) end
+-- the current class's trade (or the given class's)
+function TCF:ProfState(class) return S(self, class) end
+
+-- class keys whose cat has a trade on this character
+local function tradeClasses(self)
+  local list = {}
+  for _, cl in ipairs(TCF.CLASSES or {}) do
+    local cd = self.db.classData[cl.key]
+    if type(cd) == "table" and type(cd.trade) == "table" then list[#list + 1] = cl.key end
+  end
+  return list
+end
+TCF.TradeClasses = tradeClasses
+
+-- Runs fn(self, ...) with every profession call pointed at class's cat. For a class you aren't
+-- playing it is quiet: no loot pop-ups or chat lines.
+function TCF:WithTradeClass(class, fn, ...)
+  local prevClass, prevQuiet = self.tradeClass, self.tradeQuiet
+  self.tradeClass = class
+  self.tradeQuiet = (class ~= self.db.class) or nil
+  local ok, a, b = pcall(fn, self, ...)
+  self.tradeClass, self.tradeQuiet = prevClass, prevQuiet
+  if not ok then error(a, 0) end
+  return a, b
+end
+
+-- Trade Gold earned in total by all of this character's cats, and the best Renown of one cat
+function TCF:TradeTotals()
+  S(self)
+  local life, renown = 0, 0
+  for _, cl in ipairs(tradeClasses(self)) do
+    local s = S(self, cl)
+    life = life + s.lifetime
+    renown = max(renown, s.renown)
+  end
+  return life, renown
+end
 
 function TCF:ProfUnlocked(prof)
   local p = TCF.PROF_BY_KEY[prof]
@@ -338,26 +546,11 @@ local function opState(self, prof, i)
   return S(self).ops[famOf(self, prof)][i]
 end
 
--- Spot i's count summed over every family. Prices, speed milestones and milestone chests use
--- this, so spreading spots over several families (by switching class) costs and earns the
--- same as building one family deep.
-local function combinedN(self, i)
-  local s, n = S(self), 0
-  for _, k in ipairs(FAM_KEYS) do n = n + s.ops[k][i].n end
-  return n
-end
-function TCF:OpCombinedCount(i) return combinedN(self, i) end
--- true when this character owns at least one spot of family k
-function TCF:FamilyOwned(k)
-  local ops = S(self).ops[k]
-  if not ops then return false end
-  for i = 1, 6 do if ops[i].n > 0 then return true end end
-  return false
-end
-
+-- Prices, speed milestones and milestone chests count only this cat's own spots: every class
+-- has its own trade, so switching class can't stack or repeat anything.
 function TCF:OpCost(prof, i, count)
   local o = OPS[i]
-  local n = combinedN(self, i)
+  local n = opState(self, prof, i).n
   count = count or 1
   local base = o.cost * o.mult ^ n
   return base * (o.mult ^ count - 1) / (o.mult - 1)
@@ -365,13 +558,13 @@ end
 
 function TCF:OpMaxBuy(prof, i)
   local o = OPS[i]
-  local n = combinedN(self, i)
+  local n = opState(self, prof, i).n
   local base = o.cost * o.mult ^ n
   return max(0, floor(math.log(S(self).gold * (o.mult - 1) / base + 1) / math.log(o.mult)))
 end
 
 function TCF:OpSpeedMult(prof, i)
-  local n = combinedN(self, i)
+  local n = opState(self, prof, i).n
   local m = 1
   for _, ms in ipairs(TCF.MILESTONES) do if n >= ms then m = m * 2 end end
   return m
@@ -510,12 +703,12 @@ function TCF:BuyOp(prof, i, count)
   local cost = self:OpCost(f, i, count)
   if not self:SpendGold(cost) then return false end
   local st = s.ops[f][i]
-  local before = combinedN(self, i)
+  local before = st.n
   st.n = st.n + count
-  local after = combinedN(self, i)
+  local after = st.n
   for ms, chest in pairs(MILESTONE_CHEST) do
     local key = f .. i .. "_" .. ms
-    -- once per spot across all families (older saves may hold another family's key)
+    -- once per spot for this cat (a save from before 1.5 may hold another family's key)
     local had = false
     for _, k in ipairs(FAM_KEYS) do if s.milestones[k .. i .. "_" .. ms] then had = true end end
     if before < ms and after >= ms and not had then
@@ -561,10 +754,10 @@ function TCF:RunOp(prof, i)
 end
 
 ---------------------------------------------------------------- key presses and ticking
--- Every key press in WoW waters the garden. Gathering spots only run when you start
--- them yourself (click the spot) or once a helper works them.
+-- Every key press in WoW waters the garden (of the cat you're playing). Gathering spots only
+-- run when you start them yourself (click the spot) or once a helper works them.
 function TCF:ProfTap()
-  if not (self.db and self.db.trade) then return end
+  if not self.db then return end
   if self.GardenTap and self:ProfUnlocked("herbalism") then self:GardenTap() end
 end
 
@@ -574,8 +767,8 @@ local function produce(self, s, f, i, cycles)
   s.mats[op[2]] = (s.mats[op[2]] or 0) + cycles * self:OpMatsPerCycle(f, i)
 end
 
--- Advance everything by dt seconds. offline = only automated things run. Helpers of every
--- family keep working, whichever class the cat is right now.
+-- Advance one cat's trade by dt seconds (the current class's, or TCF.tradeClass's inside
+-- TCF:WithTradeClass). offline = only automated things run.
 function TCF:ProfAdvance(dt, offline)
   local s = S(self)
   for _, f in ipairs(FAM_KEYS) do
@@ -594,25 +787,64 @@ function TCF:ProfAdvance(dt, offline)
   for _, mod in ipairs(TCF.PROF_MODULES) do
     if self:ProfUnlocked(mod.key) then mod.advance(self, dt, offline) end
   end
-  s.last = time()
+  -- last is how far this cat has been counted: a fraction of a second ahead of time() while you
+  -- play (time() is whole seconds), so a catch-up never counts the same moment twice
+  local now = time()
+  if offline then s.last = now
+  else s.last = min(now + 1, max(now - 1, (s.last or now) + dt)) end
 end
 TCF.PROF_MODULES = TCF.PROF_MODULES or {}
 
-function TCF:ProfessionsTick(login, dt)
-  local s = S(self)
-  if login then
-    local away = min(TCF.PROF_OFFLINE_CAP, max(0, time() - (s.last or time())))
-    if away > 60 then
-      local before = s.gold
-      self:ProfAdvance(away, true)
-      if s.gold > before then
-        self:Print(string.format("While you were away your professions earned %s Trade Gold.", TCF.GoldStr(s.gold - before)))
-      end
+-- The cats you aren't playing keep working: their helpers, gardener, field medic, fishing
+-- buddy and sous-chef catch up to now (at most 24 hours), quietly, into each cat's own trade.
+-- Runs every few seconds while you play and before you switch class.
+function TCF:ProfCatchUp()
+  local db = self.db
+  if not db then return end
+  S(self)
+  local now = time()
+  for _, cl in ipairs(tradeClasses(self)) do
+    if cl ~= db.class then
+      local s = S(self, cl)
+      local dt = min(TCF.PROF_OFFLINE_CAP, max(0, now - (s.last or now)))
+      if dt > 0 then self:WithTradeClass(cl, self.ProfAdvance, dt, true)
+      elseif (s.last or 0) > now + 1 then s.last = now end   -- the clock went back
     end
-    s.last = time()
+  end
+end
+
+TCF.PROF_CATCHUP_EVERY = 5
+function TCF:ProfessionsTick(login, dt)
+  local cur = S(self)
+  if login then
+    -- offline time for every cat on this character, each from its own last update
+    local now = time()
+    local away = min(TCF.PROF_OFFLINE_CAP, max(0, now - (cur.last or now)))
+    if away > 60 then
+      local before = cur.gold
+      self:ProfAdvance(away, true)
+      if cur.gold > before then
+        self:Print(string.format("While you were away your professions earned %s Trade Gold.", TCF.GoldStr(cur.gold - before)))
+      end
+    elseif away > 0 then
+      -- a short gap (a /reload) is counted too, quietly
+      local quiet = self.tradeQuiet
+      self.tradeQuiet = true
+      local ok, err = pcall(self.ProfAdvance, self, away, true)
+      self.tradeQuiet = quiet
+      if not ok then error(err, 0) end
+    end
+    if not cur.last or cur.last > now + 1 then cur.last = now end
+    self:ProfCatchUp()   -- every other cat, quietly, from its own last update
+    self.profCatchT = 0
     return
   end
   self:ProfAdvance(dt or 0.25)
+  self.profCatchT = (self.profCatchT or 0) + (dt or 0.25)
+  if self.profCatchT >= TCF.PROF_CATCHUP_EVERY then
+    self.profCatchT = 0
+    self:ProfCatchUp()
+  end
 end
 
 ---------------------------------------------------------------- renown (prestige)
@@ -621,8 +853,9 @@ function TCF:RenownOnReset()
   return max(0, floor(math.sqrt(s.lifetime / 1e8)) - s.renown)
 end
 
--- Sells everything bought with Trade Gold for permanent Renown. Skills, known
--- recipes, materials, bandages, dishes and unlocked professions are kept.
+-- Sells everything this cat bought with Trade Gold for permanent Renown (for this cat only;
+-- every class has its own business). Skills, known recipes, materials, bandages, dishes and
+-- unlocked professions are kept.
 function TCF:PrestigeTrade()
   local s = S(self)
   local gain = self:RenownOnReset()
@@ -639,7 +872,9 @@ function TCF:PrestigeTrade()
   for _, mod in ipairs(TCF.PROF_MODULES) do if mod.reset then mod.reset(self, s) end end
   local coins = min(1000, gain * 3)
   self:AddCoins(coins)
-  self:Print(string.format("Your cat sold its business for |cffffd100%d Renown|r (+%d%% profits forever) and %d TapCoins.", gain, gain * 2, coins), true)
+  local cl = TCF.CLASS_BY_KEY and TCF.CLASS_BY_KEY[self.db.class]
+  self:Print(string.format("Your %s sold its business for |cffffd100%d Renown|r (+%d%% profits forever) and %d TapCoins.",
+    cl and (cl.name .. " cat") or "cat", gain, gain * 2, coins), true)
   for _, p in ipairs(TCF.PROFESSIONS) do
     if p.renown > 0 and s.renownEver >= p.renown and s.renownEver - gain < p.renown then
       self:Print("You can now learn |cffffd100" .. p.name .. "|r.", true)

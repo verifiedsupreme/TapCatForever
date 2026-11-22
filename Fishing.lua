@@ -53,7 +53,8 @@ TCF.FISH_ODDS = { pinchy = 0.004, treasure = 0.011, buddyPinchy = 0.0005, buddyT
 -- Mr. Pinchy's gold wish: this many seconds of your mines' output
 TCF.PINCHY_GOLD_SECONDS = 600
 
--- a chest from fishing; with a bag (offline catch-up) it is collected quietly for one summary line
+-- a chest from fishing; with a bag (offline catch-up, or a cat you aren't playing) it is
+-- collected quietly for one summary line
 local function giveChest(self, key, source, bag)
   if bag then
     self.db.keys[key] = (self.db.keys[key] or 0) + 1
@@ -91,7 +92,7 @@ function TCF:CatchFish(byBuddy, bag)
       local g = self:EarnGold(max(1e4, self:GatherIncome() * TCF.PINCHY_GOLD_SECONDS))
       wish = TCF.GoldStr(g) .. " Trade Gold"
     end
-    if not byBuddy and wish then self:Print("You caught |cffa335eeMr. Pinchy|r. His wish gives you " .. wish .. ".", true) end
+    if not byBuddy and wish and not self.tradeQuiet then self:Print("You caught |cffa335eeMr. Pinchy|r. His wish gives you " .. wish .. ".", true) end
     return "Mr. Pinchy", kind
   end
   return TCF.MAT_BY_KEY[key].name, kind
@@ -154,14 +155,15 @@ local function advance(self, dt, offline)
     local every = TCF.BUDDY_LEVELS[f.buddy].every
     f.bp = (f.bp or 0) + dt
     local guard = 0
-    local bag = offline and {} or nil
+    -- a cat you aren't playing (TCF.tradeQuiet) fishes quietly: chests go to the bag, no lines
+    local bag = (offline or self.tradeQuiet) and {} or nil
     while f.bp >= every and guard < 2000 do
       guard = guard + 1
       f.bp = f.bp - every
       self:CatchFish(true, bag)
     end
     -- offline catch-up: one line for every chest the buddy fished up
-    if bag and next(bag) then
+    if bag and next(bag) and not self.tradeQuiet then
       local parts = {}
       for _, ch in ipairs(TCF.CHESTS) do
         if bag[ch.key] then parts[#parts + 1] = "|cff1eff00" .. ch.name .. "|r x" .. bag[ch.key] end

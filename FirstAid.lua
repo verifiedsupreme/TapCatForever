@@ -94,11 +94,17 @@ local function contractBuy(self, a, s, b)
   return true
 end
 
--- Cloth spots fill the same cloth the medic uses. When this character owns cloth spots, the
--- medic stops making a bandage once you hold this many, so the cloth stays for Tailoring.
+-- Cloth spots fill the same cloth the medic uses. When this cat owns cloth spots, the medic
+-- stops making a bandage once you hold this many, so the cloth stays for Tailoring.
 TCF.MEDIC_STOCK = 100
+local function ownsClothSpots(s)
+  local ops = s.ops and s.ops.cloth
+  if not ops then return false end
+  for i = 1, 6 do if ops[i] and (ops[i].n or 0) > 0 then return true end end
+  return false
+end
 local function stocked(self, s, b)
-  return self.FamilyOwned and self:FamilyOwned("cloth") and (s.mats[b[1]] or 0) >= TCF.MEDIC_STOCK
+  return (s.mats[b[1]] or 0) >= TCF.MEDIC_STOCK and ownsClothSpots(s)
 end
 
 -- what the field medic makes next: your best bandage if you have its cloth (or the

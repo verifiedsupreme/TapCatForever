@@ -108,9 +108,11 @@ local DEFAULTS = {
 -- quests, daily streak, achievements, settings) is shared by the whole account.
 -- The Daily Wares (shop) are per character: the stock is picked for this character's
 -- cat class and collection, and keeping it per character means relogging can't reroll it.
+-- Professions live in classData (each class's cat has its own trade since 1.5.1); "trade" is
+-- the old shared trade of 1.5.0 and older, split once per character (tradeSplit) and removed.
 TCF.PER_CHARACTER = {
   owned = true, gear = true, loadouts = true, look = true, keys = true, classData = true,
-  trade = true, expeditions = true, class = true, prof = true, dungeonRun = true, shop = true,
+  trade = true, tradeSplit = true, expeditions = true, class = true, prof = true, dungeonRun = true, shop = true,
 }
 
 local function characterKey()
@@ -299,6 +301,8 @@ end
 
 function TCF:SetClass(key)
   if not TCF.CLASS_BY_KEY[key] then return end
+  -- every other cat's idle professions catch up first, so none skips or repeats any time
+  if self.ProfCatchUp and key ~= self.db.class then self:ProfCatchUp() end
   self.db.class = key
   self.db.stats.classesPlayed[key] = true
   self:MarkDirty()
@@ -840,10 +844,11 @@ function TCF:GetStat(stat)
       if it.slot == "skin" and db.owned[it.id] and (stat == "skins" or drops[it.id] or it.get ~= nil) then n = n + 1 end
     end
     return n
-  elseif stat == "tradeGold" then
-    return db.trade and db.trade.lifetime or 0
-  elseif stat == "renown" then
-    return db.trade and db.trade.renown or 0
+  elseif stat == "tradeGold" or stat == "renown" then
+    -- every class's cat has its own trade: Trade Gold earned by all of them, the best Renown of one
+    if not self.TradeTotals then return 0 end
+    local life, renown = self:TradeTotals()
+    return stat == "tradeGold" and life or renown
   elseif stat == "races" then
     -- heritage pieces are bought per character, so count distinct pieces across the account
     local seen, n = {}, 0
@@ -1032,6 +1037,12 @@ function TCF:TestCheat(kind)
     for _ = 1, 360 do
       if self.AdvTick then self:AdvTick(10) end
       if self.ProfAdvance then self:ProfAdvance(10) end
+    end
+    -- the other cats' helpers get the hour too
+    if self.TradeClasses then
+      for _, cl in ipairs(self.TradeClasses(self)) do
+        if cl ~= db.class then self:WithTradeClass(cl, self.ProfAdvance, 3600, true) end
+      end
     end
     self:Print("Skipped one hour of Adventure and professions.", true)
   end

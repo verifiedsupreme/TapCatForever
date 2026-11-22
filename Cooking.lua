@@ -173,9 +173,15 @@ function TCF:EatDish(key)
   return true
 end
 
--- Multiplier from the active Well Fed buff for a system
-function TCF:FoodBuff(kind)
-  local s = self.db and self.db.trade
+-- Multiplier from the active Well Fed buff for a system. A dish feeds the cat that ate it:
+-- the buff is in that class's trade (class: default the current class).
+function TCF:FoodBuff(kind, class)
+  local db = self.db
+  if not db then return 1 end
+  if db.trade ~= nil then TCF:ProfState() end   -- an old shared trade is split first
+  -- read without creating a trade for a cat that never had one (gear stats ask for every class)
+  local cd = db.classData and db.classData[class or self.tradeClass or db.class]
+  local s = cd and type(cd.trade) == "table" and cd.trade
   local b = s and s.cook and s.cook.buff
   if not b or b["until"] < time() then return 1 end
   if b.kind == kind or (b.kind == "all" and (kind == "dmg" or kind == "hp")) then return 1 + b.value end

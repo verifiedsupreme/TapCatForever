@@ -6,7 +6,7 @@ local TILES = {
   { "INV_Helmet_08",        "Real gear",   "Every WoW item, drawn for your cat" },
   { "INV_Sword_04",         "Adventure",   "Fight through dungeons and raids" },
   { "INV_Misc_Map_01",      "Expeditions", "Send three cats out for loot" },
-  { "Trade_Mining",         "Professions", "Gather, craft real gear and run a business" },
+  { "Trade_Mining",         "Professions", "Each class gathers, crafts gear and runs its own business" },
   { "INV_Box_02",           "Collect",     "Open chests for gear, skins and hats" },
   { "INV_Misc_GroupNeedMore", "Play with friends", "Friends with the addon in your group: taps count up to 50% more" },
 }

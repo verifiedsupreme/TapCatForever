@@ -6,6 +6,9 @@
 -- TCF.FAMILIES, never hard-coded. Herbalism (garden), First Aid (bandages), Fishing (the dock
 -- scene with the bobber) and Cooking (pot) have their own main view plus Crafting and Renown.
 --
+-- Every class's cat has its own trade (Trade Gold, Renown, spots, skills, materials): the page
+-- always shows the current class's, read fresh from TCF:ProfState() on every refresh.
+--
 -- Visibility rule: a view is shown or hidden only when the selected profession, view or
 -- family changes (see refresh at the bottom). Re-showing views on every refresh tick made
 -- buttons stop taking clicks before.
@@ -76,6 +79,8 @@ TCF.UI.Builders.professions = function(page, win)
   -- the current class's family key and table
   local function FAM() return TCF:MainProf() end
   local function FT() return TCF.FAMILIES[TCF:MainProf()] end
+  local function className() return (TCF.CLASS_BY_KEY[TCF.db.class] or {}).name or "" end
+  local PER_CLASS = "Each class has its own Trade Gold and professions."
 
   ------------------------------------------------ header
   local ptabs = {}
@@ -95,6 +100,7 @@ TCF.UI.Builders.professions = function(page, win)
         tt:AddLine(string.format("Your %s cat's profession: gather from %s and craft with %s.",
           (TCF.CLASS_BY_KEY[TCF.db.class] or {}).name or "", f.spotsTitle:lower(), f.craftName), 1, 1, 1, true)
       elseif p.renown > 0 then tt:AddLine(TCF:ProfUnlocked(p.key) and "Learned" or ("Unlocks at " .. p.renown .. " Renown"), 1, 1, 1) end
+      tt:AddLine(PER_CLASS, 0.7, 0.7, 0.7, true)
     end)
     ptabs[i] = b
   end
@@ -102,6 +108,15 @@ TCF.UI.Builders.professions = function(page, win)
   local skillBar = Bar(page, 160, 12, 0.2, 0.5, 0.95); skillBar:SetPoint("TOPLEFT", 200, -30)
   local goldText = Text(page, "GameFontHighlightLarge", nil, "RIGHT"); goldText:SetPoint("TOPRIGHT", -14, -10)
   local renownText = Text(page, "GameFontHighlightSmall", nil, "RIGHT"); renownText:SetPoint("TOPRIGHT", -14, -30)
+  -- hover the gold and Renown for whose they are
+  local goldHover = CreateFrame("Frame", nil, page); goldHover:SetSize(180, 36); goldHover:SetPoint("TOPRIGHT", -10, -6)
+  goldHover:EnableMouse(true)
+  Tip(goldHover, function(tt)
+    local s = TCF:ProfState()
+    tt:AddLine(string.format("Your %s cat's Trade Gold", className()), 1, 0.82, 0)
+    tt:AddLine(string.format("%s Trade Gold, Renown %d (+%d%% gold).", TCF.GoldStr(s.gold), s.renown, s.renown * 2), 1, 1, 1, true)
+    tt:AddLine(PER_CLASS .. " Your other cats' helpers keep working while you play this one, and what they earn stays with them.", 0.7, 0.7, 0.7, true)
+  end)
 
   local vbtns = {}
   for i, key in ipairs({ "main", "upg", "craft", "renown" }) do
@@ -236,6 +251,8 @@ TCF.UI.Builders.professions = function(page, win)
   toolBtn:SetPoint("TOPLEFT", 14, -6 * 61 - 2)
   local spotHint = Text(spotView, "GameFontDisableSmall", nil, "LEFT")
   spotHint:SetPoint("TOPLEFT", toolBtn, "TOPRIGHT", 10, 2); spotHint:SetWidth(250)
+  local perClass = Text(spotView, "GameFontDisableSmall", PER_CLASS, "LEFT")
+  perClass:SetPoint("TOPLEFT", toolBtn, "BOTTOMLEFT", 2, -4); perClass:SetWidth(262)
   Tip(toolBtn, function(tt)
     local fam, f = FAM(), FT()
     tt:AddLine("Upgrade your " .. f.toolNoun:lower(), 1, 0.82, 0)
@@ -323,9 +340,7 @@ TCF.UI.Builders.professions = function(page, win)
       end
       vis(r.sel, idle)
       local nextMs
-      -- speed boosts count this spot across all your gathering families
-      local owned = TCF.OpCombinedCount and TCF:OpCombinedCount(i) or st.n
-      for _, ms in ipairs(TCF.MILESTONES) do if owned < ms then nextMs = ms; break end end
+      for _, ms in ipairs(TCF.MILESTONES) do if st.n < ms then nextMs = ms; break end end
       r.info:SetText(string.format("|cffcccccc%s %s|r   %s", TCF.FormatBig(s.mats[o[2]] or 0), o[3],
         nextMs and string.format("Next speed boost at %d", nextMs) or "Max speed"))
       local canPick = i == 1 or st.n > 0
@@ -653,7 +668,7 @@ TCF.UI.Builders.professions = function(page, win)
     return { fur = fur, main = TCF.ITEMS[level >= 4 and "wpn_fishpole_a" or "wpn_fishpole"] or TCF.ITEMS.wpn_fishpole,
       head = level >= 2 and TCF.ITEMS.craft_fishing_hat or nil }
   end
-  local lookT, buddyLevelShown, lastBp = 0, -1, nil
+  local lookT, buddyLevelShown, lastBp, lastFish = 0, -1, nil, nil   -- lastFish: whose buddy lastBp is
   local function applyDockLooks(f)
     dockCat:ApplyAppearance(dockLook())
     if f.buddy > 0 then buddyCat:ApplyAppearance(buddyLook(f.buddy)) end
@@ -698,13 +713,13 @@ TCF.UI.Builders.professions = function(page, win)
         placeLine(buddyLine, x, y, BBOB_X, BBOB_Y + bb + 7)
       end
       -- a catch: the progress counter went back down
-      if lastBp and (f.bp or 0) + 0.001 < lastBp then
+      if lastBp and lastFish == f and (f.bp or 0) + 0.001 < lastBp then
         buddyPopT = 1.2
         buddyCat:SetFaceFor("happy", 1.2)
         buddyPop:SetText("|cffffffff+1 fish|r")
       end
-      lastBp = f.bp or 0
-    else lastBp = nil end
+      lastBp, lastFish = f.bp or 0, f
+    else lastBp, lastFish = nil, nil end
     if buddyPopT > 0 then
       buddyPopT = buddyPopT - e
       buddyPop:ClearAllPoints(); buddyPop:SetPoint("BOTTOM", fx, "BOTTOMLEFT", BBOB_X, BBOB_Y + 14 + (1.2 - buddyPopT) * 16)
@@ -1079,12 +1094,13 @@ TCF.UI.Builders.professions = function(page, win)
       if p.renown > 0 then unlocks[#unlocks + 1] = string.format("%s%s at %d Renown|r", TCF:ProfUnlocked(p.key) and "|cff20ff20" or "|cffaaaaaa", p.name, p.renown) end
     end
     renInfo:SetText(string.format(
-      "|cffffd100Renown|r is permanent: each point adds +2%% to all Trade Gold, and Renown unlocks new professions.\n\n" ..
+      "%s Your %s cat's business:\n\n" ..
+      "|cffffd100Renown|r is permanent: each point adds +2%% to this cat's Trade Gold, and Renown unlocks new professions for this cat.\n\n" ..
       "Current Renown: |cffffffff%d|r (highest ever %d)\nTrade Gold earned in total: |cffffffff%s|r\nRenown you'd gain by selling now: |cff20ff20%d|r  (+%d TapCoins)\n\n" ..
-      "Unlocks: %s\n\nSelling resets Trade Gold, the gathering spots and hand tools of every main profession (Mining, Skinning and Tailoring), " ..
-      "garden plots, foremen, trappers, scavengers, helpers and upgrades. " ..
-      "You keep skills, recipes, materials, crafted gear, bandages, dishes and unlocked professions.",
-      s.renown, s.renownEver, TCF.GoldStr(s.lifetime, 12), gain, min(1000, gain * 3), table.concat(unlocks, ", ")))
+      "Unlocks: %s\n\nSelling resets this cat's Trade Gold, %s, %s, garden plots, %s, helpers and upgrades. " ..
+      "You keep skills, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
+      PER_CLASS, className(), s.renown, s.renownEver, TCF.GoldStr(s.lifetime, 12), gain, min(1000, gain * 3), table.concat(unlocks, ", "),
+      FT().spotsTitle:lower(), FT().toolNoun:lower(), FT().hirePlural:lower()))
     renBtn:SetEnabled(gain >= 5)
   end
 
@@ -1135,7 +1151,7 @@ TCF.UI.Builders.professions = function(page, win)
     local skill = TCF:ProfSkill(skillKey)
     skillBar:SetMinMaxValues(0, 300); skillBar:SetValue(skill); skillBar.text:SetText(skillName .. " " .. skill .. " / 300")
     goldText:SetText(TCF.GoldStr(s.gold, 16))
-    renownText:SetText(string.format("Renown %d (+%d%% gold)", s.renown, s.renown * 2))
+    renownText:SetText(string.format("%s: Renown %d (+%d%% gold)", className(), s.renown, s.renown * 2))
     buyMode:SetText(s.buy == "max" and "Buy Max" or ("Buy x" .. s.buy))
     vis(buyMode, fam and view == "main" and unlocked)
     vbtns[1]:SetText(fam and fam.spotsTitle or MAIN[prof][3])
@@ -1161,7 +1177,8 @@ TCF.UI.Builders.professions = function(page, win)
     end
 
     if target == locked then
-      lockText:SetText(string.format("%s unlocks at |cffffd100%d Renown|r (you have %d).\n\nEarn Renown by selling your business in the Renown view.", p.name, p.renown, s.renownEver))
+      lockText:SetText(string.format("%s unlocks at |cffffd100%d Renown|r (your %s cat has %d).\n\nEarn Renown by selling your business in the Renown view.\n\n|cffaaaaaa%s|r",
+        p.name, p.renown, className(), s.renownEver, PER_CLASS))
     elseif target == spotView then refreshSpots(prof)
     elseif target == upgView then refreshUpgrades(prof)
     elseif target == craftView then refreshCraft(fam and fam.craft or prof)

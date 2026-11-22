@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.5.1
+
+**Each class has its own professions**
+- Every class's cat now has its own Trade Gold, Renown, gathering spots, tool, helpers, upgrades, skills and materials, and its own Herbalism garden, First Aid, Fishing and Cooking. Before, all the cats on a character shared one pile of Trade Gold.
+- Switch class and the Professions tab shows that cat's own business. The tab says whose gold you are looking at.
+- The cats you aren't playing keep working: their foremen, trappers, scavengers, gardener, field medic, fishing buddy and sous-chef run online and offline (up to 24 hours), and what they earn goes to that cat. They do it quietly, without chat lines or loot pop-ups.
+- Each cat earns its own milestone chests and sells its own business for its own Renown.
+- A Well Fed buff helps the cat that ate the dish.
+- Achievements count the Trade Gold of all your cats together, and the best Renown of one cat.
+
+**Your progress moves over on its own**
+- On your first login, everything your character had goes to the cat you are playing: its Trade Gold, Renown, unlocked professions, garden, bandages, fish, dishes and materials.
+- If you had also built up another main profession by switching class (for example Mining on a Warrior while you play a Mage), those spots, its tool, upgrades, milestones, skills and materials go to the cat of that profession you played most. That cat starts with no Trade Gold or Renown of its own.
+- If the cat you are playing has First Aid, it keeps the cloth that First Aid uses.
+- Your other cats start fresh, at Renown 0. Each one learns Herbalism, First Aid, Fishing and Cooking with its own Renown, and its helpers earn without the Renown bonus of the cat you are playing.
+- Your Trade Gold, spots, materials and items are not lost or doubled, and milestone chests you already got are not paid again.
+- Speed boosts and spot prices now count only each cat's own spots. If you had spots in two professions, each cat's next spots cost less, but speed boosts that came from adding both together are worked out again from that cat's own spots.
+
+**Adventure**
+- Clearing a zone for the first time now pays a few hundred TapCoins on top of the chest: 200 for Elwynn Forest, 50 more for each zone after it (1,550 for Naxxramas). The first of your cats to clear a zone gets the full amount; another class clearing it later gets a quarter.
+
+**Gear**
+- Hovering a piece of gear shows the item your cat is wearing in that slot right beside it, like WoW's own comparison, along with the Power change.
+
+**Other fixes**
+- Prices and sources on item squares (Appearance tab and Compendium) are readable again: the text sat under the faded item picture.
+- Send feedback is in Settings (and /tcf feedback) instead of the top of the window, and shows just the GitHub link.
+- Test mode: a Remove fake cats button, and fake party cats go away when you leave a group.
+
 ## 1.5.0
 
 **Professions by class**

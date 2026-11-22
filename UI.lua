@@ -1215,7 +1215,7 @@ function TCF:CreateWindow()
   local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 14); help:SetWidth(490)
   help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
     "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats | compendium | news | feedback\n" ..
-    "TapCoins, quests and achievements are shared; gear, cosmetics, professions and cat levels are per character.")
+    "TapCoins, quests and achievements are shared; gear, cosmetics and cat levels are per character, and each class has its own Trade Gold and professions.")
 
   -- test mode shortcuts (/tcf testmode)
   local testBox = CreateFrame("Frame", nil, st)
@@ -1223,13 +1223,16 @@ function TCF:CreateWindow()
   local tt = Text(testBox, "GameFontNormal", "|cffff6060Test mode|r (/tcf testmode to hide)", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
   local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
                    { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" },
-                   { "Fake party cats", "party" } }
+                   { "Fake party cats", "party" }, { "Remove fake cats", "partyclear" } }
   -- four per row, so the extra buttons stay inside the page
   for i, c in ipairs(cheats) do
     local b = Button(testBox, c[1], 124, 22, function()
       if c[2] == "party" then
         -- 1, 2, 3, 4, 5 (shows "+1"), then none again
         if TCF.PartyTestInject then TCF:PartyTestInject(((TCF:PartyTestCount() or 0) + 1) % 6) end
+        win:RefreshSettings()
+      elseif c[2] == "partyclear" then
+        if TCF.PartyTestClear then TCF:PartyTestClear() end
         win:RefreshSettings()
       else
         TCF:TestCheat(c[2])
@@ -1239,7 +1242,7 @@ function TCF:CreateWindow()
     if c[2] == "party" then
       Tip(b, function(t)
         t:AddLine("Fake party cats", 1, 0.82, 0)
-        t:AddLine("Shows pretend party cats beside your cat, as if friends with TapCatForever were in your group. Each click adds one, up to five, then clears them.", 1, 1, 1, true)
+        t:AddLine("Shows pretend party cats beside your cat, as if friends with TapCatForever were in your group. Each click adds one, up to five. Remove fake cats takes them all away; leaving a group or turning test mode off does too.", 1, 1, 1, true)
       end)
     end
   end

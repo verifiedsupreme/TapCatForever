@@ -81,7 +81,7 @@ TCF.MarkDirty = function() end
 
 function P.start(class, seed)
   TCF:SetClass(class)
-  TCF.db.trade = nil
+  TCF:CD().trade = nil   -- a fresh trade for this class's cat
   P.s = TCF:ProfState()
   P.fam, P.craft = TCF:MainProf(), TCF:CraftProf()
   P.ops = P.s.ops[P.fam]

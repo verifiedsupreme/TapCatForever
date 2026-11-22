@@ -449,7 +449,7 @@ TEST = r'''
     assert(TCF:CD("MAGE").adv.kills == mageKills, "the mage pauses while another class is selected")
     TCF:SetClass("MAGE"); for i = 1, 200 do _update(0.25) end
     assert(TCF:CD("MAGE").adv.kills > mageKills, "the mage resumes when selected again")
-    assert(not TCF.db.trade or TCF.db.trade.renown == 0, "alt has its own professions")
+    assert(not TCF.db.trade and TCF:ProfState().renown == 0 and TCF:ProfState("WARRIOR").renown == 0, "alt has its own professions")
     local altGear = 0; for _ in pairs(TCF:Bag()) do altGear = altGear + 1 end
     assert(altGear <= 9, "alt starts with just starter weapons")
     TCF:AddCoins(1)
@@ -534,7 +534,7 @@ TEST = r'''
     -- the same play for each family (same random numbers) earns exactly the same
     local results = {}
     for _, k in ipairs(TCF.FAMILY_KEYS) do
-      TCF.db.trade = nil
+      TCF:CD().trade = nil
       local s = TCF:ProfState()
       math.randomseed(777)
       for step = 1, 2400 do
@@ -585,8 +585,12 @@ TEST = r'''
     login("Oldmage")   -- logging in again changes nothing
     s = TCF:ProfState()
     check(s.ops.cloth[1].n == 120 and s.ops.mining[1].n == 0 and s.mats.felcloth == 2, "migration runs once")
+    -- the old shared trade became the Mage's own (1.5.1: every class has its own)
+    check(TCF.db.trade == nil and TCF.db.tradeSplit and TCF:CD("MAGE").trade == s, "the old shared trade is now the Mage's")
     TCF:SetClass("WARRIOR"); s = TCF:ProfState()
-    check(s.ops.mining[1].n == 0 and s.ops.cloth[1].n == 120, "switching class later moves nothing")
+    check(s ~= TCF:CD("MAGE").trade and s.gold == 0 and s.renown == 0 and s.ops.mining[1].n == 0 and s.ops.cloth[1].n == 0, "the Warrior has its own trade")
+    check(TCF:CD("MAGE").trade.ops.cloth[1].n == 120 and TCF:CD("MAGE").trade.renown == 3, "the Mage keeps its spots and Renown")
+    TCF:SetClass("MAGE"); check(TCF:ProfState().ops.cloth[1].n == 120, "switching back shows the Mage's spots")
     TapCatForeverDB.chars["Oldwar-Forever"] = { class = "WARRIOR", trade = { gold = 1, ops = { mining = { { n = 5, p = 0, run = false, mgr = false } } },
       mats = { copper = 9 }, pickLvl = 4, skill = { mining = 30 }, last = time() } }
     login("Oldwar"); s = TCF:ProfState()
@@ -595,24 +599,239 @@ TEST = r'''
     login("Oldrogue"); s = TCF:ProfState()
     check(s.ops.skinning[6] and TCF:ToolLevel() == 0 and s.mats and s.upgrades, "a sparse old save is repaired")
     TapCatForeverDB.chars["Oldmage-Forever"], TapCatForeverDB.chars["Oldwar-Forever"], TapCatForeverDB.chars["Oldrogue-Forever"] = nil, nil, nil
+    -- 4. every class has its own Trade Gold and professions (1.5.1)
+    -- 4a. a 1.5.0 save with two families in use: the Mage keeps everything but the Mining, which
+    -- goes to the character's most played Warrior or Paladin (the Warrior: level 12) with no gold
+    do
+      -- time stands still here, so a login a second later never adds a second of helper work
+      local realTime = time
+      local frozenT = realTime()
+      time = function() return frozenT end
+      local chestsPaid = {}
+      local origAward = TCF.AwardChest
+      TCF.AwardChest = function(self, key, src, ...) chestsPaid[#chestsPaid + 1] = key .. ":" .. tostring(src); return origAward(self, key, src, ...) end
+      TapCatForeverDB.chars["Twofam-Forever"] = { class = "MAGE",
+        classData = { WARRIOR = { level = 12, xp = 5 }, PALADIN = { level = 3, xp = 900 }, MAGE = { level = 20, xp = 0 } },
+        trade = { gold = 5000, lifetime = 9e6, renown = 7, renownEver = 7, prestiges = 1, famMoved = true, buy = 10, last = time(),
+          ops = { cloth = { { n = 40, p = 0, run = true, mgr = true }, { n = 12, p = 0, run = true, mgr = true } },
+                  mining = { { n = 30, p = 0.5, run = true, mgr = true }, { n = 8, p = 0, run = false, mgr = false } }, skinning = {} },
+          tools = { cloth = 12, mining = 9, skinning = 0 },
+          upgrades = { cloth1_0 = true, mining1_0 = true, mining_all0 = true },
+          milestones = { mining1_25 = true, cloth1_25 = true },
+          skill = { cloth = 80, tailoring = 40, mining = 60, blacksmithing = 25, herbalism = 30 },
+          mats = { linen = 100, copper = 70, tin = 5, peacebloom = 9, b_linen = 3 },
+          garden = { plots = {}, n = 5, up = { gardener = true } }, fish = { spot = 1, buddy = 1, bp = 0 } } }
+      local keys0 = {}
+      login("Twofam")
+      for k, v in pairs(TCF.db.keys) do keys0[k] = v end
+      local m, w = TCF:CD("MAGE").trade, TCF:CD("WARRIOR").trade
+      check(TCF.db.trade == nil and TCF.db.tradeSplit and m and w and TCF:ProfState() == m, "split into the Mage's and the Warrior's trade")
+      check(TCF:CD("PALADIN").trade == nil and TCF:CD("ROGUE").trade == nil, "nothing for the Paladin or a class that had no progress")
+      check(m.gold == 5000 and m.lifetime == 9e6 and m.renown == 7 and m.renownEver == 7 and m.prestiges == 1 and m.buy == 10, "the Mage keeps gold and Renown")
+      check(m.ops.cloth[1].n == 40 and m.ops.cloth[1].mgr and m.ops.cloth[2].n == 12 and m.tools.cloth == 12 and m.upgrades.cloth1_0
+        and m.milestones.cloth1_25 and m.skill.cloth == 80 and m.skill.tailoring == 40 and m.skill.herbalism == 30, "the Mage keeps Tailoring")
+      check(m.mats.linen == 100 and m.mats.peacebloom == 9 and m.mats.b_linen == 3 and m.mats.copper == nil and m.mats.tin == nil, "the Mage keeps its own materials")
+      check(m.garden.n == 5 and m.garden.up.gardener and m.fish.buddy == 1, "the Mage keeps the garden and the fishing buddy")
+      for i = 1, 6 do check(m.ops.mining[i].n == 0 and not m.ops.mining[i].mgr, "no Mining left on the Mage") end
+      check(m.tools.mining == 0 and not m.upgrades.mining1_0 and not m.upgrades.mining_all0 and not m.milestones.mining1_25
+        and m.skill.mining == nil and m.skill.blacksmithing == nil, "the Mage's Mining progress moved")
+      check(w.gold == 0 and w.lifetime == 0 and w.renown == 0 and w.renownEver == 0, "the Warrior starts with no Trade Gold or Renown")
+      check(w.ops.mining[1].n == 30 and w.ops.mining[1].mgr and w.ops.mining[2].n == 8 and w.tools.mining == 9 and w.upgrades.mining1_0
+        and w.upgrades.mining_all0 and w.milestones.mining1_25 and w.skill.mining == 60 and w.skill.blacksmithing == 25, "the Warrior got Mining")
+      check(w.mats.copper == 70 and w.mats.tin == 5 and w.mats.linen == nil and w.garden == nil and w.ops.cloth[1].n == 0, "the Warrior got the ore, nothing else")
+      local nKeys = 0
+      for _, cl in ipairs(TCF.CLASSES) do
+        local t = TCF:CD(cl.key).trade
+        if t then for k in pairs(t.milestones) do nKeys = nKeys + 1 end end
+      end
+      check(nKeys == 2 and #chestsPaid == 0, "milestones moved once each and no chest was paid: " .. nKeys .. " " .. #chestsPaid)
+      check(TCF:GetStat("tradeGold") == 9e6 and TCF:GetStat("renown") == 7, "achievements count every cat's Trade Gold")
+      login("Twofam")
+      check(TCF:CD("MAGE").trade == m and m.ops.mining[1].n == 0 and w.ops.mining[1].n == 30 and m.gold == 5000, "the split runs once")
+      -- a shared trade written again by 1.5.0 (playing an older version for a while) is added, not lost
+      TCF.db.trade = { gold = 100, lifetime = 100, famMoved = true, ops = { cloth = { { n = 5, p = 0, run = false, mgr = false } },
+        mining = { { n = 2, p = 0, run = false, mgr = false } } }, mats = { linen = 1, copper = 3 }, garden = { plots = {}, n = 7, up = { compost = true } } }
+      check(TCF:ProfState() == m and TCF.db.trade == nil, "split again")
+      check(m.gold == 5100 and m.lifetime == 9e6 + 100 and m.ops.cloth[1].n == 45 and m.mats.linen == 101, "added to the Mage")
+      check(m.garden.n == 7 and m.garden.up.gardener and m.garden.up.compost, "garden upgrades kept from both")
+      check(w.ops.mining[1].n == 32 and w.mats.copper == 73 and w.gold == 0, "the Mining part added to the Warrior")
+      m.gold, m.lifetime, m.ops.cloth[1].n, m.mats.linen, m.garden.n, m.garden.up.compost = 5000, 9e6, 40, 100, 5, nil
+      w.ops.mining[1].n, w.mats.copper = 30, 70
+      -- 4b. milestone chests are once per cat: the Warrior's 25 was paid before the split
+      TCF:SetClass("WARRIOR")
+      check(TCF:ProfState() == w and TCF:MainProf() == "mining", "switched to the Warrior")
+      w.ops.mining[1].n = 20; w.gold = 1e15
+      check(TCF:BuyOp("mining", 1, 10) and w.ops.mining[1].n == 30 and #chestsPaid == 0, "no second chest for 25 Copper Veins")
+      check(TCF:BuyOp("mining", 1, 80) and #chestsPaid == 1, "the Warrior earns its own chest at 100")
+      TCF:SetClass("MAGE"); m.gold = 1e15; m.ops.cloth[1].n = 20
+      check(TCF:BuyOp("cloth", 1, 40) and m.ops.cloth[1].n == 60 and #chestsPaid == 1, "the Mage's 25 was paid before the split")
+      check(TCF:BuyOp("cloth", 1, 40) and #chestsPaid == 2, "the Mage earns its own chest at 100")
+      for k, v in pairs(keys0) do check((TCF.db.keys[k] or 0) >= v, "chest keys kept") end
+      TCF.AwardChest = origAward
+      -- 4c. each class has its own gold, Renown and prices
+      m.gold, w.gold, m.renown, w.renown = 1000, 50, 7, 0
+      check(TCF:ProfState().gold == 1000 and near(TCF:EarnGold(100), 114) and near(m.gold, 1114) and w.gold == 50, "Trade Gold goes to the Mage")
+      check(TCF:OpCost("cloth", 1, 1) ~= TCF:OpCost("mining", 1, 1), "prices count only this cat's own spots")
+      TCF:SetClass("WARRIOR")
+      check(TCF:ProfState().gold == 50 and TCF:EarnGold(100) == 100 and w.gold == 150 and near(m.gold, 1114), "Trade Gold goes to the Warrior")
+      check(not TCF:ProfUnlocked("herbalism") and TCF:ProfList()[1].key == "mining", "the Warrior has its own Renown unlocks")
+      -- the page shows the selected class's numbers
+      local page = CreateFrame("Frame")
+      local first = #_frames + 1
+      local pw = { profSel = "mining", profView = "main", Refresh = function() end }
+      local refreshPage = TCF.UI.Builders.professions(page, pw)
+      local function shown(txt) for i = first, #_frames do local f = _frames[i]; if f.kind == "FontString" and f.text == txt then return true end end end
+      refreshPage()
+      check(shown("Warrior: Renown 0 (+0% gold)") and shown(TCF.GoldStr(150, 16)), "the page shows the Warrior's gold and Renown")
+      TCF:SetClass("MAGE"); refreshPage()
+      check(shown("Mage: Renown 7 (+14% gold)") and shown(TCF.GoldStr(1114, 16)), "switching class shows the Mage's numbers")
+      -- 4d. offline: every cat's helpers worked, and each cat got its own gold
+      m.last, w.last = time() - 3600, time() - 1800
+      local mg, wg, wc, ml = m.gold, w.gold, w.mats.copper, m.mats.linen
+      login("Twofam")
+      check(w.gold > wg and m.gold > mg and w.mats.copper > wc and m.mats.linen > ml, "both cats' helpers worked offline")
+      local wEarn = w.gold - wg
+      TCF:SetClass("WARRIOR")
+      local perCycle = TCF:OpRevenue("mining", 1) * (1 + 0.02 * w.renown)
+      local cyc = TCF:OpCycleTime("mining", 1)
+      check(wEarn >= perCycle * math.floor(1799 / cyc) - 1e-6 and wEarn <= perCycle * math.floor(1805 / cyc) + 1e-6, "the Warrior earned 30 minutes of its foreman: " .. wEarn)
+      check(m.last >= time() - 1 and w.last >= time() - 1, "both cats are up to date")
+      -- 4e. online: the cat you aren't playing keeps working, quietly, into its own trade
+      TCF:SetClass("MAGE")
+      w.renownEver = 60; w.fish = { spot = 1, buddy = 1, bp = 0 }
+      local odds = TCF.FISH_ODDS.buddyTreasure
+      TCF.FISH_ODDS.buddyTreasure = 1
+      local chat0, pouch0, toasts0 = #_chat, TCF.db.keys.pouch or 0, (TapCatForeverLootToasts and TapCatForeverLootToasts:IsShown())
+      w.last = time() - 600
+      mg, wg = m.gold, w.gold
+      TCF.AwardChest = function() error("no chest pop-up for a cat you aren't playing") end
+      TCF:ProfessionsTick(false, TCF.PROF_CATCHUP_EVERY)
+      TCF.AwardChest = origAward
+      TCF.FISH_ODDS.buddyTreasure = odds
+      check(w.gold > wg and w.last == time(), "the Warrior's foreman worked while you played the Mage")
+      check(#_chat == chat0, "no chat lines for the Warrior: " .. tostring(_chat[#_chat]))
+      check((TCF.db.keys.pouch or 0) >= pouch0 + 4, "the Warrior's fishing buddy found chests quietly")
+      check(m.gold >= mg, "the Mage's own gold")
+      -- the Mage's gold comes only from the Mage's own helpers
+      local mOnly = m.gold
+      w.last = time() - 600
+      TCF:ProfCatchUp()
+      check(m.gold == mOnly, "another cat's work never pays the Mage")
+      -- 4f. a dish feeds the cat that ate it
+      m.mats.d_wolf = 1
+      check(TCF:EatDish("d_wolf") and TCF:FoodBuff("dmg") > 1 and TCF:FoodBuff("dmg", "WARRIOR") == 1, "the Mage is Well Fed, not the Warrior")
+      TCF:SetClass("WARRIOR"); check(TCF:FoodBuff("dmg") == 1 and TCF:FoodBuff("dmg", "MAGE") > 1, "the Warrior isn't Well Fed")
+      TCF:SetClass("MAGE")
+      -- 4g. selling the business is per cat
+      m.lifetime = 1e14
+      check(TCF:PrestigeTrade() and m.gold == 0 and m.ops.cloth[1].n == 0 and w.ops.mining[1].n == 110 and w.gold > 0, "selling the Mage's business leaves the Warrior's")
+      -- 4h. "Reset this character" clears every class's professions; "Reset ALL" clears every character
+      TCF:ResetProgress("char")
+      login("Twofam")
+      for _, cl in ipairs(TCF.CLASSES) do
+        local t = TCF:CD(cl.key).trade
+        check(t == nil or (t.gold == 0 and t.renown == 0 and t.ops.mining[1].n == 0 and t.ops.cloth[1].n == 0), cl.key .. " professions reset")
+      end
+      check(TCF.db.trade == nil and TCF:ProfState().gold == 0, "reset: a fresh trade")
+      local realDB = TapCatForeverDB
+      TapCatForeverDB = { ui = {}, charsMigrated = true, chars = { ["Twofam-Forever"] = { class = "MAGE", classData = { MAGE = { trade = { gold = 5 } } } } } }
+      TCF:ResetProgress("all")
+      check(TapCatForeverDB.chars == nil and next(TapCatForeverDB.ui) == nil, "reset all clears every character")
+      TapCatForeverDB = realDB
+      TapCatForeverDB.chars["Twofam-Forever"] = nil
+      time = realTime
+      print(string.format("per-class trade: split, milestones, offline (Warrior +%s in 30 min), online, food, selling and reset checked", TCF.FormatBig(wEarn)))
+    end
+    -- 4i. a cat with First Aid keeps the cloth First Aid uses; the cloth spots still move
+    do
+      local function aidSave(renown, aid)
+        return { class = "WARRIOR", classData = { MAGE = { level = 10, xp = 0 }, WARRIOR = { level = 20, xp = 0 } },
+          trade = { gold = 10, lifetime = 10, renown = renown, renownEver = renown, famMoved = true, last = time(),
+            ops = { cloth = { { n = 2, p = 0, run = false, mgr = false } }, mining = { { n = 4, p = 0, run = false, mgr = false } } },
+            mats = { linen = 5000, runecloth = 3000, felcloth = 5, copper = 5, b_linen = 2 }, aid = aid } }
+      end
+      TapCatForeverDB.chars["Aidwar-Forever"] = aidSave(30, { up = { medic = true, contract = true } })
+      login("Aidwar")
+      local w, m = TCF:CD("WARRIOR").trade, TCF:CD("MAGE").trade
+      check(TCF:ProfState() == w and w.mats.linen == 5000 and w.mats.runecloth == 3000 and w.mats.copper == 5 and w.mats.b_linen == 2, "the Warrior with First Aid keeps its cloth")
+      check(w.aid and w.aid.up.medic and w.aid.up.contract and TCF:ProfUnlocked("firstaid"), "the Warrior keeps First Aid")
+      check(m and m.ops.cloth[1].n == 2 and w.ops.cloth[1].n == 0 and m.mats.linen == nil and m.mats.runecloth == nil and m.mats.felcloth == 5, "the cloth spots and felcloth went to the Mage")
+      TapCatForeverDB.chars["Aidwar-Forever"] = aidSave(5, nil)
+      login("Aidwar")
+      w, m = TCF:CD("WARRIOR").trade, TCF:CD("MAGE").trade
+      check(w.mats.linen == nil and m.mats.linen == 5000 and m.mats.runecloth == 3000 and w.mats.copper == 5, "without First Aid the cloth goes with the cloth spots")
+      TapCatForeverDB.chars["Aidwar-Forever"] = nil
+    end
+    -- 4j. 1.5.0 counted milestones over all families together: no chest is paid twice after the split
+    do
+      local paid = {}
+      local origAward = TCF.AwardChest
+      TCF.AwardChest = function(self, key, src, ...) paid[#paid + 1] = key; return origAward(self, key, src, ...) end
+      local function msSave(nMining, nCloth, keys)
+        return { class = "MAGE", classData = { MAGE = { level = 10, xp = 0 }, WARRIOR = { level = 10, xp = 0 } },
+          trade = { gold = 0, lifetime = 0, famMoved = true, last = time(), milestones = keys,
+            ops = { cloth = { { n = nCloth, p = 0, run = false, mgr = false } }, mining = { { n = nMining, p = 0, run = false, mgr = false } } } } }
+      end
+      TapCatForeverDB.chars["Msplit-Forever"] = msSave(200, 100, { mining1_25 = true, mining1_100 = true, cloth1_300 = true })
+      login("Msplit")
+      local m, w = TCF:CD("MAGE").trade, TCF:CD("WARRIOR").trade
+      check(w.ops.mining[1].n == 200 and w.milestones.mining1_300 and w.milestones.mining1_25 and w.milestones.mining1_100, "the Warrior had the 300 chest with the Mage's cloth")
+      check(m.milestones.cloth1_300 and m.milestones.cloth1_25 and m.milestones.cloth1_100 and not m.milestones.mining1_25, "the Mage had every chest the shared spots crossed")
+      TCF:SetClass("WARRIOR"); w.gold = 1e15
+      check(TCF:BuyOp("mining", 1, 100) and w.ops.mining[1].n == 300 and #paid == 0, "no second heroic chest at 300: " .. table.concat(paid, ","))
+      TCF:SetClass("MAGE"); m.gold = 1e15
+      check(TCF:BuyOp("cloth", 1, 250) and #paid == 0, "no second chest for the Mage either")
+      TapCatForeverDB.chars["Msplit-Forever"] = msSave(24, 1, { cloth1_25 = true })
+      login("Msplit")
+      w = TCF:CD("WARRIOR").trade
+      check(w.milestones.mining1_25 and not w.milestones.mining1_100, "24 Copper Veins and 1 cloth spot: the Warrior had the 25 chest")
+      TCF:SetClass("WARRIOR"); w.gold = 1e15
+      check(TCF:BuyOp("mining", 1, 1) and #paid == 0 and TCF:BuyOp("mining", 1, 75) and #paid == 1 and paid[1] == "strong", "the Warrior's next chest is its own 100")
+      TCF.AwardChest = origAward
+      TapCatForeverDB.chars["Msplit-Forever"] = nil
+    end
+    -- 4k. switching class back and forth never counts idle time twice (time() is whole seconds)
+    do
+      TapCatForeverDB.chars["Clock-Forever"] = { class = "MAGE", classData = { MAGE = { level = 5, xp = 0 }, WARRIOR = { level = 5, xp = 0 } } }
+      login("Clock")
+      local m = TCF:ProfState()
+      TCF:SetClass("WARRIOR"); local w = TCF:ProfState(); TCF:SetClass("MAGE")
+      m.ops.cloth[1].n, m.ops.cloth[1].mgr = 1, true
+      w.ops.mining[1].n, w.ops.mining[1].mgr = 1, true
+      local realTime, origAdvance = time, TCF.ProfAdvance
+      local counted = {}
+      TCF.ProfAdvance = function(self, dt, offline)
+        local s = self:ProfState(); counted[s] = (counted[s] or 0) + dt
+        return origAdvance(self, dt, offline)
+      end
+      for _, phase in ipairs({ 0.1, 0.4, 0.6, 0.9 }) do
+        local t = realTime() + 100 + phase
+        time = function() return math.floor(t) end
+        m.last, w.last = math.floor(t), math.floor(t)
+        counted[m], counted[w] = 0, 0
+        for k = 1, 400 do
+          t = t + 0.25
+          TCF:ProfessionsTick(false, 0.25)
+          if k % 2 == 0 then TCF:SetClass(TCF.db.class == "MAGE" and "WARRIOR" or "MAGE") end
+        end
+        TCF:ProfCatchUp()
+        check(counted[m] >= 98.5 and counted[m] <= 101 and counted[w] >= 98.5 and counted[w] <= 101,
+          string.format("100 seconds of switching every half second: Mage %.2f s, Warrior %.2f s", counted[m], counted[w]))
+      end
+      time = realTime
+      TCF.ProfAdvance = origAdvance
+      -- 4l. a /reload: every cat's helpers get the time it took, without a "While you were away" line
+      TCF:SetClass("MAGE")
+      m.last, w.last = time() - 20, time() - 20
+      local mg, wg, chat0 = m.gold, w.gold, #_chat
+      login("Clock")
+      check(m.gold > mg and w.gold > wg and m.last >= time() - 1 and w.last >= time() - 1, "both cats' helpers worked during a short reload")
+      local away = false
+      for i = chat0 + 1, #_chat do if tostring(_chat[i]):find("While you were away") then away = true end end
+      check(not away, "no away line after a short reload")
+      TapCatForeverDB.chars["Clock-Forever"] = nil
+    end
     login("Proftest")
-    -- 4. helpers of a family that isn't the current class's keep working, offline and online
-    TCF.db.trade = nil; ps = TCF:ProfState()
-    ps.ops.skinning[1] = { n = 10, p = 0, run = true, mgr = true }
-    ps.ops.mining[2] = { n = 3, p = 0, run = true, mgr = true }
-    ps.ops.cloth[1] = { n = 5, p = 0, run = true, mgr = false }   -- started by hand, no helper: not offline
-    ps.last = time() - 3600
-    TCF:ProfessionsTick(true)
-    local function cycles(f, i, sec) return math.floor(sec / TCF:OpCycleTime(f, i)) * TCF:OpMatsPerCycle(f, i) end
-    check(ps.mats.lightleather >= cycles("skinning", 1, 3599) and ps.mats.lightleather <= cycles("skinning", 1, 3605), "Trapper worked offline while a Mage: " .. tostring(ps.mats.lightleather))
-    check(ps.mats.tin >= cycles("mining", 2, 3599) and ps.mats.tin <= cycles("mining", 2, 3605), "Foreman worked offline while a Mage: " .. tostring(ps.mats.tin))
-    check((ps.mats.linen or 0) == 0 and ps.gold > 0, "a spot without a helper doesn't run offline")
-    local ll = ps.mats.lightleather
-    for k = 1, 40 do TCF:ProfAdvance(0.25) end
-    check(ps.mats.lightleather > ll, "Trapper keeps working online while a Mage")
-    TCF:SetClass("WARRIOR"); ll = ps.mats.lightleather
-    for k = 1, 40 do TCF:ProfAdvance(0.25) end
-    check(ps.mats.lightleather > ll, "and while a Warrior")
     TCF:SetClass("MAGE")
     -- 5. recipes: gear recipes for every craft, cosmetics flagged cosmetic
     local famMats = {}
@@ -800,6 +1019,30 @@ TEST = r'''
     check(buddyLabelShown(first, TCF.BUDDY_LEVELS[2].name), "a page built with a level 2 buddy shows him")
     TCF:FishCast(); TCF.fishRun.biteAt = 0; fs.bp = TCF.BUDDY_LEVELS[2].every - 0.1
     for k = 1, 8 do _update(0.25) end
+    -- the buddy's catch pop belongs to one cat: switching to another cat's buddy is not a catch
+    do
+      local cls0 = TCF.db.class
+      TCF:SetClass("MAGE")
+      local mf = TCF:FishState()
+      mf.buddy, mf.bp = 1, 40
+      local first = #_frames + 1
+      local page = CreateFrame("Frame")
+      local refresh = TCF.UI.Builders.professions(page, { profSel = "fishing", profView = "main", Refresh = function() end, preview = TCF.window and TCF.window.preview })
+      local function step(n) for _ = 1, n do for i = first, #_frames do local f = _frames[i]; if f.scripts.OnUpdate and f.shown then f.scripts.OnUpdate(f, 0.2) end end end end
+      local function popShown() for i = first, #_frames do local f = _frames[i]; if f.kind == "FontString" and f.text == "|cffffffff+1 fish|r" and f.shown then return true end end return false end
+      refresh(); step(2)
+      mf.bp = 5; step(1)
+      check(popShown(), "a catch shows +1 fish")
+      mf.bp = 40; step(10)
+      check(not popShown(), "the pop goes away")
+      TCF:SetClass("PRIEST")
+      local ps2 = TCF:ProfState(); ps2.renownEver = math.max(ps2.renownEver, 200)
+      local pf = TCF:FishState(); pf.buddy, pf.bp = 1, 5
+      check(pf ~= mf, "the Priest has its own fishing buddy")
+      refresh(); step(1)
+      check(not popShown(), "switching to the Priest's buddy is not a catch")
+      TCF:SetClass(cls0)
+    end
     -- 10. party cats
     _sent = {}
     local xpAlone = TCF:FoodBuff("xp")
@@ -942,11 +1185,36 @@ TEST = r'''
       check(TCF:AdvClearCoins(2) == 62, "another class clearing Westfall gets a quarter")
       TCF.db.zonesCleared = saved
     end
+    -- 10f. hovering gear shows what the cat wears in that slot beside it
+    do
+      local class = TCF.db.class
+      local eq, bag = TCF:GearEquipped(class), TCF:Bag(class)
+      local a, b
+      for id, g in pairs(TCF.GEAR) do
+        if g.slot == "HEAD" and not g.crafted and TCF:GearUsable(g, class) and g.req <= TCF:CD(class).level then
+          if not a then a = g elseif not b and g.id ~= a.id then b = g end
+        end
+      end
+      if a and b then
+        local saveHead = eq.HEAD
+        bag[a.id] = (bag[a.id] or 0) + 1; bag[b.id] = (bag[b.id] or 0) + 1
+        eq.HEAD = a.id
+        GameTooltip:SetOwner(UIParent, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, b)
+        check(TapCatForeverCompareTip1 and TapCatForeverCompareTip1:IsShown(), "hovering gear shows the worn item beside it")
+        TapCatForeverCompareTip1:Hide()
+        GameTooltip:SetOwner(UIParent, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, a)
+        check(not TapCatForeverCompareTip1:IsShown(), "no comparison when hovering the worn item itself")
+        eq.HEAD = saveHead
+      end
+    end
     -- 11. What's new strip and Patch notes
     do
       local realVersion = TCF.version
+      -- the newest version; a fix release (no highlight) shows its big update's news
+      local hl
+      for _, n in ipairs(TCF.NEWS) do if n.highlight then hl = n; break end end
       TCF.version = TCF.NEWS[1].version
-      check(TCF.NEWS[1].highlight ~= nil and TCF:CurrentNews() == TCF.NEWS[1], "current version has news")
+      check(hl and TCF:CurrentNews() == hl, "current version has news")
       TCF.db.newsSeen, TCF.db.newsShows = nil, nil
       if not TCF.window then TCF:CreateWindow() end
       TCF.window:Hide(); TCF.window:Show(); TCF:CheckNews()

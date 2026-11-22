@@ -85,7 +85,7 @@ local function harvest(self, g, s, i)
   self:EarnGold(sd[6] * n)
   if (sd[1] == "sungrass" or sd[1] == "dreamfoil") and random() < 0.01 + self:ProfSkill("herbalism") / 30000 then
     s.mats.lotus = (s.mats.lotus or 0) + 1
-    self.gardenMutation = true
+    if not self.tradeQuiet then self.gardenMutation = true end
   end
   self:ProfSkillUp("herbalism", sd[7])
   local seed = p.seed
