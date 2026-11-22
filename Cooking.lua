@@ -45,6 +45,8 @@ for _, r in ipairs(TCF.COOK_RECIPES) do
   TCF.COOK_BY_KEY[r[1]] = r
   TCF.AddMat(r[1], r[2], r[3], 1e4 * r[5], "cooking")
 end
+-- 1.6: skill-ups use each dish's teach level (Professions.lua TCF.SetTeachLevels)
+TCF.SetTeachLevels(TCF.COOK_RECIPES, function(r) return r[5] end, function(r, t) r.teach = t end)
 TCF.BUFF_TEXT = { dmg = "Adventure damage", hp = "Adventure health", xp = "cat XP from key presses", mining = "gathering profits",
   garden = "garden growth", fishing = "rare catch chance", all = "Adventure damage and health" }
 
@@ -122,14 +124,14 @@ function TCF:CookPot()
   consume(s, c.pot)
   c.pot = {}
   if not r then
-    -- a failed experiment rarely teaches anything (5% chance of a skill point)
-    self:ProfSkillUp("cooking", self:ProfSkill("cooking") - 75)
+    -- a failed experiment rarely teaches anything (1 in 20 chance of a skill point)
+    self:ProfSkillUp("cooking", self:ProfSkill("cooking") - 40)
     return "Burnt Mess. That didn't work...", nil, false
   end
   local discovered = not c.known[r[1]]
   c.known[r[1]] = true
   s.mats[r[1]] = (s.mats[r[1]] or 0) + 1
-  self:ProfSkillUp("cooking", r[5])
+  self:ProfSkillUp("cooking", r.teach or r[5])
   if discovered then
     self.db.stats.recipesFound = (self.db.stats.recipesFound or 0) + 1
     self:Print("New recipe discovered: |cffffd100" .. r[2] .. "|r.", true)
@@ -156,7 +158,7 @@ function TCF:CookKnown(key, auto)
   end
   consume(s, r[4])
   s.mats[key] = (s.mats[key] or 0) + 1
-  self:ProfSkillUp("cooking", r[5])
+  self:ProfSkillUp("cooking", r.teach or r[5])
   return true
 end
 

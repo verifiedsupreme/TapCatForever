@@ -558,15 +558,59 @@ function TCF:CheckProfUnlocks()
 end
 
 -- Profession skill 1..300 (WoW style). Chance to improve is higher while easy.
+-- 1.6: one curve for every profession, by gap = your skill - the thing's difficulty (a gathering
+-- spot, a recipe, a seed, a bandage, a fishing spot, a dish):
+--   gap < 5: always (orange), < 15: half the time (yellow), < 30: 1 in 5 (green),
+--   < 50: 1 in 20 (green, rarely), 50 or more: never (grey), for gathering too.
+-- So the first few always give a point, then it slows down a lot, then stops until you move on.
+TCF.SKILLUP_BANDS = {
+  { gap = 5,  chance = 1,    color = "ff8040", word = "always" },
+  { gap = 15, chance = 0.5,  color = "ffff00", word = "often" },
+  { gap = 30, chance = 0.2,  color = "40c040", word = "sometimes" },
+  { gap = 50, chance = 0.05, color = "70a070", word = "rarely" },
+}
+TCF.SKILLUP_GREY = { chance = 0, color = "808080", word = "no longer" }
+local function skillBand(skill, difficulty)
+  local gap = (skill or 1) - (difficulty or 1)
+  for _, b in ipairs(TCF.SKILLUP_BANDS) do if gap < b.gap then return b end end
+  return TCF.SKILLUP_GREY
+end
+-- chance (0..1) that one gather / craft at difficulty gives a point at this skill
+function TCF.SkillUpChance(skill, difficulty)
+  if (skill or 1) >= 300 then return 0 end
+  return skillBand(skill, difficulty).chance
+end
+-- WoW-style colour code ("|cffff8040") and plain words ("often") for a difficulty at this skill
+function TCF.SkillUpColor(skill, difficulty)
+  local b = (skill or 1) >= 300 and TCF.SKILLUP_GREY or skillBand(skill, difficulty)
+  return "|cff" .. b.color, b.word
+end
+-- the tooltip line: "Still teaches you: often" (or "no longer"), and its colour code
+function TCF.SkillUpLine(skill, difficulty)
+  local col, word = TCF.SkillUpColor(skill, difficulty)
+  if (skill or 1) >= 300 then return "Still teaches you: no longer (skill is maxed)", col end
+  return "Still teaches you: " .. word, col
+end
+-- A list whose requirements are far apart (seeds, bandages, fishing spots, dishes) would leave a
+-- player stuck: nothing teaches more than 49 above its difficulty. Each entry gets a teach level
+-- (the difficulty its skill-ups use): at least its requirement, at most 30 below the next one's,
+-- and 270 for the last one, so every step can be reached, and 300 too.
+function TCF.SetTeachLevels(list, reqOf, set)
+  for i, e in ipairs(list) do
+    local req = reqOf(e)
+    local nextReq = list[i + 1] and reqOf(list[i + 1]) or 300
+    set(e, max(req, nextReq - 30))
+  end
+end
+-- skill-up difficulty of gathering spot i (by hand): the first 0, then 50 more for each
+function TCF.SpotDifficulty(i) return ((i or 1) - 1) * 50 end
+
 function TCF:ProfSkill(prof) return S(self).skill[prof] or 1 end
 function TCF:ProfSkillUp(prof, difficulty)
   local s = S(self)
   local cur = s.skill[prof] or 1
   if cur >= 300 then return end
-  local gap = cur - (difficulty or 1)
-  -- grey recipes (75+ below your skill) never raise a crafting skill; gathering keeps 5%
-  local chance = gap < 25 and 1 or gap < 50 and 0.5 or gap < 75 and 0.25 or (TCF.CRAFT_FAMILY[prof] and 0 or 0.05)
-  if random() < chance then s.skill[prof] = cur + 1; return true end
+  if random() < TCF.SkillUpChance(cur, difficulty) then s.skill[prof] = cur + 1; return true end
 end
 
 ---------------------------------------------------------------- numbers
@@ -718,7 +762,7 @@ function TCF:GatherClick(prof, i)
   local got = 0
   for _ = 1, self:ToolRolls(f) do if random() < TCF.PICK_ORE_CHANCE then got = got + 1 end end
   s.mats[op[2]] = (s.mats[op[2]] or 0) + got
-  self:ProfSkillUp(f, (i - 1) * 50)
+  self:ProfSkillUp(f, TCF.SpotDifficulty(i))
   self.lastMineOre, self.lastMineMat, self.lastMineGold, self.lastMineFamily = got, op[2], gold, f
   return true
 end

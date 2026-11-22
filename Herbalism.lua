@@ -22,6 +22,9 @@ for i, sd in ipairs(TCF.SEEDS) do
   TCF.SEED_BY_KEY[sd[1]] = sd
   TCF.AddMat(sd[1], sd[2], sd[3], sd[6] / 4, "herbalism")
 end
+-- 1.6: each seed teaches up to its teach level (Professions.lua TCF.SetTeachLevels), so no gap
+-- between two seeds leaves you stuck
+TCF.SetTeachLevels(TCF.SEEDS, function(sd) return sd[7] end, function(sd, t) sd.teach = t end)
 TCF.AddMat("lotus", "Black Lotus", "INV_Misc_Herb_BlackLotus", 5e7, "herbalism")
 
 TCF.GARDEN_MAX_PLOTS = 12
@@ -87,7 +90,7 @@ local function harvest(self, g, s, i)
     s.mats.lotus = (s.mats.lotus or 0) + 1
     if not self.tradeQuiet then self.gardenMutation = true end
   end
-  self:ProfSkillUp("herbalism", sd[7])
+  self:ProfSkillUp("herbalism", sd.teach or sd[7])
   local seed = p.seed
   g.plots[i] = nil
   return seed

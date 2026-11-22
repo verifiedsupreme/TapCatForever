@@ -44,27 +44,29 @@ T6_BASE x size factor. Amounts are rounded to tidy numbers.
 
 The numbers (BASE) and why
 --------------------------
-  BASE = { 1: 12, 2: 250, 3: 3000, 4: 14000, 5: 20000 },  T6_BASE = 2000  (per craft, before size)
-so a craft costs 7-21 tier-1 mats at skill 1-74, 150-490 tier 2, about 1800-5600 tier 3,
-8400-28000 tier 4, 12000-40000 tier 5, and at 275-300 tier 5 plus 1200-4000 tier 6 (the three
+  BASE = { 1: 8, 2: 120, 3: 1300, 4: 6000, 5: 8500 },  T6_BASE = 850  (per craft, before size)
+so a craft costs 5-16 tier-1 mats at skill 1-74, about 70-240 tier 2, 800-2600 tier 3,
+3600-12000 tier 4, 5100-17000 tier 5, and at 275-300 tier 5 plus 500-1700 tier 6 (the three
 families in about the same ranges). Tiers 1-2 stay cheap so the first recipes come quickly.
 
-Recipes unlock at most 25 skill apart and TCF:ProfSkillUp gives 100% while a recipe is less than
-25 below your skill, then 50% / 25% (grey, 75+ below, is 0% for crafting). So the last cheap
-recipe of a band also levels the first 25-50 points of the next band, and each band's material is
-needed for only part of it, as in WoW. Tiers 3-5 are priced with that in mind.
+1.6 skill-up curve (Professions.lua TCF.SKILLUP_BANDS, the same for every profession): a recipe
+gives a point every time while your skill is less than 5 above it, half the time up to 15 above,
+1 in 5 up to 30, 1 in 20 up to 50, and never after that. Recipes unlock at most 25 skill apart, so
+the newest recipe is always orange or yellow; each one gives only a few sure points, so a level
+takes more crafts than before 1.6 (when the first 25 were sure) and BASE was lowered to about
+0.4-0.65 of the 1.5 amounts to keep the same pace.
 
 The source of truth for the pace is the real addon: python3 tools/trade_sim.py --craft 1 2 4
 (the casual player: online N hours a day, helpers working offline, offline Trade Gold and the
 Trade Gold from selling crafted gear spent on spots and helpers, always the best skill-up recipe,
 no prestige, nothing else spending the mats). With the numbers above, 1 -> 300 takes:
-  1 h a day: 41-45 days    2 h a day: 37-44 days    4 h a day: 37-41 days
-  (2 h a day: skill 125 on the first day, 175 on day 2-3, 230 on day 9-10, 275 on day 24-27)
---attentive (buys every 5 s) gives 37-44 days too. Online time matters little after the first
-days because the hires do most of the work around the clock. Real players also spend these mats
-on cosmetics, skins, First Aid and Cooking, prestige (which resets their spots for a while) and
-skip days, so expect longer: the first bands are a quick start, and 230 -> 300 is the long-term
-goal (weeks to months). Re-run trade_sim.py --craft after changing BASE.
+  1 h a day: 43-49 days    2 h a day: 41-44 days    4 h a day: 41-53 days
+  (2 h a day: skill 125 on day 2, 175 on day 4-5, 230 on day 14-15, 275 on day 31-32)
+Online time matters little after the first days because the hires do most of the work around
+the clock. Real players also spend these mats on cosmetics, skins, First Aid and Cooking,
+prestige (which resets their spots for a while) and skip days, so expect longer: the first
+bands are a quick start, and 230 -> 300 is the long-term goal (weeks to months). Re-run
+trade_sim.py --craft after changing BASE.
 Crafted gear sells for Trade Gold only (half its material value, Gear.lua), which is always less
 than selling the materials, so crafting is never a gold exploit.
 """
@@ -108,8 +110,8 @@ PICKS = {
 }
 
 BANDS = [(1, 74, 1), (75, 124, 2), (125, 174, 3), (175, 229, 4), (230, 274, 5), (275, 300, 5)]
-BASE = {1: 12, 2: 250, 3: 3000, 4: 14000, 5: 20000}
-T6_BASE = 2000
+BASE = {1: 8, 2: 120, 3: 1300, 4: 6000, 5: 8500}
+T6_BASE = 850
 SIZE_CLAMP = (0.6, 2.0)
 HALF = ("Thread", "Dye", "Flux", "Bleach", "Grinding Stone", "Buckle")
 

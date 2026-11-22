@@ -20,9 +20,10 @@
       --attentive: buys every 5 s and clicks the tool whenever it is ready (the best case).
       Crafting: always the gear recipe with the best skill-up chance, and among those the cheapest in
       hours of production; it also crafts after each idle stretch. Crafted gear is sold once a day
-      (Trade Gold). It never crafts grey recipes (75+ below its skill): a normal player stops making
-      those. --grinder also crafts grey recipes when they are cheaper per expected skill point, using
-      the grey chance measured from the real TCF:ProfSkillUp, to show what grinding greys is worth.
+      (Trade Gold). The skill-up chances are the real ones (TCF.SkillUpChance): grey recipes (50+
+      below its skill) never give a point since 1.6. --grinder also crafts grey recipes when they are
+      cheaper per expected skill point, using the grey chance measured from the real TCF:ProfSkillUp
+      (0 since 1.6, so it changes nothing now).
       No prestige is modelled (a prestige resets the spots, so a player who sells the business
       levels more slowly) and nothing else spends the materials (cosmetics, First Aid, Cooking).
 """
@@ -173,9 +174,9 @@ for _, r in ipairs(TCF.RECIPES[craft]) do if r.gear then recipes[#recipes + 1] =
 local tierOf = {}
 for i, o in ipairs(TCF.FAMILIES[P.fam].ops) do tierOf[o[2]] = i end
 local function chance(skill, need)
-  local gap = skill - need
-  if gap < 25 then return 1 elseif gap < 50 then return 0.5 elseif gap < 75 then return 0.25 end
-  return grinder and grey or 0
+  local c = TCF.SkillUpChance(skill, need)   -- the real curve (Professions.lua)
+  if c == 0 and grinder then return grey end
+  return c
 end
 local function matRate(tier)   -- materials a second from that spot (helper or not)
   local i = tier

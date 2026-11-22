@@ -30,6 +30,8 @@ TCF.FISHING_SPOTS = {
   { key = "feralas",  name = "Feralas",             skill = 200, fish = { "nightfin", "sunscale" } },
   { key = "azshara",  name = "Azshara",             skill = 250, fish = { "eel", "whitescale" } },
 }
+-- 1.6: skill-ups use each spot's teach level (Professions.lua TCF.SetTeachLevels)
+TCF.SetTeachLevels(TCF.FISHING_SPOTS, function(sp) return sp.skill end, function(sp, t) sp.teach = t end)
 TCF.BUDDY_LEVELS = {
   { name = "Fishing Buddy",        every = 120, cost = 2e6 },
   { name = "Seasoned Angler",      every = 90,  cost = 1.2e7 },
@@ -77,7 +79,7 @@ function TCF:CatchFish(byBuddy, bag)
   elseif r < 0.10 then key, kind = "boot", "junk"
   else key, kind = spot.fish[random(#spot.fish)], "fish" end
   if key then s.mats[key] = (s.mats[key] or 0) + 1 end
-  self:ProfSkillUp("fishing", spot.skill)
+  self:ProfSkillUp("fishing", spot.teach or spot.skill)
   if kind == "treasure" then
     giveChest(self, "pouch", "Message in a Bottle", bag)
     return "Message in a Bottle", kind

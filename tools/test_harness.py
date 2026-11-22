@@ -939,11 +939,12 @@ TEST = r'''
     check(TCF:Bag("MAGE")[it1.id] == had + 1 and (TCF:Bag("WARRIOR")[it1.id] or 0) == warHad, "crafted gear goes to the current class's bag")
     check(toasts == 1 and not (TapCatForeverLootReveal and TapCatForeverLootReveal:IsShown()), "crafted gear: a small notice, no loot box")
     check(TCF:ProfSkill("tailoring") == 2 and TCF:ProfSkill("cloth") == gather0 and TCF:ProfSkill("blacksmithing") == 1, "Tailoring skill-up")
-    for k = 2, 24 do TCF:Craft(r1) end
-    check(TCF:ProfSkill("tailoring") == 25, "orange recipe: a point every craft, got " .. TCF:ProfSkill("tailoring"))
+    -- (1.6 skill-up curve: a point every craft only while less than 5 above the recipe)
+    for k = 2, 5 do TCF:Craft(r1) end
+    check(TCF:ProfSkill("tailoring") == 6, "orange recipe: a point every craft, got " .. TCF:ProfSkill("tailoring"))
     for k = 1, 30 do TCF:Craft(r1) end
     local sk = TCF:ProfSkill("tailoring")
-    check(sk > 25 and sk < 55, "yellow/green recipe: some crafts give no point, got " .. sk)
+    check(sk > 6 and sk < 36, "yellow/green recipe: some crafts give no point, got " .. sk)
     local locked
     for _, r in ipairs(TCF.RECIPES.tailoring) do if r.gear and r.skill > sk then locked = r; break end end
     check(TCF:CraftBlocked(locked) == "Needs Tailoring " .. locked.skill .. ".", "locked recipe text: " .. tostring(TCF:CraftBlocked(locked)))
@@ -1582,10 +1583,11 @@ TEST = r'''
       TCF.ChestCoinsText = origCoinsText
       if not winWasShown then TCF.window:Hide() end
       check(made == 7 and (bag[it.id] or 0) == had1 + 7, "Craft all made " .. made)
-      check(#_chat == chat0 + 1 and _chat[#_chat]:find("Crafted 7 x", 1, true) and _chat[#_chat]:find("skill +7", 1, true) and not _chat[#_chat]:find("!", 1, true),
+      -- (1.6 skill-up curve: the first 5 always give a point, the next ones half the time)
+      check(#_chat == chat0 + 1 and _chat[#_chat]:find("Crafted 7 x", 1, true) and _chat[#_chat]:find("skill +" .. (ps.skill[craft] - r.skill), 1, true) and not _chat[#_chat]:find("!", 1, true),
         "Craft all: one chat line: " .. tostring(_chat[#_chat]))
       check(toasts0 == 0, "Craft all: no notice per item")
-      check(ps.skill[craft] == r.skill + 7, "Craft all: the crafting skill rises (" .. ps.skill[craft] .. ")")
+      check(ps.skill[craft] >= r.skill + 5 and ps.skill[craft] <= r.skill + 7, "Craft all: the crafting skill rises (" .. ps.skill[craft] .. ")")
       for m in pairs(r.mats) do check(ps.mats[m] == 0, "Craft all used the materials") end
       check(TCF:CraftCount(r) == 0 and TCF:CraftAll(r) == 0 and #_chat == chat0 + 1, "nothing left: nothing made, nothing said")
       for m, need in pairs(r.mats) do ps.mats[m] = need * 80 end
