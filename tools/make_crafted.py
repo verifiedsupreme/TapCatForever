@@ -90,24 +90,38 @@ CRAFTS = [
 # hand-picked recipes (item ids), see the docstring
 PICKS = {
     "blacksmithing": [
-        10421, 2844, 2847, 7955, 3471, 3488, 3472, 3474, 6214, 2857, 2864, 3487, 6731, 2866, 5540,
+        10421, 2852, 2853, 2403, 3469, 2851, 2845, 2844, 2847, 7955, 3471, 3488, 3472, 3474, 6214, 2857, 2864, 3487, 6731, 2866, 5540,
         2849, 2850, 7956, 2870, 3851, 3849, 3836, 3850, 3853, 3837, 3845, 3854, 7919, 7921,
         7922, 7943, 7930, 7935, 7937, 12405, 7960, 12424, 12410, 11604, 19051, 12427,
         12422, 12784, 22198, 12640,
     ],
     "leatherworking": [
-        5957, 2302, 2303, 4237, 7280, 2300, 2309, 2311, 7281, 4242, 4243, 2307, 5781, 2317, 6467,
+        5957, 2302, 7276, 7277, 797, 2303, 4237, 7280, 2300, 2309, 2311, 7281, 4242, 4243, 2307, 5781, 2317, 6467,
         2316, 6468, 2314, 4252, 4254, 4255, 4455, 5963, 7374, 4262, 5739, 8174, 8175, 8189, 8203,
         8345, 8193, 8207, 8348, 8367, 15083, 15076, 15061, 15064, 15086, 15056, 15063, 15080,
         15062, 18509,
     ],
     "tailoring": [
-        10045, 2568, 7026, 10046, 6238, 4307, 2572, 2580, 2569, 4309, 2582, 5542, 2583,
+        10045, 2570, 793, 3603, 2568, 7026, 10046, 6238, 4307, 2572, 2580, 2569, 4309, 2582, 5542, 2583,
         6263, 2585, 4314, 6264, 4317, 5766, 7048, 5770, 7050, 7065, 4323, 7055, 7058, 7054, 4327,
         9998, 10004, 10021, 10024, 10025, 10041, 13868, 14042, 13860, 14107, 13864, 14136,
         14111, 13866, 14138, 14152, 18405,
     ],
 }
+
+# 1.6 starter sets: at least one WHITE piece for every armour slot Classic had a low-level white
+# for, so a new cat can wear a full crafted set (no rings, necks or trinkets). Real Classic white
+# crafted items where they exist (their real skill and reagents); where Classic had no crafted
+# white for a slot (gloves for all three, cloth bracers) a real Classic vendor white of the same
+# armour type is made at a low skill instead (STARTER_VENDOR: item -> skill). Classic has no
+# white helm or shoulders below level 15 at all, so the sets have none (see notes/prof.md).
+# Each set is a list of slots; a slot is a list of items (any one of them counts), easiest first.
+STARTER = {
+    "blacksmithing": [[2853], [2852], [10421], [2403], [3469], [2851], [2844, 2845, 2847, 7955]],
+    "leatherworking": [[7277], [2302], [5957], [7276], [797], [2303], [4237]],
+    "tailoring": [[10045], [2570], [793], [2568], [3603], [7026], [10046]],
+}
+STARTER_VENDOR = {2403: 5, 797: 5, 793: 5, 3603: 10}
 
 BANDS = [(1, 74, 1), (75, 124, 2), (125, 174, 3), (175, 229, 4), (230, 274, 5), (275, 300, 5)]
 BASE = {1: 8, 2: 120, 3: 1300, 4: 6000, 5: 8500}
@@ -155,9 +169,11 @@ def reagent_size(cb, by_id):
 
 def gear_data_ids():
     ids = {}
-    for l in open(os.path.join(ROOT, "GearData.lua"), encoding="utf-8"):
-        if l.startswith("G("):
-            ids[int(l[2:l.index(",")])] = l.strip()
+    # WorldGearData.lua too: the vendor whites of the starter sets are there (it loads before CraftData.lua)
+    for fn in ("GearData.lua", "WorldGearData.lua"):
+        for l in open(os.path.join(ROOT, fn), encoding="utf-8"):
+            if l.startswith("G("):
+                ids.setdefault(int(l[2:l.index(",")]), l.strip())
     return ids
 
 
@@ -187,7 +203,11 @@ def build(data_path):
         rows = []
         for iid in PICKS[craft]:
             x = by_id[iid]
-            cb = next(c for c in x.get("createdBy") or [] if c.get("category") == cat)
+            if iid in STARTER_VENDOR:
+                # a vendor white for a slot Classic had no crafted white for: made at a low skill
+                cb = {"requiredSkill": STARTER_VENDOR[iid], "reagents": []}
+            else:
+                cb = next(c for c in x.get("createdBy") or [] if c.get("category") == cat)
             skill = cb.get("requiredSkill") or 0
             slot, sub = MG.SLOT_MAP.get(x.get("slot")), MG.SUB_MAP.get(x.get("subclass"))
             assert 1 <= skill <= 300 and slot and sub and x.get("class") in ("Armor", "Weapon"), x["name"]
@@ -200,23 +220,29 @@ def build(data_path):
             else:
                 assert sub == "cloth", x["name"]
             stats, classes = MG.parse_item(x)
-            rows.append(dict(x=x, skill=skill, size=reagent_size(cb, by_id), stats=stats, classes=classes, slot=slot))
+            rows.append(dict(x=x, skill=skill, size=reagent_size(cb, by_id) if cb["reagents"] else None, stats=stats, classes=classes, slot=slot))
         rows.sort(key=lambda r: (r["skill"], r["x"]["itemId"]))
         # average real size per band, then each recipe's size factor
         acc = collections.defaultdict(list)
         for r in rows:
-            acc[band_of(r["skill"])[0]].append(r["size"])
+            if r["size"] is not None:
+                acc[band_of(r["skill"])[0]].append(r["size"])
+        starter_ids = set(i for slot in STARTER[craft] for i in slot)
         out = []
         for r in rows:
             b, tier = band_of(r["skill"])
-            f = r["size"] / (sum(acc[b]) / len(acc[b]))
+            # a vendor white (no real reagents) costs the smallest amount of its band
+            f = SIZE_CLAMP[0] if r["size"] is None else r["size"] / (sum(acc[b]) / len(acc[b]))
             f = min(SIZE_CLAMP[1], max(SIZE_CLAMP[0], f))
             m = collections.OrderedDict()
             m[mats[tier - 1]] = tidy(BASE[tier] * f)
             if r["skill"] >= 275:
                 m[mats[5]] = tidy(T6_BASE * f)
             x = r["x"]
-            out.append({"gear": x["itemId"], "skill": r["skill"], "mats": m, "name": x["name"], "q": QUALITY[x["quality"]]})
+            out.append({"gear": x["itemId"], "skill": r["skill"], "mats": m, "name": x["name"], "q": QUALITY[x["quality"]],
+                        "starter": x["itemId"] in starter_ids})
+            if x["itemId"] in starter_ids:
+                assert QUALITY[x["quality"]] == 1 and r["slot"] not in ("FINGER", "NECK", "TRINKET"), x["name"]
             if x["itemId"] in known:
                 # sanity: the existing entry must be what make_gear.py's parsing gives
                 mine = g_line(x, r["stats"], r["classes"], craft)
@@ -258,8 +284,14 @@ def write(recipes, new_lines, mark_lines):
             f.write("  %s = {\n" % craft)
             for r in recipes[craft]:
                 mats = ", ".join("%s = %d" % (k, v) for k, v in r["mats"].items())
-                f.write("    { gear = %d, skill = %d, mats = { %s } }, -- %s\n" % (r["gear"], r["skill"], mats, r["name"]))
+                f.write("    { gear = %d, skill = %d, mats = { %s }%s }, -- %s\n" % (r["gear"], r["skill"], mats,
+                        ", starter = true" if r["starter"] else "", r["name"]))
             f.write("  },\n")
+        f.write("}\n\n")
+        f.write("-- 1.6 starter sets: white pieces a new cat can wear, one list per slot (any item of it counts)\n")
+        f.write("TCF.CRAFT_STARTER = {\n")
+        for craft, _, _ in CRAFTS:
+            f.write("  %s = { %s },\n" % (craft, ", ".join("{ " + ", ".join(str(i) for i in slot) + " }" for slot in STARTER[craft])))
         f.write("}\n\n")
         f.write("-- material tier (1-6) of every family material, for crafted gear's Trade Gold value\n")
         f.write("TCF.CRAFT_MAT_TIER = {\n")

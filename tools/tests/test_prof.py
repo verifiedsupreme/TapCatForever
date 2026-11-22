@@ -73,6 +73,68 @@ for _, k in ipairs({ "herbalism", "firstaid", "fishing", "cooking" }) do ps.skil
 '''
 
 
+STARTER = r'''
+local T = TapCatForever
+local FAM_CLASS = { blacksmithing = "WARRIOR", leatherworking = "ROGUE", tailoring = "MAGE" }
+local NEED = { WRIST = true, LEGS = true, CHEST = true, HANDS = true, FEET = true, WAIST = true }
+for craft, cls in pairs(FAM_CLASS) do
+  T:SetClass(cls)
+  local set = T.CRAFT_STARTER[craft]
+  check(set and #set >= 7, craft .. " starter set has 7 slots")
+  local slots, recipeOf = {}, {}
+  for _, r in ipairs(T.RECIPES[craft]) do if r.gear then recipeOf[r.gear] = r end end
+  for _, ids in ipairs(set) do
+    for _, id in ipairs(ids) do
+      local it, r = T.GEAR[id], recipeOf[id]
+      check(it and it.q == 1 and it.crafted == craft, craft .. " starter piece is white and crafted: " .. tostring(id))
+      check(r and r.starter and r.skill <= 35, craft .. " starter recipe at low skill: " .. tostring(id))
+      local cost = 0
+      for m, n in pairs(r and r.mats or {}) do cost = cost + n; check(T.CRAFT_MAT_TIER[m] == 1, "starter uses tier-1 materials") end
+      check(cost <= 12, craft .. " starter piece is cheap: " .. cost)
+      check(it.slot ~= "FINGER" and it.slot ~= "NECK" and it.slot ~= "TRINKET", "no rings, necks or trinkets")
+      check(T:GearUsable(it, cls), cls .. " can wear " .. it.name)
+      slots[it.slot] = true
+    end
+  end
+  for k in pairs(NEED) do check(slots[k], craft .. " starter set covers " .. k) end
+  if craft ~= "blacksmithing" then check(slots.BACK, craft .. " starter set has a cloak") end
+  if craft == "blacksmithing" then check(slots.MH or slots["2H"], "blacksmithing starter set has a weapon") end
+  -- progress: crafting a piece, a piece in the bag or worn all count
+  local ps = T:ProfState()
+  ps.starterMade = nil
+  local bag = T:Bag()
+  for _, ids in ipairs(set) do for _, id in ipairs(ids) do bag[id] = nil end end
+  local done, total = T:StarterProgress(craft)
+  check(done == 0 and total == #set, craft .. " starter progress starts at 0: " .. done)
+  local r1 = recipeOf[set[1][1]]
+  for m, n in pairs(r1.mats) do ps.mats[m] = (ps.mats[m] or 0) + n end
+  check(T:Craft(r1), "craft the first starter piece")
+  check(T:StarterProgress(craft) == 1, craft .. " 1 made")
+  bag[set[1][1]] = nil
+  check(T:StarterProgress(craft) == 1, "made once still counts after selling it")
+  bag[set[2][1]] = 1
+  check(T:StarterProgress(craft) == 2, "a piece in the bag counts")
+  bag[set[2][1]] = nil
+  ps.starterMade = nil
+end
+-- the Crafting page: the starter set comes first at low skill, with its progress at the top
+T:SetClass("MAGE")
+local ps = T:ProfState()
+ps.skill.tailoring = nil
+T:CreateWindow(); T.window:Show(); T.window:SelectTab(5)
+T.window.profView = "main"; T.window:Refresh()
+T.window.profView = "craft"; T.window:Refresh()
+local head, starterRows = false, 0
+for _, f in ipairs(_frames) do
+  local t = f.shown ~= false and f.GetText and f:GetText()
+  if type(t) == "string" and t:find("Starter set 0/7 made", 1, true) then head = true end
+  if type(t) == "string" and t:find("Starter set|r", 1, true) then starterRows = starterRows + 1 end
+end
+check(head, "Crafting page shows Starter set 0/7 made")
+check(starterRows >= 7, "the first rows are the starter set: " .. starterRows)
+'''
+
+
 def run(lua, code, name):
     lua.execute(PRE)
     lua.execute(code)
@@ -85,3 +147,5 @@ def check(seed, load_addon):
     lua = load_addon()
     run(lua, CURVE, "professions skill-up curve")
     print("professions skill-up curve section (orange 100%, yellow 50%, green 20%/5%, grey 0, every list reaches 300, colours): all checks passed")
+    run(lua, STARTER, "professions starter sets")
+    print("professions starter sets section (a white piece for every armour slot per craft, cheap, wearable, progress, shown first): all checks passed")

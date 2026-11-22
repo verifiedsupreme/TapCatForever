@@ -938,6 +938,10 @@ TCF.UI.Builders.professions = function(page, win)
         1, 1, 1, have >= need and 0.2 or 1, have >= need and 1 or 0.3, have >= need and 0.2 or 0.3)
     end
     if rec.gear then GameTooltip:AddLine("Crafted gear goes straight into your bag.", 0.7, 0.7, 0.7, true) end
+    if rec.starter then
+      local done, total = TCF:StarterProgress(rec.prof)
+      GameTooltip:AddLine(string.format("Starter set (%d/%d made): a cheap white piece for each slot, so a new cat can wear a full crafted set.", done, total), 0.88, 0.75, 0.5, true)
+    end
     GameTooltip:Show()
   end
   local function recipeLeave()
@@ -999,6 +1003,8 @@ TCF.UI.Builders.professions = function(page, win)
   local function recipeLocked(rec)
     return rec.skill and TCF:ProfSkill(rec.prof) < rec.skill and true or false
   end
+  -- the starter set sits at the top while the crafting skill is low
+  local function starterFirst(key) return TCF.CRAFT_FAMILY[key] and TCF:ProfSkill(key) < TCF.STARTER_SET_SKILL end
   -- the sorted list: makeable first (by skill), then locked (by skill)
   local lastCraftSig
   local function buildCraftList(key)
@@ -1014,7 +1020,9 @@ TCF.UI.Builders.professions = function(page, win)
     for idx, rec in ipairs(TCF.RECIPES[key] or {}) do
       if TCF:RecipeItem(rec) then craftList[#craftList + 1] = { rec = rec, idx = idx, locked = recipeLocked(rec) } end
     end
+    local first = starterFirst(key)
     table.sort(craftList, function(a, b)
+      if first and (a.rec.starter and true or false) ~= (b.rec.starter and true or false) then return a.rec.starter and true or false end
       if a.locked ~= b.locked then return not a.locked end
       local sa, sb = a.rec.skill or 0, b.rec.skill or 0
       if sa ~= sb then return sa < sb end
@@ -1027,7 +1035,7 @@ TCF.UI.Builders.professions = function(page, win)
   -- opening the list scrolls to your newest recipes and the next ones to unlock
   local function enterCraft(key)
     local open = buildCraftList(key)
-    win.craftScroll = max(0, open - (CROWS - 2))
+    win.craftScroll = starterFirst(key) and 0 or max(0, open - (CROWS - 2))
   end
 
   local function refreshCraft(key)
@@ -1039,7 +1047,13 @@ TCF.UI.Builders.professions = function(page, win)
     if isCraft then
       local fam = TCF.CRAFT_FAMILY[key]
       local f = TCF.FAMILIES[fam]
-      craftHead:SetText(string.format("%s |cffffffff%d / 300|r    |cffaaaaaa%s %d / 300|r", f.craftName, skill, f.skillName or f.tab, TCF:ProfSkill(fam)))
+      if starterFirst(key) then
+        local done, total = TCF:StarterProgress(key)
+        craftHead:SetText(string.format("%s |cffffffff%d / 300|r    %sStarter set %d/%d made|r", f.craftName, skill,
+          done >= total and "|cff20ff20" or "|cffffd100", done, total))
+      else
+        craftHead:SetText(string.format("%s |cffffffff%d / 300|r    |cffaaaaaa%s %d / 300|r", f.craftName, skill, f.skillName or f.tab, TCF:ProfSkill(fam)))
+      end
       craftLegend:SetText("Teaches: |cffff8040always|r  |cffffff00often|r  |cff40c040sometimes|r  |cff70a070rarely|r  |cff808080no longer|r")
     else
       craftHead:SetText(string.format("%s crafting  |cffffffff(skill %d / 300)|r", p and p.name or key, skill))
@@ -1073,7 +1087,7 @@ TCF.UI.Builders.professions = function(page, win)
           elseif n > 0 then note = "  |cff20ff20(you have " .. n .. ")|r" end
           r.name:SetText(col .. it.name .. "|r" .. skillTxt .. note)
           local summary = TCF.GearSummary and TCF.GearSummary(it) or ""
-          r.info:SetText(string.format("|cffffd100%d|r  %s %s%s  |cff999999%s|r", it.ilvl, TCF.ITEM_TYPE_NAMES[it.sub] or "",
+          r.info:SetText(string.format("%s|cffffd100%d|r  %s %s%s  |cff999999%s|r", rec.starter and "|cffe0c080Starter set|r  " or "", it.ilvl, TCF.ITEM_TYPE_NAMES[it.sub] or "",
             TCF.ITEM_SLOT_NAMES[it.slot] or "", (it.req or 0) > level and ("  |cffff9933level " .. it.req .. "|r") or "", summary))
           local d = (not lockedRow) and powerDelta(it) or nil
           if d then r.delta:SetText(d > 0 and ("|cff20ff20+" .. d .. "|r") or d < 0 and ("|cffff4040" .. d .. "|r") or "|cff999999=|r")

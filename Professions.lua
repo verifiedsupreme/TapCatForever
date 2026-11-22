@@ -1070,7 +1070,7 @@ do
     local add = {}
     for _, r in ipairs(type(src[ck]) == "table" and src[ck] or {}) do
       if type(r) == "table" and r.gear and TCF.GEAR and TCF.GEAR[r.gear] and type(r.mats) == "table" then
-        add[#add + 1] = { gear = r.gear, skill = tonumber(r.skill) or 1, mats = r.mats, prof = ck }
+        add[#add + 1] = { gear = r.gear, skill = tonumber(r.skill) or 1, mats = r.mats, prof = ck, starter = r.starter and true or nil }
       end
     end
     table.sort(add, function(a, b) if a.skill ~= b.skill then return a.skill < b.skill end return a.gear < b.gear end)
@@ -1083,6 +1083,34 @@ setmetatable(TCF.RECIPES, { __index = function(t, k)
   local f = TCF.FAMILIES[k]
   return f and rawget(t, f.craft) or nil
 end })
+
+-- 1.6 starter sets (CraftData.lua TCF.CRAFT_STARTER): white pieces for every armour slot (and a
+-- Blacksmithing weapon) a new cat can wear. A slot counts once one of its items was crafted by this
+-- cat, is in its bag or is worn. The recipe list shows the set first while the skill is low.
+TCF.STARTER_SET_SKILL = 75   -- below this the Crafting page shows the starter set at the top
+function TCF:StarterSet(craft)
+  craft = craft or self:CraftProf()
+  local list = TCF.CRAFT_STARTER and TCF.CRAFT_STARTER[craft] or {}
+  local s = S(self)
+  local made = type(s.starterMade) == "table" and s.starterMade or {}
+  local bag = self.Bag and self:Bag() or {}
+  local worn = {}
+  for _, id in pairs(self.GearEquipped and self:GearEquipped() or {}) do worn[id] = true end
+  local out, done = {}, 0
+  for _, ids in ipairs(list) do
+    local have
+    for _, id in ipairs(ids) do
+      if made[id] or (bag[id] or 0) > 0 or worn[id] then have = id; break end
+    end
+    out[#out + 1] = { ids = ids, have = have }
+    if have then done = done + 1 end
+  end
+  return out, done, #list
+end
+function TCF:StarterProgress(craft)
+  local _, done, total = self:StarterSet(craft)
+  return done, total
+end
 
 function TCF:RecipeItem(r)
   if r.gear then return TCF.GEAR and TCF.GEAR[r.gear] end
@@ -1180,6 +1208,10 @@ function TCF:Craft(r)
   self.db.stats.crafted = (self.db.stats.crafted or 0) + 1
   -- crafting skills (Blacksmithing, Leatherworking, Tailoring) improve WoW style
   if TCF.CRAFT_FAMILY[r.prof] then self:ProfSkillUp(r.prof, r.skill or 1) end
+  if r.starter then
+    s.starterMade = type(s.starterMade) == "table" and s.starterMade or {}
+    s.starterMade[r.gear] = true
+  end
   if r.gear then
     self:GrantGear(self:RecipeItem(r), "Crafted", true)
   else

@@ -5,20 +5,29 @@ local _, TCF = ...
 -- New items, in GearData.lua's format plus the crafting key:
 -- id, name, icon, quality(1-5), itemLevel, reqLevel, slot, type, stats, tier, boss, dropChance, classes, craft
 local G, C = TCF.AddGear, TCF.MarkCrafted
+G(2852,"Copper Chain Pants","inv_pants_03",1,9,4,"LEGS","mail","arm=83",0,0,0,nil,"blacksmithing")
+G(2853,"Copper Bracers","inv_bracer_03",1,7,2,"WRIST","mail","arm=35",0,0,0,nil,"blacksmithing")
 G(10421,"Rough Copper Vest","inv_chest_chain",1,7,2,"CHEST","mail","arm=81",0,0,0,nil,"blacksmithing")
 G(2844,"Copper Mace","inv_mace_01",1,9,4,"MH","mace","min=6,max=11,spd=2.2,dps=3.86",0,0,0,nil,"blacksmithing")
+G(2845,"Copper Axe","inv_axe_23",1,9,4,"MH","axe","min=5,max=10,spd=1.9,dps=3.95",0,0,0,nil,"blacksmithing")
+G(3469,"Copper Chain Boots","inv_boots_01",1,9,4,"FEET","mail","arm=65",0,0,0,nil,"blacksmithing")
 G(2847,"Copper Shortsword","inv_sword_26",1,9,4,"MH","sword","min=5,max=11,spd=2.1,dps=3.81",0,0,0,nil,"blacksmithing")
 G(7955,"Copper Claymore","inv_sword_21",1,11,6,"2H","sword","min=15,max=23,spd=3,dps=6.33",0,0,0,nil,"blacksmithing")
+G(2851,"Copper Chain Belt","inv_belt_02",1,11,6,"WAIST","mail","arm=61",0,0,0,nil,"blacksmithing")
 G(2302,"Handstitched Leather Boots","inv_boots_04",1,8,3,"FEET","leather","arm=31",0,0,0,nil,"leatherworking")
 G(5957,"Handstitched Leather Vest","inv_chest_wolf",1,8,3,"CHEST","leather","arm=45",0,0,0,nil,"leatherworking")
+G(7276,"Handstitched Leather Cloak","inv_helmet_48",1,9,4,"BACK","cloth","arm=8",0,0,0,nil,"leatherworking")
+G(7277,"Handstitched Leather Bracers","inv_bracer_08",1,9,4,"WRIST","leather","arm=21",0,0,0,nil,"leatherworking")
 G(2303,"Handstitched Leather Pants","inv_pants_wolf",1,10,5,"LEGS","leather","arm=46",0,0,0,nil,"leatherworking")
 G(4237,"Handstitched Leather Belt","inv_belt_04",1,10,5,"WAIST","leather","arm=29",0,0,0,nil,"leatherworking")
+G(2570,"Linen Cloak","inv_misc_cape_14",1,6,1,"BACK","cloth","arm=6",0,0,0,nil,"tailoring")
 G(10045,"Simple Linen Pants","inv_pants_11",1,7,2,"LEGS","cloth","arm=12",0,0,0,nil,"tailoring")
 G(2568,"Brown Linen Vest","inv_shirt_05",1,8,3,"CHEST","cloth","arm=15",0,0,0,nil,"tailoring")
 G(7026,"Linen Belt","inv_belt_05",1,9,4,"WAIST","cloth","arm=9",0,0,0,nil,"tailoring")
 G(10046,"Simple Linen Boots","inv_boots_05",1,9,4,"FEET","cloth","arm=11",0,0,0,nil,"tailoring")
 
 -- Items GearData.lua already has: crafted from now on, never loot.
+C(2403,"blacksmithing") -- Light Chain Gloves
 C(3471,"blacksmithing") -- Copper Chain Vest
 C(3488,"blacksmithing") -- Copper Battle Axe
 C(3472,"blacksmithing") -- Runed Copper Gauntlets
@@ -60,6 +69,7 @@ C(12422,"blacksmithing") -- Imperial Plate Chest
 C(12640,"blacksmithing") -- Lionheart Helm
 C(12784,"blacksmithing") -- Arcanite Reaper
 C(22198,"blacksmithing") -- Jagged Obsidian Shield
+C(797,"leatherworking") -- Rough Leather Gloves
 C(7280,"leatherworking") -- Rugged Leather Pants
 C(2300,"leatherworking") -- Embossed Leather Vest
 C(2309,"leatherworking") -- Embossed Leather Boots
@@ -101,6 +111,8 @@ C(15063,"leatherworking") -- Devilsaur Gauntlets
 C(15080,"leatherworking") -- Heavy Scorpid Helm
 C(15062,"leatherworking") -- Devilsaur Leggings
 C(18509,"leatherworking") -- Chromatic Cloak
+C(793,"tailoring") -- Knitted Gloves
+C(3603,"tailoring") -- Knitted Bracers
 C(6238,"tailoring") -- Brown Linen Robe
 C(4307,"tailoring") -- Heavy Linen Gloves
 C(2572,"tailoring") -- Red Linen Robe
@@ -146,16 +158,22 @@ C(18405,"tailoring") -- Belt of the Archmage
 -- { gear = itemId, skill = required crafting skill, mats = { matKey = amount } }, easiest first
 TCF.CRAFT_RECIPES = {
   blacksmithing = {
-    { gear = 10421, skill = 1, mats = { copper = 5 } }, -- Rough Copper Vest
-    { gear = 2844, skill = 15, mats = { copper = 7 } }, -- Copper Mace
-    { gear = 2847, skill = 25, mats = { copper = 7 } }, -- Copper Shortsword
-    { gear = 7955, skill = 30, mats = { copper = 10 } }, -- Copper Claymore
-    { gear = 3471, skill = 35, mats = { copper = 7 } }, -- Copper Chain Vest
-    { gear = 3488, skill = 35, mats = { copper = 14 } }, -- Copper Battle Axe
-    { gear = 3472, skill = 40, mats = { copper = 7 } }, -- Runed Copper Gauntlets
-    { gear = 3474, skill = 60, mats = { copper = 8 } }, -- Gemmed Copper Gauntlets
-    { gear = 6214, skill = 65, mats = { copper = 11 } }, -- Heavy Copper Maul
-    { gear = 2857, skill = 70, mats = { copper = 8 } }, -- Runed Copper Belt
+    { gear = 2852, skill = 1, mats = { copper = 5 }, starter = true }, -- Copper Chain Pants
+    { gear = 2853, skill = 1, mats = { copper = 5 }, starter = true }, -- Copper Bracers
+    { gear = 10421, skill = 1, mats = { copper = 5 }, starter = true }, -- Rough Copper Vest
+    { gear = 2403, skill = 5, mats = { copper = 5 }, starter = true }, -- Light Chain Gloves
+    { gear = 2844, skill = 15, mats = { copper = 8 }, starter = true }, -- Copper Mace
+    { gear = 2845, skill = 20, mats = { copper = 8 }, starter = true }, -- Copper Axe
+    { gear = 3469, skill = 20, mats = { copper = 7 }, starter = true }, -- Copper Chain Boots
+    { gear = 2847, skill = 25, mats = { copper = 8 }, starter = true }, -- Copper Shortsword
+    { gear = 7955, skill = 30, mats = { copper = 11 }, starter = true }, -- Copper Claymore
+    { gear = 2851, skill = 35, mats = { copper = 5 }, starter = true }, -- Copper Chain Belt
+    { gear = 3471, skill = 35, mats = { copper = 8 } }, -- Copper Chain Vest
+    { gear = 3488, skill = 35, mats = { copper = 16 } }, -- Copper Battle Axe
+    { gear = 3472, skill = 40, mats = { copper = 8 } }, -- Runed Copper Gauntlets
+    { gear = 3474, skill = 60, mats = { copper = 9 } }, -- Gemmed Copper Gauntlets
+    { gear = 6214, skill = 65, mats = { copper = 14 } }, -- Heavy Copper Maul
+    { gear = 2857, skill = 70, mats = { copper = 9 } }, -- Runed Copper Belt
     { gear = 2864, skill = 80, mats = { tin = 135 } }, -- Runed Copper Breastplate
     { gear = 3487, skill = 95, mats = { tin = 180 } }, -- Heavy Copper Broadsword
     { gear = 6731, skill = 100, mats = { tin = 185 } }, -- Ironforge Breastplate
@@ -193,15 +211,18 @@ TCF.CRAFT_RECIPES = {
     { gear = 22198, skill = 300, mats = { thorium = 11000, arcane = 1100 } }, -- Jagged Obsidian Shield
   },
   leatherworking = {
-    { gear = 2302, skill = 1, mats = { lightleather = 5 } }, -- Handstitched Leather Boots
-    { gear = 5957, skill = 1, mats = { lightleather = 5 } }, -- Handstitched Leather Vest
-    { gear = 2303, skill = 15, mats = { lightleather = 5 } }, -- Handstitched Leather Pants
-    { gear = 4237, skill = 25, mats = { lightleather = 7 } }, -- Handstitched Leather Belt
-    { gear = 7280, skill = 35, mats = { lightleather = 9 } }, -- Rugged Leather Pants
-    { gear = 2300, skill = 40, mats = { lightleather = 12 } }, -- Embossed Leather Vest
-    { gear = 2309, skill = 55, mats = { lightleather = 12 } }, -- Embossed Leather Boots
-    { gear = 2311, skill = 60, mats = { lightleather = 11 } }, -- White Leather Jerkin
-    { gear = 7281, skill = 70, mats = { lightleather = 9 } }, -- Light Leather Bracers
+    { gear = 2302, skill = 1, mats = { lightleather = 5 }, starter = true }, -- Handstitched Leather Boots
+    { gear = 5957, skill = 1, mats = { lightleather = 5 }, starter = true }, -- Handstitched Leather Vest
+    { gear = 7276, skill = 1, mats = { lightleather = 5 }, starter = true }, -- Handstitched Leather Cloak
+    { gear = 7277, skill = 1, mats = { lightleather = 5 }, starter = true }, -- Handstitched Leather Bracers
+    { gear = 797, skill = 5, mats = { lightleather = 5 }, starter = true }, -- Rough Leather Gloves
+    { gear = 2303, skill = 15, mats = { lightleather = 6 }, starter = true }, -- Handstitched Leather Pants
+    { gear = 4237, skill = 25, mats = { lightleather = 8 }, starter = true }, -- Handstitched Leather Belt
+    { gear = 7280, skill = 35, mats = { lightleather = 10 } }, -- Rugged Leather Pants
+    { gear = 2300, skill = 40, mats = { lightleather = 13 } }, -- Embossed Leather Vest
+    { gear = 2309, skill = 55, mats = { lightleather = 13 } }, -- Embossed Leather Boots
+    { gear = 2311, skill = 60, mats = { lightleather = 12 } }, -- White Leather Jerkin
+    { gear = 7281, skill = 70, mats = { lightleather = 10 } }, -- Light Leather Bracers
     { gear = 4242, skill = 75, mats = { mediumleather = 90 } }, -- Embossed Leather Pants
     { gear = 4243, skill = 85, mats = { mediumleather = 120 } }, -- Fine Leather Tunic
     { gear = 2307, skill = 90, mats = { mediumleather = 90 } }, -- Fine Leather Boots
@@ -240,16 +261,19 @@ TCF.CRAFT_RECIPES = {
     { gear = 18509, skill = 300, mats = { ruggedleather = 13800, devilsaur = 1400 } }, -- Chromatic Cloak
   },
   tailoring = {
-    { gear = 10045, skill = 1, mats = { linen = 5 } }, -- Simple Linen Pants
-    { gear = 2568, skill = 10, mats = { linen = 5 } }, -- Brown Linen Vest
-    { gear = 7026, skill = 15, mats = { linen = 5 } }, -- Linen Belt
-    { gear = 10046, skill = 20, mats = { linen = 9 } }, -- Simple Linen Boots
+    { gear = 2570, skill = 1, mats = { linen = 5 }, starter = true }, -- Linen Cloak
+    { gear = 10045, skill = 1, mats = { linen = 5 }, starter = true }, -- Simple Linen Pants
+    { gear = 793, skill = 5, mats = { linen = 5 }, starter = true }, -- Knitted Gloves
+    { gear = 2568, skill = 10, mats = { linen = 5 }, starter = true }, -- Brown Linen Vest
+    { gear = 3603, skill = 10, mats = { linen = 5 }, starter = true }, -- Knitted Bracers
+    { gear = 7026, skill = 15, mats = { linen = 5 }, starter = true }, -- Linen Belt
+    { gear = 10046, skill = 20, mats = { linen = 9 }, starter = true }, -- Simple Linen Boots
     { gear = 6238, skill = 30, mats = { linen = 9 } }, -- Brown Linen Robe
-    { gear = 4307, skill = 35, mats = { linen = 6 } }, -- Heavy Linen Gloves
-    { gear = 2572, skill = 40, mats = { linen = 12 } }, -- Red Linen Robe
+    { gear = 4307, skill = 35, mats = { linen = 7 } }, -- Heavy Linen Gloves
+    { gear = 2572, skill = 40, mats = { linen = 13 } }, -- Red Linen Robe
     { gear = 2580, skill = 60, mats = { linen = 9 } }, -- Reinforced Linen Cape
-    { gear = 2569, skill = 65, mats = { linen = 11 } }, -- Linen Boots
-    { gear = 4309, skill = 70, mats = { linen = 12 } }, -- Handstitched Linen Britches
+    { gear = 2569, skill = 65, mats = { linen = 12 } }, -- Linen Boots
+    { gear = 4309, skill = 70, mats = { linen = 13 } }, -- Handstitched Linen Britches
     { gear = 2582, skill = 85, mats = { wool = 75 } }, -- Green Woolen Vest
     { gear = 5542, skill = 90, mats = { wool = 105 } }, -- Pearl-clasped Cloak
     { gear = 2583, skill = 95, mats = { wool = 150 } }, -- Woolen Boots
@@ -286,6 +310,13 @@ TCF.CRAFT_RECIPES = {
     { gear = 14152, skill = 300, mats = { runecloth = 17000, felcloth = 1700 } }, -- Robe of the Archmage
     { gear = 18405, skill = 300, mats = { runecloth = 17000, felcloth = 1700 } }, -- Belt of the Archmage
   },
+}
+
+-- 1.6 starter sets: white pieces a new cat can wear, one list per slot (any item of it counts)
+TCF.CRAFT_STARTER = {
+  blacksmithing = { { 2853 }, { 2852 }, { 10421 }, { 2403 }, { 3469 }, { 2851 }, { 2844, 2845, 2847, 7955 } },
+  leatherworking = { { 7277 }, { 2302 }, { 5957 }, { 7276 }, { 797 }, { 2303 }, { 4237 } },
+  tailoring = { { 10045 }, { 2570 }, { 793 }, { 2568 }, { 3603 }, { 7026 }, { 10046 } },
 }
 
 -- material tier (1-6) of every family material, for crafted gear's Trade Gold value
