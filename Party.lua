@@ -281,6 +281,8 @@ local function onRoster()
   local grouped = inGroup()
   if not grouped then
     if next(known) then clearAll(); refreshRow() end
+    -- leaving a group also takes away any test-mode fake cats
+    if wasGrouped and TCF.PartyTestClear then TCF:PartyTestClear() end
     wasGrouped = false
     return
   end
