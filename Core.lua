@@ -176,6 +176,9 @@ end
 function TCF:InitDB()
   TapCatForeverDB = TapCatForeverDB or {}
   local char = bindCharacter(TapCatForeverDB)
+  -- 1.5.4 care package (CarePackage.lua): only for an account and a character that existed before
+  self.saveExisted = rawget(TapCatForeverDB, "version") ~= nil
+  self.charExisted = self.saveExisted and not (char.fresh and not char.started)
   local db = copyDefaults(DEFAULTS, TapCatForeverDB)
   self.db = db
   -- 1.3: the level text moved above the cat (once, for saves made before that)
@@ -190,15 +193,21 @@ function TCF:InitDB()
     local cl = TCF.CLASS_BY_KEY[db.class]
     db.look.fur = cl.fur
   end
-  for _, id in ipairs(TCF.STARTER) do db.owned[id] = db.owned[id] or 1 end
+  -- (ItemSources.lua: a cosmetic given here for the first time records where it came from)
+  local function give(id, src)
+    if db.owned[id] then return end
+    db.owned[id] = 1
+    if self.NoteItemSource then self:NoteItemSource(id, src) end
+  end
+  for _, id in ipairs(TCF.STARTER) do give(id, "Starter cosmetic") end
   -- every character owns a basic Orange Tabby skin
-  db.owned.skin_orange = db.owned.skin_orange or 1
+  give("skin_orange", "Starter cosmetic")
   -- Achievements are account-wide but cosmetics are per character: give alts (and a
   -- character after "Reset this character") the rewards of achievements already earned.
   for _, a in ipairs(TCF.ACHIEVEMENTS) do
     if db.achievements[a.id] then
-      if a.item and TCF.ITEMS[a.item] then db.owned[a.item] = db.owned[a.item] or 1 end
-      if a.skin and TCF.ITEMS[a.skin] then db.owned[a.skin] = db.owned[a.skin] or 1 end
+      if a.item and TCF.ITEMS[a.item] then give(a.item, "Achievement: " .. a.name) end
+      if a.skin and TCF.ITEMS[a.skin] then give(a.skin, "Achievement: " .. a.name) end
     end
   end
   -- cosmetic overrides per class (empty = the cat shows its real gear)
@@ -276,6 +285,7 @@ function TCF:InitDB()
   end
   -- cats still holding the old lowest-numbered starter get their class weapon (once)
   if self.FixStarterWeapons then self:FixStarterWeapons() end
+  self:InitChests(char)   -- 1.5.4: chests belong to each class's cat
   char.started = true
   db.version = 3
   db.stats.classesPlayed[db.class] = true
@@ -438,7 +448,7 @@ function TCF:LevelUp(class)
   end
   if self.cat and class == db.class then self.cat:Celebrate("Level " .. cd.level, 1, 0.82, 0.1) end
   self:PlaySound("level")
-  if chest then self:AwardChest(chest, "Level " .. cd.level) end
+  if chest then self:AwardChest(chest, "Level " .. cd.level, nil, class, cd.level) end
 end
 
 -- XP for any class cat (expeditions level up the cats that went, not just the current one)
@@ -604,6 +614,7 @@ function TCF:GrantItem(it, reason, reveal, chestKey)
   local db = self.db
   local salvage = 0
   local isNew = not db.owned[it.id]
+  if self.NoteItemSource then self:NoteItemSource(it.id, reason, nil, not isNew) end
   if isNew then
     db.owned[it.id] = 1
   else
@@ -637,24 +648,158 @@ function TCF.ChestQuality(ch)
   return bestQ
 end
 
--- Puts an unopened chest in the Treasure Bag. force = true prints the chat line even with chat
--- messages off (only for a reward the player's own click earned, such as joining the leaderboard).
-function TCF:AwardChest(key, source, force)
+---------------------------------------------------------------- chests per cat (1.5.4)
+-- Every class's cat has its own Treasure Bag: classData[class].chests[key][level] = count. Each
+-- chest is stamped with the level of the cat that earned it and holds gear for that level
+-- (TCF:ChestLevel while it opens), so a chest kept for later still holds the same gear.
+-- db.keys is a stand-in that reads and writes the current cat's counts (old code and saves).
+local function clampLevel(l) return min(TCF.MAX_LEVEL or 60, max(1, floor(tonumber(l) or 1))) end
+TCF.ClampChestLevel = clampLevel
+
+-- whose bag a chest goes to: the class asked for, else the cat an expedition or a trade is for,
+-- else the cat you are playing
+function TCF:ChestOwner(class)
+  class = class or self.chestOwner or self.tradeClass or self.db.class
+  if not (class and self.db.classData[class]) then class = self.db.class end
+  return class
+end
+
+local function stampTable(self, class, key, create)
+  local cd = self.db.classData[class]
+  if not cd then return nil end
+  if type(cd.chests) ~= "table" then
+    if not create then return nil end
+    cd.chests = {}
+  end
+  local t = cd.chests[key]
+  if type(t) ~= "table" then
+    if not create then return nil end
+    t = {}; cd.chests[key] = t
+  end
+  return t
+end
+
+-- unopened chests of one kind in a cat's bag
+function TCF:ChestsOf(key, class)
+  local t = stampTable(self, self:ChestOwner(class), key)
+  local n = 0
+  for _, c in pairs(t or {}) do n = n + (tonumber(c) or 0) end
+  return n
+end
+
+-- { { level = 20, n = 2 }, ... } highest level first
+function TCF:ChestStamps(key, class)
+  local out = {}
+  for lv, c in pairs(stampTable(self, self:ChestOwner(class), key) or {}) do
+    if (tonumber(c) or 0) > 0 then out[#out + 1] = { level = tonumber(lv), n = c } end
+  end
+  table.sort(out, function(a, b) return a.level > b.level end)
+  return out
+end
+
+function TCF:AddChests(key, n, class, level)
+  if not TCF.CHEST_BY_KEY[key] or (n or 0) <= 0 then return end
+  class = self:ChestOwner(class)
+  level = clampLevel(level or self.db.classData[class].level)
+  local t = stampTable(self, class, key, true)
+  t[level] = (t[level] or 0) + n
+end
+
+-- Takes one chest out of a cat's bag and returns its level stamp: the level asked for, else the
+-- level of the last one of that kind opened (Open another), else the highest.
+function TCF:TakeChest(key, class, level)
+  local t = stampTable(self, self:ChestOwner(class), key)
+  if not t then return nil end
+  -- (a level asked for that has none left, such as a stale Open button, opens nothing)
+  if level then
+    if (t[level] or 0) <= 0 then return nil end
+    t[level] = t[level] - 1
+    if t[level] <= 0 then t[level] = nil end
+    return level
+  end
+  local pick
+  local last = self.lastStamp and self.lastStamp[key]
+  if not pick and last and (t[last] or 0) > 0 then pick = last end
+  if not pick then
+    for lv, c in pairs(t) do if (tonumber(c) or 0) > 0 and (not pick or lv > pick) then pick = lv end end
+  end
+  if not pick then return nil end
+  t[pick] = t[pick] - 1
+  if t[pick] <= 0 then t[pick] = nil end
+  return pick
+end
+
+-- db.keys: the current cat's chest counts. Setting a count adds chests stamped with the cat's
+-- level or takes some out.
+local keysMeta = {
+  __index = function(_, k)
+    if TCF.CHEST_BY_KEY[k] then return (TCF.db and TCF.db.classData) and TCF:ChestsOf(k) or 0 end
+  end,
+  __newindex = function(t, k, v)
+    if not TCF.CHEST_BY_KEY[k] then rawset(t, k, v); return end
+    if not (TCF.db and TCF.db.classData) then return end
+    local want, have = max(0, floor(tonumber(v) or 0)), TCF:ChestsOf(k)
+    if want > have then TCF:AddChests(k, want - have)
+    else for _ = 1, have - want do TCF:TakeChest(k) end end
+  end,
+}
+
+-- Once per load: chests saved by 1.5.3 and older (db.keys, one bag per character) move to the
+-- cat you are playing, stamped with its level, and db.keys becomes the stand-in. A save that
+-- has none left (or was already moved) changes nothing.
+function TCF:InitChests(char)
+  char = char or self.charData
+  local old = char and char.keys
+  if type(old) == "table" and getmetatable(old) ~= keysMeta then
+    local cd = self.db.classData[self.db.class]
+    for k, v in pairs(old) do
+      local n = floor(tonumber(v) or 0)
+      if TCF.CHEST_BY_KEY[k] and n > 0 then self:AddChests(k, n, self.db.class, cd and cd.level) end
+    end
+  end
+  if char then char.keys = setmetatable({}, keysMeta) end
+end
+
+-- Puts an unopened chest in a cat's Treasure Bag, stamped with that cat's level. force = true
+-- prints the chat line even with chat messages off (only for a reward the player's own click
+-- earned, such as joining the leaderboard). class: the cat it goes to (default: TCF:ChestOwner),
+-- level: its stamp (default: that cat's level).
+function TCF:AwardChest(key, source, force, class, level)
   local ch = TCF.CHEST_BY_KEY[key]
-  self.db.keys[key] = (self.db.keys[key] or 0) + 1
+  -- an expedition being claimed (TreasureBag.lua): only its own chests go to a cat that went
+  local claim = self.claimChests
+  if not class and claim and source == claim.source then class = claim.owner end
+  class = self:ChestOwner(class)
+  level = clampLevel(level or self.db.classData[class].level)
+  self:AddChests(key, 1, class, level)
+  -- "(level 25)", unless the source already says it ("Level 25")
+  local lvText = (source == "Level " .. level) and "" or string.format(" (level %d)", level)
   local col = TCF.RARITY[TCF.ChestQuality(ch)]
   local hex = ch.color or (col and col.hex) or "ff1eff00"
   local art = ch.name:find("^[AEIOUaeiou]") and "an" or "a"
-  self:Print(string.format("%s: you earned %s |c%s%s|r. Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name), force)
+  if class ~= self.db.class then
+    local cl = TCF.CLASS_BY_KEY[class]
+    self:Print(string.format("%s: your %s cat earned %s |c%s%s|r%s. It waits in that cat's Treasure Bag.", source or "Reward", cl and cl.name or class, art, hex, ch.name, lvText), force)
+  else
+    self:Print(string.format("%s: you earned %s |c%s%s|r%s. Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name, lvText), force)
+  end
   self:PlaySound("loot")
   self:MarkDirty()
   self:RefreshAll()
 end
 
-function TCF:ChestCount()
+-- unopened chests in a cat's bag (default: the cat you are playing)
+function TCF:ChestCount(class)
   local n = 0
-  for _, ch in ipairs(TCF.CHESTS) do n = n + (self.db.keys[ch.key] or 0) end
+  for _, ch in ipairs(TCF.CHESTS) do n = n + self:ChestsOf(ch.key, class or self.db.class) end
   return n
+end
+
+-- The level a chest's gear is for: the stamp of the chest being opened, else the cat's level.
+function TCF:ChestLevel()
+  if self.openStamp then return clampLevel(self.openStamp) end
+  local cd = self:CD()
+  return clampLevel(cd and cd.level)
 end
 
 -- Skins are bought from the Appearance tab
@@ -663,6 +808,7 @@ function TCF:BuySkin(id)
   if not it or it.slot ~= "skin" or self.db.owned[id] or not it.skinPrice then return false end
   if not self:SpendCoins(it.skinPrice) then return false end
   self.db.owned[id] = 1
+  if self.NoteItemSource then self:NoteItemSource(id, "Bought in the Appearance tab") end
   self.db.look.skin = id
   self:Print("Your cat is now a " .. TCF.ItemLink(it) .. ".", true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "New skin") end
@@ -681,6 +827,7 @@ function TCF:GrantSkin(id, reason, force)
   if not it or self.db.owned[id] then return false end
   self.db.owned[id] = 1
   reason = reason or "Rare drop"
+  if self.NoteItemSource then self:NoteItemSource(id, reason) end
   self:Print(reason .. ": the " .. TCF.ItemLink(it) .. " cat skin. Wear it from the Appearance tab.", force)
   -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, reason, self.skinChestKey) end
@@ -723,15 +870,23 @@ function TCF:RollChestCoins(ch)
   return random(span[1], span[2])
 end
 
-function TCF:OpenChest(key, useKey)
+-- useKey: open one from the current cat's Treasure Bag (level: the stamp to open, see
+-- TCF:TakeChest); otherwise buy one for the cat you are playing, at its level.
+function TCF:OpenChest(key, useKey, level)
   local ch = TCF.CHEST_BY_KEY[key]
   if not ch then return end
+  local stamp
   if useKey then
-    if (self.db.keys[key] or 0) <= 0 then return end
-    self.db.keys[key] = self.db.keys[key] - 1
+    stamp = self:TakeChest(key, self.db.class, level)
+    if not stamp then return end
   elseif not ch.cost or not self:SpendCoins(ch.cost) then
     return   -- (a chest with no price, like the Dungeon Chest or Raider's Hoard, is never sold)
+  else
+    stamp = self:ChestLevel()
   end
+  self.lastStamp = self.lastStamp or {}
+  self.lastStamp[key] = stamp
+  self.openStamp = stamp   -- the chest's gear is for its level stamp (TCF:ChestLevel)
   self.db.stats.chests = self.db.stats.chests + 1
   if ch.raidLoot then self.db.stats.hoards = (self.db.stats.hoards or 0) + 1 end
   if ch.dungeonLoot then self.db.stats.dungeonChests = (self.db.stats.dungeonChests or 0) + 1 end
@@ -755,8 +910,9 @@ function TCF:OpenChest(key, useKey)
     end
     return a, b, c
   end)
-  self.skinChestKey, self.chestCoins = nil, nil   -- always cleared, even if something above failed
+  self.skinChestKey, self.chestCoins, self.openStamp = nil, nil, nil   -- always cleared, even if something above failed
   if not ok then error(a, 0) end
+  if self.lastChest then self.lastChest.stamp = stamp end
   return a, b, c
 end
 
@@ -954,10 +1110,9 @@ end
 
 -- Every piece a Dungeon Chest could hold for this class right now, by quality (the chest reel
 -- shows these): { [2] = {...}, [3] = {...}, [4] = {...} }.
-function TCF:DungeonChestPool(class)
+function TCF:DungeonChestPool(class, level)
   class = class or self.db.class
-  local cd = self:CD(class)
-  local level = min(60, max(1, cd and cd.level or 1))
+  level = level and clampLevel(level) or self:ChestLevel()
   local tiers = self:DungeonTiers(class)
   local out = {}
   for q = 2, 4 do out[q] = nearLevel(dungeonGear(self, tiers, class, q, false), level) end
@@ -1032,8 +1187,7 @@ end
 -- odds the chest shows hold. Never a Legendary.
 function TCF:RollDungeonGear(class, q)
   class = class or self.db.class
-  local cd = self:CD(class)
-  local level = min(60, max(1, cd and cd.level or 1))
+  local level = self:ChestLevel()
   local tiers = self:DungeonTiers(class)
   local fallback
   for wq = max(2, min(4, q or 3)), 2, -1 do
@@ -1052,7 +1206,7 @@ end
 -- from zones it has cleared), or a raid boss Epic for a Legendary roll.
 function TCF:ChestGear(ch, rarity)
   local class = self.db.class
-  local level = min(60, max(1, self:CD().level or 1))
+  local level = self:ChestLevel()
   -- raid epics are level 60 gear: a Raider's Hoard or a Legendary roll gives them to cats of 55
   -- and up; younger cats get the best gear near their level instead
   if ch.raidLoot or rarity >= 5 then
@@ -1081,11 +1235,13 @@ end
 
 -- Odds of what a chest holds, per opening, in the order they are listed in tooltips:
 -- { { label, percent, hex colour }, ... }. Same rules as TCF:OpenChestContents.
-function TCF:ChestOdds(ch)
+-- level: the chest's level stamp (default: TCF:ChestLevel).
+function TCF:ChestOdds(ch, level)
   local out = {}
+  level = level and clampLevel(level) or self:ChestLevel()
   local skin = (ch.key == "heroic" and #self:UnownedShopSkins() > 0) and TCF.CHEST_SKIN_CHANCE or 0
   local rest = 1 - skin
-  local legend = ((self:CD().level or 1) >= 60) and rest * (ch.legendary or 0) or 0
+  local legend = (level >= 60) and rest * (ch.legendary or 0) or 0
   rest = rest - legend
   local gearShare = ch.gearOnly and 1 or TCF.CHEST_GEAR_CHANCE
   local total = 0
@@ -1097,7 +1253,6 @@ function TCF:ChestOdds(ch)
   end
   -- a quality with no gear near the cat's level gives the next one down (TCF:RollChestGear)
   if self.ChestGearPool and not ch.dungeonLoot then
-    local level = min(60, max(1, (self:CD() and self:CD().level) or 1))
     for q = 4, 3, -1 do
       if (byQ[q] or 0) > 0 and not ((ch.raidLoot or q == 4 and ch.legendary) and level >= 55)
         and #self:ChestGearPool(nil, level, q) == 0 then
@@ -1154,7 +1309,7 @@ function TCF:OpenChestContents(ch, key)
   if self.RollWorldLoot then
     -- a real Legendary: about 1 in 500 Heroic Caches and 1 in 100 Raider's Hoards. A class
     -- that can use none of them gets the raid boss Epic instead.
-    if (ch.legendary or 0) > 0 and (self:CD().level or 1) >= 60 and random() < ch.legendary then
+    if (ch.legendary or 0) > 0 and self:ChestLevel() >= 60 and random() < ch.legendary then
       gear = self:RollLegendary()
       if not gear then rarity = 5 end
     end
@@ -1242,6 +1397,7 @@ function TCF:BuyItem(id)
   if not it or self.db.owned[id] then return false end
   if not self:SpendCoins(it.price) then return false end
   self.db.owned[id] = 1
+  if self.NoteItemSource then self:NoteItemSource(id, "Daily Wares in the Shop") end
   self.db.shop.bought[id] = true
   self:Print("Purchased " .. TCF.ItemLink(it) .. ".", true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "Purchased") end
@@ -1272,6 +1428,7 @@ function TCF:BuyRaceAccessory()
   if not it or self.db.owned[it.id] then return false end
   if not self:SpendCoins(TCF.RACE_PRICE) then return false end
   self.db.owned[it.id] = 1
+  if self.NoteItemSource then self:NoteItemSource(it.id, "Racial heritage in the Shop") end
   self.db.ui.racial = true
   for _, cl in ipairs(TCF.CLASSES) do
     local lo = self:GetLoadout(cl.key)
@@ -1413,10 +1570,12 @@ function TCF:CheckAchievements()
       local extra = ""
       if a.item and TCF.ITEMS[a.item] and not db.owned[a.item] then
         db.owned[a.item] = 1
+        if self.NoteItemSource then self:NoteItemSource(a.item, "Achievement: " .. a.name) end
         extra = " and " .. TCF.ItemLink(TCF.ITEMS[a.item])
       end
       if a.skin and TCF.ITEMS[a.skin] and not db.owned[a.skin] then
         db.owned[a.skin] = 1
+        if self.NoteItemSource then self:NoteItemSource(a.skin, "Achievement: " .. a.name) end
         extra = extra .. " and the " .. TCF.ItemLink(TCF.ITEMS[a.skin]) .. " cat"
         if self.ShowLootReveal then self:ShowLootReveal(TCF.ITEMS[a.skin], true, 0, a.name) end
       end

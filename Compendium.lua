@@ -261,7 +261,7 @@ local function gearLines(it, add)
       -- (a Dungeon Chest picks gear from 10 levels below to 3 above the cat's level, up to 60)
       local lv = req + 10 >= 60 and string.format("from about level %d", max(1, req - 3))
         or string.format("about level %d to %d", max(1, req - 3), req + 10)
-      add(string.format("Dungeon Chests can hold it once your cat has reached %s, while your cat is %s", t.name, lv))
+      add(string.format("Dungeon Chests can hold it once your cat has reached %s, when the chest is %s", t.name, lv))
     end
   elseif t then
     -- A first kill only falls back to zone loot when that boss has no loot list of its own.
@@ -274,10 +274,10 @@ local function gearLines(it, add)
       add(string.format("Adventure: zone loot from %s, a possible first-kill reward from bosses there that have no loot of their own", t.name))
     end
     local lv = t.min == t.max and tostring(t.min) or (t.min .. "-" .. t.max)
-    add(string.format("Adventure: zone loot from %s, rarely found in chests opened while your cat is level %s", t.name, lv))
+    add(string.format("Adventure: zone loot from %s, rarely found in chests of level %s", t.name, lv))
   else
     add(string.format("Adventure and chests: world drop around level %d", max(1, it.req or 1)))
-    add("Chests give gear close to your cat's class level, so open them around that level")
+    add("A chest holds gear for the level of the cat that earned it (the Treasure Bag shows each chest's level)")
     if it.q == 2 then add("Enemies in Adventure sometimes drop it too, mostly for slots your cat has empty") end
   end
 end
@@ -362,7 +362,7 @@ end
 local W, H = 800, 600
 local CATS = {
   { key = "skin", name = "Skins" }, { key = "cos", name = "Cosmetics" }, { key = "tap", name = "Tap Effects" },
-  { key = "effect", name = "Effects" }, { key = "gear", name = "Gear" },
+  { key = "effect", name = "Effects" }, { key = "gear", name = "Gear" }, { key = "sets", name = "Item Sets" },
 }
 local COS_SLOTS = { "head", "shoulder", "chest", "back", "main", "off", "acc", "race", "pattern", "fur" }
 local FILTERS = { { "all", "All" }, { "owned", "Owned" }, { "missing", "Missing" } }
@@ -822,22 +822,31 @@ function TCF:CreateCompendium()
     local cat = self.cat
     for _, b in ipairs(catBtns) do if b.key == cat then b:LockHighlight() else b:UnlockHighlight() end end
     for _, b in ipairs(filterBtns) do if b.key == self.filter then b:LockHighlight() else b:UnlockHighlight() end end
-    local isCos, isGear = cat == "cos", cat == "gear"
+    local isCos, isGear, isSets = cat == "cos", cat == "gear", cat == "sets"
     for _, b in ipairs(slotBtns) do b:SetShown(isCos); b.sel:SetShown(b.key == self.slot) end
     slotName:SetShown(isCos); slotName:SetText(TCF.SLOT_BY_KEY[self.slot].name)
-    local useClass = isCos or cat == "effect"
+    local useClass = isCos or cat == "effect" or isSets
     classBtn:SetShown(useClass); classBtn:SetText(CLASS_CHOICES[self.classIdx][2])
     hint:SetShown(not isCos)
     hint:SetWidth(useClass and 320 or 520)
     hint:SetText(cat == "skin" and "Click a skin you own to wear it. Hover any skin to see how to get it."
       or cat == "tap" and "Click a tap effect you own to use it."
       or cat == "effect" and "Click an effect you own to wear it."
+      or isSets and "Real item sets. Hover a set for its pieces and bonuses."
       or "Pick a zone, then a boss. World drops are listed by level, crafted gear by profession.")
     -- overall progress on cosmetics and skins
     local n, total = TCF:CountOwned()  -- the same numbers as the main window
     overall:SetText(string.format("All cosmetics and skins: %s / %s", commas(n), commas(total)))
-    grid:SetShown(not isGear); gearView:SetShown(isGear)
-    if isGear then self:RefreshGear() else self:RefreshItems() end
+    grid:SetShown(not isGear and not isSets); gearView:SetShown(isGear)
+    if self.setsView then self.setsView:SetShown(isSets) end
+    if isSets and TCF.RefreshCompendiumSets then
+      -- (ItemSets.lua draws the list; Owned = complete sets, Missing = sets still to finish)
+      local n = TCF:RefreshCompendiumSets(self, { top = TOP, width = W - 36, classKey = CLASS_CHOICES[self.classIdx][1],
+        passes = passes, collected = collectedText, setPages = setPages })
+      empty:SetText(f.filter == "owned" and "|cff888888No complete sets yet.|r" or "|cff888888Nothing here.|r")
+      empty:ClearAllPoints(); empty:SetPoint("CENTER", self.setsView, "CENTER")
+      empty:SetShown(n == 0)
+    elseif isGear then self:RefreshGear() else self:RefreshItems() end
   end
 
   -- something changed while the book is open: redraw at most a few times a second

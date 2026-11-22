@@ -31,7 +31,7 @@ end
 -- the same split as TCF:OpenChest. A Legendary roll shows a real legendary (now and then,
 -- at the chest's own odds); gear-only chests show what they can hold: the raid epics for a
 -- Raider's Hoard, the dungeon loot near the cat's level for a Dungeon Chest.
-local function randomLoot(ch, seen, raidPool, legends, dungeonPool)
+local function randomLoot(ch, seen, raidPool, legends, dungeonPool, level)
   local class = TCF.db.class
   for _ = 1, 30 do
     local r = TCF:RollRarity(ch.weights)
@@ -49,7 +49,7 @@ local function randomLoot(ch, seen, raidPool, legends, dungeonPool)
       else
         -- what this chest can really give the cat now: gear near its level (TCF:ChestGearPool),
         -- one quality lower when there is none of the rolled one
-        local level = (TCF:CD() and TCF:CD().level) or 1
+        level = level or (TCF:CD() and TCF:CD().level) or 1
         for q = max(2, min(4, (ch.raidLoot or r >= 5) and 4 or r)), 2, -1 do
           local pool = TCF.ChestGearPool and TCF:ChestGearPool(class, level, q) or gearPool(q)
           if #pool > 0 then g = pool[random(#pool)]; break end
@@ -138,33 +138,35 @@ local function createReel()
     end
     -- the next chest waiting for its spin
     local nxt = table.remove(self.pending, 1)
-    if nxt then TCF:PlayChestReel(nxt[1], nxt[2], nxt[3], nxt[4]) end
+    if nxt then TCF:PlayChestReel(nxt[1], nxt[2], nxt[3], nxt[4], nxt[5]) end
   end
   f.queue, f.pending = {}, {}
   f:Hide()
   return f
 end
 
--- Play the reel for a chest reward, then show the usual loot box.
-function TCF:PlayChestReel(it, rarity, chestKey, args)
+-- Play the reel for a chest reward, then show the usual loot box. level: the chest's level stamp
+-- (default: the chest being opened, TCF:ChestLevel); the reel shows gear for that level.
+function TCF:PlayChestReel(it, rarity, chestKey, args, level)
   local f = self.reel or createReel(); self.reel = f
+  level = level or (self.ChestLevel and self:ChestLevel()) or (self:CD() and self:CD().level) or 1
   -- 1.5.3.4: a chest opened while the reel is still spinning gets its own spin right after this
   -- one (it used to skip its spin and only queue its loot box)
-  if f:IsShown() then table.insert(f.pending, { it, rarity, chestKey, args }); return end
+  if f:IsShown() then table.insert(f.pending, { it, rarity, chestKey, args, level }); return end
   local ch = TCF.CHEST_BY_KEY[chestKey]
   f.title:SetText("Opening " .. (ch and ch.name or "chest") .. "...")
+  f.hint:SetText(ch and ("Gear for about level " .. level .. ". Click to skip") or "Click to skip")
   local seen = { [it] = true }
   -- built once per reel: raid epics for a Raider's Hoard (the ones it can hold for this cat)
   -- or for a Legendary rarity roll (any raid), and the legendaries this class can use
   local raidPool, legends, dungeonPool = {}, {}, nil
-  local level = (self:CD() and self:CD().level) or 1
   if ch and TCF.RaidHoardPool and level >= 55 then raidPool = TCF:RaidHoardPool(nil, not ch.raidLoot) end
   if ch and TCF.LegendariesFor and level >= 60 then legends = TCF:LegendariesFor() end
   -- and for a Dungeon Chest: the dungeon loot it can hold for this cat, by quality
-  if ch and ch.dungeonLoot and TCF.DungeonChestPool then dungeonPool = TCF:DungeonChestPool() end
+  if ch and ch.dungeonLoot and TCF.DungeonChestPool then dungeonPool = TCF:DungeonChestPool(nil, level) end
   for i, c in ipairs(f.cards) do
     if i == LAND then setCard(c, it, rarity)
-    elseif ch then local r, rr = randomLoot(ch, seen, raidPool, legends, dungeonPool); setCard(c, r, rr)
+    elseif ch then local r, rr = randomLoot(ch, seen, raidPool, legends, dungeonPool, level); setCard(c, r, rr)
     else local r = TCF.ITEM_LIST[random(#TCF.ITEM_LIST)]; setCard(c, r, r.rarity) end
   end
   local center = VISIBLE * STEP / 2

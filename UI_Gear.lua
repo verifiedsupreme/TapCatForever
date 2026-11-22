@@ -30,14 +30,20 @@ function TCF:GearCompareLines(tt, it, class)
   local eq = self:GearEquipped(class)
   local base = self:CombatStats(class).power
   local lines = {}
+  local baseSets = self:CombatStats(class).sets
   for _, slot in ipairs(self:GearTargetSlots(it, class)) do
     if eq[slot] ~= it.id then
-      local d = self:CombatStats(class, it, slot).power - base
+      local after = self:CombatStats(class, it, slot)
+      local d = after.power - base
       local cur = eq[slot] and TCF.GEAR[eq[slot]]
       local slotName = TCF.GEAR_SLOT_BY_KEY[slot] and TCF.GEAR_SLOT_BY_KEY[slot].name or slot
       local what = cur and ("|c" .. TCF.RARITY[cur.q].hex .. cur.name .. "|r") or ("|cff888888empty " .. slotName .. " slot|r")
       local diff = d > 0 and ("|cff20ff20+" .. d .. " Power|r") or d < 0 and ("|cffff4040" .. d .. " Power|r") or "|cffaaaaaano change|r"
       lines[#lines + 1] = { "Instead of " .. what, diff }
+      -- set bonuses gained or lost by this swap (ItemSets.lua)
+      for _, l in ipairs(TCF.SetChangeLines and TCF.SetChangeLines(baseSets, after.sets) or {}) do
+        lines[#lines + 1] = { l[1], "", l[2], l[3], l[4] }
+      end
     end
   end
   if #lines == 0 then
@@ -46,7 +52,7 @@ function TCF:GearCompareLines(tt, it, class)
   end
   tt:AddLine(" ")
   tt:AddLine("Compared with what you're wearing:", 1, 0.82, 0)
-  for _, l in ipairs(lines) do tt:AddDoubleLine(l[1], l[2], 1, 1, 1, 1, 1, 1) end
+  for _, l in ipairs(lines) do tt:AddDoubleLine(l[1], l[2], l[3] or 1, l[4] or 1, l[5] or 1, 1, 1, 1) end
   if it.req > self:CD(class).level and not self:IsStarterWeapon(it, class) then
     tt:AddLine("You can equip it at class level " .. it.req .. ".", 1, 0.5, 0.25)
   end
