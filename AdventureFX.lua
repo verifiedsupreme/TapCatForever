@@ -21,13 +21,15 @@ FX.SCHOOL_TINT = {
 }
 -- the school of a caster's plain spell when it has no wand (and of a hybrid that casts)
 FX.CLASS_SCHOOL = { MAGE = "arcane", PRIEST = "holy", WARLOCK = "shadow", SHAMAN = "nature", DRUID = "nature" }
--- basic ranged shots by weapon type: sprite, size, flight time, arc height, spin, muzzle flash
+-- basic ranged shots by weapon type: sprite, size, flight time (s), arc height, spin, muzzle flash, and
+-- where the shot leaves the weapon in the cat's right paw (raised as it shoots; from the vector art boxes)
 FX.SHOT = {
-  bow = { "arrow", 34, 0.28, 12 }, xbow = { "bolt", 30, 0.2, 4 }, gun = { "bullet", 22, 0.14, 0, nil, true },
-  thrown = { "thrown", 30, 0.32, 16, 14 }, wand = { "wandbolt", 30, 0.3, 8 },
+  bow = { "arrow", 34, 0.28, 12, 0, false, 128, 74 }, xbow = { "bolt", 30, 0.2, 4, 0, false, 128, 76 },
+  gun = { "bullet", 22, 0.14, 0, 0, true, 136, 102 }, thrown = { "thrown", 30, 0.32, 16, 14, false, 124, 62 },
+  wand = { "wandbolt", 30, 0.3, 8, 0, false, 131, 88 },
 }
 -- where things sit in the fight panel (from its bottom-left corner)
-FX.MUZZLE = { 128, 70 }      -- the tip of the weapon in the cat's right paw
+FX.MUZZLE = { 128, 70 }      -- where abilities are cast from (they leave 8 left and 20 above it)
 FX.CAT = { 95, 72 }          -- the cat's middle
 FX.FEET = { 95, 30 }         -- under the cat
 FX.TOTEM = { 176, 34 }       -- Searing Totem stands between the cat and the enemies
@@ -201,10 +203,10 @@ function FX:Swing(i, st, class)
   if attack == "shoot" or attack == "wand" then
     local def = FX.SHOT[st.shot] or FX.SHOT.bow
     local tint = attack == "wand" and FX.SCHOOL_TINT[st.school or "arcane"] or nil
-    local mx, my = FX.MUZZLE[1], FX.MUZZLE[2]
+    local mx, my = def[7], def[8]
     local s = self:Play(def[1], "proj", mx, my, tx, ty, def[2], def[3], tint)
     if s then
-      s.arc, s.spin = def[4], def[5] or 0
+      s.arc, s.spin = def[4], def[5]
       s.impact, s.impactTint, s.impactSize = attack == "wand" and "sparkle" or "impact", tint, attack == "wand" and 40 or 30
       s.kitSlot = i
       s.kit = attack == "wand" and TCF.SCHOOL_KITS and TCF.SCHOOL_KITS[st.school or "arcane"] or nil
