@@ -16,8 +16,39 @@ local function isPlaceholder(name, ilvl)
   return ilvl == 0 or name:sub(1, 2) == "zz" or name:find("OLD", 1, true) or name:find("(Extra Effects)", 1, true)
     or name:sub(1, 6) == "Bland "
 end
--- Items in the Classic id range that really come from a later expansion: known, never dropped.
-local NOT_CLASSIC = { [22736] = true }   -- Andonisus, Reaper of Souls (Burning Crusade, item level 100)
+-- Later-expansion items. The item data (wow-classic-items) also holds Burning Crusade and later
+-- gear: Outland quest greens at item level 93+, engineering goggles at 95, blood elf and draenei
+-- starting-zone rewards, Jewelcrafting rings. They stay known (old saves still show them) but are
+-- retired, so they never drop and never show up as loot anywhere. An item is not Classic when
+--   its id (a random-suffix item's base id) is 24000 or higher: every Classic item is below that,
+--   or its item level is above 92 (Classic's highest: Naxxramas), or its id is in NOT_CLASSIC:
+--   the Burning Crusade items that sit among Classic ids (each range checked against the data;
+--   Naxxramas, Ahn'Qiraj and honor gear around them stay).
+TCF.CLASSIC_MAX_ID, TCF.CLASSIC_MAX_ILVL = 24000, 92
+local NOT_CLASSIC = {
+  { 20800, 20999 },   -- Jewelcrafting rings, necklaces and crowns (Elegant Silver Ring ... Ruby Crown of Restoration)
+  { 21748, 21799 },   -- Jewelcrafting figurines, rings and pendants (Figurine - Jade Owl ... Arcanite Sword Pendant)
+  { 21931, 21934 },   -- Jewelcrafting: Woven Copper Ring ... Ornate Tigerseye Necklace
+  { 22736, 22736 },   -- Andonisus, Reaper of Souls (item level 100)
+  { 22782, 22784 },   -- Ghostlands: Sin'dorei Cloak of Warding, Sunwell Blade, Sunwell Orb
+  { 22969, 22980 },   -- Eversong and Ghostlands quest rewards (Ven'jashi's Bow ... Staff of the Sun)
+  { 22982, 22982 }, { 22984, 22987 }, { 22990, 22993 }, { 22995, 22998 },   -- Ghostlands (not the Naxxramas items between)
+  { 23229, 23232 },   -- "Sockety Goodness" test weapons
+  { 23399, 23434 },   -- Ghostlands and Bloodmyst quest rewards (Fallen Apprentice's Robe ... Robes of the Shard)
+  { 23493, 23493 },   -- Fel Iron Chain Coif
+  { 23587, 23587 },   -- Mirren's Drinking Hat
+  { 23700, 23999 },   -- engineering goggles and gadgets, Nolkai's Lantern, Robes of Silvermoon, Azure Watch Robes
+}
+-- Is this a Classic item? (id: a gear id, random-suffix ids count as their base; ilvl: its item level)
+function TCF.IsClassicItem(id, ilvl)
+  if not id then return false end
+  if id >= TCF.SUFFIX_ID_BASE then id = floor((id - TCF.SUFFIX_ID_BASE) / 100) end
+  if id >= TCF.CLASSIC_MAX_ID or (ilvl or 0) > TCF.CLASSIC_MAX_ILVL then return false end
+  for _, r in ipairs(NOT_CLASSIC) do
+    if id >= r[1] and id <= r[2] then return false end
+  end
+  return true
+end
 
 -- Called once per item by GearData.lua (and by CraftData.lua for crafted items that only
 -- exist there: crafted = "blacksmithing" / "leatherworking" / "tailoring").
@@ -32,9 +63,9 @@ function TCF.AddGear(id, name, icon, q, ilvl, req, slot, sub, stats, tier, boss,
   TCF.GEAR[id] = it
   TCF.GEAR_LIST[#TCF.GEAR_LIST + 1] = it
   if crafted then it.crafted, it.tier, it.boss, it.dc = crafted, 0, 0, 0; return end
-  -- placeholders and later-expansion items are marked retired too, so code that scans
+  -- placeholders and later-expansion items (TCF.IsClassicItem) are marked retired too, so code that scans
   -- TCF.GEAR_LIST with a "not it.retired" filter skips them as well
-  if isPlaceholder(name, ilvl) or NOT_CLASSIC[id] then it.retired = true; return end
+  if isPlaceholder(name, ilvl) or not TCF.IsClassicItem(id, ilvl) then it.retired = true; return end
   if tier > 0 then
     if boss > 0 then
       TCF.BOSS_LOOT[tier] = TCF.BOSS_LOOT[tier] or {}
@@ -642,10 +673,10 @@ end
 
 ---------------------------------------------------------------- small finds (Adventure trash)
 -- Now and then an enemy in Adventure drops a plain piece of gear: a white or green for the cat's
--- level that the class can use, never crafted gear. Finds strongly favour slots the cat has empty,
--- then real upgrades, so a new cat fills most of its slots within its first hour or so. The more
--- slots are filled, and the better the gear in them, the rarer finds get: chests and bosses stay
--- the main source of good loot.
+-- level that the class can use, never crafted gear. Finds strongly favour slots the cat has empty
+-- (its weapon and the slots it shows first: FIND_WEIGHT), then real upgrades, so a new cat fills
+-- most of its slots within its first hour or so. The more slots are filled, and the better the
+-- gear in them, the rarer finds get: chests and bosses stay the main source of good loot.
 --   chance per trash kill = EMPTY * (empty slots / slots) + UPGRADE * (how much the worn gear could improve)
 --   and at least GAP_MIN .. GAP_MAX seconds of fighting between finds. The gap grows with the share
 --   of slots filled or with the finds this class has already had (FINDS_PER_SLOT per slot means
@@ -654,9 +685,20 @@ end
 TCF.SMALL_FIND = { EMPTY = 0.12, UPGRADE = 0.006, GAP_MIN = 15, GAP_MAX = 900, TARGET_EMPTY = 0.85, FINDS_PER_SLOT = 3 }
 local FIND_SLOTS = { "HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "WRIST", "WAIST", "HANDS", "LEGS", "FEET",
   "FINGER1", "FINGER2", "MAINHAND", "OFFHAND", "RANGED" }
--- the slots the cat shows (finds fill these first)
+-- Which empty slot a find goes to: a weighted draw, so a new cat gets its weapon and the pieces
+-- it shows (head, chest, belt, cloak, neck, rings, off-hand or shield) well before the hidden
+-- ones (hands, feet, wrists, legs, shoulders). The weapon is the main hand, or the ranged weapon
+-- for a Hunter. With the weapon, four shown and five hidden slots empty, the weapon comes first
+-- about half the time and a hidden slot about 1 time in 12.
+local FIND_WEIGHT = { WEAPON = 30, SHOWN = 6, HIDDEN = 1 }
 local SHOWN_SLOTS = { HEAD = true, CHEST = true, BACK = true, MAINHAND = true, OFFHAND = true, NECK = true, WAIST = true,
   FINGER1 = true, FINGER2 = true }
+local function findWeight(slot, class)
+  local weapon = (class == "HUNTER") and "RANGED" or "MAINHAND"
+  if slot == weapon then return FIND_WEIGHT.WEAPON end
+  if SHOWN_SLOTS[slot] or (slot == "RANGED" and class == "HUNTER") then return FIND_WEIGHT.SHOWN end
+  return FIND_WEIGHT.HIDDEN
+end
 -- how much room a worn piece leaves for a better one (white: lots, epic: little)
 local Q_ROOM = { [0] = 1, [1] = 1, [2] = 0.6, [3] = 0.3, [4] = 0.12, [5] = 0.05 }
 local function hasRanged(class)
@@ -760,20 +802,14 @@ function TCF:RollSmallFind(class, level, empty)
   end
   -- mostly: something for an empty slot (the other quality if the first has nothing there)
   if empty and #empty > 0 and random() < TCF.SMALL_FIND.TARGET_EMPTY then
-    -- random order, but usually the slots the cat shows (head, chest, back, weapons, neck, belt,
-    -- ring) come first, so the cat's look fills in quickly
-    local order, rest = {}, {}
-    local showFirst = random() < 0.7
+    -- a weighted random order (FIND_WEIGHT): the weapon first most of the time, then the slots
+    -- the cat shows, the hidden ones last; a slot with nothing for it at this level is skipped
+    local order, key = {}, {}
     for _, s in ipairs(empty) do
-      if showFirst and SHOWN_SLOTS[s] then order[#order + 1] = s else rest[#rest + 1] = s end
+      order[#order + 1] = s
+      key[s] = random() ^ (1 / findWeight(s, class))
     end
-    local function shuffle(t, from)
-      for i = #t, from + 1, -1 do local j = random(from, i); t[i], t[j] = t[j], t[i] end
-    end
-    shuffle(order, 1)
-    local first = #order
-    for _, s in ipairs(rest) do order[#order + 1] = s end
-    shuffle(order, first + 1)
+    table.sort(order, function(a, b) return key[a] > key[b] end)
     for _, s in ipairs(order) do
       local it = pickFor(s, firstQ) or pickFor(s, 3 - firstQ)
       if it then return it end

@@ -132,7 +132,7 @@ function TCF:CookPot()
   self:ProfSkillUp("cooking", r[5])
   if discovered then
     self.db.stats.recipesFound = (self.db.stats.recipesFound or 0) + 1
-    self:Print("New recipe discovered: |cffffd100" .. r[2] .. "|r!", true)
+    self:Print("New recipe discovered: |cffffd100" .. r[2] .. "|r.", true)
     self:PlaySound("ach")
   end
   self:MarkDirty()

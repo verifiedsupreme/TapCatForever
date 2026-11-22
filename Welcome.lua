@@ -31,7 +31,7 @@ function TCF:ShowWelcome()
     local cat = TCF.CreateCat(p1, 170, { preview = true })
     cat.frame:SetPoint("TOPRIGHT", -70, -40)
     f.cat = cat
-    local hello = U.Text(p1, "GameFontNormalHuge", "Meet your cat!"); hello:SetPoint("TOP", cat.frame, "BOTTOM", 0, -6)
+    local hello = U.Text(p1, "GameFontNormalHuge", "Meet your cat"); hello:SetPoint("TOP", cat.frame, "BOTTOM", 0, -6)
     local line = U.Text(p1, "GameFontHighlight", "Every key you press, it taps too.\nTaps earn XP and TapCoins.")
     line:SetPoint("TOP", hello, "BOTTOM", 0, -8); line:SetWidth(240)
     local go1 = U.Button(p1, "Next", 120, 26, function() f:Page(2) end); go1:SetPoint("BOTTOMRIGHT", -24, 20)
@@ -51,7 +51,7 @@ function TCF:ShowWelcome()
     -- sits between the tiles and the buttons so nothing overlaps it
     tip:SetPoint("BOTTOM", 0, 58); tip:SetWidth(540)
     local back = U.Button(p2, "Back", 80, 26, function() f:Page(1) end); back:SetPoint("BOTTOMRIGHT", -154, 20)
-    local go2 = U.Button(p2, "Let's tap!", 120, 26, function() f:Hide() end); go2:SetPoint("BOTTOMRIGHT", -24, 20)
+    local go2 = U.Button(p2, "Let's tap", 120, 26, function() f:Hide() end); go2:SetPoint("BOTTOMRIGHT", -24, 20)
 
     function f:Page(n)
       p1:SetShown(n == 1); p2:SetShown(n == 2)

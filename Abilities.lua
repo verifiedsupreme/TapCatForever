@@ -133,7 +133,7 @@ function TCF:LearnAbility(class, key)
   end
   self:CD(class).abilities[key] = true
   -- a reply to the player's own click, so it shows even with chat messages turned off
-  self:Print(string.format("Your %s cat learned |cffffd100%s|r!", TCF.CLASS_BY_KEY[class].name, ab.name), true)
+  self:Print(string.format("Your %s cat learned |cffffd100%s|r.", TCF.CLASS_BY_KEY[class].name, ab.name), true)
   self:PlaySound("ach")
   self:MarkDirty(); self:RefreshAll()
   return true

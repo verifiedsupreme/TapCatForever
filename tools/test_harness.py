@@ -153,6 +153,7 @@ TEST = r'''
         if from then
           w.chestGear = w.chestGear + 1
           if it.q < 2 then w.bad[#w.bad + 1] = "white gear from a chest: " .. it.name end
+          if from == "dungeon" and it.q > 4 then w.bad[#w.bad + 1] = "a Dungeon Chest above Epic: " .. it.name end
         end
         if it.q == 5 and not it.crafted then
           w.legendaries = w.legendaries + 1
@@ -307,13 +308,13 @@ TEST = r'''
     for i = 1, 10 do TapCatForeverLootReveal.ok.scripts.OnClick(TapCatForeverLootReveal.ok) end
     TCF:ToggleBag()
     -- real dungeon run: enter, kill 3 bosses, leave after 6 minutes
-    local strongBefore = TCF.db.keys.strong + TCF.db.keys.heroic
+    local dungeonBefore = TCF.db.keys.dungeon or 0
     _inInstance = "party"; _fire("PLAYER_ENTERING_WORLD")
     for i = 1, 3 do _fire("ENCOUNTER_END", 1, "Boss", 1, 5, 1) end
     _fire("ENCOUNTER_END", 2, "Boss", 1, 5, _SECRET)   -- secret success value must not error
     TCF.db.dungeonRun.start = TCF.db.dungeonRun.start - 400
     _inInstance = false; _fire("ZONE_CHANGED_NEW_AREA")
-    assert(TCF.db.keys.strong + TCF.db.keys.heroic == strongBefore + 1, "dungeon at level 20+ gives a Strongbox (or sometimes a Heroic Cache)")
+    assert((TCF.db.keys.dungeon or 0) == dungeonBefore + 1, "finishing a real dungeon gives a Dungeon Chest")
     -- group-finder completion while inside a raid
     local raidBefore = TCF.db.keys.raid or 0
     _inInstance = "raid"; _fire("PLAYER_ENTERING_WORLD"); _fire("LFG_COMPLETION_REWARD"); _fire("LFG_COMPLETION_REWARD")
@@ -1134,6 +1135,77 @@ TEST = r'''
       SlashCmdList.TAPCATFOREVER("testmode")   -- turns it off
       check(not TCF.db.ui.testMode and TCF:PartyCount() == 0 and TCF:PartyTapMult() == 1, "test mode off: fake cats gone")
     end
+    -- 10b2. the Settings page: every control inside the 560 x 494 page, nothing overlapping, every
+    -- setting and button still there and working
+    do
+      local win = TCF.window
+      local L = win.settingsLayout
+      check(L and #L > 30, "Settings layout recorded: " .. tostring(L and #L))
+      for i, a in ipairs(L) do
+        check(a.x >= 8 and a.y >= 8 and a.x + a.w <= 552 and a.y + a.h <= 486,
+          "Settings: " .. a.kind .. " " .. a.label .. " stays inside the page: " .. a.x .. "," .. a.y .. " " .. a.w .. "x" .. a.h)
+        for j = i + 1, #L do
+          local b = L[j]
+          local apart = a.x + a.w <= b.x or b.x + b.w <= a.x or a.y + a.h <= b.y or b.y + b.h <= a.y
+          check(apart, "Settings: " .. a.kind .. " " .. a.label .. " overlaps " .. b.kind .. " " .. b.label)
+        end
+      end
+      local byLabel, headings = {}, {}
+      for _, a in ipairs(L) do
+        if a.kind == "button" then byLabel[a.label] = a end
+        if a.kind == "heading" then headings[a.label] = true end
+      end
+      for _, h in ipairs({ "Cat and display", "Chat and sounds", "Help and info", "Position", "Progress" }) do
+        check(headings[h], "Settings heading: " .. h)
+      end
+      local help = { "Welcome tour", "Patch notes", "Send feedback", "Compendium" }
+      for _, n in ipairs(help) do
+        local a = byLabel[n]
+        check(a and a.w == byLabel["Welcome tour"].w and a.y == byLabel["Welcome tour"].y, "Help and info buttons: one row, one size: " .. n)
+      end
+      for _, n in ipairs({ "Reset position", "Minimap icon", "Reset this character", "Reset ALL progress" }) do
+        check(byLabel[n] and byLabel[n].frame.scripts.OnClick, "Settings button works: " .. n)
+      end
+      check(byLabel["Reset this character"].y > byLabel["Compendium"].y and byLabel["Reset ALL progress"].frame:GetText():find("ff5555", 1, true)
+        and byLabel["Reset this character"].frame:GetText():find("ff5555", 1, true), "the reset buttons are red, at the bottom")
+      -- every setting from before still has its checkbox, and each one flips its setting
+      local want = { "shown", "locked", "clickThrough", "catOnly", "mouse", "showLevel", "showXP", "showTaps", "showCoins",
+                     "popups", "sound", "racial", "chat", "chestAnim", "textAbove" }
+      local have = {}
+      for _, cb in ipairs(win.settingsChecks) do have[cb.key] = cb end
+      check(#win.settingsChecks == #want, "Settings checkboxes: " .. #win.settingsChecks)
+      local ui = TCF.db.ui
+      for _, k in ipairs(want) do
+        local cb = have[k]
+        check(cb, "Settings checkbox for " .. k)
+        local old = ui[k]
+        cb:SetChecked(not old); cb.scripts.OnClick(cb)
+        check(ui[k] == (not old), "the " .. k .. " checkbox flips its setting")
+        ui[k] = old
+      end
+      win:SelectTab(10)
+      -- minimap button: shows what it will do, and flips the setting
+      local mm = byLabel["Minimap icon"].frame
+      local hid = ui.minimap.hide
+      check(mm:GetText() == (hid and "Show minimap icon" or "Hide minimap icon"), "minimap button label: " .. tostring(mm:GetText()))
+      mm.scripts.OnClick(mm)
+      check(ui.minimap.hide == not hid and mm:GetText() == (hid and "Hide minimap icon" or "Show minimap icon"), "minimap button flips: " .. tostring(mm:GetText()))
+      mm.scripts.OnClick(mm)
+      check(ui.minimap.hide == hid, "minimap button flips back")
+      -- Compendium button opens and closes it
+      local cb = byLabel["Compendium"].frame
+      cb.scripts.OnClick(cb); check(TCF.compendium and TCF.compendium:IsShown(), "Settings Compendium button opens it")
+      cb.scripts.OnClick(cb); check(not TCF.compendium:IsShown(), "and closes it")
+      -- sliders still set their values
+      local sc = ui.scale; ui.scale = 1.25; win:RefreshSettings(); check(ui.scale == 1.25, "cat size slider keeps the value"); ui.scale = sc
+      -- test mode: the shortcuts take the help line's place
+      local info = win.settingsInfo
+      ui.testMode = true; win:RefreshSettings()
+      check(info.testBox:IsShown() and not info.help:IsShown(), "test mode: shortcuts shown, help line hidden")
+      ui.testMode = nil; win:RefreshSettings()
+      check(not info.testBox:IsShown() and info.help:IsShown(), "normal: help line shown, no shortcuts")
+      check(info.note:GetText():find("Play with friends", 1, true), "party note: " .. tostring(info.note:GetText()))
+    end
     -- 10c. starter weapon fix only touches the old starter; two-handers clear the off hand
     do
       local function oldStarter(class)
@@ -1438,10 +1510,20 @@ TEST = r'''
       for _, r in ipairs(bag.rows) do
         if r:IsShown() then shown = shown + 1; lowest = math.min(lowest, r.pt[3] - r.h) end
       end
-      check(shown == #TCF.CHESTS and #TCF.CHESTS == 4, "Treasure Bag shows 4 kinds of chest: " .. shown)
-      check(-lowest + 14 + 22 + 4 <= bag.h, "the 4th row clears the Open everything button: " .. lowest .. " " .. tostring(bag.h))
-      tip = tipText(function() bag.rows[4].scripts.OnEnter(bag.rows[4]) end)
-      check(tip:find("Raider's Hoard", 1, true), "Hoard row tooltip: " .. tip)
+      check(shown == #TCF.CHESTS and #TCF.CHESTS == 5, "Treasure Bag shows 5 kinds of chest: " .. shown)
+      check(-lowest + 14 + 22 + 4 <= bag.h, "the 5th row clears the Open everything button: " .. lowest .. " " .. tostring(bag.h))
+      -- rows never overlap: each starts below the one above it
+      local prevBottom
+      for _, r in ipairs(bag.rows) do
+        if prevBottom then check(r.pt[3] <= prevBottom, "Treasure Bag rows don't overlap: " .. r.pt[3] .. " " .. prevBottom) end
+        prevBottom = r.pt[3] - r.h
+      end
+      for i, ch in ipairs(TCF.CHESTS) do
+        if ch.key == "raid" or ch.key == "dungeon" then
+          tip = tipText(function() bag.rows[i].scripts.OnEnter(bag.rows[i]) end)
+          check(tip:find(ch.name, 1, true), ch.name .. " row tooltip: " .. tip)
+        end
+      end
       TCF:OpenAllChests()
       bag:Hide()
       for _, ch in ipairs(TCF.CHESTS) do check((TCF.db.keys[ch.key] or 0) == 0, "opened every chest: " .. ch.key) end
@@ -2044,6 +2126,281 @@ TEST = r'''
         "small finds %.3f/%.4f per kill (half/all slots filled); new %s L1 60 min: %d finds, %d/%d shown slots, level %d; " ..
         "bare %s L10 75 min: %d finds, %d/%d shown slots", nSuf, nBase, whites, rateHalf, rateFull, c1, f1, w1, r1, l1, c2, f2, w2, r2))
     end)()
+    -- 13. the Dungeon Chest (1.5.3): never sold, always dungeon boss gear near the cat's level
+    -- (mostly Rare, some Uncommon, a little Epic, never Legendary), from finishing dungeons in
+    -- Adventure (first clear, then on the dungeon chest clock), real WoW dungeons and dungeon expeditions
+    ;(function()
+      local dch = TCF.CHEST_BY_KEY.dungeon
+      -- 13a. the chest itself
+      check(dch and dch.name == "Dungeon Chest" and not dch.cost and dch.gearOnly and dch.dungeonLoot, "Dungeon Chest: never sold, always gear")
+      check((dch.legendary or 0) == 0 and (dch.weights[5] or 0) == 0 and (dch.weights[1] or 0) == 0, "a Dungeon Chest never rolls Legendary or cosmetic rarities")
+      check(dch.weights[3] > dch.weights[2] and dch.weights[2] > dch.weights[4] and dch.weights[4] > 0, "mostly Rare, some Uncommon, a little Epic")
+      for _, ch in ipairs(TCF.CHESTS) do
+        if ch ~= dch then check(ch.icon ~= dch.icon, "the Dungeon Chest has its own icon: " .. ch.key) end
+      end
+      check(dch.icon:find("^INV_Box_") ~= nil, "the Dungeon Chest icon is a real WoW box: " .. dch.icon)
+      local coins0 = TCF.db.coins
+      check(TCF:OpenChest("dungeon") == nil and TCF.db.coins == coins0, "a Dungeon Chest can't be bought")
+      check(TCF.ChestQuality(dch) == 3, "a Dungeon Chest is announced in Rare blue")
+      local odds = {}
+      for _, o in ipairs(TCF:ChestOdds(dch)) do odds[o[1]] = o[2] end
+      local function about(a, b) return a and math.abs(a - b) < 1e-6 end
+      check(about(odds["Rare gear"], 67) and about(odds["Uncommon gear"], 25) and about(odds["Epic gear"], 8)
+        and not odds["Legendary gear"] and not odds["Cosmetic"], "Dungeon Chest odds")
+      local tip = tipText(function() TCF:ChestOddsTooltip(GameTooltip, dch) end)
+      check(tip:find("Rare gear|r 67%", 1, true) and tip:find("Uncommon gear|r 25%", 1, true) and tip:find("Epic gear|r 8%", 1, true)
+        and tip:find("dungeons your cat has reached", 1, true) and not tip:find("Legendary", 1, true) and not tip:find("Cosmetic", 1, true),
+        "Dungeon Chest tooltip: " .. tip)
+      check(not tip:find("!", 1, true), "plain text, no exclamation marks: " .. tip)
+      -- the Treasure Bag and Shop texts name it
+      local inSources = false
+      for _, line in ipairs(TCF.CHEST_SOURCES) do if line:find("^Dungeon Chest:") then inSources = line end end
+      check(inSources and inSources:find("Never sold", 1, true) and TCF.CHEST_BAG_TEXT.dungeon, "Treasure Bag texts list the Dungeon Chest")
+      check(TCF.DUNGEON_CHEST_TEXT:find("Dungeon Chest", 1, true) and not TCF.DUNGEON_CHEST_TEXT:find("Strongbox", 1, true), "the Shop's free chest text: " .. TCF.DUNGEON_CHEST_TEXT)
+      -- achievements count Dungeon Chests
+      local nAch = 0
+      for _, a in ipairs(TCF.ACHIEVEMENTS) do
+        if a.stat == "dungeonChests" then nAch = nAch + 1; check(a.desc:find("Dungeon Chest", 1, true), "achievement text: " .. a.desc) end
+      end
+      check(nAch >= 2, "achievements for opening Dungeon Chests: " .. nAch)
+
+      -- 13b. which tiers are dungeons
+      local firstDungeon, nDungeons = nil, 0
+      for ti, t in ipairs(TCF.TIERS) do
+        local d = TCF.IsDungeonTier(ti)
+        if d then nDungeons = nDungeons + 1; firstDungeon = firstDungeon or ti end
+        if t.raid or t.key == "elwynn" or t.key == "westfall" then check(not d, t.name .. " is not a dungeon") end
+        if t.key == "dm" or t.key == "strat" or t.key == "rfc" then check(d, t.name .. " is a dungeon") end
+      end
+      check(nDungeons >= 15 and TCF.TIERS[firstDungeon].key == "rfc", "dungeon tiers: " .. nDungeons)
+
+      -- 13c. opening Dungeon Chests: gear the class can use, from dungeons it reached, near its level
+      local skinRoll = TCF.RollSkinSource
+      TCF.RollSkinSource = function() end
+      local class0 = TCF.db.class
+      TCF:SetClass("WARRIOR")
+      local cd = TCF:CD()
+      local adv = cd.adv
+      local saved = { cd.level, adv.tier, adv.stage, adv.best, adv.dungeonClock, adv.chestClock, adv.active }
+      local stat0 = TCF.db.stats.dungeonChests or 0
+      -- (dungeon shares are counted for the cats that reached dungeons at their level: a level 8
+      -- cat is below every dungeon's loot, so it gets gear of the rolled quality for its level)
+      local byQ, total, counted, fromDungeon, blues, bluesFromDungeon = {}, 0, 0, 0, 0, 0
+      TCF.openingAll = true
+      -- a new cat (no dungeon reached: the first dungeon), a level 24 cat that reached the
+      -- Deadmines, and a level 60 cat that has reached every dungeon
+      local cases = { { 8, 1, 0 }, { 24, 5, 506 }, { 60, 21, 2112 } }
+      for ci, case in ipairs(cases) do
+        cd.level, adv.tier, adv.best = case[1], case[2], case[3]
+        local reached = {}
+        for _, ti in ipairs(TCF:DungeonTiers("WARRIOR")) do reached[ti] = true end
+        if ci == 1 then check(reached[firstDungeon] and next(reached, next(reached)) == nil, "a new cat's Dungeon Chest uses the first dungeon") end
+        for ti in pairs(reached) do check(TCF.IsDungeonTier(ti) and ti <= math.max(1, case[2], firstDungeon), "reached dungeon " .. ti) end
+        TCF.db.keys.dungeon = 120
+        for k = 1, 120 do
+          local g = TCF:OpenChest("dungeon", true)
+          local lc = TCF.lastChest
+          check(g and lc and lc.gear == g, "a Dungeon Chest always holds gear")
+          check(g.q >= 2 and g.q <= 4, "Uncommon to Epic: " .. g.name .. " q" .. g.q)
+          check(TCF:GearUsable(g, "WARRIOR"), "Dungeon Chest gear fits the class: " .. g.name)
+          -- (dungeon loot is at most 3 levels above the cat, below; the fallback for a quality the
+          -- dungeons don't have looks a little higher, like the other chests: early levels have no Epics)
+          check(g.req <= math.min(60, case[1]) + 15, "Dungeon Chest gear near the level: " .. g.name .. " req " .. g.req .. " at level " .. case[1])
+          byQ[g.q] = (byQ[g.q] or 0) + 1; total = total + 1
+          local isDungeon = g.tier and reached[g.tier]
+          if isDungeon then
+            check(g.req <= math.min(60, case[1]) + 3, "dungeon gear at most 3 levels above the cat: " .. g.name .. " req " .. g.req)
+          end
+          if ci >= 2 then
+            counted = counted + 1
+            if isDungeon then fromDungeon = fromDungeon + 1 end
+            if g.q == 3 then blues = blues + 1; if isDungeon and g.boss and g.boss > 0 then bluesFromDungeon = bluesFromDungeon + 1 end end
+          end
+        end
+        check(TCF.db.keys.dungeon == 0, "every Dungeon Chest opened")
+      end
+      TCF.openingAll = nil
+      check((TCF.db.stats.dungeonChests or 0) == stat0 + 360, "Dungeon Chests counted")
+      TCF:CheckAchievements()
+      check(TCF.db.achievements.dchest1 and TCF.db.achievements.dchest25, "opening Dungeon Chests earns their achievements")
+      check((byQ[3] or 0) > (byQ[2] or 0) and (byQ[2] or 0) > (byQ[4] or 0) and (byQ[4] or 0) > 0 and not byQ[5],
+        string.format("mostly Rare: %d green, %d blue, %d epic", byQ[2] or 0, byQ[3] or 0, byQ[4] or 0))
+      check(bluesFromDungeon >= blues * 0.95, "Rare pieces are dungeon boss loot: " .. bluesFromDungeon .. " of " .. blues)
+      check(fromDungeon >= counted * 0.7, "most pieces come from the dungeons reached: " .. fromDungeon .. " of " .. counted)
+      -- the pool the chest reel shows matches what the chest can hold
+      cd.level, adv.tier, adv.best = 24, 5, 506
+      local pool = TCF:DungeonChestPool("WARRIOR")
+      check(#pool[3] > 0, "the reel has Rare dungeon gear to show")
+      for _, g in ipairs(pool[3]) do
+        check(TCF.IsDungeonTier(g.tier) and g.tier <= 5 and g.req <= 27 and TCF:GearUsable(g, "WARRIOR"), "reel pool piece: " .. g.name)
+      end
+      -- a cat far ahead of its Adventure progress (cat levels come from tapping and expeditions
+      -- too) gets gear near its level, never old loot from dungeons far below it: a level 60 cat
+      -- still in Westfall, a level 40 cat with no Adventure progress, a level 50 cat at the Deadmines
+      for _, case in ipairs({ { 60, 2, 201 }, { 40, 0, 0 }, { 50, 5, 506 } }) do
+        cd.level, adv.tier, adv.best = case[1], case[2], case[3]
+        local low
+        for k = 1, 60 do
+          local g = TCF:RollDungeonGear("WARRIOR", 3)
+          if not g or g.req < case[1] - 15 then low = g and (g.name .. " req " .. g.req) or "nothing" end
+        end
+        check(not low, "Dungeon Chest gear stays near a level " .. case[1] .. " cat ahead of its Adventure progress: " .. tostring(low))
+        local pool = TCF:DungeonChestPool("WARRIOR")
+        for q = 2, 4 do
+          for _, g in ipairs(pool[q]) do
+            check(g.req >= case[1] - 10 and g.req <= case[1] + 3, "reel pool piece near level " .. case[1] .. ": " .. g.name .. " req " .. g.req)
+          end
+        end
+      end
+      cd.level, adv.tier, adv.best = 24, 5, 506
+      -- the reel for a Dungeon Chest plays and lands on the real reward
+      TCF.db.ui.chestAnim = true
+      TCF.db.keys.dungeon = 1
+      TCF.forceReveal = true
+      TCF:OpenChest("dungeon", true)
+      TCF.forceReveal = nil
+      check(TapCatForeverReel and TapCatForeverReel:IsShown(), "the Dungeon Chest reel plays")
+      check(TapCatForeverReel.title:GetText() == "Opening Dungeon Chest...", "reel title: " .. tostring(TapCatForeverReel.title:GetText()))
+      for i = 1, 40 do _update(0.1) end
+      if TapCatForeverLootReveal then TapCatForeverLootReveal:Hide() end
+
+      -- 13d. Adventure: the first clear of a dungeon always gives one, repeat clears on the clock
+      local paid = {}
+      local origAward = TCF.AwardChest
+      TCF.AwardChest = function(self, key, src, ...) paid[#paid + 1] = key .. "@" .. tostring(src); return origAward(self, key, src, ...) end
+      local dm = 5
+      local t = TCF.TIERS[dm]
+      local last = TCF:AdvStages(dm)
+      local function killFinal()
+        adv.tier, adv.stage = dm, last
+        paid = {}
+        TCF:AdvMobKilled({ name = t.bosses[#t.bosses][1], boss = #t.bosses, final = true, level = 23 })
+        return table.concat(paid, ", ")
+      end
+      adv.cleared[TCF.AdvStageCode(dm, last)] = nil
+      adv.dungeonClock, adv.chestClock = 5000, 0
+      check(killFinal():find("^dungeon@The Deadmines cleared$"), "the first clear of a dungeon gives a Dungeon Chest: " .. table.concat(paid, ", "))
+      check(adv.dungeonClock == 0, "a Dungeon Chest resets the dungeon chest clock")
+      adv.dungeonClock = TCF.ADV.DUNGEON_CHEST_MIN - 1
+      check(not killFinal():find("dungeon@", 1, true), "no Dungeon Chest before the clock passes its minimum: " .. table.concat(paid, ", "))
+      check(TCF.ADV.DUNGEON_CHEST_MIN >= 3600 and TCF.ADV.DUNGEON_CHEST_RAMP > 0 and TCF.ADV.DUNGEON_CHEST_MIN < TCF.ADV.RAID_CHEST_MIN,
+        "the dungeon chest clock: at least an hour, shorter than the raid clock")
+      adv.dungeonClock = TCF.ADV.DUNGEON_CHEST_MIN + TCF.ADV.DUNGEON_CHEST_RAMP
+      check(killFinal() == "dungeon@The Deadmines finished" and adv.dungeonClock == 0, "a repeat clear on a full clock gives one: " .. table.concat(paid, ", "))
+      -- only the final boss: other dungeon bosses roll the usual Pouch
+      adv.dungeonClock, adv.chestClock = 1e6, 1e6
+      adv.tier, adv.stage = dm, 2
+      paid = {}
+      TCF:AdvMobKilled({ name = t.bosses[1][1], boss = 1, level = 21 })
+      check(table.concat(paid, ","):find("^pouch@"), "a dungeon's other bosses drop a Pouch: " .. table.concat(paid, ", "))
+      -- zones and raids never give one
+      adv.dungeonClock = 1e6
+      adv.tier, adv.stage = 2, TCF:AdvStages(2)
+      paid = {}
+      TCF:AdvMobKilled({ name = TCF.TIERS[2].bosses[#TCF.TIERS[2].bosses][1], boss = #TCF.TIERS[2].bosses, final = true, level = 16 })
+      check(not table.concat(paid, ","):find("dungeon@", 1, true), "an open-world zone never gives a Dungeon Chest: " .. table.concat(paid, ", "))
+      -- the clock only runs while fighting in a dungeon
+      TCF:AdvReset()
+      adv.active = true
+      for _, case in ipairs({ { dm, true }, { 1, false } }) do
+        adv.tier, adv.stage = case[1], 1
+        TCF.advRun.pack, TCF.advRun.respawn = nil, 0.05
+        TCF:AdvTick(0.1)
+        local c0 = adv.dungeonClock or 0
+        for i = 1, 5 do TCF:AdvTick(0.1) end
+        local grew = (adv.dungeonClock or 0) > c0
+        check(grew == case[2], "the dungeon chest clock runs only in dungeons: " .. TCF.TIERS[case[1]].name)
+      end
+      adv.active = saved[7]
+
+      -- 13e. real WoW dungeons and expeditions
+      check(TCF.DungeonChestFor("party") == "dungeon" and TCF.DungeonChestFor("raid") == "raid", "real dungeons give a Dungeon Chest, raids a Raider's Hoard")
+      local nTrips = 0
+      for _, e in ipairs(TCF.EXPEDITIONS) do
+        if e.dchest then
+          nTrips = nTrips + 1
+          check(TCF.IsDungeonTier(e.tier) and e.dchest > 0 and e.dchest <= 0.3 and e.dchest / (e.dur / 3600) <= 0.03,
+            e.key .. ": only dungeon expeditions bring Dungeon Chests, at a fair rate: " .. e.dchest)
+        end
+      end
+      check(nTrips >= 3, "dungeon expeditions with a Dungeon Chest chance: " .. nTrips)
+      local st = TCF.db.expeditions or { active = {} }
+      TCF.db.expeditions = st
+      local strat = TCF.EXPEDITION_BY_KEY.strat
+      local d0 = strat.dchest
+      strat.dchest = 1
+      paid = {}
+      table.insert(st.active, { key = "strat", members = { "WARRIOR", "MAGE", "PRIEST" }, start = 0, finish = 0, power = 1e9, chance = 1 })
+      TCF:ClaimExpedition(#st.active)
+      strat.dchest = d0
+      check(table.concat(paid, ","):find("dungeon@Purge Stratholme", 1, true), "a dungeon expedition can bring home a Dungeon Chest: " .. table.concat(paid, ", "))
+      do
+        local first = #_frames + 1
+        local page = CreateFrame("Frame")
+        local okE, errE = pcall(TCF.UI.Builders.expeditions, page, { party = {}, Refresh = function() end })
+        check(okE, "expeditions page builds: " .. tostring(errE))
+        local stratTip
+        for i = first, #_frames do
+          local f = _frames[i]
+          if f.exp == strat and f.scripts.OnEnter then stratTip = tipText(function() f.scripts.OnEnter(f) end) end
+        end
+        check(stratTip and stratTip:find("Also a 15% chance of a Dungeon Chest.", 1, true), "Stratholme tooltip shows its Dungeon Chest chance: " .. tostring(stratTip))
+      end
+      -- a real dungeon run (level 20 and up) sometimes rolls the Heroic Cache's skins (Golden
+      -- Treasure Cat, Diamond Cat) at the odds dungeons used to give a Heroic Cache; raids don't
+      do
+        local rolls = {}
+        TCF.RollSkinSource = function(_, kind, match) rolls[#rolls + 1] = { kind = kind, match = match } end
+        local lo, hi, day0, uLevel, k0 = TCF.DUNGEON_HEROIC_SKIN_LOW, TCF.DUNGEON_HEROIC_SKIN_HIGH, TCF.db.dungeonDay, UnitLevel, TCF.db.keys.dungeon
+        check(lo == 0.10 and hi == 0.25, "the Heroic Cache skin odds after a real dungeon")
+        TCF.DUNGEON_HEROIC_SKIN_LOW, TCF.DUNGEON_HEROIC_SKIN_HIGH = 1, 1
+        local function run(kind, level)
+          rolls, TCF.db.dungeonDay = {}, nil
+          UnitLevel = function() return level end
+          TCF:DungeonComplete({ id = -1, name = "Test Run", type = kind, bosses = 3, start = 0, rewarded = false }, "lfg")
+          local heroic = false
+          for _, r in ipairs(rolls) do
+            if r.kind == "chest" and r.match({ chest = "heroic" }) and not r.match({ chest = "strong" }) then heroic = true end
+          end
+          return heroic
+        end
+        check(run("party", 55), "a real dungeon can roll the Heroic Cache's skins")
+        check(not run("party", 15), "not below level 20")
+        check(not run("raid", 60), "a real raid doesn't roll them")
+        TCF.DUNGEON_HEROIC_SKIN_LOW, TCF.DUNGEON_HEROIC_SKIN_HIGH, TCF.db.dungeonDay, UnitLevel = lo, hi, day0, uLevel
+        TCF.db.keys.dungeon = k0
+        TCF.RollSkinSource = function() end
+        local golden = table.concat(TCF:HowToGet(TCF.ITEMS.skin_golden), " / ")
+        check(golden:find("after a real WoW dungeon from level 20", 1, true), "the Compendium names real dungeons for the Golden Treasure Cat: " .. golden)
+      end
+      TCF.AwardChest = origAward
+      -- the chat line names it in Rare blue
+      local printed = {}
+      local origPrint = TCF.Print
+      TCF.Print = function(_, m) printed[#printed + 1] = m end
+      local k0 = TCF.db.keys.dungeon or 0
+      TCF:AwardChest("dungeon", "Test")
+      TCF.Print = origPrint
+      TCF.db.keys.dungeon = k0
+      check(printed[1] and printed[1]:find("a |c" .. TCF.RARITY[3].hex .. "Dungeon Chest", 1, true) and not printed[1]:find("!", 1, true),
+        "a Dungeon Chest is announced in blue: " .. tostring(printed[1]))
+      -- the Compendium tells where dungeon boss loot comes from
+      local bossItem = TCF.BOSS_LOOT[dm] and TCF.BOSS_LOOT[dm][#t.bosses] and TCF.BOSS_LOOT[dm][#t.bosses][1]
+      local how = table.concat(TCF:HowToGet(bossItem), " / ")
+      check(how:find("Dungeon Chests can hold it once your cat has reached The Deadmines", 1, true), "Compendium dungeon loot line: " .. how)
+      local raidItem
+      for ti, tt in ipairs(TCF.TIERS) do
+        if tt.raid and not raidItem then for _, list in pairs(TCF.BOSS_LOOT[ti] or {}) do raidItem = raidItem or list[1] end end
+      end
+      how = table.concat(TCF:HowToGet(raidItem), " / ")
+      check(not how:find("Dungeon Chest", 1, true), "raid loot is not in Dungeon Chests: " .. how)
+
+      cd.level, adv.tier, adv.stage, adv.best, adv.dungeonClock, adv.chestClock = saved[1], saved[2], saved[3], saved[4], saved[5], saved[6]
+      TCF.RollSkinSource = skinRoll
+      TCF:SetClass(class0)
+      print(string.format("dungeon chest: %d opened (%d green, %d blue, %d epic), %d of %d from dungeons reached, %d dungeon tiers, %d dungeon trips",
+        total, byQ[2] or 0, byQ[3] or 0, byQ[4] or 0, fromDungeon, counted, nDungeons, nTrips))
+    end)()
     print("class professions, crafted gear, party cats and loot notices: all checks passed")
     end
     -- every referenced art file must exist
@@ -2053,6 +2410,16 @@ TEST = r'''
       if f then _artcheck[#_artcheck + 1] = f end
     end
     print("chat lines:", #_chat)
+    -- plain English for players: no exclamation marks in chat lines or achievement names and texts
+    for _, line in ipairs(_chat) do assert(not line:find("!", 1, true), "exclamation mark in a chat line: " .. line) end
+    for _, a in ipairs(TCF.ACHIEVEMENTS) do
+      assert(not a.name:find("!", 1, true), "exclamation mark in an achievement name: " .. a.name)
+      assert(not (a.desc or ""):find("!", 1, true), "exclamation mark in an achievement text: " .. tostring(a.desc))
+    end
+    for _, n in ipairs(TCF.NEWS) do
+      assert(not (n.highlight or ""):find("!", 1, true), "exclamation mark in the What's new note for " .. n.version)
+      assert(not n.highlight or #n.highlight <= 170, "What's new note too long for the strip: " .. n.version)
+    end
     for i = 1, 6 do print("  " .. _chat[i]) end
     for i = #_chat - 3, #_chat do print("  " .. _chat[i]) end
     '''

@@ -96,6 +96,9 @@ TCF.UI.Builders.expeditions = function(page, win)
       else
         rewards = rewards .. " Short trips are mostly for XP and TapCoins; longer ones bring more chests."
       end
+      if e.dchest then
+        rewards = rewards .. string.format(" Also a %d%% chance of %s.", floor(e.dchest * 100 + 0.5), an(TCF.CHEST_BY_KEY.dungeon.name))
+      end
       if e.hoard then
         rewards = rewards .. string.format(" Also a %d%% chance of %s.", floor(e.hoard * 100 + 0.5), an(TCF.CHEST_BY_KEY.raid.name))
       end
@@ -124,7 +127,7 @@ TCF.UI.Builders.expeditions = function(page, win)
         local total = ex.finish - ex.start
         local left = ex.finish - now
         r.bar:SetMinMaxValues(0, total); r.bar:SetValue(min(total, now - ex.start))
-        r.barText:SetText(left > 0 and (TCF.FormatDuration(left) .. " left") or "Back home!")
+        r.barText:SetText(left > 0 and (TCF.FormatDuration(left) .. " left") or "Back home")
         r.chance:SetText(string.format("%d%% success", floor(ex.chance * 100 + 0.5)))
         r.claim:SetEnabled(left <= 0)
       end

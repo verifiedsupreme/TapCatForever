@@ -345,8 +345,8 @@ function TCF:LevelUp(class)
   local extra, chest = "", nil
   if cd.level % 20 == 0 then chest = "heroic" elseif cd.level % 5 == 0 then chest = "strong" end
   local cl = TCF.CLASS_BY_KEY[class]
-  self:Print(string.format("Your %s cat reached |cffffd100level %d|r! +%d TapCoins%s.", cl.name, cd.level, reward, extra))
-  if self.cat and class == db.class then self.cat:Celebrate("LEVEL " .. cd.level .. "!", 1, 0.82, 0.1) end
+  self:Print(string.format("Your %s cat reached |cffffd100level %d|r: +%d TapCoins%s.", cl.name, cd.level, reward, extra))
+  if self.cat and class == db.class then self.cat:Celebrate("Level " .. cd.level, 1, 0.82, 0.1) end
   self:PlaySound("level")
   if chest then self:AwardChest(chest, "Level " .. cd.level) end
 end
@@ -516,8 +516,7 @@ function TCF:GrantItem(it, reason, reveal, chestKey)
   if not isNew then msg = msg .. string.format(" (duplicate, salvaged for %d TapCoins)", salvage) end
   self:Print(msg)
   -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
-  if self.ShowLootReveal then self:ShowLootReveal(it, isNew, salvage, reason, chestKey)
-  elseif self.cat then self.cat:ShowLoot(it, isNew) end
+  if self.ShowLootReveal then self:ShowLootReveal(it, isNew, salvage, reason, chestKey) end
   if self.cat and self.cat.SetFaceFor then self.cat:SetFaceFor(it.rarity >= 4 and "sparkle" or "happy", 2.5) end
   self:PlaySound(it.rarity >= 4 and "rare" or "loot")
   self:MarkDirty()
@@ -526,7 +525,8 @@ function TCF:GrantItem(it, reason, reveal, chestKey)
 end
 
 -- The gear quality a chest most often holds (same mapping as TCF:ChestOdds): it colours the
--- chest's name in chat. Pouch and Strongbox: green, Heroic Cache: blue, Raider's Hoard: purple.
+-- chest's name in chat. Pouch and Strongbox: green, Heroic Cache and Dungeon Chest: blue,
+-- Raider's Hoard: purple.
 function TCF.ChestQuality(ch)
   if ch.raidLoot then return 4 end
   local byQ, bestQ, bestW = {}, 2, -1
@@ -546,11 +546,6 @@ function TCF:AwardChest(key, source)
   local hex = ch.color or (col and col.hex) or "ff1eff00"
   local art = ch.name:find("^[AEIOUaeiou]") and "an" or "a"
   self:Print(string.format("%s: you earned %s |c%s%s|r. Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name))
-  if self.cat and self.cat.Toast then
-    local r, g, b = 0.2, 1, 0.2
-    if col and col.color then r, g, b = col.color[1], col.color[2], col.color[3] end
-    self.cat:Toast("|T" .. TCF.Icon(ch.icon) .. ":18:18|t " .. ch.name, r, g, b)
-  end
   self:PlaySound("loot")
   self:MarkDirty()
   self:RefreshAll()
@@ -569,7 +564,7 @@ function TCF:BuySkin(id)
   if not self:SpendCoins(it.skinPrice) then return false end
   self.db.owned[id] = 1
   self.db.look.skin = id
-  self:Print("Your cat is now a " .. TCF.ItemLink(it) .. "!", true)
+  self:Print("Your cat is now a " .. TCF.ItemLink(it) .. ".", true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "New skin") end
   self:PlaySound("buy")
   self:MarkDirty(); self:RefreshAll()
@@ -586,7 +581,7 @@ function TCF:GrantSkin(id, reason, force)
   if not it or self.db.owned[id] then return false end
   self.db.owned[id] = 1
   reason = reason or "Rare drop"
-  self:Print(reason .. ": the " .. TCF.ItemLink(it) .. " cat skin! Wear it from the Appearance tab.", force)
+  self:Print(reason .. ": the " .. TCF.ItemLink(it) .. " cat skin. Wear it from the Appearance tab.", force)
   -- chests show the loot box; anything else gets a small notice (ChestReel.lua decides)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, reason, self.skinChestKey) end
   self:PlaySound("rare")
@@ -622,10 +617,11 @@ function TCF:OpenChest(key, useKey)
     if (self.db.keys[key] or 0) <= 0 then return end
     self.db.keys[key] = self.db.keys[key] - 1
   elseif not ch.cost or not self:SpendCoins(ch.cost) then
-    return   -- (a chest with no price, like the Raider's Hoard, is never sold)
+    return   -- (a chest with no price, like the Dungeon Chest or Raider's Hoard, is never sold)
   end
   self.db.stats.chests = self.db.stats.chests + 1
   if ch.raidLoot then self.db.stats.hoards = (self.db.stats.hoards or 0) + 1 end
+  if ch.dungeonLoot then self.db.stats.dungeonChests = (self.db.stats.dungeonChests or 0) + 1 end
   self.skinChestKey = key   -- a skin found in this chest shows in the chest's loot box
   local ok, a, b, c = pcall(function()
     local a, b, c = self:OpenChestContents(ch, key)
@@ -698,6 +694,76 @@ function TCF:RaidTiers(class, all)
   return list
 end
 
+-- Adventure tiers come in three kinds: raids (t.raid), open-world zones (Elwynn Forest and
+-- Westfall: no instance, so their art is one of the addon's own scenes, a file name instead of
+-- a WoW file id) and dungeons (everything else). Takes a tier table or a tier number.
+function TCF.IsDungeonTier(t)
+  if type(t) == "number" then t = TCF.TIERS and TCF.TIERS[t] end
+  return t ~= nil and not t.raid and type(t.art) ~= "string"
+end
+
+-- Adventure tier numbers of the dungeons a class's cat has reached (its current zone or any
+-- zone up to its best stage), like RaidTiers. A cat that hasn't reached one gets the first.
+function TCF:DungeonTiers(class)
+  local cd = self.db.classData[class or self.db.class]
+  local adv = cd and cd.adv
+  local upTo = adv and max(floor((adv.best or 0) / 100), adv.tier or 0) or 0
+  local list, first = {}, nil
+  for ti, t in ipairs(TCF.TIERS or {}) do
+    if TCF.IsDungeonTier(t) then
+      first = first or ti
+      if ti <= upTo then list[#list + 1] = ti end
+    end
+  end
+  if #list == 0 and first then list[1] = first end
+  return list
+end
+
+-- Dungeon loot of quality q from these dungeons that the class can use (own = only gear made
+-- for the class): boss loot, or when the bosses drop none of that quality (few dungeon bosses
+-- drop Uncommon or Epic gear) the dungeons' other loot.
+local function dungeonGear(self, tiers, class, q, own)
+  local out = {}
+  local function scan(list)
+    for _, it in ipairs(list or {}) do
+      if it.q == q and not it.crafted and not it.retired
+        and (own and self:GearSuits(it, class) or not own and self:GearUsable(it, class)) then
+        out[#out + 1] = it
+      end
+    end
+  end
+  for _, ti in ipairs(tiers) do
+    for _, list in pairs(TCF.BOSS_LOOT[ti] or {}) do scan(list) end
+  end
+  if #out == 0 then
+    for _, ti in ipairs(tiers) do scan(TCF.TIER_POOL[ti]) end
+  end
+  return out
+end
+
+-- The pieces of a list close to the level: required level from 10 below to 3 above it (empty
+-- when the dungeons reached have nothing that close). Never gear more than 3 levels above the cat.
+local function nearLevel(list, level)
+  local near = {}
+  for _, it in ipairs(list) do
+    local r = it.req or 0
+    if r >= level - 10 and r <= level + 3 then near[#near + 1] = it end
+  end
+  return near
+end
+
+-- Every piece a Dungeon Chest could hold for this class right now, by quality (the chest reel
+-- shows these): { [2] = {...}, [3] = {...}, [4] = {...} }.
+function TCF:DungeonChestPool(class)
+  class = class or self.db.class
+  local cd = self:CD(class)
+  local level = min(60, max(1, cd and cd.level or 1))
+  local tiers = self:DungeonTiers(class)
+  local out = {}
+  for q = 2, 4 do out[q] = nearLevel(dungeonGear(self, tiers, class, q, false), level) end
+  return out
+end
+
 -- Epic boss loot from one raid that the class can use. own = only gear made for the class.
 local function raidEpics(self, ti, class, own)
   local out = {}
@@ -758,11 +824,36 @@ local function worldGearOfQuality(self, level, q)
   return fallback
 end
 
+-- Gear of quality q (2 to 4) for a Dungeon Chest: loot from the dungeons the cat has reached in
+-- Adventure, required level from 10 below to 3 above the cat's, made for the class 80% of the
+-- time like boss loot. When those dungeons have nothing of that quality that close to the level
+-- (the early ones drop no Epics, few dungeons drop Uncommon gear, and a cat can level far ahead
+-- of its Adventure progress) it is world gear of that quality near the level instead, so the
+-- odds the chest shows hold. Never a Legendary.
+function TCF:RollDungeonGear(class, q)
+  class = class or self.db.class
+  local cd = self:CD(class)
+  local level = min(60, max(1, cd and cd.level or 1))
+  local tiers = self:DungeonTiers(class)
+  local fallback
+  for wq = max(2, min(4, q or 3)), 2, -1 do
+    local own = random() < 0.8
+    local cands = nearLevel(dungeonGear(self, tiers, class, wq, own), level)
+    if #cands == 0 and own then cands = nearLevel(dungeonGear(self, tiers, class, wq, false), level) end
+    if #cands > 0 then return cands[random(#cands)] end
+    local g = worldGearOfQuality(self, level, wq)
+    if g and g.q == wq then return g end
+    fallback = fallback or g
+  end
+  return fallback
+end
+
 -- Gear for a chest's rarity roll: Uncommon to Epic near the cat's level (half the time boss loot
 -- from zones it has cleared), or a raid boss Epic for a Legendary roll.
 function TCF:ChestGear(ch, rarity)
   local class = self.db.class
   if ch.raidLoot then return self:RollRaidEpic(class) end
+  if ch.dungeonLoot then return self:RollDungeonGear(class, rarity) end
   if rarity >= 5 then return self:RollRaidEpic(class, self:RaidTiers(class, true)) end
   local q = max(2, min(4, rarity))
   local gear
@@ -968,7 +1059,7 @@ function TCF:BuyRaceAccessory()
     local lo = self:GetLoadout(cl.key)
     if not lo.acc then lo.acc = it.id end
   end
-  self:Print(string.format("Your cat shows its %s pride: %s!", raceName or "racial", TCF.ItemLink(it)), true)
+  self:Print(string.format("Your cat shows its %s pride: %s.", raceName or "racial", TCF.ItemLink(it)), true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end
   self:PlaySound("buy")
   self:MarkDirty(); self:RefreshAll()
@@ -1111,8 +1202,8 @@ function TCF:CheckAchievements()
         extra = extra .. " and the " .. TCF.ItemLink(TCF.ITEMS[a.skin]) .. " cat"
         if self.ShowLootReveal then self:ShowLootReveal(TCF.ITEMS[a.skin], true, 0, a.name) end
       end
-      self:Print(string.format("Achievement earned: |cffffd100%s|r! Reward: %d TapCoins%s.", a.name, a.coins, extra))
-      if self.cat then self.cat:Celebrate(a.name, 1, 0.82, 0.1, "Achievement!") end
+      self:Print(string.format("Achievement earned: |cffffd100%s|r. Reward: %d TapCoins%s.", a.name, a.coins, extra))
+      if self.cat then self.cat:Celebrate(a.name, 1, 0.82, 0.1, "Achievement earned") end
       self:PlaySound("ach")
       self:RefreshAll()
     end

@@ -24,6 +24,12 @@ TCF.ADV = {
   -- always an Epic or better, so it comes much more slowly than a Pouch).
   CHEST_MIN = 900, CHEST_RAMP = 600,
   RAID_CHEST_MIN = 3 * 3600, RAID_CHEST_RAMP = 3600,
+  -- Dungeon Chests: the first clear of each dungeon (beating its final boss) always gives one.
+  -- After that a separate dungeon chest clock counts fight time spent in dungeons (not zones or
+  -- raids). Once it passes 2 hours, each repeat kill of a dungeon's final boss has a growing
+  -- chance ((clock - 2h) / 1h) to give one, which resets it: about one every 2.5 hours of
+  -- dungeon fighting, so running a dungeon over and over can't farm them.
+  DUNGEON_CHEST_MIN = 2 * 3600, DUNGEON_CHEST_RAMP = 3600,
 }
 local K, ADV = TCF.ADV.K, TCF.ADV
 
@@ -260,7 +266,7 @@ function TCF:AdvMobKilled(m)
     local key = stageCode(adv.tier, adv.stage)
     local first = not adv.cleared[key]
     adv.cleared[key] = true
-    self:AdvLog(string.format("|cffffd100Defeated %s!|r", m.name))
+    self:AdvLog(string.format("|cffffd100Defeated %s.|r", m.name))
     -- rare cat skins some bosses drop (one entry, or a list if a boss drops several)
     local sd = TCF.SKIN_DROPS[m.name]
     if sd then
@@ -283,9 +289,16 @@ function TCF:AdvMobKilled(m)
       self.db.zonesCleared = self.db.zonesCleared or {}   -- account-wide: the first cat to clear it gets the full bonus
       self.db.zonesCleared[t.key] = true
       self:AddCoins(coins)
-      self:AwardChest(t.raid and "raid" or "strong", t.name .. " cleared")
+      -- raids give a Raider's Hoard, dungeons a Dungeon Chest, open-world zones a Strongbox
+      local dungeon = TCF.IsDungeonTier(t)
+      if dungeon then adv.dungeonClock = 0 end
+      self:AwardChest(t.raid and "raid" or dungeon and "dungeon" or "strong", t.name .. " cleared")
       self:AdvLog(string.format("|cff20ff20%s cleared for the first time.|r +%s TapCoins and a chest", t.name, TCF.Commas(coins)))
-      if self.cat and self.cat.Toast then self.cat:Toast(string.format("%s cleared: +%s TapCoins", t.name, TCF.Commas(coins)), 1, 0.82, 0.2) end
+    elseif m.final and TCF.IsDungeonTier(t) and random() < min(1, max(0, ((adv.dungeonClock or 0) - ADV.DUNGEON_CHEST_MIN) / ADV.DUNGEON_CHEST_RAMP)) then
+      -- finishing a dungeon again: a Dungeon Chest on the dungeon chest clock (instead of a Pouch roll)
+      adv.dungeonClock = 0
+      self:AwardChest("dungeon", t.name .. " finished")
+      self:AdvLog("Loot: a " .. TCF.CHEST_BY_KEY.dungeon.name .. " for finishing " .. t.name)
     else
       local lo, ramp = ADV.CHEST_MIN, ADV.CHEST_RAMP
       if t.raid then lo, ramp = ADV.RAID_CHEST_MIN, ADV.RAID_CHEST_RAMP end
@@ -320,7 +333,7 @@ function TCF:AdvPackCleared()
       if nt and cd.level >= nt.min then
         adv.tier, adv.stage = adv.tier + 1, 1
         run.catHP = run.catMax
-        self:AdvLog("Onward to " .. nt.name .. "!")
+        self:AdvLog("Onward to " .. nt.name .. ".")
       else
         adv.stage = 1
         if nt then
@@ -398,6 +411,8 @@ function TCF:AdvTick(dt)
   run.t = run.t + dt
   local cadv = self:CD().adv
   cadv.chestClock = (cadv.chestClock or 0) + dt -- only counts while a fight is on
+  -- the Dungeon Chest clock: fight time in dungeons only
+  if TCF.IsDungeonTier(self:AdvTier(cadv.tier)) then cadv.dungeonClock = (cadv.dungeonClock or 0) + dt end
   -- the small-find gap clock (Gear.lua TrashSmallFind): saved per class, also fight time only.
   -- nil means this class has never had a find, so its first one is not held back.
   if cadv.findClock then cadv.findClock = cadv.findClock + dt end
@@ -478,7 +493,7 @@ function TCF:AdvStart()
   if adv.active then return end
   adv.active = true
   if self.advRun then self.advRun.pack = nil; self.advRun.respawn = 0.8; self.advRun.catHP = self.advRun.catMax end
-  self:AdvLog("Your cat sets out into " .. self:AdvTier(adv.tier).name .. "!")
+  self:AdvLog("Your cat sets out into " .. self:AdvTier(adv.tier).name .. ".")
   self:PlaySound("click")
   self:MarkDirty()
 end

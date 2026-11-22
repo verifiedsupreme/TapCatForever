@@ -29,8 +29,9 @@ end
 
 -- a random thing this chest could hold: gear (90%) or a cosmetic (10%) of a rolled rarity,
 -- the same split as TCF:OpenChest. A Legendary roll shows a real legendary (now and then,
--- at the chest's own odds); gear-only chests (Raider's Hoard) show the raid epics they can hold.
-local function randomLoot(ch, seen, raidPool, legends)
+-- at the chest's own odds); gear-only chests show what they can hold: the raid epics for a
+-- Raider's Hoard, the dungeon loot near the cat's level for a Dungeon Chest.
+local function randomLoot(ch, seen, raidPool, legends, dungeonPool)
   local class = TCF.db.class
   for _ = 1, 30 do
     local r = TCF:RollRarity(ch.weights)
@@ -40,8 +41,11 @@ local function randomLoot(ch, seen, raidPool, legends)
       it, rarity = g, g.q
     elseif ch.gearOnly or random() < (TCF.CHEST_GEAR_CHANCE or 0.9) then
       local g
+      local dpool = ch.dungeonLoot and dungeonPool and dungeonPool[max(2, min(4, r))]
       if ch.raidLoot or r >= 5 then
         g = raidPool[random(max(1, #raidPool))]   -- the Legendary rarity roll is a raid boss Epic
+      elseif dpool and #dpool > 0 then
+        g = dpool[random(#dpool)]
       else
         local pool = gearPool(max(2, min(4, r)))
         g = pool[random(max(1, #pool))]
@@ -141,14 +145,16 @@ function TCF:PlayChestReel(it, rarity, chestKey, args)
   local seen = { [it] = true }
   -- built once per reel: raid epics for a Raider's Hoard (the ones it can hold for this cat)
   -- or for a Legendary rarity roll (any raid), and the legendaries this class can use
-  local raidPool, legends = {}, {}
+  local raidPool, legends, dungeonPool = {}, {}, nil
   if ch and TCF.RaidHoardPool then
     raidPool = TCF:RaidHoardPool(nil, not ch.raidLoot)
     legends = TCF:LegendariesFor()
   end
+  -- and for a Dungeon Chest: the dungeon loot it can hold for this cat, by quality
+  if ch and ch.dungeonLoot and TCF.DungeonChestPool then dungeonPool = TCF:DungeonChestPool() end
   for i, c in ipairs(f.cards) do
     if i == LAND then setCard(c, it, rarity)
-    elseif ch then local r, rr = randomLoot(ch, seen, raidPool, legends); setCard(c, r, rr)
+    elseif ch then local r, rr = randomLoot(ch, seen, raidPool, legends, dungeonPool); setCard(c, r, rr)
     else local r = TCF.ITEM_LIST[random(#TCF.ITEM_LIST)]; setCard(c, r, r.rarity) end
   end
   local center = VISIBLE * STEP / 2
@@ -162,10 +168,15 @@ end
 TCF.ShowLootRevealDirect = TCF.ShowLootReveal
 function TCF:ShowLootReveal(it, isNew, salvage, title, chestKey, isGear)
   local args = { it, isNew, salvage, title, chestKey, isGear }
-  -- only chest openings (your own click) get the reel and the loot box; everything else you
-  -- find goes straight into your bags with a small notice you can hover (LootToast.lua)
+  -- only chest openings (your own click) can get the reel and the loot box, and only for a
+  -- blue (Rare) or better find; everything else goes straight into your bags with at most a
+  -- slim line (LootToast.lua). "Open all" still lists everything in the loot window.
   if self.ShowLootToast and not chestKey and not self.forceReveal then
     return self:ShowLootToast(it, isNew, salvage, title, isGear)
+  end
+  local quality = it and (isGear and it.q or it.rarity) or 1
+  if self.ShowLootToast and it and quality < 3 and not self.openingAll then
+    return self:ShowLootToast(it, isNew, salvage, title, isGear, true)
   end
   local ch = chestKey and TCF.CHEST_BY_KEY[chestKey]
   if ch and it and self.db.ui.chestAnim ~= false and not self.openingAll then

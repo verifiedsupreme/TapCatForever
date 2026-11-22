@@ -150,7 +150,14 @@ local function getLine(g)
   local k = g.kind
   if k == "chest" then
     local ch = TCF.CHEST_BY_KEY[g.chest]
-    return string.format("%s: %s chance each time you open one", ch and ch.name or "Chest", pct(g.chance))
+    local line = string.format("%s: %s chance each time you open one", ch and ch.name or "Chest", pct(g.chance))
+    if g.chest == "heroic" then
+      -- (Dungeons.lua rolls the Heroic Cache's skins after some real dungeon runs)
+      local lo, hi = TCF.DUNGEON_HEROIC_SKIN_LOW or 0.10, TCF.DUNGEON_HEROIC_SKIN_HIGH or 0.25
+      return line, string.format("Or after a real WoW dungeon from level 20: %s of runs get this same chance (%s from level 50)",
+        pct(lo), pct(hi))
+    end
+    return line
   elseif k == "quest" then
     local weekly = g.quest == "weekly"
     return string.format("%s quest reward: %s chance each time you finish a %s quest", weekly and "Weekly" or "Daily",
@@ -243,6 +250,13 @@ local function gearLines(it, add)
     add(string.format("Dropped by %s in %s (Adventure)", b[1], t.name))
     add("Each Adventure boss always drops a piece of its own loot the first time you beat it")
     add("After that, chests can hold loot from bosses your cat has already beaten")
+    if TCF.IsDungeonTier and TCF.IsDungeonTier(t) and it.q >= 2 and it.q <= 4 then
+      local req = max(1, it.req or 1)
+      -- (a Dungeon Chest picks gear from 10 levels below to 3 above the cat's level, up to 60)
+      local lv = req + 10 >= 60 and string.format("from about level %d", max(1, req - 3))
+        or string.format("about level %d to %d", max(1, req - 3), req + 10)
+      add(string.format("Dungeon Chests can hold it once your cat has reached %s, while your cat is %s", t.name, lv))
+    end
   elseif t then
     -- A first kill only falls back to zone loot when that boss has no loot list of its own.
     local fallback = false
@@ -717,7 +731,7 @@ function TCF:CreateCompendium()
     end
     local noun = cat == "skin" and "skins" or cat == "tap" and "tap effects" or cat == "effect" and "effects" or "items"
     empty:SetText(f.filter == "owned" and ("|cff888888No " .. noun .. " collected here yet.|r")
-      or f.filter == "missing" and ("|cff20ff20You have every one of these " .. noun .. "!|r") or "|cff888888Nothing here.|r")
+      or f.filter == "missing" and ("|cff20ff20You have every one of these " .. noun .. ".|r") or "|cff888888Nothing here.|r")
     empty:ClearAllPoints(); empty:SetPoint("CENTER", grid, "CENTER")
     empty:SetShown(#list == 0)
   end
@@ -789,7 +803,7 @@ function TCF:CreateCompendium()
       end
     end
     empty:SetText(#src == 0 and (self.gearZone == CRAFTED and "|cff888888Nothing to craft here.|r" or "|cff888888No loot here.|r") or f.filter == "owned" and "|cff888888None of this gear collected yet.|r"
-      or "|cff20ff20You have every piece here!|r")
+      or "|cff20ff20You have every piece here.|r")
     empty:ClearAllPoints(); empty:SetPoint("CENTER", gearGrid, "CENTER")
     empty:SetShown(#list == 0)
   end

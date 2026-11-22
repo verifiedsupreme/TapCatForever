@@ -476,7 +476,7 @@ TCF.RACE_ITEM = {
 
 -- Cat skins: the cat's whole look (fur colour, markings, eyes, mane).
 -- source: price (Appearance tab), drop {boss, chance}, ach (achievement id), or get (other sources):
---   { kind = "chest", chest = "pouch"|"strong"|"heroic"|"raid", chance }   rolled each time that chest is opened
+--   { kind = "chest", chest = "pouch"|"strong"|"heroic"|"dungeon"|"raid", chance }   rolled each time that chest is opened
 --   { kind = "quest", quest = "daily"|"weekly", chance }            rolled when a quest of that type is done
 --   { kind = "expedition", expedition = key or "any", chance }      rolled on a successful expedition
 --   { kind = "realdungeon", run = "party"|"raid", chance }          rolled when a real dungeon/raid chest is awarded
@@ -682,6 +682,13 @@ TCF.CHESTS = {
     weights = { 0, 55, 33, 10, 2 }, desc = "Uncommon or better, with some Epics." },
   { key = "heroic", name = "Heroic Cache",           plural = "Heroic Caches",            cost = 1400, icon = "INV_Box_04",
     weights = { 0, 0, 58, 34, 8 },  legendary = 0.002, desc = "Rare or Epic. A tiny chance of a real Legendary." },
+  -- dungeon-only: never sold (no cost), always gear (gearOnly): boss loot from the Adventure
+  -- dungeons the cat has reached, close to its level (dungeonLoot). Mostly Rare, some Uncommon,
+  -- a little Epic, never a Legendary. Comes from finishing dungeons (Adventure and real WoW)
+  -- and from dungeon expeditions.
+  { key = "dungeon", name = "Dungeon Chest",       plural = "Dungeon Chests",                        icon = "INV_Box_01",
+    weights = { 0, 25, 67, 8, 0 },  gearOnly = true, dungeonLoot = true,
+    desc = "Dungeon boss gear near your level. Mostly Rare, some Uncommon, a little Epic." },
   -- raid-only: never sold (no cost), always gear (gearOnly): Epic boss loot from the raids the
   -- cat has reached in Adventure (raidLoot), and now and then a real Legendary
   { key = "raid",   name = "Raider's Hoard",         plural = "Raider's Hoards",                       icon = "INV_Box_03",
@@ -728,7 +735,7 @@ TCF.ACHIEVEMENTS = {
   { id = "rare1",     name = "Ooh, Shiny",          stat = "rares",    goal = 1,         coins = 50,    icon = "INV_Misc_Gem_Sapphire_01" },
   { id = "epic1",     name = "Purple Paws",         stat = "epics",    goal = 1,         coins = 150,   icon = "INV_Misc_Gem_Amethyst_01" },
   { id = "epic10",    name = "Epic Collection",     stat = "epics",    goal = 10,        coins = 750,   icon = "INV_Misc_Gem_Amethyst_02" },
-  { id = "leg1",      name = "Legendary!",          stat = "legends",  goal = 1,         coins = 500,   icon = "INV_Misc_Gem_Topaz_01" },
+  { id = "leg1",      name = "Legendary",           stat = "legends",  goal = 1,         coins = 500,   icon = "INV_Misc_Gem_Topaz_01" },
   { id = "leg10",     name = "Living Legend",       stat = "legends",  goal = 10,        coins = 3000,  icon = "INV_Misc_Gem_Topaz_02", item = "ach_prism" },
 
   { id = "classes",   name = "Jack of All Classes", stat = "classesPlayed", goal = 9,    coins = 300,   icon = "INV_Misc_Book_09" },
@@ -742,6 +749,8 @@ TCF.ACHIEVEMENTS = {
 
   { id = "chest10",   name = "Treasure Hunter",     stat = "chests",   goal = 10,        coins = 150,   icon = "INV_Box_02" },
   { id = "chest100",  name = "Loot Goblin",         stat = "chests",   goal = 100,       coins = 1500,  icon = "INV_Box_04" },
+  { id = "dchest1",   name = "Spoils of the Deep",  stat = "dungeonChests", goal = 1,    coins = 150,   icon = "INV_Box_01" },
+  { id = "dchest25",  name = "Dungeon Crawler",     stat = "dungeonChests", goal = 25,   coins = 1500,  icon = "INV_Box_01" },
   { id = "hoard1",    name = "Spoils of the Raid",  stat = "hoards",   goal = 1,         coins = 300,   icon = "INV_Box_03" },
   { id = "hoard25",   name = "Dragon's Hoard",      stat = "hoards",   goal = 25,        coins = 2500,  icon = "INV_Box_03" },
   { id = "drop1",     name = "Lucky Paw",           stat = "drops",    goal = 1,         coins = 50,    icon = "INV_Misc_Bag_07" },
@@ -751,7 +760,7 @@ TCF.ACHIEVEMENTS = {
   { id = "frenzy100", name = "Button Masher",       stat = "frenzies", goal = 100,       coins = 400,   icon = "Ability_Druid_Berserk", item = "ach_bongo" },
   { id = "tps12",     name = "Speed Demon",         stat = "peakTPS",  goal = 12,        coins = 300,   icon = "Ability_Rogue_Sprint", item = "ach_shades" },
   { id = "pet100",    name = "Good Kitty",          stat = "pets",     goal = 100,       coins = 200,   icon = "INV_ValentinesCandy" },
-  { id = "adv1",      name = "Hogger Down!",         stat = "advTier",  goal = 1,         coins = 100,   icon = "Ability_Hunter_Pet_Hyena" },
+  { id = "adv1",      name = "Hogger Down",          stat = "advTier",  goal = 1,         coins = 100,   icon = "Ability_Hunter_Pet_Hyena" },
   { id = "adv3",      name = "VanCleef's Downfall",  stat = "advTier",  goal = 5,         coins = 300,   icon = "INV_Misc_Bandana_03" },
   { id = "adv6",      name = "Crusade's End",        stat = "advTier",  goal = 11,        coins = 800,   icon = "INV_Shield_03" },
   { id = "adv9",      name = "Emperor's Fall",       stat = "advTier",  goal = 17,        coins = 2000,  icon = "INV_Crown_01" },
@@ -783,7 +792,7 @@ TCF.ACHIEVEMENTS = {
   { id = "skin_ach_mc",      name = "Forged in Flame",      stat = "clear:mc",     goal = 1, coins = 1500, icon = "Spell_Fire_Fire",          skin = "skin_flamesaber" },
   { id = "skin_ach_bwl",     name = "Dreams of Shadow",     stat = "clear:bwl",    goal = 1, coins = 2500, icon = "Ability_Mount_BlackPanther", skin = "skin_dreamsaber" },
   { id = "skin_ach_aq40",    name = "Jewel of the Sands",   stat = "clear:aq40",   goal = 1, coins = 4000, icon = "INV_Misc_Gem_Pearl_04",    skin = "skin_onyxpanther" },
-  { id = "skin_ach_naxx",    name = "Bigglesworth, No!",    stat = "clear:naxx",   goal = 1, coins = 8000, icon = "Spell_Shadow_RaiseDead",   skin = "skin_bigglesworth" },
+  { id = "skin_ach_naxx",    name = "Bigglesworth, No",     stat = "clear:naxx",   goal = 1, coins = 8000, icon = "Spell_Shadow_RaiseDead",   skin = "skin_bigglesworth" },
   { id = "skin_ach_collect", name = "Crazy Cat Collector",  stat = "skins",        goal = 10, coins = 1500, icon = "INV_Misc_Coin_02",        skin = "skin_luckycat" },
   { id = "streak7",   name = "Devoted",             stat = "streak",   goal = 7,         coins = 500,   icon = "INV_Misc_PocketWatch_01", item = "ach_medal" },
   { id = "streak30",  name = "Inseparable",         stat = "streak",   goal = 30,        coins = 3000,  icon = "INV_Misc_PocketWatch_02" },
@@ -794,7 +803,7 @@ local STAT_TEXT = {
   epics = "Own %s Epic cosmetics.", legends = "Own %s Legendary cosmetics.",
   classesPlayed = "Dress your cat as all %s classes.", outfits = "Equip head, chest and main hand on %s class(es).",
   coinsEarned = "Earn %s TapCoins in total.", coinsSpent = "Spend %s TapCoins.",
-  chests = "Open %s chests.", hoards = "Open %s Raider's Hoard(s).", drops = "Find %s random loot drops while tapping.",
+  chests = "Open %s chests.", hoards = "Open %s Raider's Hoard(s).", dungeonChests = "Open %s Dungeon Chest(s).", drops = "Find %s random loot drops while tapping.",
   frenzies = "Enter a Paw Frenzy %s times.", peakTPS = "Tap %s times in one second.",
   pets = "Pet your cat %s times.", streak = "Log in %s days in a row.",
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",

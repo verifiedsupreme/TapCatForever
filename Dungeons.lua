@@ -34,14 +34,15 @@ local function currentInstance()
   return { id = instanceID, name = name, type = itype }
 end
 
-function TCF.DungeonChestFor(kind, level)
-  if TCF.IsSecret(level) then level = 60 end
+-- Finishing a real dungeon always gives a Dungeon Chest (its gear follows the cat's Adventure
+-- dungeons and level, not the character's level); a raid always gives a Raider's Hoard.
+function TCF.DungeonChestFor(kind)
   if kind == "raid" then return "raid" end
-  if level < 20 then return "pouch" end
-  if math.random() < (level >= 50 and 0.25 or 0.10) then return "heroic" end
-  return "strong"
+  return "dungeon"
 end
-TCF.DUNGEON_CHEST_TEXT = "Finish a real dungeon in WoW: below level 20 you get a Cat Treat Pouch; from level 20 an Adventurer's Strongbox (10% chance of a Heroic Cache, 25% from level 50). Raids always give a Raider's Hoard. Each dungeon gives a chest once a day and each raid once a week, and up to " .. DUNGEON_CHESTS_PER_DAY .. " dungeon chests a day across all your characters."
+-- How often a real dungeon run rolls the Heroic Cache's skins (below level 50 / from level 50).
+TCF.DUNGEON_HEROIC_SKIN_LOW, TCF.DUNGEON_HEROIC_SKIN_HIGH = 0.10, 0.25
+TCF.DUNGEON_CHEST_TEXT = "Finish a real dungeon in WoW for a Dungeon Chest, or a raid for a Raider's Hoard. Each dungeon gives a chest once a day and each raid once a week, and up to " .. DUNGEON_CHESTS_PER_DAY .. " dungeon chests a day across all your characters."
 
 -- When the current weekly reset started (raids pay once per reset).
 local function lastWeeklyReset(now)
@@ -98,16 +99,26 @@ function TCF:DungeonComplete(run, how)
     if not db.dungeonDay or db.dungeonDay.day ~= today then db.dungeonDay = { day = today, n = 0 } end
     db.dungeonDay.n = db.dungeonDay.n + 1
   end
-  -- chest by character level: Pouch below 20, Strongbox from 20 (chance of a
-  -- Heroic Cache, higher from 50), raids always give a Raider's Hoard
-  local chestKey = TCF.DungeonChestFor(run.type, UnitLevel and UnitLevel("player") or 60)
+  -- dungeons always give a Dungeon Chest, raids a Raider's Hoard
+  local chestKey = TCF.DungeonChestFor(run.type)
   local stat = run.type == "raid" and "raids" or "dungeons"
   db.stats[stat] = (db.stats[stat] or 0) + 1
-  if self.cat then self.cat:Celebrate((run.name or "Dungeon"), 0.2, 1, 0.2, (run.type == "raid" and "Raid" or "Dungeon") .. " complete!") end
+  if self.cat then self.cat:Celebrate((run.name or "Dungeon"), 0.2, 1, 0.2, (run.type == "raid" and "Raid" or "Dungeon") .. " complete") end
   self:AwardChest(chestKey, (run.name or "Dungeon") .. " complete")
   -- a few skins are only found in real dungeon or raid runs (only when the run pays a chest)
-  self:RollSkinSource("realdungeon", function(g) return g.run == run.type end,
+  local won = self:RollSkinSource("realdungeon", function(g) return g.run == run.type end,
     "Found after " .. (run.name or (run.type == "raid" and "a raid" or "a dungeon")))
+  -- Dungeons used to give a Heroic Cache now and then (10% of runs from level 20, 25% from 50).
+  -- They give a Dungeon Chest now, so the Heroic Cache's own skins (Golden Treasure Cat, Diamond
+  -- Cat) roll here at those old odds instead, without the extra chest. At most one skin a run.
+  if not won and run.type == "party" then
+    local lvl = UnitLevel and UnitLevel("player") or 60
+    if TCF.IsSecret(lvl) or type(lvl) ~= "number" then lvl = 60 end
+    if lvl >= 20 and math.random() < (lvl >= 50 and TCF.DUNGEON_HEROIC_SKIN_HIGH or TCF.DUNGEON_HEROIC_SKIN_LOW) then
+      self:RollSkinSource("chest", function(g) return g.chest == "heroic" end,
+        "Found after " .. (run.name or "a dungeon"))
+    end
+  end
 end
 
 function TCF:DungeonCheck()
@@ -154,7 +165,7 @@ ev:SetScript("OnEvent", function(_, event, ...)
     if run and not run.leftAt and safeEq(success, 1) then
       run.bosses = run.bosses + 1
       TCF:AddCoins(BOSS_COINS[run.type])
-      TCF:Print(string.format("Boss defeated! +%d TapCoins (%d boss%s this run).", BOSS_COINS[run.type], run.bosses, run.bosses == 1 and "" or "es"))
+      TCF:Print(string.format("Boss defeated: +%d TapCoins (%d boss%s this run).", BOSS_COINS[run.type], run.bosses, run.bosses == 1 and "" or "es"))
     end
   elseif event == "LFG_COMPLETION_REWARD" then
     local run = TCF.db.dungeonRun

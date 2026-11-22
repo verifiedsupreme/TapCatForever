@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.5.3
+
+**Dungeon Chest**
+- New chest: the Dungeon Chest. It always holds gear: boss loot from the Adventure dungeons your cat has reached (Ragefire Chasm if it has reached none), close to your cat's level. Mostly Rare, some Uncommon, a little Epic, never Legendary. When those dungeons have nothing of that quality near your cat's level, it gives gear of that quality from around the world at your cat's level instead.
+- The first clear of each dungeon in Adventure gives a Dungeon Chest instead of an Adventurer's Strongbox. After that, finishing a dungeon again gives one about every 2 to 3 hours of dungeon fighting. Open-world zones still give a Strongbox for the first clear.
+- Finishing a real WoW dungeon now always gives a Dungeon Chest, instead of a Cat Treat Pouch, Adventurer's Strongbox or Heroic Cache picked by your level. The limits are the same: once a day for each dungeon, and up to 2 a day across your characters.
+- The Golden Treasure Cat and Diamond Cat can still turn up after a real WoW dungeon, at the same odds as when dungeons sometimes gave a Heroic Cache.
+- The Deadmines, Scarlet Monastery, Blackrock Depths and Stratholme expeditions sometimes bring home a Dungeon Chest (2%, 5%, 10% and 15% when they succeed).
+- The Dungeon Chest is not sold in the Shop. The Treasure Bag has a row for it.
+- New achievements: Spoils of the Deep and Dungeon Crawler (open 1 and 25 Dungeon Chests).
+
+**Loot**
+- Small finds now go to your cat's weapon (a ranged weapon for Hunters) and the gear you can see (head, chest, belt, cloak, neck, rings and off-hand) well ahead of hands, feet, wrists, legs and shoulders.
+- Burning Crusade and later items no longer drop anywhere, including Outland quest greens, Gnomish goggles, Jewelcrafting rings and blood elf and draenei starting gear. You keep any you already have.
+
+**Adventure**
+- Enemies are measured and sized to fit the fight scene, so big ones such as the Foe Reaper 4000 are no longer cut off, and every enemy stands on the ground.
+
+**Settings**
+- The Settings page is sorted into clear groups: Cat and display, Chat and sounds, Position, Help and info, and Progress.
+- Help and info has the Welcome tour, Patch notes, Send feedback and a new Compendium button side by side.
+- The minimap button says whether it will show or hide the icon.
+- The two reset buttons sit on their own at the bottom, in red, so they are hard to click by accident. Both still ask first.
+- Scroll the mouse wheel over a slider to move it one step at a time.
+
+**Other fixes**
+- Messages, notices and achievement names use plainer wording, without exclamation marks.
+
+## 1.5.2
+
+**Quieter loot**
+- Nothing pops up over your cat anymore. Gear and cosmetics you find while playing (lucky finds from tapping, Adventure drops, quests, expeditions) go straight into your bags without a notice box.
+- With the TapCatForever window open, gear you find shows as one slim line under the window that fades after a few seconds. Hover it to compare it with what your cat wears; click it to open the Gear tab.
+- Opening a chest plays the reel and shows the loot box only for a blue (Rare) or better item. A common or green item from a chest gets the same slim line instead.
+- Earning a chest, clearing a zone and an expedition coming back no longer show a note over the cat.
+
+**Fixes**
+- Hunters always have a bow: a hunter cat without a ranged weapon gets its bow, and the cat holds it.
+
 ## 1.5.1
 
 **Each class has its own professions**

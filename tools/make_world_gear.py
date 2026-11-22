@@ -199,8 +199,27 @@ def is_random(x):
     return any("<Random enchantment>" in t.get("label", "") for t in x.get("tooltip", []))
 
 
+def classic_rule():
+    """The Classic test from Gear.lua (TCF.IsClassicItem): id limit, item level limit and the
+    Burning Crusade id ranges below that limit (NOT_CLASSIC), read from Gear.lua so the two agree."""
+    src = open(os.path.join(ROOT, "Gear.lua"), encoding="utf-8").read()
+    max_id, max_ilvl = map(int, re.search(r"TCF\.CLASSIC_MAX_ID, TCF\.CLASSIC_MAX_ILVL = (\d+), (\d+)", src).groups())
+    block = re.search(r"^local NOT_CLASSIC = \{\n(.*?)^\}", src, re.M | re.S).group(1)
+    ranges = [(int(a), int(b)) for a, b in re.findall(r"\{ (\d+), (\d+) \}", block)]
+    return max_id, max_ilvl, ranges
+
+
+CLASSIC_MAX_ID, CLASSIC_MAX_ILVL, NOT_CLASSIC = classic_rule()
+
+
+def is_classic(x, g):
+    i = x.get("itemId", 0)
+    return i < CLASSIC_MAX_ID and g(x, "itemLevel") <= CLASSIC_MAX_ILVL and not any(a <= i <= b for a, b in NOT_CLASSIC)
+
+
 def usable_base(x, g):
-    if x.get("itemId", 0) >= 24000 or g(x, "requiredLevel") > 60 or g(x, "itemLevel") > 100 or g(x, "contentPhase", 1) > 6:
+    # Burning Crusade and later items stay out (Gear.lua would retire them anyway)
+    if not is_classic(x, g) or g(x, "requiredLevel") > 60 or g(x, "contentPhase", 1) > 6:
         return False
     if x.get("class") not in ("Armor", "Weapon"):
         return False

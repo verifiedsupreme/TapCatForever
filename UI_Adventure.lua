@@ -14,6 +14,464 @@ local function short(n)
   return tostring(n)
 end
 
+------------------------------------------------ enemy models: measure each one and fit it on screen
+-- Each enemy is an actor in its own ModelScene (an invisible frame much bigger than the slot,
+-- so models are never cut off and can overlap). When the model loads we read its bounding box,
+-- scale it to a set on-screen height, stand its feet on the ground line and aim our own camera
+-- at it. The scene is centred on the ground line and the camera sits at ground height, looking
+-- level, so the ground is one flat line at every depth (nothing sinks below it) and the
+-- scene's lower half stays empty. If the ModelScene API is missing or fails, the slot falls back
+-- to the old PlayerModel with a fixed camera distance.
+local FIT = {
+  TRASH_PX = 112, BOSS_PX = 165, -- on-screen height of a fitted model (before the small size nudge)
+  GROUND = 5,                    -- feet stand this far above the slot's bottom edge
+  HEADROOM = 14,                 -- the model's top stays this far under the slot's top (name, health bar)
+  EDGE = 4,                      -- models stay this far inside their scene and the fight panel
+  CAT_EDGE = 170,                -- models stay right of this x in the fight panel (the cat and its bar)
+  TURN = 0.7,                    -- turned toward the cat, like the old SetFacing(-0.7)
+  CAM_DIST = 50, FOV = 0.2,      -- far camera, narrow view: level feet, little perspective
+  TYPICAL_H = 2.46,              -- median trash height in yards (reference for the size nudge)
+  CHECK = 0.6,                   -- seconds until the model-file check (only if the client can't say whether a model loaded)
+  SETTLE = 0.5,                  -- seconds to wait for bounds after the model loads
+  GIVEUP = 6,                    -- seconds to wait for a model to load before trying the zone's next model
+  TRUST_LO = 0.7, TRUST_HI = 1.4, -- a measured box this far off the size table (after the display-scale check) isn't used
+  -- The size table includes each creature's display scale (CreatureDisplayInfo.CreatureModelScale),
+  -- and the game draws a creature with it. If the game's measured box leaves that scale out (the
+  -- debug print shows "no display scale"), the box is multiplied by it. Set this to false only if
+  -- the game turns out to draw creatures without their display scale.
+  DRAWN_WITH_DISPLAY_SCALE = true,
+}
+-- known offenders, used when neither the measured bounds nor ModelBoundsData.lua are available:
+-- { height, length, width, bottom, display scale } in yards; cam tunes the old PlayerModel fallback
+local MODEL_OVERRIDE = {
+  [548] = { 4.40, 2.34, 3.82, -0.01, 1.30, cam = 2.6 }, -- Foe Reaper 4000: tall harvest golem
+  [383] = { 2.02, 1.74, 1.68, 0.00, 1.15, cam = 2.1 },  -- Sergeant Brashclaw (gnoll)
+  [384] = { 2.02, 1.74, 1.68, 0.00, 1.15, cam = 2.1 },  -- Hogger (the same gnoll model)
+  [540] = { 1.71, 1.35, 1.32, -0.04, 1.30, cam = 2.1 }, -- Slark (murloc)
+}
+local DEFAULT_BOX = { x1 = -0.75, x2 = 0.75, y1 = -0.6, y2 = 0.6, z1 = 0, z2 = FIT.TYPICAL_H }
+local FIT_CACHE = {} -- layout key -> finished fit, so reopening the page doesn't re-measure
+local BAD_MODEL = {} -- display IDs this client has no model for (skipped from then on)
+
+local function call(o, method, ...)
+  local fn = o and o[method]
+  if type(fn) ~= "function" then return false end
+  return pcall(fn, o, ...)
+end
+
+local function boundsRow(id)
+  return (TCF.MODEL_BOUNDS and TCF.MODEL_BOUNDS[id]) or MODEL_OVERRIDE[id]
+end
+
+local function displayScale(id)
+  local d = boundsRow(id)
+  local ds = d and tonumber(d[5])
+  return ds and ds > 0 and ds or 1
+end
+
+local function tableBox(id)
+  local d = boundsRow(id)
+  if d and d[1] and d[1] > 0 then
+    return { x1 = -d[2] / 2, x2 = d[2] / 2, y1 = -d[3] / 2, y2 = d[3] / 2, z1 = d[4], z2 = d[4] + d[1] },
+      (TCF.MODEL_BOUNDS and TCF.MODEL_BOUNDS[id]) and "table" or "override"
+  end
+end
+
+local function scaleBox(b, m)
+  if m == 1 then return b end
+  return { x1 = b.x1 * m, x2 = b.x2 * m, y1 = b.y1 * m, y2 = b.y2 * m, z1 = b.z1 * m, z2 = b.z2 * m }
+end
+
+-- the actor's bounding box at scale 1; both return shapes (6 numbers, or two vectors) are handled
+local function measuredBox(a)
+  for _, getter in ipairs({ "GetActiveBoundingBox", "GetMaxBoundingBox" }) do
+    local r = { call(a, getter) }
+    if r[1] then
+      local p = { r[2], r[3], r[4], r[5], r[6], r[7] }
+      if type(r[2]) == "table" and type(r[3]) == "table" then
+        local lo, hi = r[2], r[3]
+        if lo.GetXYZ and hi.GetXYZ then
+          local ok1, ax, ay, az = pcall(lo.GetXYZ, lo)
+          local ok2, bx, by, bz = pcall(hi.GetXYZ, hi)
+          if ok1 and ok2 then p = { ax, ay, az, bx, by, bz } end
+        else
+          p = { lo.x, lo.y, lo.z, hi.x, hi.y, hi.z }
+        end
+      end
+      local good = true
+      for i = 1, 6 do if type(p[i]) ~= "number" or p[i] ~= p[i] or math.abs(p[i]) > 1e4 then good = false end end
+      if good and p[6] - p[3] > 0.05 and p[4] >= p[1] and p[5] >= p[2] then
+        return { x1 = p[1], y1 = p[2], z1 = p[3], x2 = p[4], y2 = p[5], z2 = p[6] }
+      end
+    end
+  end
+end
+
+-- The box to fit: how big the model is drawn at actor scale 1. mb is the game's measured box (or nil).
+-- Returns the box, where it came from, and the measured/table height ratio (for the debug print).
+local function chooseBox(id, mb)
+  local tb, tsrc = tableBox(id)
+  if not tb then
+    if mb then return mb, "measured (no table entry)" end
+    return DEFAULT_BOX, "default"
+  end
+  local ds = displayScale(id)
+  local drawn = FIT.DRAWN_WITH_DISPLAY_SCALE ~= false
+  -- what a box without the display scale is multiplied by to match what is drawn
+  local rawMul = drawn and ds or 1
+  if mb then
+    local r = (mb.z2 - mb.z1) / (tb.z2 - tb.z1)
+    -- nearer the table divided by the display scale than the table itself: measured without it
+    local raw = ds ~= 1 and math.abs(math.log(r * ds)) < math.abs(math.log(r))
+    local rr = raw and r * ds or r
+    if rr >= FIT.TRUST_LO and rr <= FIT.TRUST_HI then
+      if raw then return scaleBox(mb, rawMul), "measured, no display scale", r end
+      return mb, "measured", r
+    end
+    -- far off the creature's data (spell effects, odd bounds): use the data
+    if not raw then return tb, tsrc .. " (measured box off)", r end
+    return scaleBox(tb, rawMul / ds), tsrc .. " (measured box off, no display scale)", r
+  end
+  -- nothing measured: the table (without the display scale if the game draws without it)
+  return scaleBox(tb, drawn and 1 or 1 / ds), tsrc
+end
+
+local function project(sc, x, y, z)
+  local ok, u, v = call(sc, "Project3DPointTo2D", x, y, z)
+  if ok and type(u) == "number" and type(v) == "number" then return u, v end
+end
+
+-- pixels per yard at the camera's focus, where the scene's centre is, and which way is screen-right.
+-- Measured by projecting test points a frame after the test camera is set (the projection may use
+-- the last drawn frame's camera). Returns nil while that is pending; with final, it doesn't wait and
+-- works it out from the field of view instead.
+local function calibrate(sc, final)
+  local W, H = sc:GetWidth() or 0, sc:GetHeight() or 0
+  local es = sc.GetEffectiveScale and sc:GetEffectiveScale() or 1
+  local key = string.format("%.1f:%.1f:%.4f", W, H, es or 1)
+  if sc.cal and sc.cal.key == key and (sc.cal.how == "projected" or final) then return sc.cal end
+  local D = FIT.CAM_DIST
+  local u0, v0, v1, u1, _
+  if sc.calArmed == key then
+    u0, v0 = project(sc, 0, 0, 0)
+    _, v1 = project(sc, 0, 0, 1)
+    u1 = project(sc, 0, 1, 0)
+  end
+  local cal
+  if u0 and v0 and v1 and u1 then
+    -- Blizzard's code divides by the effective scale (physical pixels); accept plain UI units too.
+    -- The test point (0,0,0) is on the camera's axis, so it must land on the scene's centre
+    -- (if the projection still uses the last drawn frame's camera it won't, and we try again).
+    local bestErr = 0.05
+    for _, div in ipairs({ es, 1 }) do
+      if type(div) == "number" and div > 0 then
+        local cu, cv, k, ku = u0 / div, v0 / div, (v1 - v0) / div, (u1 - u0) / div
+        local flip = k < 0
+        if flip then cv, k = H - cv, -k end -- y measured from the top
+        local err = max(math.abs(cu / W - 0.5), math.abs(cv / H - 0.5))
+        if k > 0.5 and err < bestErr and math.abs(math.abs(ku) - k) <= k * 0.25 then
+          bestErr = err
+          cal = { k = k, u0 = cu, v0 = cv, side = ku < 0 and -1 or 1, div = div, flip = flip, how = "projected" }
+        end
+      end
+    end
+  end
+  if not cal and not final then
+    call(sc, "SetCameraPosition", -D, 0, 0)
+    call(sc, "SetCameraOrientationByYawPitchRoll", 0, 0, 0)
+    sc.calArmed = key
+    return nil
+  end
+  if not cal then
+    -- camera looks along +X with Z up, so screen-right is -Y. Whether the field of view spans the
+    -- height or the width isn't known: assume the one that gives more pixels per yard, so models
+    -- come out a little small rather than too big.
+    cal = { k = max(W, H) / (2 * D * math.tan(FIT.FOV / 2)), u0 = W / 2, v0 = H / 2, side = -1, how = "estimated" }
+  end
+  cal.key, cal.W, cal.H = key, W, H
+  -- light from the camera, a little from above and from the cat's side
+  call(sc, "SetLightDirection", 0.75, 0.35 * cal.side, -0.55)
+  sc.cal = cal
+  return cal
+end
+
+local function newScene(f)
+  if type(TapCatForeverDB) == "table" and rawget(TapCatForeverDB, "classicEnemyModels") then return nil, nil, "classicEnemyModels is on" end
+  local ok, sc = pcall(CreateFrame, "ModelScene", nil, f)
+  if not ok or type(sc) ~= "table" then return nil, nil, "no ModelScene" end
+  for _, n in ipairs({ "CreateActor", "SetCameraPosition", "SetCameraOrientationByYawPitchRoll" }) do
+    if type(sc[n]) ~= "function" then sc:Hide(); return nil, nil, "ModelScene has no " .. n end
+  end
+  local okA, a = pcall(sc.CreateActor, sc)
+  if not okA or type(a) ~= "table" then sc:Hide(); return nil, nil, "CreateActor failed" end
+  for _, n in ipairs({ "SetModelByCreatureDisplayID", "SetScale", "SetYaw", "SetAnimation" }) do
+    if type(a[n]) ~= "function" then sc:Hide(); return nil, nil, "actor has no " .. n end
+  end
+  call(sc, "SetCameraFieldOfView", FIT.FOV)
+  call(sc, "SetCameraNearClip", 1)
+  call(sc, "SetCameraFarClip", 400)
+  call(sc, "SetLightVisible", true)
+  call(sc, "SetLightType", Enum and Enum.ModelLightType and Enum.ModelLightType.Directional or 0)
+  call(sc, "SetLightAmbientColor", 0.7, 0.7, 0.7)
+  call(sc, "SetLightDiffuseColor", 0.8, 0.8, 0.8)
+  call(sc, "SetLightDirection", 0.75, -0.35, -0.55)
+  -- the model's transparency is driven only through the actor (see modelAlpha), so the death fade
+  -- isn't applied twice and "hidden until placed" works whatever the scene does with frame alpha
+  sc.ownAlpha = (call(sc, "SetIgnoreParentAlpha", true))
+  return sc, a
+end
+
+-- how see-through the fitted model should be: the death fade, times the window's own transparency
+-- when the scene ignores its parents' alpha
+local function modelAlpha(f)
+  local a = f.gone and 0 or ((f.fade or 0) > 0 and min(1, f.fade * 1.5) or 1)
+  if f.scene and f.scene.ownAlpha then
+    local ok, pa = call(f:GetParent(), "GetEffectiveAlpha")
+    if ok and type(pa) == "number" then a = a * pa end
+  end
+  return a
+end
+
+-- what a fit depends on: the model, the scene's size and UI scale, and the room around the slot
+local function layoutKey(f, id)
+  local sc = f.scene
+  local es = sc.GetEffectiveScale and sc:GetEffectiveScale() or 1
+  return string.format("%d:%.1f:%.1f:%d:%s:%.1f:%.1f:%.4f", id, sc:GetWidth() or 0, sc:GetHeight() or 0, f.slotH or 0,
+    tostring(f.isBoss and true or false), f.roomLeft or 0, f.roomRight or 0, es or 1)
+end
+
+-- width: stay inside the scene frame, left of the panel's right edge and right of the cat;
+-- a model too wide for its side slides the other way (over its neighbours is fine) or shrinks
+local function widthFit(f, G, s)
+  local S = G.W / 2 - FIT.EDGE
+  local Rr, Ll = max(10, min(S, f.roomRight or S)), max(10, min(S, f.roomLeft or S))
+  local halfW = (G.ymax - G.ymin) / 2 * s * G.k * G.persp
+  local maxHalf = (Rr + Ll) / 2
+  if halfW > maxHalf then s = s * maxHalf / halfW; halfW = maxHalf end
+  G.Ll, G.Rr = Ll, Rr
+  return s, max(0, halfW - Ll) - max(0, halfW - Rr)
+end
+
+-- the camera for scale s: the model's middle at the slot's centre (+ shift), its lowest point on
+-- the ground line (the scene's middle row), at the same height as the camera
+local function pose(G, s, shift)
+  return { s = s, yaw = G.yaw, shift = shift, fitH = G.h * s * G.k * G.persp,
+    camX = (G.xmin + G.xmax) / 2 * s - FIT.CAM_DIST,
+    camY = (G.ymin + G.ymax) / 2 * s - shift / (G.side * G.k),
+    camZ = G.z1 * s - (G.H / 2 - G.v0) / G.k }
+end
+
+local function placeActor(f, p)
+  local sc, a = f.scene, f.actor
+  call(a, "SetScale", p.s); call(a, "SetYaw", p.yaw); call(a, "SetPosition", 0, 0, 0)
+  call(sc, "SetCameraPosition", p.camX, p.camY, p.camZ)
+  call(sc, "SetCameraOrientationByYawPitchRoll", 0, 0, 0)
+  sc.calArmed = nil -- the test camera has moved
+  f.fitH, f.fitDX, f.fitScale = p.fitH, p.shift, p.s
+end
+
+-- scale, turn and frame one loaded actor (still hidden). box: how big it is drawn at scale 1.
+local function fitActor(f, box, src, ratio)
+  local cal = calibrate(f.scene, true)
+  local G = { W = cal.W, H = cal.H, k = cal.k, side = cal.side, v0 = cal.v0, cal = cal, how = cal.how,
+    z1 = box.z1, z2 = box.z2, h = box.z2 - box.z1, src = src, ratio = ratio, ds = displayScale(f.fitId) }
+  G.yaw = math.pi + FIT.TURN * G.side -- face the camera, turned toward the cat (screen-left)
+  local c, s_ = math.cos(G.yaw), math.sin(G.yaw)
+  G.xmin, G.xmax, G.ymin, G.ymax = math.huge, -math.huge, math.huge, -math.huge
+  for _, x in ipairs({ box.x1, box.x2 }) do
+    for _, y in ipairs({ box.y1, box.y2 }) do
+      local rx, ry = x * c - y * s_, x * s_ + y * c
+      G.xmin, G.xmax, G.ymin, G.ymax = min(G.xmin, rx), max(G.xmax, rx), min(G.ymin, ry), max(G.ymax, ry)
+    end
+  end
+  -- a small size nudge from the creature's real height: wolves a bit shorter than ogres
+  local ref = boundsRow(f.fitId)
+  local nudge = ref and ref[1] and ref[1] > 0 and max(0.8, min(1.15, (ref[1] / FIT.TYPICAL_H) ^ 0.3)) or 1
+  local target = min((f.isBoss and FIT.BOSS_PX or FIT.TRASH_PX) * nudge, f.slotH - FIT.HEADROOM - FIT.GROUND, G.H / 2 - FIT.EDGE)
+  local s = target / (G.h * G.k)
+  -- the front of a deep model is nearer the camera and looks a little bigger
+  G.persp = FIT.CAM_DIST / max(FIT.CAM_DIST * 0.5, FIT.CAM_DIST - (G.xmax - G.xmin) / 2 * s)
+  s = s / G.persp
+  local shift
+  s, shift = widthFit(f, G, s)
+  f.fitG, f.fitP = G, pose(G, s, shift)
+  placeActor(f, f.fitP)
+  return cal.how == "projected"
+end
+
+-- one frame after placing (so the projection uses the camera that was drawn): project the box's
+-- corners and shrink once if any of it would be cut off or reach the name bar
+local function verifyFit(f)
+  local G, p, sc = f.fitG, f.fitP, f.scene
+  local cal, W, H, s = G.cal, G.W, G.H, p.s
+  local top, left, right = -math.huge, math.huge, -math.huge
+  for _, x in ipairs({ G.xmin, G.xmax }) do
+    for _, y in ipairs({ G.ymin, G.ymax }) do
+      local u, v = project(sc, x * s, y * s, G.z2 * s)
+      if not u then return end
+      u, v = u / cal.div, v / cal.div
+      if cal.flip then v = H - v end
+      top, left, right = max(top, v), min(left, u), max(right, u)
+    end
+  end
+  -- extents from the aim point; scaling by q scales them by about q, and the slide can change
+  local cu = W / 2 + p.shift
+  local L0, R0 = max(1, cu - left), max(1, right - cu)
+  local topLimit = min(H - FIT.EDGE, H / 2 + f.slotH - FIT.GROUND - FIT.HEADROOM / 2)
+  local q = min(1, (topLimit - H / 2) / max(1, top - H / 2), (G.Ll + G.Rr) / (L0 + R0))
+  q = max(0.3, q)
+  -- the slide nearest the middle that keeps both sides inside (right of the cat, left of the panel's edge)
+  local shift = max(q * L0 - G.Ll, min(G.Rr - q * R0, 0))
+  if q >= 0.999 and math.abs(shift - p.shift) < 0.5 then return end
+  if q < 0.999 then G.shrunk = q end
+  f.fitP = pose(G, s * q, shift)
+  placeActor(f, f.fitP)
+end
+
+-- show the placed model, and remember the fit for next time
+local function revealFit(f, info)
+  local p = f.fitP
+  -- a scale the actor didn't take would leave it the wrong size: use the plain model instead
+  local okS, got = call(f.actor, "GetScale")
+  if okS and type(got) == "number" and math.abs(got - p.s) > p.s * 0.01 then error("actor scale not applied") end
+  if not info then
+    local G = f.fitG
+    info = string.format("%s, h %.2f yd%s, scale %.3f, %d px tall, %s camera (%.1f px/yd)%s", G.src or "?", G.h,
+      G.ratio and string.format(" (measured/table %.2f, display scale %.2f)", G.ratio, G.ds) or "", p.s,
+      floor(p.fitH + 0.5), G.how, G.k, G.shrunk and string.format(", shrunk x%.2f after the corner check", G.shrunk) or "")
+    -- (a fit from the estimated camera isn't kept if the scene can project: next time may measure)
+    if G.how == "projected" or type(f.scene.Project3DPointTo2D) ~= "function" then FIT_CACHE[f.fitKey] = { p = p, info = info } end
+  end
+  f.fitInfo, f.placed = info, f.fitKey
+  call(f.scene, "SetAlpha", 1)
+  f.shownAlpha = modelAlpha(f)
+  call(f.actor, "SetAlpha", f.shownAlpha)
+end
+
+-- the old way: a PlayerModel with a fixed camera distance (made only when a slot needs it)
+local function ensureClassic(f, why)
+  if f.scene then f.scene:Hide() end
+  f.mode, f.fit, f.placed = "classic", nil, nil
+  if why then f.classicWhy = why end
+  if not f.model then
+    local m = CreateFrame("PlayerModel", nil, f)
+    m:SetPoint("BOTTOM", f, "BOTTOM", 0, 0)
+    f.model = m
+  end
+  f.model:SetSize((f.slotW or 110) * 2.3, (f.slotH or 140) * 1.35)
+end
+
+local function setAnim(f, anim)
+  if f.mode == "scene" then call(f.actor, "SetAnimation", anim)
+  elseif f.model then call(f.model, "SetAnimation", anim) end
+end
+
+-- the same model is already placed for this exact layout (e.g. the page was reopened): keep it
+local function sceneReuse(f, id)
+  if not (f.placed and f.fitId == id and f.fitP and f.placed == layoutKey(f, id)) then return false end
+  local okL, loaded = call(f.actor, "IsLoaded")
+  if okL and not loaded then return false end
+  call(f.actor, "SetAnimation", ANIM_STAND)
+  f.scene:Show(); f.icon:Hide()
+  f.fit, f.shownAlpha = nil, nil -- the per-frame alpha sync sets it
+  f.fitH, f.fitDX = f.fitP.fitH, f.fitP.shift
+  return true
+end
+
+-- returns "ok", "bad" (this display ID has no model) or "error" (the 3D scene API failed)
+local function sceneLoad(f, id)
+  local a = f.actor
+  f.placed, f.fitG, f.fitP = nil, nil, nil
+  call(a, "ClearModel")
+  -- hidden until it has been measured and placed (the actor's alpha; the scene's too, in case)
+  call(a, "SetAlpha", 0); call(f.scene, "SetAlpha", 0); f.shownAlpha = 0
+  -- measured unturned at scale 1, so the box reads the same whether or not it follows the yaw
+  call(a, "SetScale", 1); call(a, "SetPosition", 0, 0, 0); call(a, "SetYaw", 0)
+  local ok, res = pcall(a.SetModelByCreatureDisplayID, a, id)
+  if not ok then return "error", tostring(res) end
+  if res == false then return "bad" end
+  call(a, "SetAlpha", 0)
+  call(a, "SetAnimation", ANIM_STAND)
+  f.scene:Show(); f.icon:Hide()
+  f.fit, f.fitId, f.fitDX, f.fitH, f.fitInfo = { t = 0 }, id, 0, nil, nil
+  f.fitKey = layoutKey(f, id)
+  return "ok"
+end
+
+-- runs every frame while a slot's model is loading; returns false if the slot must move on
+local function sceneStep(f, e)
+  local st, a = f.fit, f.actor
+  st.t = st.t + e
+  if st.verify then
+    verifyFit(f)
+    f.fit = nil; revealFit(f)
+    return true
+  end
+  local okL, loaded = call(a, "IsLoaded")
+  if okL then loaded = loaded and true or false else loaded = nil end -- nil: the client can't tell us
+  if loaded == nil then
+    if st.t < FIT.CHECK then return true end
+    if not st.checked then
+      st.checked = true
+      local okF, file = call(a, "GetModelFileID")
+      if okF and (not file or file == 0) then BAD_MODEL[f.fitId] = true; return false end
+    end
+  elseif not loaded then
+    -- never loaded: try the zone's next model rather than leave the slot empty
+    return st.t < FIT.GIVEUP
+  end
+  local hit = FIT_CACHE[f.fitKey]
+  if hit then
+    f.fitP, f.fitG, f.fit = hit.p, nil, nil
+    placeActor(f, hit.p)
+    revealFit(f, hit.info .. ", reused")
+    return true
+  end
+  st.lt = (st.lt or 0) + e
+  local mb = measuredBox(a)
+  if not mb and st.lt < FIT.SETTLE then return true end
+  -- the scene may need a frame or two before it can project points: wait a moment for it
+  if type(f.scene.Project3DPointTo2D) == "function" and (st.ct or 0) < 0.3 and not calibrate(f.scene) then
+    st.ct = (st.ct or 0) + e
+    return true
+  end
+  local box, src, ratio = chooseBox(f.fitId, mb)
+  if fitActor(f, box, src, ratio) then st.verify = true else f.fit = nil; revealFit(f) end
+  return true
+end
+
+local function classicLoad(f, id)
+  local m = f.model
+  -- clear first so the model-file check can't see the previous enemy's model
+  call(m, "ClearModel")
+  local ok = pcall(m.SetDisplayInfo, m, id)
+  local o = MODEL_OVERRIDE[id]
+  call(m, "SetFacing", -0.7)
+  -- pulled back to match the bigger box (a touch smaller than before, with headroom)
+  call(m, "SetCamDistanceScale", o and o.cam or (f.isBoss and 1.85 or 1.65))
+  call(m, "SetPosition", 0, 0, 0)
+  call(m, "SetAnimation", ANIM_STAND)
+  m:Show(); f.icon:Hide()
+  f.modelCheck = 0.6
+  f.fitDX, f.fitH = 0, nil
+  return ok
+end
+
+local debugSlots
+-- /run TapCatForever:AdvModelDebug()  prints how each enemy model was fitted
+function TCF:AdvModelDebug()
+  for i, f in ipairs(debugSlots or {}) do
+    if f:IsShown() and f.mob then
+      local how
+      if f.mode == "scene" then how = f.fitInfo or (f.fit and "loading") or "-"
+      else how = "fixed camera (" .. tostring(f.classicWhy or "?") .. ")" end
+      local id = f.mode == "scene" and f.fitId or (f.cands and f.cands[f.candIdx])
+      print(string.format("TapCat enemy %d: %s (display %s) %s: %s", i, f.mob.name or "?", tostring(id),
+        f.mode or "?", how))
+    end
+  end
+end
+
 TCF.UI.Builders.adventure = function(page, win)
   local U = TCF.UI
   local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel
@@ -61,12 +519,17 @@ TCF.UI.Builders.adventure = function(page, win)
   local slots = {}
   for i = 1, 3 do
     local f = CreateFrame("Frame", nil, scene)
-    f:SetSize(110, 140)
+    f:SetSize(110, 140); f.slotW, f.slotH = 110, 140
     -- the model draws in a much bigger, invisible box than its slot: WoW cuts a model off at
     -- its frame's edges, so a slot-sized box sliced big creatures with a straight line
-    local m = CreateFrame("PlayerModel", nil, f)
-    m:SetPoint("BOTTOM", f, "BOTTOM", 0, 0); m:SetSize(250, 190)
-    f.model = m
+    local why
+    f.scene, f.actor, why = newScene(f)
+    if f.scene then
+      f.mode = "scene"
+      f.scene:SetPoint("CENTER", f, "BOTTOM", 0, FIT.GROUND); f.scene:SetSize(330, 290)
+    else
+      ensureClassic(f, why)
+    end
     f.icon = f:CreateTexture(nil, "ARTWORK"); f.icon:SetSize(96, 96); f.icon:SetPoint("BOTTOM", 0, 10)
     f.icon:SetTexture(PIXEL_MONSTER, nil, nil, "NEAREST")
     -- name and health bar sit on their own layer above the (now taller) model
@@ -79,6 +542,7 @@ TCF.UI.Builders.adventure = function(page, win)
     f:Hide()
     slots[i] = f
   end
+  debugSlots = slots
 
   -- spell effects and floating numbers play above the models (child frames of the
   -- scene draw over the scene's own font strings, so they need their own raised layer)
@@ -262,13 +726,18 @@ TCF.UI.Builders.adventure = function(page, win)
       f.mob = m
       if m and not m.alive then
         -- died while the window was closed: don't stand it back up
-        f.fade, f.modelCheck, f.gone = 0, nil, true
+        f.fade, f.modelCheck, f.fit, f.gone = 0, nil, nil, true
         f:SetAlpha(0); f:Hide()
       elseif m then
         local w, h = boss and 170 or 110, boss and 200 or 140
-        f:SetSize(w, h)
-        f.model:SetSize(w * 2.3, h * 1.35)
+        f:SetSize(w, h); f.slotW, f.slotH = w, h
         f.baseX = boss and -50 or (-12 - (n - i) * 112)
+        -- room from the slot's centre to the fight panel's right edge (models slide left, never past it)
+        f.roomRight = -f.baseX + w / 2 - 4 - FIT.EDGE
+        -- and from the slot's centre to the cat (models may overlap each other, not the cat)
+        f.roomLeft = 532 + f.baseX - w / 2 - FIT.CAT_EDGE
+        -- scene: centred on the ground line, so its top half holds the model (with headroom)
+        if f.mode == "scene" then f.scene:SetSize(boss and w * 2.3 or w * 3, (h + 10) * 2) else ensureClassic(f) end
         f:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", f.baseX, 8)
         f.name:SetText(m.boss and ("|cffff8000" .. m.name .. "|r") or m.name)
         f.bar:SetWidth(boss and 150 or 96)
@@ -287,19 +756,22 @@ TCF.UI.Builders.adventure = function(page, win)
         f.tryNext = function()
           f.candIdx = f.candIdx + 1
           local id = f.cands[f.candIdx]
+          f.fit, f.modelCheck = nil, nil
           if id and f.candIdx <= 6 then
-            -- clear first so the model-file check can't see the previous enemy's model
-            if f.model.ClearModel then pcall(f.model.ClearModel, f.model) end
-            local ok = pcall(f.model.SetDisplayInfo, f.model, id)
-            pcall(f.model.SetFacing, f.model, -0.7)
-            -- pulled back to match the bigger box (a touch smaller than before, with headroom)
-            pcall(f.model.SetCamDistanceScale, f.model, f.isBoss and 1.85 or 1.65)
-            pcall(f.model.SetAnimation, f.model, ANIM_STAND)
-            f.model:Show(); f.icon:Hide()
-            f.modelCheck = 0.6
-            if not ok then f.tryNext() end
+            if BAD_MODEL[id] then return f.tryNext() end
+            if f.mode == "scene" then
+              if sceneReuse(f, id) then return end
+              local r, err = sceneLoad(f, id)
+              if r == "bad" then BAD_MODEL[id] = true; return f.tryNext() end
+              if r == "ok" then return end
+              -- the 3D scene API failed: this slot uses the plain model frame from now on
+              ensureClassic(f, "3D model load failed: " .. tostring(err))
+            end
+            if not classicLoad(f, id) then f.tryNext() end
           else
-            f.model:Hide(); f.icon:Show(); f.modelCheck = nil
+            if f.scene then f.scene:Hide() end
+            if f.model then f.model:Hide() end
+            f.icon:Show(); f.fitDX, f.fitH = 0, nil
           end
         end
         f.tryNext()
@@ -343,7 +815,7 @@ TCF.UI.Builders.adventure = function(page, win)
     if not nt then
       tierLabel:SetText("|cffaaaaaaLast zone|r")
     elseif TCF:AdvCanGoTo(adv.tier + 1, 1) and TCF:CD().level >= nt.min then
-      tierLabel:SetText("|cff20ff20Next: " .. nt.name .. " ready! >|r")
+      tierLabel:SetText("|cff20ff20Next: " .. nt.name .. " is open >|r")
     else
       local cleared = adv.best >= TCF.AdvStageCode(adv.tier, TCF:AdvStages(adv.tier))
       local lvl = TCF:CD().level
@@ -378,13 +850,14 @@ TCF.UI.Builders.adventure = function(page, win)
     for _, ev in ipairs(run.events) do
       local kind, amt, idx = ev[1], ev[2], ev[3]
       local f = idx and slots[idx]
-      local fx = f and f:IsShown() and (532 + f.baseX - f:GetWidth() / 2) or 400
+      -- over the model's middle (it may have slid left to stay inside the panel)
+      local fx = f and f:IsShown() and (532 + f.baseX - (f.slotW or 110) / 2 + (f.fitDX or 0)) or 400
       if kind == "spawn" then
         layoutSlots(run.pack); refresh()
       elseif kind == "hit" or kind == "crit" or kind == "dot" then
         if kind ~= "dot" then advCat:Tap() end
         if f then f.shake = 0.2 end
-        if kind == "crit" then FloatText(short(amt) .. "!", fx, 150, 1, 0.82, 0.1, true)
+        if kind == "crit" then FloatText(short(amt), fx, 150, 1, 0.82, 0.1, true)
         elseif kind == "hit" then FloatText(short(amt), fx, 140, 1, 1, 1)
         elseif amt >= 1 and random() < 0.25 then FloatText(short(amt * 4), fx, 120, 0.9, 0.8, 0.3) end
       elseif kind == "tap" then
@@ -392,7 +865,7 @@ TCF.UI.Builders.adventure = function(page, win)
         FloatText(short(amt), fx, 115, 0.55, 0.85, 1)
       elseif kind == "hurt" then
         FloatText("-" .. short(amt), 95, 150, 1, 0.25, 0.25)
-        if f then pcall(f.model.SetAnimation, f.model, ANIM_ATTACK); f.anim = 0.7 end
+        if f then setAnim(f, ANIM_ATTACK); f.anim = 0.7 end
       elseif kind == "heal" then
         FloatText("+" .. short(amt), 95, 160, 0.3, 1, 0.3)
       elseif kind == "ability" then
@@ -402,13 +875,16 @@ TCF.UI.Builders.adventure = function(page, win)
           castFx(info, function(i)
             local f = i and slots[i]
             -- a just-killed enemy still gets the killing blow; long-faded corpses are skipped
-            if f and f:IsShown() and f.mob and (f.mob.alive or not f.gone) then return 532 + f.baseX - 55, 80 end
+            if f and f:IsShown() and f.mob and (f.mob.alive or not f.gone) then
+              -- aim at the fitted model's chest; the old fixed spot for the fallback model
+              return 532 + f.baseX - (f.slotW or 110) / 2 + (f.fitDX or 0), f.fitH and (8 + FIT.GROUND + f.fitH * 0.55) or 80
+            end
           end)
           for _, b in ipairs(abtns) do if b.a and b.a.key == info.key then b.flashA = 1; b.flash:SetAlpha(1) end end
         end
       elseif kind == "mobdie" then
         local d = slots[amt]
-        if d then pcall(d.model.SetAnimation, d.model, ANIM_DEATH); d.fade = 1.0; d.anim = 0 end
+        if d then setAnim(d, ANIM_DEATH); d.fade = 1.0; d.anim = 0 end
       elseif kind == "kill" then
         refresh()
       elseif kind == "defeat" then
@@ -430,8 +906,19 @@ TCF.UI.Builders.adventure = function(page, win)
           f.fade = max(0, f.fade - e); f:SetAlpha(min(1, f.fade * 1.5))
           if f.fade == 0 then f.gone = true end -- faded out: AoE effects skip it now
         end
-        if f.anim > 0 then f.anim = f.anim - e; if f.anim <= 0 and m.alive then pcall(f.model.SetAnimation, f.model, ANIM_STAND) end end
-        if f.modelCheck then
+        if f.anim > 0 then f.anim = f.anim - e; if f.anim <= 0 and m.alive then setAnim(f, ANIM_STAND) end end
+        if f.fit then
+          -- 3D scene: wait for the model, then measure and fit it; a failure falls back to the plain model
+          local ok, keep = pcall(sceneStep, f, e)
+          if not ok then f.fit = nil; f.candIdx = f.candIdx - 1; ensureClassic(f, "3D fit failed: " .. tostring(keep)); f.tryNext()
+          elseif not keep then f.tryNext() end
+        end
+        if f.mode == "scene" and not f.fit and f.placed then
+          -- the model's transparency (death fade, window opacity) goes through the actor only
+          local want = modelAlpha(f)
+          if want ~= f.shownAlpha then call(f.actor, "SetAlpha", want); f.shownAlpha = want end
+        end
+        if f.modelCheck and f.model then
           f.modelCheck = f.modelCheck - e
           if f.modelCheck <= 0 then
             f.modelCheck = nil

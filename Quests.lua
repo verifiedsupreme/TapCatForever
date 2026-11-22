@@ -176,8 +176,8 @@ function TCF:ClaimQuest(quest)
   local extra = ""
   if quest.key then extra = " and a " .. TCF.CHEST_BY_KEY[quest.key].name end
   self.db.stats.questsDone = (self.db.stats.questsDone or 0) + 1
-  self:Print(string.format("Quest complete: |cffffd100%s|r! +%d TapCoins%s.", quest.name, quest.reward, extra), true)
-  if self.cat then self.cat:Celebrate(quest.name, 1, 0.82, 0.1, "Quest complete!") end
+  self:Print(string.format("Quest complete: |cffffd100%s|r. +%d TapCoins%s.", quest.name, quest.reward, extra), true)
+  if self.cat then self.cat:Celebrate(quest.name, 1, 0.82, 0.1, "Quest complete") end
   self:PlaySound("ach")
   if quest.key then self:AwardChest(quest.key, quest.name) end
   -- a few skins are rare quest rewards (quests rolled before this have no kind saved)

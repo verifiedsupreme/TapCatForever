@@ -166,7 +166,12 @@ local function advance(self, dt, offline)
     if bag and next(bag) and not self.tradeQuiet then
       local parts = {}
       for _, ch in ipairs(TCF.CHESTS) do
-        if bag[ch.key] then parts[#parts + 1] = "|cff1eff00" .. ch.name .. "|r x" .. bag[ch.key] end
+        if bag[ch.key] then
+          -- each chest in its own quality colour, as in the "you earned" line (TCF:AwardChest)
+          local col = TCF.RARITY[TCF.ChestQuality(ch)]
+          local hex = ch.color or (col and col.hex) or "ff1eff00"
+          parts[#parts + 1] = "|c" .. hex .. ch.name .. "|r x" .. bag[ch.key]
+        end
       end
       self:Print("While you were away your fishing buddy found " .. table.concat(parts, ", ") .. ". Open them from your Treasure Bag.")
     end

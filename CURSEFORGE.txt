@@ -8,7 +8,14 @@ It never touches your gameplay. It just watches your key presses and makes them 
 
 Features
 
-What's new in 1.5.1
+What's new in 1.5.3
+• New Dungeon Chest, full of dungeon boss gear near your cat's level, mostly blue. The first clear of each dungeon in Adventure gives one, repeat clears give one about every 2 to 3 hours of dungeon fighting, and real WoW dungeons give one (up to 2 a day).
+• Small finds from regular Adventure enemies now bring your cat's weapon and the gear you can see before the rest.
+• The Settings page is sorted into clear groups, and you can scroll over a slider to move it one step at a time.
+• Adventure enemies are sized to fit the fight scene, so big ones are no longer cut off.
+• Only Classic items drop now: Burning Crusade and later items that had slipped into the loot are gone.
+
+New in 1.5.1
 • Every class's cat now has its own Trade Gold and professions.
 • Lots more gear: plain whites and real "of the Monkey" style greens for every level and slot, and small finds from regular Adventure enemies that fill your empty slots first.
 • Real legendaries, such as Thunderfury and Sulfuras, can now drop: very rarely from a Heroic Cache, and a little more often from the new Raider's Hoard.
@@ -28,7 +35,7 @@ A cat that taps with you
 
 A cat for every class
 • Each class has its own cat that levels from 1, with its own gear, abilities, professions, Trade Gold and progress.
-• Your cat wears real WoW items: every helm, chest, belt, necklace, ring, weapon, shield and off-hand has its own hand-drawn cartoon version, about 4,500 items in all.
+• Your cat wears the real WoW items you equip, drawn in the cartoon style: about 4,800 different helms, chests, capes, belts, necklaces, rings, weapons, shields and off-hands have their own drawing.
 • Every class starts with its own weapon (a bow for hunters, a dagger for rogues, a staff for mages) and learns class abilities with TapCoins, from Heroic Strike to Pyroblast.
 • Hover any piece of gear to see what your cat wears in that slot right beside it, with the Power change.
 • Thousands of real Classic items for every class, from plain whites and "of the Bear" greens to raid epics and legendaries. Sell junk clears out anything worse than what you wear.
@@ -37,10 +44,10 @@ Adventure
 • An idle fight through 28 real zones, dungeons and raids, from Elwynn Forest and the Deadmines to Molten Core and Naxxramas, each with its own hand-drawn scene.
 • Real bosses and real creature models. Your cat casts its abilities with visible spell effects, and an ability bar shows every cooldown.
 • Regular enemies now and then drop a small find for your level, aimed at your empty slots first, so a new cat gears up quickly.
-• Bosses drop gear, chests and rare cat skins. The first time you clear a zone you also get a few hundred TapCoins (more for later zones).
+• Bosses drop gear, chests and rare cat skins. Dungeons give Dungeon Chests and raids give Raider's Hoards. The first time you clear a zone you also get a few hundred TapCoins (more for later zones).
 
 Expeditions
-• Send a party of three cats away for 15 minutes to 24 hours. They come back with TapCoins, chests and XP.
+• Send a party of three cats away for 15 minutes to 24 hours. They come back with TapCoins, chests and XP. Dungeon trips can bring home a Dungeon Chest and raid trips a Raider's Hoard.
 
 Professions
 • Your cat's class picks its main profession: Mining with Blacksmithing (Warrior, Paladin), Skinning with Leatherworking (Rogue, Druid, Hunter, Shaman) or Tailoring (Mage, Priest, Warlock).
@@ -59,8 +66,9 @@ Play with friends
 Chests, shop and collecting
 • Cat Treat Pouches, Adventurer's Strongboxes and Heroic Caches, opened with a spinning reel that lands on your reward. Pouches can hold a blue now and then, and Heroic Caches have a tiny chance of a real legendary.
 • The Raider's Hoard can't be bought: you earn it from raids, in Adventure, on raid expeditions and in real WoW. It always holds epic raid boss loot and is the best place to find a legendary.
+• The Dungeon Chest can't be bought either: you earn it from dungeons, in Adventure, on dungeon expeditions and in real WoW. It always holds gear close to your cat's level, mostly from dungeon bosses.
 • Gear you find outside chests goes straight into your bags with a small notice you can hover.
-• Daily shop wares, daily and weekly quests, and 77 achievements.
+• Daily shop wares, daily and weekly quests, and 81 achievements.
 • 64 cat skins: tabbies and tuxedos, Bengals and Maine Coons, a Galaxy Cat, Frostsabers, the Spectral Tiger, boss-drop cats, chest-only cats, quest and expedition cats, crafted cats, and achievement cats like Mr. Bigglesworth.
 • Hats, capes, wings, fur patterns, effects and racial heritage items for your character's race.
 • The Compendium lists every skin, cosmetic, effect and piece of gear, what you own, and how to get the rest.
@@ -82,7 +90,7 @@ Slash commands
 • /tcf bag: open the Treasure Bag
 • /tcf show, /tcf hide, /tcf toggle: show or hide the cat
 • /tcf lock, /tcf unlock: lock the cat in place
-• /tcf reset: move the cat back to the middle of the screen
+• /tcf reset: move the cat back to the bottom middle of the screen
 • /tcf scale 0.3-3: resize the cat
 • /tcf stats: your totals
 

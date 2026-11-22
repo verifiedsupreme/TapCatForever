@@ -12,13 +12,15 @@ local floor, min, max, random = math.floor, math.min, math.max, math.random
 -- small chest chance (about 0.3 Pouches per slot-hour), well below the long trips.
 -- hoard: the raid trips' chance of a Raider's Hoard on success, on top of their other chests
 -- (about one Hoard every 2 days with both slots always on raids).
+-- dchest: the dungeon trips' chance of a Dungeon Chest on success, on top of their other chests
+-- (about 2.5% per hour away: about one a day with both slots always on dungeon trips).
 TCF.EXPEDITIONS = {
   { key = "elwynn", name = "Scout Elwynn Forest",       dur = 15 * 60,    rec = 700,   coins = 12,  tier = 1,  rolls = 0, chest = { "pouch", 0.08 },  icon = "INV_Misc_Map_01" },
   { key = "westfall", name = "Westfall Bounty Hunt",    dur = 30 * 60,    rec = 1000,  coins = 25,  tier = 2,  rolls = 0, chest = { "pouch", 0.15 },  icon = "INV_Misc_Bandana_03" },
-  { key = "dm", name = "Raid the Deadmines",             dur = 60 * 60,    rec = 1600,  coins = 45,  tier = 5,  rolls = 0, chest = { "pouch", 0.3 },   icon = "INV_Misc_Bandana_03" },
-  { key = "sm", name = "Storm Scarlet Monastery",        dur = 2 * 3600,   rec = 3400,  coins = 90,  tier = 11, rolls = 2, chest = { "strong", 0.25 }, icon = "INV_Shield_03" },
-  { key = "brd", name = "Delve Blackrock Depths",        dur = 4 * 3600,   rec = 5800,  coins = 160, tier = 17, rolls = 2, chest = { "strong", 0.5 },  icon = "INV_Hammer_09" },
-  { key = "strat", name = "Purge Stratholme",            dur = 6 * 3600,   rec = 6600,  coins = 230, tier = 21, rolls = 2, chest = { "strong", 0.7 },  icon = "Spell_Shadow_RaiseDead" },
+  { key = "dm", name = "Raid the Deadmines",             dur = 60 * 60,    rec = 1600,  coins = 45,  tier = 5,  rolls = 0, chest = { "pouch", 0.3 },   dchest = 0.02, icon = "INV_Misc_Bandana_03" },
+  { key = "sm", name = "Storm Scarlet Monastery",        dur = 2 * 3600,   rec = 3400,  coins = 90,  tier = 11, rolls = 2, chest = { "strong", 0.25 }, dchest = 0.05, icon = "INV_Shield_03" },
+  { key = "brd", name = "Delve Blackrock Depths",        dur = 4 * 3600,   rec = 5800,  coins = 160, tier = 17, rolls = 2, chest = { "strong", 0.5 },  dchest = 0.1, icon = "INV_Hammer_09" },
+  { key = "strat", name = "Purge Stratholme",            dur = 6 * 3600,   rec = 6600,  coins = 230, tier = 21, rolls = 2, chest = { "strong", 0.7 },  dchest = 0.15, icon = "Spell_Shadow_RaiseDead" },
   { key = "mc", name = "Assault Molten Core",            dur = 8 * 3600,   rec = 7600,  coins = 320, tier = 23, rolls = 3, chest = { "heroic", 0.25 }, hoard = 0.1,  icon = "Spell_Fire_Elemental_Totem" },
   { key = "bwl", name = "Siege Blackwing Lair",          dur = 12 * 3600,  rec = 9400,  coins = 480, tier = 26, rolls = 3, chest = { "heroic", 0.4 },  hoard = 0.15, icon = "INV_Misc_Head_Dragon_Black" },
   { key = "naxx", name = "Storm Naxxramas",              dur = 24 * 3600,  rec = 12500, coins = 900, tier = 28, rolls = 3, chest = { "heroic", 0.6 },  hoard = 0.25, icon = "Spell_Shadow_AbominationExplosion" },
@@ -106,8 +108,9 @@ function TCF:ClaimExpedition(index)
   self.db.stats.expeditionWins = (self.db.stats.expeditionWins or 0) + 1
   local coins = floor(e.coins * 0.5 * (0.8 + random() * 0.4))
   self:AddCoins(coins)
-  self:Print(string.format("|cff20ff20%s succeeded!|r +%d TapCoins, +%d XP for each cat.", e.name, coins, xp), true)
+  self:Print(string.format("|cff20ff20%s succeeded.|r +%d TapCoins, +%d XP for each cat.", e.name, coins, xp), true)
   if random() < e.chest[2] then self:AwardChest(e.chest[1], e.name) end
+  if e.dchest and random() < e.dchest then self:AwardChest("dungeon", e.name) end
   if e.hoard and random() < e.hoard then self:AwardChest("raid", e.name) end
   -- extra chests instead of loose gear
   local bonus = TCF.ExpeditionBonusChance(e)
@@ -144,7 +147,7 @@ notifier:SetScript("OnUpdate", function(_, elapsed)
       local e = TCF.EXPEDITION_BY_KEY[ex.key]
       TCF:Print(string.format("Your party is back from |cffffd100%s|r. Open the Expeditions tab to claim the rewards.", e and e.name or "an expedition"))
       -- chat is off by default, so also say it over the cat
-      if TCF.cat and TCF.cat.Toast then TCF.cat:Toast((e and e.name or "Expedition") .. ": party is back!", 1, 0.82, 0.2) end
+      if TCF.cat and TCF.cat.Toast then TCF.cat:Toast((e and e.name or "Expedition") .. ": your party is back", 1, 0.82, 0.2) end
       TCF:MarkDirty()
     end
   end

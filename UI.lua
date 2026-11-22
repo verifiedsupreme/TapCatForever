@@ -954,7 +954,8 @@ function TCF:CreateWindow()
   end
   local chestTitle = Text(sh, "GameFontNormalLarge", "Treasure Chests"); chestTitle:SetPoint("TOPLEFT", 16, -176)
   local chestCards = {}
-  -- chests you can buy (the Raider's Hoard has no price: it only comes from raids)
+  -- chests you can buy (the Dungeon Chest and Raider's Hoard have no price: they only come from
+  -- dungeons and raids)
   local shopChests = {}
   for _, ch in ipairs(TCF.CHESTS) do if ch.cost then shopChests[#shopChests + 1] = ch end end
   for i, ch in ipairs(shopChests) do
@@ -979,7 +980,7 @@ function TCF:CreateWindow()
   local gearPct = floor((TCF.CHEST_GEAR_CHANCE or 0.9) * 100 + 0.5)  -- same odds as TCF:OpenChest
   local dungeonText = Text(sh, "GameFontHighlightSmall", nil, "LEFT"); dungeonText:SetPoint("TOPLEFT", 16, -326); dungeonText:SetWidth(520)
   -- kept to about five lines so it clears the heritage panel below
-  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Quests, levels, zone clears and expeditions give chests too. Chests hold gear (" .. gearPct .. "%) or a cosmetic (" .. (100 - gearPct) .. "%); a Raider's Hoard only gear.")
+  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Quests, levels, zone clears and expeditions give chests too. Chests hold gear (" .. gearPct .. "%) or a cosmetic (" .. (100 - gearPct) .. "%); Dungeon Chests and Raider's Hoards only gear.")
   -- racial heritage offer for the current character's race
   local her = Panel(sh, 528, 58, 0.9); her:SetPoint("TOPLEFT", 14, -384)
   her.cell = ItemCell(her, 46); her.cell:SetPoint("LEFT", 6, 0)
@@ -1036,9 +1037,9 @@ function TCF:CreateWindow()
     else her:Hide() end
     local lc = TCF.lastChest
     if lc and lc.gear then
-      lastLoot:SetText("Last chest: " .. TCF.GearLink(lc.gear) .. (lc.isNew and " |cff20ff20NEW!|r" or ""))
+      lastLoot:SetText("Last chest: " .. TCF.GearLink(lc.gear) .. (lc.isNew and " |cff20ff20New|r" or ""))
     elseif lc and lc.item then
-      lastLoot:SetText("Last chest: " .. TCF.ItemLink(lc.item) .. (lc.isNew and " |cff20ff20NEW!|r" or
+      lastLoot:SetText("Last chest: " .. TCF.ItemLink(lc.item) .. (lc.isNew and " |cff20ff20New|r" or
         string.format(" |cffaaaaaa(duplicate, +%d TapCoins)|r", lc.salvage)))
     else
       lastLoot:SetText("|cff888888Earn TapCoins from quests, Adventure bosses, level-ups and daily logins.|r")
@@ -1109,144 +1110,206 @@ function TCF:CreateWindow()
   end
 
   ------------------------------------------------ Settings
-  local st = pages[TAB_SETTINGS]
-  local ui = TCF.db.ui
-  local stTitle = Text(st, "GameFontNormalLarge", "Settings"); stTitle:SetPoint("TOPLEFT", 16, -14)
-  -- party cats (Party.lua): a short note beside the title, with the bonus you have right now
-  local partyNote = Text(st, "GameFontHighlightSmall", nil, "LEFT")
-  partyNote:SetPoint("TOPLEFT", 120, -12); partyNote:SetWidth(420)
-  local checks = {}
-  local function Check(label, key, col, row, tip, after)
-    local cb = CreateFrame("CheckButton", nil, st, "UICheckButtonTemplate")
-    cb:SetSize(26, 26); cb:SetPoint("TOPLEFT", 14 + col * 250, -44 - row * 30)
-    local t = Text(cb, "GameFontHighlight", label, "LEFT"); t:SetPoint("LEFT", cb, "RIGHT", 2, 1)
-    cb:SetScript("OnClick", function(s)
-      ui[key] = s:GetChecked() and true or false
-      TCF.hud:ApplySettings()
-      if after then after() end
-      TCF:PlaySound("click")
-    end)
-    if tip then Tip(cb, function(tt) tt:AddLine(label, 1, 0.82, 0); tt:AddLine(tip, 1, 1, 1, true) end) end
-    cb.key = key
-    checks[#checks + 1] = cb
-  end
-  Check("Show cat", "shown", 0, 0, "Show or hide the cat on your screen.")
-  Check("Lock position", "locked", 0, 1, "Stop the cat being dragged.")
-  Check("Click-through when locked", "clickThrough", 0, 2, "When locked, mouse clicks pass straight through the cat.")
-  Check("Cat only (hide all text)", "catOnly", 0, 3, "Hide the level, XP bar and counters.")
-  Check("Count mouse clicks", "mouse", 0, 4, "Mouse clicks also make the cat tap and earn progress.")
-  Check("Show level", "showLevel", 1, 0)
-  Check("Show XP bar", "showXP", 1, 1)
-  Check("Show tap counter", "showTaps", 1, 2)
-  Check("Show TapCoins", "showCoins", 1, 3)
-  Check("Popups on cat", "popups", 1, 4, "Floating text for level ups, loot and achievements.")
-  Check("Sounds", "sound", 0, 5)
-  Check("Show racial accessory", "racial", 0, 6, "Show your race's accessory (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
-  Check("Chat messages", "chat", 1, 5)
-  Check("Chest opening animation", "chestAnim", 1, 7, "Opening a chest spins a reel of possible loot before it lands on your reward.")
-  Check("Text above the cat", "textAbove", 0, 7, "Put the level, XP bar and counters above the cat instead of below. (\"Cat only\" hides them.)")
-
-  local function Slider(label, minV, maxV, step, y, get, set, fmt)
-    local s = CreateFrame("Slider", nil, st, BT)
-    s:SetOrientation("HORIZONTAL"); s:SetSize(220, 16); s:SetPoint("TOPLEFT", 22, y)
-    if s.SetBackdrop then
-      s:SetBackdrop({ bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
-        tile = true, tileSize = 8, edgeSize = 8, insets = { left = 3, right = 3, top = 6, bottom = 6 } })
+  do
+    -- Groups, each with a small gold heading and a thin line under it, on one grid (the page is
+    -- 560 x 494). Buttons sit in four columns 126 wide at x 16, 150, 284 and 418; the sliders use the
+    -- first column and the checkboxes two columns beside them. Every control's box (x, y from the
+    -- page's top left) goes into win.settingsLayout, so the test harness can check that nothing
+    -- overlaps and everything stays inside the page.
+    local st = pages[TAB_SETTINGS]
+    local ui = TCF.db.ui
+    local layout = {}
+    win.settingsLayout = layout
+    local COL, COL_W = { 16, 150, 284, 418 }, 126
+    local function Place(f, x, y, w, h, kind, label)
+      f:SetPoint("TOPLEFT", x, -y)
+      layout[#layout + 1] = { x = x, y = y, w = w, h = h, kind = kind, label = label, frame = f }
     end
-    s:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
-    s:SetMinMaxValues(minV, maxV); s:SetValueStep(step)
-    if s.SetObeyStepOnDrag then s:SetObeyStepOnDrag(true) end
-    local t = Text(s, "GameFontHighlight", nil, "LEFT"); t:SetPoint("BOTTOMLEFT", s, "TOPLEFT", 0, 3)
-    s:SetScript("OnValueChanged", function(_, v)
-      v = floor(v / step + 0.5) * step
-      set(v); t:SetText(string.format(fmt, label, v)); TCF.hud:ApplySettings()
-    end)
-    s.Sync = function() s:SetValue(get()); t:SetText(string.format(fmt, label, get())) end
-    return s
-  end
-  local scaleS = Slider("Cat size", 0.3, 3, 0.05, -300, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx")
-  local alphaS = Slider("Opacity", 0.1, 1, 0.05, -348, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f")
-  local textS = Slider("Text size", 0.5, 2.5, 0.05, -396, function() return ui.textScale or 1 end, function(v) ui.textScale = v end, "%s: %.2fx")
-  local resetB = Button(st, "Reset position", 130, 22, function() TCF.hud:ResetPosition() end)
-  resetB:SetPoint("TOPLEFT", 280, -296)
-  local mmB = Button(st, "Toggle minimap icon", 160, 22, function()
-    ui.minimap.hide = not ui.minimap.hide; TCF:UpdateMinimapButton()
-  end)
-  mmB:SetPoint("TOPLEFT", 280, -328)
-  local welB = Button(st, "Welcome tour", 130, 22, function() TCF:ShowWelcome() end)
-  welB:SetPoint("TOPLEFT", 280, -352)
-  local pnB = Button(st, "Patch notes", 110, 22, function() TCF:ShowPatchNotes() end)
-  pnB:SetPoint("LEFT", mmB, "RIGHT", 8, 0)
-  Tip(pnB, function(tt)
-    tt:AddLine("Patch notes", 1, 0.82, 0)
-    tt:AddLine("What changed in every version of TapCatForever. Also /tcf news.", 1, 1, 1, true)
-  end)
-  local fbB = Button(st, "Send feedback", 130, 22, function() TCF:ShowFeedback() end)
-  fbB:SetPoint("LEFT", welB, "RIGHT", 8, 0)
-  Tip(fbB, function(tt)
-    tt:AddLine("Send feedback", 1, 0.82, 0)
-    tt:AddLine("Report a bug or suggest an idea. Shows links you can copy into your browser.", 1, 1, 1, true)
-  end)
-  local function ConfirmReset(which, text)
-    StaticPopupDialogs.TAPCATFOREVER_RESET = {
-      text = text, button1 = "Reset", button2 = CANCEL or "Cancel",
-      OnAccept = function() TCF:ResetProgress(which) end,
-      timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
-    }
-    StaticPopup_Show("TAPCATFOREVER_RESET")
-  end
-  local resetCharB = Button(st, "Reset this character", 160, 22, function()
-    ConfirmReset("char", "Reset TapCatForever progress for THIS character?\n\nGear, cosmetics, professions, cat levels, abilities and adventures go back to the start. TapCoins, quests and achievements are kept.\n\nYour UI will reload.")
-  end)
-  resetCharB:SetPoint("TOPLEFT", 280, -376)
-  local resetAllB = Button(st, "|cffff5555Reset ALL progress|r", 160, 22, function()
-    ConfirmReset("all", "Reset ALL TapCatForever progress on EVERY character?\n\nEverything goes back to level 1: TapCoins, gear, cosmetics, professions, renown, quests and achievements. Your settings are kept.\n\nThis cannot be undone. Your UI will reload.")
-  end)
-  resetAllB:SetPoint("TOPLEFT", 280, -404)
-  local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 14); help:SetWidth(490)
-  help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
-    "Slash commands: /tapcat (or /tcf) show | hide | lock | unlock | reset | scale <n> | stats | compendium | news | feedback\n" ..
-    "TapCoins, quests and achievements are shared; gear, cosmetics and cat levels are per character, and each class has its own Trade Gold and professions.")
+    -- a group heading at y with its line 15 below; the group's controls start at y + 21
+    local function Heading(txt, x, y, w, red)
+      local h = Text(st, "GameFontNormal", txt, "LEFT")
+      if red then h:SetTextColor(1, 0.38, 0.38) end
+      Place(h, x, y, w, 14, "heading", txt)
+      local line = st:CreateTexture(nil, "ARTWORK")
+      if red then line:SetColorTexture(0.85, 0.25, 0.25, 0.55) else line:SetColorTexture(0.85, 0.68, 0.25, 0.45) end
+      line:SetSize(w, 1)
+      Place(line, x, y + 15, w, 1, "line", txt)
+      return y + 21
+    end
+    local stTitle = Text(st, "GameFontNormalLarge", "Settings", "LEFT")
+    Place(stTitle, 16, 14, 200, 16, "title", "Settings")
 
-  -- test mode shortcuts (/tcf testmode)
-  local testBox = CreateFrame("Frame", nil, st)
-  testBox:SetSize(512, 72); testBox:SetPoint("TOPLEFT", 16, -418)  -- takes the help text's spot
-  local tt = Text(testBox, "GameFontNormal", "|cffff6060Test mode|r (/tcf testmode to hide)", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
-  local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
-                   { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" },
-                   { "Fake party cats", "party" }, { "Remove fake cats", "partyclear" } }
-  -- four per row, so the extra buttons stay inside the page
-  for i, c in ipairs(cheats) do
-    local b = Button(testBox, c[1], 124, 22, function()
-      if c[2] == "party" then
-        -- 1, 2, 3, 4, 5 (shows "+1"), then none again
-        if TCF.PartyTestInject then TCF:PartyTestInject(((TCF:PartyTestCount() or 0) + 1) % 6) end
-        win:RefreshSettings()
-      elseif c[2] == "partyclear" then
-        if TCF.PartyTestClear then TCF:PartyTestClear() end
-        win:RefreshSettings()
-      else
-        TCF:TestCheat(c[2])
-      end
-    end)
-    b:SetPoint("TOPLEFT", ((i - 1) % 4) * 128, -18 - math.floor((i - 1) / 4) * 24)
-    if c[2] == "party" then
-      Tip(b, function(t)
-        t:AddLine("Fake party cats", 1, 0.82, 0)
-        t:AddLine("Shows pretend party cats beside your cat, as if friends with TapCatForever were in your group. Each click adds one, up to five. Remove fake cats takes them all away; leaving a group or turning test mode off does too.", 1, 1, 1, true)
+    local checks = {}
+    win.settingsChecks = checks
+    local function Check(label, key, x, y, w, tip, after)
+      local cb = CreateFrame("CheckButton", nil, st, "UICheckButtonTemplate")
+      cb:SetSize(22, 22); Place(cb, x, y, w, 22, "check", label)
+      local t = Text(cb, "GameFontHighlight", label, "LEFT"); t:SetPoint("LEFT", cb, "RIGHT", 2, 1)
+      cb:SetScript("OnClick", function(s)
+        ui[key] = s:GetChecked() and true or false
+        TCF.hud:ApplySettings()
+        if after then after() end
+        TCF:PlaySound("click")
       end)
+      if tip then Tip(cb, function(tt) tt:AddLine(label, 1, 0.82, 0); tt:AddLine(tip, 1, 1, 1, true) end) end
+      cb.key = key
+      checks[#checks + 1] = cb
+      return cb
     end
-  end
+    local function Slider(label, minV, maxV, step, y, get, set, fmt)
+      local s = CreateFrame("Slider", nil, st, BT)
+      s:SetOrientation("HORIZONTAL"); s:SetSize(COL_W, 16)
+      -- the box covers the label above the bar too
+      Place(s, COL[1], y + 15, COL_W, 16, "slider", label)
+      layout[#layout].y, layout[#layout].h = y, 31
+      if s.SetBackdrop then
+        s:SetBackdrop({ bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
+          tile = true, tileSize = 8, edgeSize = 8, insets = { left = 3, right = 3, top = 6, bottom = 6 } })
+      end
+      s:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+      s:SetMinMaxValues(minV, maxV); s:SetValueStep(step)
+      if s.SetObeyStepOnDrag then s:SetObeyStepOnDrag(true) end
+      -- the bars are short (COL_W), so the mouse wheel over one moves it a single step
+      -- (the Settings page doesn't scroll, so this takes the wheel from nothing else)
+      s:EnableMouseWheel(true)
+      s:SetScript("OnMouseWheel", function(self, d) self:SetValue(max(minV, min(maxV, self:GetValue() + d * step))) end)
+      Tip(s, function(tt)
+        tt:AddLine(label, 1, 0.82, 0)
+        tt:AddLine("Drag, or scroll the mouse wheel over the bar to change it one step at a time.", 1, 1, 1, true)
+      end)
+      local t = Text(s, "GameFontHighlight", nil, "LEFT"); t:SetPoint("BOTTOMLEFT", s, "TOPLEFT", 0, 3)
+      s:SetScript("OnValueChanged", function(_, v)
+        v = floor(v / step + 0.5) * step
+        set(v); t:SetText(string.format(fmt, label, v)); TCF.hud:ApplySettings()
+      end)
+      s.Sync = function() s:SetValue(get()); t:SetText(string.format(fmt, label, get())) end
+      return s
+    end
+    local function PageButton(txt, x, y, w, onClick, tipTitle, tip)
+      local b = Button(st, txt, w, 22, onClick)
+      Place(b, x, y, w, 22, "button", tipTitle or txt)
+      if tip then Tip(b, function(tt) tt:AddLine(tipTitle or txt, 1, 0.82, 0); tt:AddLine(tip, 1, 1, 1, true) end) end
+      return b
+    end
 
-  function win:RefreshSettings()
-    testBox:SetShown(ui.testMode and true or false)
-    local note = "Play with friends: your taps count 20% more with one friend who has TapCatForever, and 10% more for each friend after that, up to +50% with a full party."
-    local friends = TCF.PartyCount and TCF:PartyCount() or 0
-    if friends > 0 then note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)) end
-    partyNote:SetText(note)
-    help:SetShown(not ui.testMode)
-    for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
-    scaleS.Sync(); alphaS.Sync(); textS.Sync()
+    -- Cat and display: sliders on the left, then two columns of checkboxes (rows 23 apart)
+    local gy = Heading("Cat and display", 16, 38, 528)
+    local scaleS = Slider("Cat size", 0.3, 3, 0.05, gy + 4, function() return ui.scale end, function(v) ui.scale = v end, "%s: %.2fx")
+    local alphaS = Slider("Opacity", 0.1, 1, 0.05, gy + 58, function() return ui.alpha end, function(v) ui.alpha = v end, "%s: %.2f")
+    local textS = Slider("Text size", 0.5, 2.5, 0.05, gy + 112, function() return ui.textScale or 1 end, function(v) ui.textScale = v end, "%s: %.2fx")
+    local CA, CB = COL[2], 352
+    local CA_W, CB_W = CB - 8 - CA, 544 - CB
+    local function Row(r) return gy + r * 23 end
+    Check("Show cat", "shown", CA, Row(0), CA_W, "Show or hide the cat on your screen.")
+    Check("Lock position", "locked", CA, Row(1), CA_W, "Stop the cat being dragged.")
+    Check("Click-through when locked", "clickThrough", CA, Row(2), CA_W, "When locked, mouse clicks pass straight through the cat.")
+    Check("Count mouse clicks", "mouse", CA, Row(3), CA_W, "Mouse clicks also make the cat tap and earn progress.")
+    Check("Popups on cat", "popups", CA, Row(4), CA_W, "Floating text for level ups, loot and achievements.")
+    Check("Chest opening animation", "chestAnim", CA, Row(5), CA_W, "Opening a chest spins a reel of possible loot before it lands on your reward.")
+    Check("Show racial accessory", "racial", CA, Row(6), CA_W, "Show your race's accessory (tusks, horns, ears...). You keep it either way.", function() TCF:RefreshAll() end)
+    Check("Cat only (hide all text)", "catOnly", CB, Row(0), CB_W, "Hide the level, XP bar and counters.")
+    Check("Text above the cat", "textAbove", CB, Row(1), CB_W, "Put the level, XP bar and counters above the cat instead of below. (\"Cat only\" hides them.)")
+    Check("Show level", "showLevel", CB, Row(2), CB_W)
+    Check("Show XP bar", "showXP", CB, Row(3), CB_W)
+    Check("Show tap counter", "showTaps", CB, Row(4), CB_W)
+    Check("Show TapCoins", "showCoins", CB, Row(5), CB_W)
+
+    -- Chat and sounds (left half) beside Position (right half)
+    gy = Heading("Chat and sounds", COL[1], 231, COL[3] - 8 - COL[1])
+    Heading("Position", COL[3], 231, 544 - COL[3])
+    Check("Sounds", "sound", COL[1], gy, COL_W, "Play TapCatForever's sounds.")
+    Check("Chat messages", "chat", COL[2], gy, COL_W, "Notices in chat, such as loot and level ups. Replies to your slash commands and clicks always show.")
+    PageButton("Reset position", COL[3], gy + 1, COL_W, function() TCF.hud:ResetPosition() end,
+      "Reset position", "Put the cat back at the bottom middle of your screen.")
+    local mmB = PageButton("Hide minimap icon", COL[4], gy + 1, COL_W, function()
+      ui.minimap.hide = not ui.minimap.hide; TCF:UpdateMinimapButton()
+      win:RefreshSettings()
+    end, "Minimap icon", "Show or hide the TapCatForever button on the minimap.")
+
+    -- Help and info: four buttons the same size in one row
+    gy = Heading("Help and info", 16, 286, 528)
+    PageButton("Welcome tour", COL[1], gy, COL_W, function() TCF:ShowWelcome() end,
+      "Welcome tour", "A short tour of what TapCatForever does.")
+    PageButton("Patch notes", COL[2], gy, COL_W, function() TCF:ShowPatchNotes() end,
+      "Patch notes", "What changed in every version of TapCatForever. Also /tcf news.")
+    PageButton("Send feedback", COL[3], gy, COL_W, function() TCF:ShowFeedback() end,
+      "Send feedback", "Report a bug or suggest an idea. Shows links you can copy into your browser.")
+    PageButton("Compendium", COL[4], gy, COL_W, function() TCF:ToggleCompendium(); TCF:PlaySound("click") end,
+      "Compendium", "Every skin, cosmetic, effect and piece of gear, what you have, and how to get the rest. Also /tcf compendium.")
+
+    -- notes between Help and Progress (y 340 to 431): the party note, then the help line, or the
+    -- test mode buttons in its place while test mode is on
+    local INFO_Y, INFO_BOTTOM = 340, 431
+    local partyNote = Text(st, "GameFontHighlightSmall", nil, "LEFT"); partyNote:SetWidth(528)
+    Place(partyNote, 16, INFO_Y, 528, INFO_BOTTOM - INFO_Y, "info", "notes")
+    local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetWidth(528)
+    help:SetPoint("TOPLEFT", partyNote, "BOTTOMLEFT", 0, -6)
+    help:SetText("Ctrl + mouse wheel over the cat resizes it, Shift + wheel changes opacity.\n" ..
+      "Slash commands: /tcf show, hide, lock, unlock, reset, scale <n>, stats, compendium, news, feedback\n" ..
+      "TapCoins, quests and achievements are shared; gear, cosmetics and cat levels are per character, and each class has its own Trade Gold and professions.")
+    win.settingsInfo = { y = INFO_Y, bottom = INFO_BOTTOM, note = partyNote, help = help }
+
+    -- test mode shortcuts (/tcf testmode): 60 tall, in the help line's place
+    local testBox = CreateFrame("Frame", nil, st)
+    testBox:SetSize(528, 60); testBox:SetPoint("TOPLEFT", partyNote, "BOTTOMLEFT", 0, -6)
+    win.settingsInfo.testBox = testBox
+    local tt = Text(testBox, "GameFontNormalSmall", "|cffff6060Test mode|r  |cffaaaaaa(/tcf testmode to hide)|r", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
+    local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
+                     { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" },
+                     { "Fake party cats", "party" }, { "Remove fake cats", "partyclear" } }
+    -- four per row on the button grid
+    for i, c in ipairs(cheats) do
+      local b = Button(testBox, c[1], COL_W, 22, function()
+        if c[2] == "party" then
+          -- 1, 2, 3, 4, 5 (shows "+1"), then none again
+          if TCF.PartyTestInject then TCF:PartyTestInject(((TCF:PartyTestCount() or 0) + 1) % 6) end
+          win:RefreshSettings()
+        elseif c[2] == "partyclear" then
+          if TCF.PartyTestClear then TCF:PartyTestClear() end
+          win:RefreshSettings()
+        else
+          TCF:TestCheat(c[2])
+        end
+      end)
+      b:SetPoint("TOPLEFT", COL[(i - 1) % 4 + 1] - COL[1], -14 - math.floor((i - 1) / 4) * 24)
+      if c[2] == "party" then
+        Tip(b, function(t)
+          t:AddLine("Fake party cats", 1, 0.82, 0)
+          t:AddLine("Shows pretend party cats beside your cat, as if friends with TapCatForever were in your group. Each click adds one, up to five. Remove fake cats takes them all away; leaving a group or turning test mode off does too.", 1, 1, 1, true)
+        end)
+      end
+    end
+
+    -- Progress: set apart at the bottom, in red, on the right away from the buttons above
+    local function ConfirmReset(which, text)
+      StaticPopupDialogs.TAPCATFOREVER_RESET = {
+        text = text, button1 = "Reset", button2 = CANCEL or "Cancel",
+        OnAccept = function() TCF:ResetProgress(which) end,
+        timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
+      }
+      StaticPopup_Show("TAPCATFOREVER_RESET")
+    end
+    gy = Heading("Progress", 16, 437, 528, true)
+    local resetNote = Text(st, "GameFontDisableSmall", "Both ask before they reset anything.", "LEFT"); resetNote:SetWidth(210)
+    Place(resetNote, 16, gy + 6, 210, 12, "text", "reset note")
+    PageButton("|cffff5555Reset this character|r", 244, gy, 146, function()
+      ConfirmReset("char", "Reset TapCatForever progress for THIS character?\n\nGear, cosmetics, professions, cat levels, abilities and adventures go back to the start. TapCoins, quests and achievements are kept.\n\nYour UI will reload.")
+    end, "Reset this character", "Start this character over. TapCoins, quests and achievements are kept.")
+    PageButton("|cffff5555Reset ALL progress|r", 398, gy, 146, function()
+      ConfirmReset("all", "Reset ALL TapCatForever progress on EVERY character?\n\nEverything goes back to level 1: TapCoins, gear, cosmetics, professions, renown, quests and achievements. Your settings are kept.\n\nThis cannot be undone. Your UI will reload.")
+    end, "Reset ALL progress", "Start over on every character. Your settings are kept. This cannot be undone.")
+
+    function win:RefreshSettings()
+      testBox:SetShown(ui.testMode and true or false)
+      local note = "|cffffd100Play with friends:|r your taps count 20% more with one friend who has TapCatForever, and 10% more for each friend after that, up to +50% with a full party."
+      local friends = TCF.PartyCount and TCF:PartyCount() or 0
+      if friends > 0 then note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)) end
+      partyNote:SetText(note)
+      help:SetShown(not ui.testMode)
+      mmB:SetText(ui.minimap.hide and "Show minimap icon" or "Hide minimap icon")
+      for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
+      scaleS.Sync(); alphaS.Sync(); textS.Sync()
+    end
   end
 
   ------------------------------------------------ refresh
@@ -1511,7 +1574,7 @@ function TCF:CreateLootReveal()
     self.pic:Show(); self.gearIcon:Hide()
     self:SetLegendary(false)
     local col = TCF.RARITY[it.rarity].color
-    self.title:SetText(title or "Loot!")
+    self.title:SetText(title or "Loot")
     self.rays:SetVertexColor(col[1], col[2], col[3]); self.rays:SetAlpha(it.rarity >= 3 and 0.9 or 0.45)
     if self.box.SetBackdropBorderColor then self.box:SetBackdropBorderColor(col[1], col[2], col[3], 1) end
     self.pic:SetItem(it, false)
@@ -1520,7 +1583,7 @@ function TCF:CreateLootReveal()
     local cl = it.class and TCF.CLASS_BY_KEY[it.class]
     self.kind:SetText("|cffd28cffCOSMETIC|r  " .. TCF.RARITY[it.rarity].name .. " " .. TCF.SLOT_BY_KEY[it.slot].name .. "  |cffaaaaaa" .. (cl and cl.name or "Any class") .. "|r")
     local note = "\n|cffd28cffAppearance only, no stats. Wear it from the Appearance tab.|r"
-    if isNew then self.status:SetText("|cff20ff20NEW! Added to your collection|r" .. note)
+    if isNew then self.status:SetText("|cff20ff20New: added to your collection|r" .. note)
     else self.status:SetText(string.format("|cffaaaaaaDuplicate: salvaged for|r %s", coinStr(salvage, 14)) .. note) end
     local canEquip = TCF.db.owned[it.id] and TCF:CanEquip(it) and not TCF:IsEquipped(it)
     self.equip:SetShown(canEquip and true or false)
@@ -1543,7 +1606,7 @@ function TCF:CreateLootReveal()
   function f:ShowGear(it, isNew, title, chestKey)
     local col = TCF.RARITY[it.q].color
     self:SetLegendary(it.q >= 5)
-    self.title:SetText(title or "Loot!")
+    self.title:SetText(title or "Loot")
     self.rays:SetVertexColor(col[1], col[2], col[3]); self.rays:SetAlpha(it.q >= 3 and 0.9 or 0.45)
     if self.box.SetBackdropBorderColor then self.box:SetBackdropBorderColor(col[1], col[2], col[3], 1) end
     self.pic:Hide(); self.gearIcon:Show(); self.gearIcon:SetTexture(TCF.Icon(it.icon))
@@ -1551,7 +1614,7 @@ function TCF:CreateLootReveal()
     self.name:SetText(it.name); self.name:SetTextColor(col[1], col[2], col[3])
     self.kind:SetText(string.format("|cff40ff40GEAR|r  %s %s %s  |cffffd100Item Level %d|r", TCF.RARITY[it.q].name, TCF.ITEM_TYPE_NAMES[it.sub] or "", TCF.ITEM_SLOT_NAMES[it.slot] or "", it.ilvl))
     local d = TCF.GearUpgrade and TCF:GearUpgrade(it)
-    local status = isNew and "|cff20ff20NEW gear!|r" or ("|cffaaaaaaAnother copy (you have " .. (TCF:Bag()[it.id] or 1) .. ")|r")
+    local status = isNew and "|cff20ff20New gear|r" or ("|cffaaaaaaAnother copy (you have " .. (TCF:Bag()[it.id] or 1) .. ")|r")
     if d and d > 0 then status = status .. "  |cff20ff20Upgrade: +" .. d .. " Power|r"
     elseif d and d < 0 then status = status .. "  |cffff4040" .. d .. " Power if worn|r"
     elseif d then status = status .. "  |cffaaaaaaSame Power as what you wear|r" end
@@ -1595,13 +1658,15 @@ end
 -- Where each chest comes from (one short line in the Treasure Bag; the Shop's Bag tooltip
 -- lists CHEST_SOURCES).
 TCF.CHEST_BAG_TEXT = {
-  pouch = "Daily quests, dungeons below 20", strong = "Dungeons 20+, weekly quest, levels",
-  heroic = "Every 20 levels, expeditions, dungeons", raid = "Adventure raids, real raids",
+  pouch = "Daily quests, Adventure bosses", strong = "Weekly quest, levels, zone clears",
+  heroic = "Every 20 levels, raid expeditions", dungeon = "Finishing dungeons, expeditions",
+  raid = "Adventure raids, real raids",
 }
 TCF.CHEST_SOURCES = {
-  "Cat Treat Pouch: each daily quest, Adventure bosses, dungeons below level 20.",
-  "Adventurer's Strongbox: weekly quest, finishing a dungeon, every 5 class levels, first zone clears in Adventure.",
-  "Heroic Cache: every 20 class levels, raid expeditions, sometimes a dungeon from level 20.",
+  "Cat Treat Pouch: each daily quest, Adventure bosses.",
+  "Adventurer's Strongbox: weekly quest, every 5 class levels, first clears of open-world zones in Adventure, dungeon expeditions.",
+  "Heroic Cache: every 20 class levels, raid expeditions.",
+  "Dungeon Chest: finishing a dungeon in Adventure (always the first time, then about once every 2 to 3 hours of dungeon fighting), finishing a real dungeon, dungeon expeditions. Never sold.",
   "Raider's Hoard: raid bosses and first raid clears in Adventure, finishing a real raid, raid expeditions. Never sold.",
 }
 
@@ -1615,6 +1680,11 @@ function TCF:ChestOddsTooltip(tt, ch, shop)
     local first
     for _, t in ipairs(TCF.TIERS or {}) do if t.raid then first = t.name; break end end
     tt:AddLine("Epic loot from the bosses of the raids your cat has reached in Adventure" .. (first and (" (" .. first .. " until it reaches one)") or "") .. ".", 0.8, 0.8, 0.8, true)
+  elseif ch.dungeonLoot then
+    local first
+    for _, t in ipairs(TCF.TIERS or {}) do if TCF.IsDungeonTier(t) then first = t.name; break end end
+    tt:AddLine("Loot from the bosses of the dungeons your cat has reached in Adventure" .. (first and (" (" .. first .. " until it reaches one)") or "") .. ", close to your cat's level and for its class.", 0.8, 0.8, 0.8, true)
+    tt:AddLine("When those dungeons have no gear of the rolled quality near its level, you get gear of that quality for its level instead.", 0.7, 0.7, 0.7, true)
   else
     tt:AddLine("Gear is for your cat's class and level.", 0.8, 0.8, 0.8, true)
   end
@@ -1626,7 +1696,8 @@ end
 
 function TCF:CreateBag()
   local f = CreateFrame("Frame", "TapCatForeverBag", UIParent, BT)
-  -- tall enough for one row per kind of chest (4: Pouch, Strongbox, Heroic Cache, Raider's Hoard)
+  -- tall enough for one row per kind of chest (5: Pouch, Strongbox, Heroic Cache, Dungeon Chest,
+  -- Raider's Hoard): rows 56 tall every 62 from 44 down, then the Open everything button
   f:SetSize(400, 106 + 62 * #TCF.CHESTS); f:SetPoint("CENTER", 310, 0)
   f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
   f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
