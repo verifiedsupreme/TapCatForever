@@ -12,7 +12,7 @@ import os, re
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
 HIGHLIGHTS = {
-    "1.5.3": "Levels now stop at 60 and come faster early on, plus a new Dungeon Chest, professions that unlock with Trade Gold earned, and a weapon of its own for each class.",
+    "1.5.3": "New: a realm leaderboard. Opt in under Settings to see other players' taps and get a big chest for your level. Also level 60, faster unlocks and more.",
     "1.5.1": "Each class's cat now has its own Trade Gold and Renown, real legendaries can drop, raids give the new Raider's Hoard, and there is lots more gear.",
     "1.5.0": "Class professions with crafted gear, party cats with a tap bonus, a fishing dock, 33 new cat skins and the Compendium.",
 }

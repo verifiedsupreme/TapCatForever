@@ -3038,12 +3038,16 @@ TEST = r'''
       local cb = win.settingsShare
       ui.shareDev = nil; win:RefreshSettings()
       check(cb and not cb:GetChecked(), "sharing is off by default")
-      local shareA = layoutItem("Share progress with the developer")
+      local shareA = layoutItem("Share my cat's progress (developer stats and leaderboard)")
       check(shareA and shareA.kind == "check" and shareA.frame == cb, "the sharing checkbox is on the Settings page")
       tip = tipText(function() cb.scripts.OnEnter(cb) end)
       for _, words in ipairs({ "addon version", "class", "cat level", "zones cleared", "TapCoins",
                                "only shared with the addon's developer", "while you are both online", "Off by default",
-                               "Chat Channels window", "can see your character's name" }) do
+                               "Chat Channels window", "can see your character's name",
+                               "Realm leaderboard", "players on your realm", "total taps", "achievements earned",
+                               "Adventure zones cleared", "never over the internet", "take you off their leaderboard", "Heroic Cache",
+                               "every character on your account", "belong together", "Anyone who joins that channel",
+                               "could also read what is shared", "hear it later" }) do
         check(tip:find(words, 1, true), "sharing tooltip says: " .. words)
       end
       check(not tip:find("!", 1, true), "no exclamation marks in the sharing tooltip")
@@ -3454,6 +3458,575 @@ def check_capes_art():
         assert w >= 340, "capes art: %s is too narrow to show on both sides (%d)" % (k, w)
     print("capes art (side drapes, %d drawings): all checks passed" % len(capes))
 
+# ---- leaderboard section (1.5.3, realm leaderboard): several fake clients, each its own Lua state with
+# the addon loaded, share one realm clock and one hidden channel. The test routes every channel message
+# to the others, so the board has to spread by gossip; then merge rules, caps, expiry, opt-out, the
+# sign-up chest, odd or secret input, the rate limits and the window.
+LB_CLIENT = r"""
+_srv = 1800000000
+function GetServerTime() return _srv end
+function GetNormalizedRealmName() return "Forever" end
+_chanId, _joins = 0, 0
+function JoinTemporaryChannel(name) _joins = _joins + 1; _chanId = 7 end
+function LeaveChannelByName() _chanId = 0 end
+function GetChannelName(n) return _chanId end
+_out = {}
+C_ChatInfo.SendAddonMessage = function(p, msg, ch, target)
+  if _sendResult == 0 then table.insert(_out, { p, msg, ch, target }) end
+  return _sendResult
+end
+function _deliver(p, msg, sender, chan, chanName)
+  _fire("CHAT_MSG_ADDON", p, msg, chan or "CHANNEL", sender, "", 0, 7, chanName or "TapCatFvrShare", 0)
+end
+function _tick(n, srv) for i = 1, n do _srv = srv + i; _update(1) end end
+function _boardKeys()
+  local b = TapCatForever.LeaderboardBoard(false)
+  local t = {}
+  if b then for k in pairs(b.e) do t[#t + 1] = k end end
+  table.sort(t)
+  return table.concat(t, ",")
+end
+function _boardCount()
+  local b = TapCatForever.LeaderboardBoard(false)
+  local n = 0
+  if b then for _ in pairs(b.e) do n = n + 1 end end
+  return n
+end
+function _entry(k)
+  local b = TapCatForever.LeaderboardBoard(false)
+  return b and b.e[k]
+end
+function _optIn(on) TapCatForever.db.ui.shareDev = on; TapCatForever:DevShareChanged() end
+function _takeOut() local o = _out; _out = {}; return o end
+"""
+
+def check_leaderboard(seed=1):
+    srv = [1800000000]
+    clients = {}
+    log = []        # (srv, sender, msg, ch, target)
+    def ck(c, m):
+        if not c: raise AssertionError("leaderboard: " + m)
+
+    class Client:
+        def __init__(self, name, cls, opted=False, before=None):
+            self.name, self.full = name, name + "-Forever"
+            self.lua = load_addon(login=False)
+            self.lua.execute(LB_CLIENT)
+            self.lua.execute("math.randomseed(%d)" % ((seed + sum(map(ord, name)) * 7919) % 2147483647))
+            self.lua.execute('_charName = "%s"; _srv = %d' % (name, srv[0]))
+            if before: self.lua.execute(before)
+            self.lua.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+            self.lua.execute('TapCatForever.db.class = "%s"' % cls)
+            self.online = True
+            self.sent = []   # (srv, msg)
+            clients[name] = self
+        def ev(self, expr): return self.lua.eval(expr)
+        def ex(self, code): return self.lua.execute(code)
+        def heroic(self): return self.ev("TapCatForever.db.keys.heroic or 0")
+        def key(self, name): return (name + "-forever").lower()
+
+    def step(n=1):
+        for _ in range(n):
+            for c in clients.values():
+                if c.online: c.lua.globals()._tick(1, srv[0])
+            srv[0] += 1
+            for c in list(clients.values()):
+                if not c.online: continue
+                out = c.lua.globals()._takeOut()
+                for i in range(1, len(out) + 1):
+                    p, msg, ch, target = out[i][1], out[i][2], out[i][3], out[i][4]
+                    c.sent.append((srv[0], msg))
+                    log.append((srv[0], c.name, msg, ch, target))
+                    ck(p == "TapCatFvr", "prefix " + str(p))
+                    if msg[:3] not in ("L1;", "R1;", "X1;"): continue
+                    ck(ch == "CHANNEL" and target == 7, "leaderboard messages only go to the hidden channel: %s %s" % (ch, target))
+                    ck(len(msg) <= 255, "message too long")
+                    for d in clients.values():   # everyone in the channel hears it, the sender too (echo)
+                        if d.online and d.ev("_chanId") > 0:
+                            d.lua.globals()._deliver(p, msg, c.full)
+
+    def lbmsgs(c, since=0): return [m for (t, m) in c.sent if t > since and m[:3] in ("L1;", "R1;", "X1;")]
+
+    # 0. a player who never opts in: joins nothing, sends nothing, reads nothing, sees no board
+    E = Client("Echo", "DRUID")
+    step(120)
+    ck(E.ev("_joins") == 0 and lbmsgs(E) == [], "opted out: no channel, no messages")
+    E.lua.globals()._deliver("TapCatFvr", "L1;Zed-Forever;MAGE;5;100;1;0;1.5.3;%d" % srv[0], "Zed-Forever")
+    ck(E.ev("_boardCount()") == 0 and E.ev("#TapCatForever:LeaderboardRows()") == 0, "opted out: nothing read, no rows")
+    h0 = E.heroic()
+
+    # 1. Alpha and Cedric opt in together. Alpha gets the sign-up chest once, with one chat line
+    A = Client("Alpha", "WARRIOR")
+    C = Client("Cedric", "MAGE")
+    ha, chat0 = A.heroic(), A.ev("#_chat")
+    A.ex("_optIn(true)"); C.ex("_optIn(true)")
+    ck(A.heroic() == ha + 1, "sign-up: a Heroic Cache")
+    lines = [A.ev("_chat[%d]" % i) for i in range(chat0 + 1, A.ev("#_chat") + 1)]
+    ck(len(lines) == 1 and "Heroic Cache" in lines[0] and "leaderboard" in lines[0] and "!" not in lines[0], "one plain chat line: %r" % lines)
+    ck(A.ev("TapCatForever.db.ui.lbSignupChest") == True, "the sign-up chest is remembered for the account")
+    step(90)
+    ck(A.ev("_joins") >= 1 and A.ev("_chanId") == 7, "opting in joins the hidden channel")
+    ck(A.ev("_boardKeys()") == "cedric-forever" and C.ev("_boardKeys()") == "alpha-forever", "two players online together see each other: %s / %s" % (A.ev("_boardKeys()"), C.ev("_boardKeys()")))
+    ck(len([m for m in lbmsgs(A) if m.startswith("L1;Alpha-Forever;WARRIOR;")]) == 1, "Alpha shared its own summary once")
+    e = C.ev('_entry("alpha-forever")')
+    ck(e.c == "WARRIOR" and e.l == A.ev("TapCatForever:CD().level") and e.t == A.ev("TapCatForever.db.taps") and e.v == A.ev("TapCatForever:DevSummary().version"), "the summary holds the right numbers")
+    for c in (A, C):
+        ck(c.ev("_chat[#_chat]").find("TapCatFvr") < 0 and all("L1;" not in c.ev("_chat[%d]" % i) for i in range(1, c.ev("#_chat") + 1)), "nothing about the channel prints in chat")
+
+    # 2. Alpha logs off; Cedric stays a while
+    A.online = False
+    step(30 * 60)
+    ck(len([m for m in lbmsgs(C) if m.startswith("L1;Cedric")]) >= 2, "a summary again every 12 to 15 minutes")
+
+    # 3. Bravo, never online with Alpha, logs in and opts in: Cedric passes Alpha on
+    B = Client("Bravo", "PRIEST")
+    B.ex("_optIn(true)")
+    step(180)
+    ck(B.ev("_boardKeys()") == "alpha-forever,cedric-forever", "gossip: Bravo learned about Alpha from Cedric: " + B.ev("_boardKeys()"))
+
+    # 4. Cedric logs off, Delta logs in with only Bravo online: gets Alpha and Cedric from Bravo
+    C.online = False
+    step(20 * 60)
+    D = Client("Delta", "ROGUE")
+    D.ex("_optIn(true)")
+    step(180)
+    ck(D.ev("_boardKeys()") == "alpha-forever,bravo-forever,cedric-forever", "gossip reaches Delta: " + D.ev("_boardKeys()"))
+
+    # 5. Alpha comes back (a reload) at a higher level: the newer summary replaces the old one everywhere
+    A.online = True
+    A.ex("TapCatForever.LeaderboardTest.reset(); TapCatForever:CD().level = 30; TapCatForever.db.taps = 123456; _fire('PLAYER_LOGIN')")
+    step(120)
+    for c in (B, D):
+        e = c.ev('_entry("alpha-forever")')
+        ck(e and e.l == 30 and e.t == 123456, c.name + " has Alpha's newer summary")
+    ck(A.heroic() == ha + 1, "no second sign-up chest after a reload")
+    newTs = D.ev('_entry("alpha-forever").ts')
+    old = "L1;Alpha-Forever;WARRIOR;3;50;1;0;1.5.3;%d" % (newTs - 3600)
+    D.lua.globals()._deliver("TapCatFvr", old, "Bravo-Forever")
+    ck(D.ev('_entry("alpha-forever").l') == 30, "an older copy passed on later never replaces a newer one")
+    forged = "L1;Delta-Forever;ROGUE;60;999999999;80;28;1.5.3;%d" % (srv[0] + 1)
+    D.lua.globals()._deliver("TapCatFvr", forged, "Bravo-Forever")
+    ck(D.ev('_entry("delta-forever")') is None, "your own entry never comes from someone else")
+    # a big change sends sooner (a level), but not more often than every 5 minutes
+    n0 = len(lbmsgs(A))
+    A.ex("TapCatForever:CD().level = 31")
+    step(6 * 60)
+    ck(any(m.startswith("L1;Alpha-Forever;WARRIOR;31;") for m in lbmsgs(A)[n0:]), "a new level is shared within minutes")
+    ck(D.ev('_entry("alpha-forever").l') == 31, "and reaches the others")
+
+    # 6. Alpha opts out: one "take me off", honoured by the others, and nothing more is sent
+    s0 = len(A.sent)
+    A.ex("_optIn(false)")
+    step(1)
+    rm = [m for (t, m) in A.sent[s0:]]
+    ck(len(rm) == 1 and rm[0].startswith("R1;"), "opting out sends one take-me-off: %r" % rm)
+    for c in (B, D):
+        ck(c.ev('_entry("alpha-forever")') is None, c.name + " took Alpha off")
+    ck(A.ev("_chanId") == 0, "opted out: left the hidden channel")
+    step(40 * 60)
+    ck(len(A.sent) == s0 + 1, "opted out: nothing else sent")
+    ck(A.ev("#TapCatForever:LeaderboardRows()") == 0, "opted out: you don't see the board")
+    A.ex("TapCatForever:ShowLeaderboard()")
+    ck("Settings > Help and info" in A.ev("TapCatForever.leaderboardView.empty:GetText()") and A.ev("TapCatForever.leaderboardView.settingsBtn:IsShown()"),
+       "opted out: the window says how to opt in")
+    ck(not A.ev("TapCatForever.leaderboardView.rows[1].cells[1]:IsShown()"), "opted out: no rows in the window")
+    A.ex("TapCatForever.leaderboardView:Hide()")
+    # an old copy of Alpha passed on later doesn't bring them back; nor does their old take-me-off replayed
+    rmTs = int(rm[0][3:])
+    D.lua.globals()._deliver("TapCatFvr", "L1;Alpha-Forever;WARRIOR;31;123456;1;0;1.5.3;%d" % (rmTs - 60), "Bravo-Forever")
+    ck(D.ev('_entry("alpha-forever")') is None, "a stale copy after the take-me-off is ignored")
+    # only a player's own take-me-off counts: Bravo can't remove Delta from Delta's board or Cedric anywhere
+    D.lua.globals()._deliver("TapCatFvr", "R1;%d" % srv[0], "Bravo-Forever")
+    ck(D.ev('_entry("bravo-forever")') is None, "Bravo's own take-me-off removes Bravo")
+    ck(D.ev('_entry("cedric-forever")') is not None, "and nobody else")
+    D.lua.globals()._deliver("TapCatFvr", "L1;Bravo-Forever;PRIEST;1;1;1;0;1.5.3;%d" % (srv[0] - 5), "Bravo-Forever")
+    ck(D.ev('_entry("bravo-forever")') is None, "a summary older than that take-me-off doesn't bring Bravo back")
+    D.lua.globals()._deliver("TapCatFvr", "L1;Bravo-Forever;PRIEST;1;1;1;0;1.5.3;%d" % (srv[0] + 1), "Bravo-Forever")
+    ck(D.ev('_entry("bravo-forever")') is not None, "a newer one from Bravo does")
+    D.lua.globals()._deliver("TapCatFvr", "R1;%d" % (srv[0] - 30), "Bravo-Forever")
+    ck(D.ev('_entry("bravo-forever")') is not None, "an old take-me-off replayed after a newer summary is ignored")
+    # Alpha opts in again: back on the boards, no second chest
+    A.ex("_optIn(true)")
+    step(120)
+    ck(A.heroic() == ha + 1, "opting in again: no second chest")
+    ck(D.ev('_entry("alpha-forever")') is not None, "opting in again puts you back on the board")
+    # a new character on the same account: still no chest (the account already had it)
+    A.ex('_charName = "Alphalt"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+    step(5)
+    ck(A.heroic() == 0 and A.ev("TapCatForever.db.keys.heroic or 0") == 0, "an alt gets no sign-up chest")
+    A.ex('_charName = "Alpha"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+
+    # 7. a save that already shared (from before this version): the chest once, on the first tick after login
+    F = Client("Foxtrot", "HUNTER", before="TapCatForeverDB = { ui = { shareDev = true } }")
+    ck(F.heroic() == 0, "no chest before the first tick")
+    step(2)
+    ck(F.heroic() == 1, "already sharing: the sign-up chest once")
+    F.ex("TapCatForever.LeaderboardTest.reset(); _fire('PLAYER_LOGIN')")
+    step(2)
+    ck(F.heroic() == 1, "and only once")
+
+    # 8. every client stayed inside the send limits: a gap of 2 seconds and at most 15 in 10 minutes
+    def send_limits():
+        for c in clients.values():
+            ts = [t for (t, m) in c.sent if m[:3] in ("L1;", "X1;")]
+            for i in range(1, len(ts)):
+                ck(ts[i] - ts[i - 1] >= 2, c.name + " sent two messages less than 2 seconds apart")
+            ts = [t for (t, m) in c.sent if m[:3] in ("L1;", "X1;", "R1;")]
+            for i in range(len(ts)):
+                ck(len([t for t in ts if ts[i] <= t < ts[i] + 600]) <= 15, c.name + " sent more than 15 messages in 10 minutes")
+    send_limits()
+
+    # 9. merge rules, caps and expiry (Delta's board)
+    D.ex(r"""
+      local TCF = TapCatForever
+      local b, t = TCF.LeaderboardBoard(true), _srv
+      local merge = TCF.LeaderboardMerge
+      local function E(n, ts, lvl) return { n = n, c = "MAGE", l = lvl or 5, t = 10, a = 1, z = 0, v = "1.5.3", ts = ts } end
+      for k in pairs(b.e) do b.e[k] = nil end
+      for k in pairs(b.rm) do b.rm[k] = nil end
+      _r = {}
+      _r.add = merge(b, E("Zara-Forever", t - 100), t)
+      _r.older = select(2, merge(b, E("Zara-Forever", t - 200, 9), t))
+      _r.same = select(2, merge(b, E("Zara-Forever", t - 100, 9), t))
+      _r.newer = merge(b, E("Zara-Forever", t - 50, 9), t)
+      _r.future = select(2, merge(b, E("Yuri-Forever", t + 3600), t))
+      _r.ancient = select(2, merge(b, E("Yuri-Forever", t - 31 * 86400), t))
+      _r.self = select(2, merge(b, E("Delta-Forever", t), t, "delta-forever"))
+      -- the cap: 600 players, the newest 500 kept
+      local letters = "abcdefghijklmnopqrstuvwxyz"
+      local function nm(i) local a, c = (i % 26) + 1, (math.floor(i / 26) % 26) + 1
+        return "Cap" .. letters:sub(c, c) .. letters:sub(a, a) .. "-Forever" end
+      for k in pairs(b.e) do b.e[k] = nil end
+      for i = 1, 600 do merge(b, E(nm(i), t - 100000 + i), t) end
+      local n, oldest = 0, nil
+      for _, e in pairs(b.e) do n = n + 1; if not oldest or e.ts < oldest then oldest = e.ts end end
+      _r.capN, _r.capOldest = n, oldest - (t - 100000)
+      _r.full = select(2, merge(b, E("Late-Forever", t - 200000), t))
+      -- expiry: 31 days old drops off at the next login
+      local any
+      for k, e in pairs(b.e) do any = k; e.ts = t - 31 * 86400; break end
+      b.rm["gone-forever"] = t - 40 * 86400
+      b.rm["kept-forever"] = t - 86400
+      TCF.LeaderboardTest.reset(); _fire("PLAYER_LOGIN")
+      b = TCF.LeaderboardBoard(false)
+      _r.expired = b.e[any] == nil
+      _r.left = 0; for _ in pairs(b.e) do _r.left = _r.left + 1 end
+      _r.rmGone, _r.rmKept = b.rm["gone-forever"] == nil, b.rm["kept-forever"] ~= nil
+      -- a saved board edited by hand: bad entries go
+      b.e["junk-forever"] = { n = "Junk-Forever", c = "DRAGON", l = 5, t = 1, a = 0, z = 0, v = "1", ts = t }
+      b.e["other-forever"] = { n = "Bob-Forever", c = "MAGE", l = 5, t = 1, a = 0, z = 0, v = "1", ts = t }
+      b.e["str-forever"] = "hello"
+      TCF.LeaderboardTest.prune(b, t)
+      _r.junk = b.e["junk-forever"] == nil and b.e["other-forever"] == nil and b.e["str-forever"] == nil
+    """)
+    r = D.lua.globals()._r
+    ck(r.add == "added" and r.older == "older" and r.same == "older" and r.newer == "updated", "newest summary wins: %s %s %s %s" % (r.add, r.older, r.same, r.newer))
+    ck(r.future == "future" and r.ancient == "old" and r.self == "self", "too far ahead, too old, and yourself are refused")
+    ck(r.capN == 500 and r.capOldest == 101 and r.full == "full", "cap: the newest 500 kept (%s, oldest %s, %s)" % (r.capN, r.capOldest, r.full))
+    ck(r.expired and r.left == 499 and r.rmGone and r.rmKept, "players not seen for 30 days drop off")
+    ck(r.junk, "odd saved entries are dropped")
+
+    # 10. odd and secret messages: ignored without errors
+    D.ex("_optIn(true)")
+    n0 = D.ev("_boardCount()")
+    now = srv[0]
+    good = "L1;Good-Forever;MAGE;5;100;1;0;1.5.3;%d" % now
+    bad = [
+        ("L1;", "Bob-Forever"), ("L1;Bob-Forever;MAGE;5;100;1;0;1.5.3", "Bob-Forever"),
+        (good.replace("MAGE", "DRAGON"), "Good-Forever"), (good.replace(";5;", ";0;"), "Good-Forever"),
+        (good.replace(";5;", ";9999;"), "Good-Forever"), (good.replace(";100;", ";9999999999999999;"), "Good-Forever"),
+        (good.replace("Good-Forever", "Go0d-Forever"), "Good-Forever"), (good.replace("Good-Forever", "Good"), "Good-Forever"),
+        (good.replace("Good-Forever", "Go|cffd-Forever"), "Good-Forever"), (good.replace("Good-Forever", "Go od-Forever"), "Good-Forever"),
+        (good.replace("Good-Forever", "Good-For-ever"), "Good-Forever"), (good.replace("1.5.3", "1.5;3"), "Good-Forever"),
+        (good + ";extra", "Good-Forever"), (good[:-1] + "x", "Good-Forever"), ("L1;" + "A" * 300, "Good-Forever"),
+        (good.replace("Good-Forever", "G" * 60 + "-Forever"), "Good-Forever"), ("R1;abc", "Cedric-Forever"),
+        ("R1;" + "9" * 13, "Cedric-Forever"), ("R1;%d" % (now + 99999), "Cedric-Forever"), ("X1;hello", "Good-Forever"),
+        (good, "Bad Name-Forever"), (good, ""),
+    ]
+    for msg, sender in bad:
+        D.lua.globals()._deliver("TapCatFvr", msg, sender)
+    D.lua.globals()._deliver("TapCatFvr", good, "Good-Forever", "PARTY")
+    D.lua.globals()._deliver("TapCatFvr", good, "Good-Forever", "CHANNEL", "General")
+    D.lua.globals()._deliver("OtherAddon", good, "Good-Forever")
+    D.ex('_fire("CHAT_MSG_ADDON", _SECRET, "%s", "CHANNEL", "Good-Forever", "", 0, 7, "TapCatFvrShare", 0)' % good)
+    D.ex('_fire("CHAT_MSG_ADDON", "TapCatFvr", _SECRET, "CHANNEL", "Good-Forever", "", 0, 7, "TapCatFvrShare", 0)')
+    D.ex('_fire("CHAT_MSG_ADDON", "TapCatFvr", "%s", _SECRET, "Good-Forever", "", 0, 7, "TapCatFvrShare", 0)' % good)
+    D.ex('_fire("CHAT_MSG_ADDON", "TapCatFvr", "%s", "CHANNEL", _SECRET, "", 0, 7, "TapCatFvrShare", 0)' % good)
+    D.ex('_fire("CHAT_MSG_ADDON", "TapCatFvr", "%s", "CHANNEL", "Good-Forever", "", 0, 7, _SECRET, 0)' % good)
+    D.ex('_srvSave = _srv; GetServerTime = function() return _SECRET end')
+    D.lua.globals()._deliver("TapCatFvr", good, "Good-Forever")   # a secret clock: nothing can be compared, nothing kept
+    D.ex('GetServerTime = function() return _srv end')
+    ck(D.ev("_boardCount()") == n0 and D.ev('_entry("good-forever")') is None,
+       "odd or secret messages change nothing (%d -> %d)" % (n0, D.ev("_boardCount()")))
+    D.lua.globals()._deliver("TapCatFvr", good, "Good-Forever")
+    ck(D.ev('_entry("good-forever")') is not None, "the good one is read")
+
+    # 11. the read limit: a flood of 400 summaries in one second, at most 240 read
+    D.ex("for k in pairs(TapCatForever.LeaderboardBoard(true).e) do TapCatForever.LeaderboardBoard(true).e[k] = nil end")
+    D.ex("TapCatForever.LeaderboardTest.reset(); _optIn(true)")
+    D.ex(r"""
+      local letters = "abcdefghijklmnopqrstuvwxyz"
+      for i = 1, 400 do
+        local a, c = (i % 26) + 1, (math.floor(i / 26) % 26) + 1
+        local n = "Flood" .. letters:sub(c, c) .. letters:sub(a, a) .. "-Forever"
+        _deliver("TapCatFvr", "L1;" .. n .. ";MAGE;5;" .. i .. ";1;0;1.5.3;" .. _srv, n)
+      end
+    """)
+    ck(D.ev("_boardCount()") == D.ev("TapCatForever.LB_READ_BUDGET"), "at most %d read a minute: %d" % (D.ev("TapCatForever.LB_READ_BUDGET"), D.ev("_boardCount()")))
+    # the send limit: many newcomers in a row never push a client past 15 messages in 10 minutes
+    s0 = len(D.sent)
+    t0 = srv[0]
+    for i in range(30):
+        nm = "New" + "abcdefghijklmnopqrstuvwxyz"[i // 26] + "abcdefghijklmnopqrstuvwxyz"[i % 26] + "-Forever"
+        D.lua.globals()._deliver("TapCatFvr", "L1;%s;MAGE;5;1;1;0;1.5.3;%d" % (nm, srv[0]), nm)
+        step(20)
+    sentNow = [t for (t, m) in D.sent[s0:] if m.startswith("L1;")]
+    ck(len(sentNow) > 0 and all(len([u for u in sentNow if s <= u < s + 600]) <= 15 for s in sentNow), "send limit held: %d sent" % len(sentNow))
+
+    # 11b. a take-me-off reaches players who were offline: it is passed on (X1) like the board, and a
+    # newcomer never shows that player. The earlier clients log off for this part.
+    for c in clients.values(): c.online = False
+    G, H, M = Client("Golf", "SHAMAN"), Client("Hotel", "PALADIN"), Client("Mike", "WARLOCK")
+    for c in (G, H, M): c.ex("_optIn(true)")
+    step(120)
+    ck(H.ev("_boardKeys()") == "golf-forever,mike-forever" and M.ev("_boardKeys()") == "golf-forever,hotel-forever",
+       "Golf, Hotel and Mike see each other: %s / %s" % (H.ev("_boardKeys()"), M.ev("_boardKeys()")))
+    H.online = False
+    G.ex("_optIn(false)")
+    step(1)
+    ck(M.ev('_entry("golf-forever")') is None and M.ev('TapCatForever.LeaderboardBoard(false).rmn["golf-forever"]') == "Golf-Forever",
+       "Mike heard Golf's take-me-off and keeps the name to pass it on")
+    G.online = False
+    step(5 * 60)
+    H.online = True
+    H.ex("TapCatForever.LeaderboardTest.reset(); _fire('PLAYER_LOGIN')")
+    ck(H.ev('_entry("golf-forever")') is not None, "Hotel was offline and still lists Golf")
+    step(35 * 60)
+    ck(any(m.startswith("X1;Golf-Forever;") for m in lbmsgs(M)), "Mike passed the take-me-off on")
+    ck(H.ev('_entry("golf-forever")') is None and H.ev('TapCatForever.LeaderboardBoard(false).rm["golf-forever"]') is not None,
+       "Hotel took Golf off when it heard it")
+    ck(M.ev('_entry("golf-forever")') is None, "Golf's old summary passed on by Hotel didn't bring Golf back for Mike")
+    M.online = False
+    K = Client("Kilo", "DRUID")
+    K.ex("_optIn(true)")
+    step(30 * 60)
+    ck(K.ev("_boardKeys()") == "hotel-forever,mike-forever", "a newcomer gets the board without Golf: " + K.ev("_boardKeys()"))
+    ck(K.ev('TapCatForever.LeaderboardBoard(false).rm["golf-forever"]') is not None, "and the take-me-off note with it")
+    # Golf shares again: back on the boards of those who hear Golf
+    G.online = True
+    G.ex("_optIn(true)")
+    step(120)
+    ck(K.ev('_entry("golf-forever")') is not None and H.ev('_entry("golf-forever")') is not None, "sharing again puts Golf back")
+    G.ex("_optIn(false)")
+    step(1)
+    G.online = False
+
+    # 11c. the take-me-off is kept until it has gone out, for every character on the account that shared
+    N = Client("November", "MAGE")
+    N.ex("_optIn(true)")
+    step(90)
+    N.ex('TapCatForever.LeaderboardTest.reset(); TapCatForever.DevTest.reset(); _chanId = 0; _charName = "Novalt"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+    N.full = "Novalt-Forever"
+    step(90)
+    ck(K.ev('_entry("november-forever")') is not None and K.ev('_entry("novalt-forever")') is not None, "both of November's characters shared")
+    ck(N.ev('TapCatForever.db.ui.lbShared["november-forever"] and TapCatForever.db.ui.lbShared["novalt-forever"]') == True,
+       "the account remembers which characters shared")
+    # back on November, the box is unticked 10 seconds after login, before the channel is joined
+    N.ex('TapCatForever.LeaderboardTest.reset(); TapCatForever.DevTest.reset(); _chanId = 0; _charName = "November"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+    N.full = "November-Forever"
+    step(10)
+    ck(N.ev("_chanId") == 0, "not in the channel yet")
+    s0 = len(N.sent)
+    N.ex("_optIn(false)")
+    step(1)
+    ck(len(N.sent) == s0, "no channel: nothing sent yet")
+    ck(N.ev('TapCatForever.db.ui.lbRemove["november-forever"] ~= nil and TapCatForever.db.ui.lbRemove["novalt-forever"] ~= nil') == True,
+       "a take-me-off is saved for both characters")
+    step(30)
+    rm = [m for (t, m) in N.sent[s0:]]
+    ck(len(rm) == 1 and rm[0].startswith("R1;"), "it goes out once the channel is joined: %r" % rm)
+    ck(K.ev('_entry("november-forever")') is None and K.ev('_entry("novalt-forever")') is not None, "Kilo took November off; the alt waits for its own login")
+    ck(N.ev("_chanId") == 0 and N.ev('TapCatForever.db.ui.lbRemove["november-forever"]') is None, "then the channel is left and the note cleared")
+    # the alt logs in while opted out: its own take-me-off after the usual join delay, then it leaves
+    N.ex('TapCatForever.LeaderboardTest.reset(); TapCatForever.DevTest.reset(); _chanId = 0; _charName = "Novalt"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+    N.full = "Novalt-Forever"
+    s0 = len(N.sent)
+    step(40)
+    rm = [m for (t, m) in N.sent[s0:]]
+    ck(len(rm) == 1 and rm[0].startswith("R1;"), "the alt sends its own take-me-off at login: %r" % rm)
+    ck(K.ev('_entry("novalt-forever")') is None, "and Kilo took the alt off")
+    ck(N.ev("_chanId") == 0 and N.ev("TapCatForever.db.ui.lbRemove") is None, "nothing left to send, channel left")
+    j0 = N.ev("_joins")
+    step(30 * 60)
+    N.ex('TapCatForever.LeaderboardTest.reset(); TapCatForever.DevTest.reset(); _charName = "November"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+    N.full = "November-Forever"
+    step(60)
+    ck(len(N.sent) == s0 + 1 and N.ev("_joins") == j0 and N.ev("_chanId") == 0, "opted out with nothing to send: no channel, nothing sent")
+
+    # 11d. off, on, our own summary sent, off again within 10 seconds: a second take-me-off at once
+    s0 = len(K.sent)
+    K.ex("_optIn(false)")
+    step(1)
+    K.ex("_optIn(true); TapCatForever.LeaderboardTest.setOwnAt(GetTime() + 2)")
+    step(4)
+    def kmsgs(): return [m for (t, m) in K.sent[s0:] if m.startswith("R1;") or m.startswith("L1;Kilo-Forever;")]
+    msgs = kmsgs()
+    ck(len(msgs) == 2 and msgs[0].startswith("R1;") and msgs[1].startswith("L1;Kilo-Forever;"), "take-me-off, then a summary: %r" % msgs)
+    ck(H.ev('_entry("kilo-forever")') is not None, "Hotel lists Kilo again")
+    K.ex("_optIn(false)")
+    step(1)
+    msgs = kmsgs()
+    ck(len(msgs) == 3 and msgs[2].startswith("R1;"), "the second take-me-off goes out at once: %r" % msgs)
+    ck(H.ev('_entry("kilo-forever")') is None, "and Hotel took Kilo off again")
+    K.ex("_optIn(true); _optIn(false)")
+    step(15)
+    ck(len(kmsgs()) == 3, "with no summary in between, no more take-me-off")
+
+    # 11e. limits per sender (Hotel's board)
+    H.ex("TapCatForever.LeaderboardTest.reset()")
+    H.ex('for i = 1, 300 do _deliver("TapCatFvr", "L1;Hotel-Forever;PALADIN;5;1;1;0;1.5.3;" .. _srv, "Hotel-Forever") end')
+    ck(H.ev("#TapCatForever.LeaderboardTest.state().readAt") == 0, "our own messages coming back cost no reading")
+    n0 = H.ev("_boardCount()")
+    flood = r"""
+      local letters = "abcdefghijklmnopqrstuvwxyz"
+      for i = %d, %d do
+        local n = "Fake" .. letters:sub(math.floor(i / 26) %% 26 + 1, math.floor(i / 26) %% 26 + 1) .. letters:sub(i %% 26 + 1, i %% 26 + 1) .. "-Forever"
+        _deliver("TapCatFvr", "L1;" .. n .. ";MAGE;5;1;1;0;1.5.3;" .. _srv, "Spammer-Forever")
+      end
+    """
+    H.ex(flood % (1, 30))
+    ck(H.ev("_boardCount()") == n0 + H.ev("TapCatForever.LB_SENDER_MSGS"), "one sender: at most %d messages read in 10 minutes (%d)" % (H.ev("TapCatForever.LB_SENDER_MSGS"), H.ev("_boardCount()") - n0))
+    H.ex("_clock = _clock + 601"); H.ex(flood % (31, 50))
+    H.ex("_clock = _clock + 601"); H.ex(flood % (51, 70))
+    ck(H.ev("_boardCount()") == n0 + H.ev("TapCatForever.LB_SENDER_ADDS"), "one sender adds at most %d players an hour (%d)" % (H.ev("TapCatForever.LB_SENDER_ADDS"), H.ev("_boardCount()") - n0))
+    H.ex("_clock = _clock + 601")
+    H.lua.globals()._deliver("TapCatFvr", "L1;Spammer-Forever;MAGE;5;1;1;0;1.5.3;%d" % srv[0], "Spammer-Forever")
+    ck(H.ev('_entry("spammer-forever")') is not None, "their own summary still counts")
+    H.ex("_clock = _clock + 601")
+    H.lua.globals()._deliver("TapCatFvr", "X1;Mike-Forever;%d" % srv[0], "Spammer-Forever")
+    ck(H.ev('_entry("mike-forever")') is not None, "past the limit, they can't take others off either")
+    # a player who took themselves off comes back only through their own summary
+    H.ex('TapCatForever.LeaderboardRemove(TapCatForever.LeaderboardBoard(false), "zulu-forever", _srv - 10, _srv, "Zulu-Forever")')
+    H.lua.globals()._deliver("TapCatFvr", "L1;Zulu-Forever;MAGE;9;9;1;0;1.5.3;%d" % srv[0], "Mike-Forever")
+    ck(H.ev('_entry("zulu-forever")') is None, "a fresh summary passed on by someone else doesn't bring them back")
+    H.lua.globals()._deliver("TapCatFvr", "L1;Zulu-Forever;MAGE;9;9;1;0;1.5.3;%d" % srv[0], "Zulu-Forever")
+    ck(H.ev('_entry("zulu-forever")') is not None and H.ev('TapCatForever.LeaderboardBoard(false).rm["zulu-forever"]') is None, "their own does")
+    # X1 checks: an X1 older than the entry is ignored; one about yourself is ignored
+    H.lua.globals()._deliver("TapCatFvr", "X1;Zulu-Forever;%d" % (srv[0] - 60), "Mike-Forever")
+    ck(H.ev('_entry("zulu-forever")') is not None, "a take-me-off older than the summary is ignored")
+    H.lua.globals()._deliver("TapCatFvr", "X1;Hotel-Forever;%d" % srv[0], "Mike-Forever")
+    ck(H.ev('TapCatForever.LeaderboardBoard(false).rm["hotel-forever"]') is None, "a take-me-off about yourself is ignored")
+    for bad in ("X1;Zulu-Forever", "X1;Zulu;%d" % srv[0], "X1;Zulu-Forever;abc", "X1;Zu|ru-Forever;%d" % srv[0], "X1;Zulu-Forever;" + "9" * 13):
+        H.lua.globals()._deliver("TapCatFvr", bad, "Mike-Forever")
+    ck(H.ev('_entry("zulu-forever")') is not None, "odd take-me-off messages are ignored")
+
+    # 11f. entries that turn 30 days old during a long session are neither passed on nor shown
+    H.ex(r"""
+      local b = TapCatForever.LeaderboardBoard(false)
+      local saved = {}
+      for k, v in pairs(b.e) do saved[k] = v; b.e[k] = nil end
+      b.e["stale-forever"] = { n = "Stale-Forever", c = "MAGE", l = 5, t = 1, a = 0, z = 0, v = "1.5.3", ts = _srv - TapCatForever.LB_EXPIRE - 1 }
+      b.e["okay-forever"] = { n = "Okay-Forever", c = "MAGE", l = 5, t = 1, a = 0, z = 0, v = "1.5.3", ts = _srv - TapCatForever.LB_EXPIRE + 60 }
+      _r = { relay = false, row = false, okRelay = false, okRow = false }
+      for _, k in ipairs(TapCatForever.LeaderboardTest.pickRelays(GetTime(), 1e12, false)) do
+        if k == "stale-forever" then _r.relay = true elseif k == "okay-forever" then _r.okRelay = true end
+      end
+      for _, r in ipairs(TapCatForever:LeaderboardRows("taps")) do
+        if r.n == "Stale-Forever" then _r.row = true elseif r.n == "Okay-Forever" then _r.okRow = true end
+      end
+      b.e["stale-forever"], b.e["okay-forever"] = nil, nil
+      for k, v in pairs(saved) do b.e[k] = v end
+    """)
+    ck(not H.ev("_r.relay") and not H.ev("_r.row"), "an entry past 30 days is not passed on or shown")
+    ck(H.ev("_r.okRelay") and H.ev("_r.okRow"), "one just inside 30 days still is")
+
+    # 11g. relays count as passed on only once they went out
+    H.ex(r"""
+      local LT = TapCatForever.LeaderboardTest
+      LT.reset()
+      _r = {}
+      local c = _chanId
+      _chanId = 0
+      _r.noChan = LT.relay(GetTime(), GetTime(), false)
+      _chanId = c
+      _sendResult = 1
+      _r.queued = LT.relay(GetTime(), GetTime(), false)
+      for i = 1, 30 do _update(1) end
+      _r.marked = next(LT.state().relayedAt) ~= nil
+      _r.left = #LT.state().queue
+      _sendResult = 0
+      _r.again = LT.relay(GetTime(), GetTime(), false)
+      for i = 1, 30 do _update(1) end
+      _r.markedNow = next(LT.state().relayedAt) ~= nil
+    """)
+    r = H.lua.globals()._r
+    ck(r.noChan == 0 and r.queued > 0 and not r.marked and r.left == 0, "failed relays are not counted as passed on (%s %s %s %s)" % (r.noChan, r.queued, r.marked, r.left))
+    ck(r.again > 0 and r.markedNow, "they are picked again and counted once sent")
+    H.ex("_takeOut()")
+    send_limits()
+
+    # 12. the window: ranks, sorting, your row, scrolling; the Settings button and /tcf top open it
+    B.ex("TapCatForever:ToggleWindow()")
+    lay = B.lua.eval("TapCatForever.window.settingsLayout")
+    items = [lay[i] for i in range(1, len(lay) + 1)]
+    lb = [a for a in items if a.label == "Leaderboard"]
+    share = [a for a in items if a.kind == "check" and "leaderboard" in a.label]
+    ck(len(lb) == 1 and lb[0].kind == "button" and len(share) == 1 and lb[0].y == share[0].y and share[0].x + share[0].w <= lb[0].x,
+       "Settings: the Leaderboard button sits beside the sharing checkbox in Help and info")
+    B.ex("local f = TapCatForever.window.settingsLayout; for _, a in ipairs(f) do if a.label == 'Leaderboard' then a.frame.scripts.OnClick(a.frame) end end")
+    ck(B.ev("TapCatForever.leaderboardView and TapCatForever.leaderboardView:IsShown()"), "the Settings button opens the leaderboard")
+    B.ex("TapCatForever.leaderboardView:Hide(); SlashCmdList.TAPCATFOREVER('top')")
+    ck(B.ev("TapCatForever.leaderboardView:IsShown()"), "/tcf top opens it")
+    B.ex(r"""
+      local TCF = TapCatForever
+      local b, t = TCF.LeaderboardBoard(true), _srv
+      local classes = { "MAGE", "WARRIOR", "PRIEST", "ROGUE" }
+      for i = 1, 20 do
+        local n = "Rank" .. string.char(96 + i) .. "-Forever"
+        TCF.LeaderboardMerge(b, { n = n, c = classes[i % 4 + 1], l = i, t = 1000 * (21 - i), a = i % 7, z = i % 5, v = "1.5.3", ts = t - i * 4000 }, t)
+      end
+      TCF.db.taps = 999999999   -- you lead on taps
+      local v = TCF.leaderboardView
+      v:Refresh()
+      _w = { title = v.title:GetText(), r1 = v.rows[1].cells[2]:GetText(), rank1 = v.rows[1].cells[1]:GetText(), seen = v.rows[2].cells[7]:GetText() }
+      local you
+      for i, row in ipairs(v.rows) do if row.entry and row.entry.self then you = i end end
+      _w.youHl = you and v.rows[you].hl:IsShown() or false
+      _w.otherHl = v.rows[you == 1 and 2 or 1].hl:IsShown()
+      local lvl
+      for _, h in ipairs(v.heads) do if h.sortKey == "level" then lvl = h end end
+      lvl.scripts.OnClick(lvl)
+      _w.byLevel = v.rows[1].entry.l
+      _w.maxLevel = 0
+      for _, r in ipairs(TCF:LeaderboardRows("taps")) do _w.maxLevel = math.max(_w.maxLevel, r.l) end
+      _w.sorted = true
+      for i = 2, 14 do if v.rows[i].entry and v.rows[i].entry.l > v.rows[i - 1].entry.l then _w.sorted = false end end
+      v.scripts.OnMouseWheel(v, -1)
+      _w.scroll = v.scroll
+      _w.note = v.note:GetText()
+      _w.empty = v.empty:IsShown()
+    """)
+    w = B.lua.globals()._w
+    ck(w.title.startswith("Realm leaderboard") and w.rank1 == 1, "window title and ranks: %s" % w.title)
+    ck(w.youHl and not w.otherHl, "your own row is highlighted, others are not")
+    ck(w.byLevel == w.maxLevel and w.maxLevel >= 20 and w.sorted, "sorting by cat level: %s" % w.byLevel)
+    ck(w.scroll == 1 and not w.empty, "the list scrolls with the mouse wheel")
+    ck("30 days" in w.note and "your realm" in w.note and "!" not in w.note, "the limits are explained at the bottom: " + w.note)
+    ck(B.ev("TapCatForever.LeaderboardAgo(%d - 7200, %d)" % (srv[0], srv[0])) == "2 h ago" and B.ev("TapCatForever.LeaderboardAgo(%d - 3 * 86400, %d)" % (srv[0], srv[0])) == "3 days ago", "last seen")
+
+    # 13. the What's new strip leads with the leaderboard
+    hl = B.ev('(function() for _, n in ipairs(TapCatForever.NEWS) do if n.version == "1.5.3" then return n.highlight end end end)()')
+    ck(hl and hl.startswith("New: a realm leaderboard.") and "Settings" in hl and len(hl) <= 170 and "!" not in hl, "1.5.3 What's new note: %r" % hl)
+
+    # nobody who opted out ever sent a leaderboard message, and nothing printed with an exclamation mark
+    ck(lbmsgs(E) == [] and E.heroic() == h0, "Echo (never opted in) sent nothing and got no chest")
+    for c in clients.values():
+        for i in range(1, c.ev("#_chat") + 1):
+            line = c.ev("_chat[%d]" % i)
+            ck("!" not in line and "TapCatFvr" not in line, "chat line: " + line)
+    print("leaderboard section (%d clients, %d channel messages, gossip, merge, caps, expiry, opt-out, sign-up chest, odd input, limits, window): all checks passed"
+          % (len(clients), len([1 for l in log if l[2][:3] in ("L1;", "R1;", "X1;")])))
+
 def load_addon(login=True):
     """Loads every file in the TOC into a sandboxed Lua 5.1 with the mocked WoW API."""
     lua = L.LuaRuntime(unpack_returned_tuples=True)
@@ -3479,6 +4052,7 @@ def main():
     lua.execute("_artcheck = {}")
     lua.execute(TEST)
     check_capes_art()  # capes art section (see check_capes_art)
+    check_leaderboard(seed)  # leaderboard section (see check_leaderboard)
     art = os.path.join(ROOT, "Art")
     missing = sorted(set(f for f in lua.globals()._artcheck.values() if not os.path.exists(os.path.join(art, f.replace("\\", "/") + ".tga"))))
     print("referenced textures:", len(list(lua.globals()._artcheck.values())), "missing:", missing)

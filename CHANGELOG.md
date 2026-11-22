@@ -2,6 +2,15 @@
 
 ## 1.5.3
 
+**Realm leaderboard**
+- New: a leaderboard of the cats of players on your realm. It ranks them by total taps, cat level, achievements earned or Adventure zones cleared, with your own row highlighted. Open it with the Leaderboard button in Settings > Help and info, or /tcf top.
+- It is opt-in, with the same checkbox as the developer stats: Share my cat's progress (developer stats and leaderboard), in Settings > Help and info. It is off by default, and only players who turn it on are on the leaderboard and can see it.
+- The first time you turn it on, the character you are playing gets a Heroic Cache in its Treasure Bag, with one chat line. This happens once for your account: turning it off and on again, or on another character, gives nothing more.
+- When it is on, your addon sends your character's name and realm, your cat's class and level, your total taps, achievements earned, Adventure zones cleared and addon version on an addon channel that TapCatForever players on your realm join when they turn it on. Players pass the list on to each other inside the game, so you also see players you are never online with. Nothing goes over the internet, and the channel never shows in your chat. Anyone who joins that channel could read what is shared there with an addon.
+- The option is for your whole account, so all your characters share. Since taps and achievements are shared between them, other players may be able to tell your characters on the same realm belong together.
+- The leaderboard fills up over time and can be a little behind. Players not seen for 30 days drop off, and up to 500 players are kept. Turning the option off stops sharing and asks other players to take you off their leaderboard. Players who are offline then hear it later from the others, and each of your other characters that shared asks the next time you log in on it.
+- One player can only add a limited number of other players to your leaderboard each hour, and a player who took themselves off only comes back by sharing again.
+
 **Levels**
 - Cat levels now stop at 60, like Classic. A cat above 60 becomes 60 and keeps its gear, abilities and titles. A cat at 60 no longer gains XP, and its XP bar says Max level.
 - Early levels are faster than before: up to about level 30 each level needs less XP. After about 30 each level takes longer than before, up to about twice as long near 60. Playing about 2 hours a day, a new cat reaches level 10 in about an hour and level 60 in a few months.
@@ -42,8 +51,8 @@
 **Settings**
 - The Settings page is sorted into clear groups: Cat and display, Chat and sounds, Position, Help and info, and Progress.
 - A new Text distance slider sets the space between the cat and its level, XP bar and counters. It works with the text above or below the cat, and the cat stays where it is.
-- A new option, Share progress with the developer, is off by default. When it is on and the developer asks, your addon answers with five things: the addon version, your cat's class, cat level, zones cleared and TapCoins. Nothing else is sent. It only answers the developer, only while you are both online, and nothing from it prints in your chat. To hear the question your addon joins an addon channel, which the game still lists in its Chat Channels window.
-- Help and info has the Welcome tour, Patch notes, Send feedback and a new Compendium button side by side.
+- A new option, Share my cat's progress (developer stats and leaderboard), is off by default. When it is on and the developer asks, your addon answers with five things: the addon version, your cat's class, cat level, zones cleared and TapCoins. It only answers the developer, only while you are both online, and nothing from it prints in your chat. The same option puts you on the realm leaderboard (see above). To share, your addon joins an addon channel, which the game still lists in its Chat Channels window.
+- Help and info has the Welcome tour, Patch notes, Send feedback and a new Compendium button side by side, with the sharing option and the Leaderboard button under them.
 - The minimap button says whether it will show or hide the icon.
 - The two reset buttons sit on their own at the bottom, in red, so they are hard to click by accident. Both still ask first.
 - Scroll the mouse wheel over a slider to move it one step at a time. The Ctrl and Shift mouse wheel tips for the cat are now in the Cat size and Opacity slider tooltips.

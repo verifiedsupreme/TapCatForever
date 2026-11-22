@@ -1246,22 +1246,9 @@ function TCF:CreateWindow()
       ui.minimap.hide = not ui.minimap.hide; TCF:UpdateMinimapButton()
       win:RefreshSettings()
     end, "Minimap icon", "Show or hide the TapCatForever button on the minimap.")
-    -- opt-in, off by default (DevView.lua). Not in win.settingsChecks: it also joins or leaves
-    -- the hidden channel, and RefreshSettings sets it on its own.
-    -- (the left half's width, like the Chat and sounds heading, so the label stays out of the Position column)
-    local shareCB = Check("Share progress with the developer", "shareDev", COL[1], gy + 24, COL[3] - 8 - COL[1],
-      "When the developer of TapCatForever asks, your addon answers with these five things: the addon version, " ..
-      "your cat's class, cat level, zones cleared and TapCoins. Nothing else is sent.\n\n" ..
-      "It is only shared with the addon's developer (checked by character name and realm), and only while you are " ..
-      "both online. To hear the question, your addon joins an addon channel. Nothing from it prints in your chat, " ..
-      "but the game lists it in the Chat Channels window, and other players who join that channel can see your " ..
-      "character's name in it. Off by default.",
-      function() if TCF.DevShareChanged then TCF:DevShareChanged() end end)
-    table.remove(checks)
-    win.settingsShare = shareCB
-
-    -- Help and info: four buttons the same size in one row
-    gy = Heading("Help and info", 16, 309, 528)
+    -- Help and info: four buttons the same size in one row, then the sharing checkbox beside the
+    -- Leaderboard button
+    gy = Heading("Help and info", 16, 285, 528)
     PageButton("Welcome tour", COL[1], gy, COL_W, function() TCF:ShowWelcome() end,
       "Welcome tour", "A short tour of what TapCatForever does.")
     PageButton("Patch notes", COL[2], gy, COL_W, function() TCF:ShowPatchNotes() end,
@@ -1270,6 +1257,32 @@ function TCF:CreateWindow()
       "Send feedback", "Report a bug or suggest an idea. Shows links you can copy into your browser.")
     PageButton("Compendium", COL[4], gy, COL_W, function() TCF:ToggleCompendium(); TCF:PlaySound("click") end,
       "Compendium", "Every skin, cosmetic, effect and piece of gear, what you have, and how to get the rest. Also /tcf compendium.")
+    -- opt-in, off by default: developer stats (DevView.lua) and the realm leaderboard (Leaderboard.lua).
+    -- Not in win.settingsChecks: it also joins or leaves the hidden channel, and RefreshSettings sets it on its own.
+    local shareCB = Check("Share my cat's progress (developer stats and leaderboard)", "shareDev", COL[1], gy + 28, COL[4] - 8 - COL[1],
+      "Off by default. When it is on, your addon shares two things, both inside the game through the addon, never over the internet.\n\n" ..
+      "Developer stats: when the developer of TapCatForever asks, your addon answers with the addon version, " ..
+      "your cat's class, cat level, zones cleared and TapCoins. This is only shared with the addon's developer " ..
+      "(checked by character name), and only while you are both online.\n\n" ..
+      "Realm leaderboard: your character's name and realm, your cat's class and cat level, your total taps, " ..
+      "achievements earned, Adventure zones cleared and addon version are sent on an addon channel that " ..
+      "TapCatForever players on your realm join when they turn this on. They pass it on to each other, so it can " ..
+      "reach players you are never online with. In return you see their cats on the leaderboard. Nothing else is sent.\n\n" ..
+      "This setting applies to every character on your account. Each of them joins the channel and shares its own " ..
+      "name once it logs in, and because taps and achievements are shared by all your characters, other players " ..
+      "may be able to tell your characters on the same realm belong together.\n\n" ..
+      "Nothing from the channel prints in your chat, but the game lists it in the Chat Channels window. Anyone who " ..
+      "joins that channel can see your character's name in it, and with an addon could also read what is shared there. " ..
+      "Turning this off stops sharing and asks other players to take you off their leaderboard. Players who are " ..
+      "offline then hear it later from the others, and each of your other characters that shared asks the next time " ..
+      "you log in on it.\n\n" ..
+      "The first time you turn it on, your cat gets a Heroic Cache.",
+      function() if TCF.DevShareChanged then TCF:DevShareChanged() end end)
+    table.remove(checks)
+    win.settingsShare = shareCB
+    PageButton("Leaderboard", COL[4], gy + 28, COL_W, function() TCF:ToggleLeaderboard(); TCF:PlaySound("click") end,
+      "Leaderboard", "Players on your realm who share their cat's progress, ranked by taps, cat level, achievements or zones. " ..
+      "Turn on the sharing option beside it to see it. Also /tcf top.")
 
     -- notes between Help and Progress (y 363 to 431): the party note, then the help line, or
     -- the test mode buttons in place of both while test mode is on
@@ -1278,7 +1291,7 @@ function TCF:CreateWindow()
     Place(partyNote, 16, INFO_Y, 528, INFO_BOTTOM - INFO_Y, "info", "notes")
     local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetWidth(528)
     help:SetPoint("TOPLEFT", partyNote, "BOTTOMLEFT", 0, -6)
-    help:SetText("Slash commands: /tcf show, hide, lock, unlock, reset, scale <n>, stats, compendium, news, feedback\n" ..
+    help:SetText("Slash commands: /tcf show, hide, lock, unlock, reset, scale <n>, stats, compendium, news, top, feedback\n" ..
       "TapCoins, quests and achievements are shared; gear, cosmetics and cat levels are per character, and each class has its own Trade Gold and professions.")
     win.settingsInfo = { y = INFO_Y, bottom = INFO_BOTTOM, note = partyNote, help = help }
 

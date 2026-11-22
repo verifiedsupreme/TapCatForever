@@ -1,5 +1,5 @@
--- TapCatForever: developer view (opt-in). Players who tick "Share progress with the
--- developer" in Settings answer a short question from the addon's developer with five things:
+-- TapCatForever: developer view (opt-in). Players who tick "Share my cat's progress (developer
+-- stats and leaderboard)" in Settings answer a short question from the addon's developer with five things:
 -- addon version, cat class, cat level, zones cleared and TapCoins. Nothing is sent by anyone who
 -- has not ticked it, answers only ever go to the developer (a whisper addon message to the
 -- developer's own characters, known by name and realm together), and only while both are online.
@@ -10,7 +10,9 @@
 --     JoinTemporaryChannel (never saved), and it is taken out of every chat window and its notices
 --     are filtered, so nothing from it prints in chat. The game still lists it in the Chat Channels
 --     window, and anyone else in the channel can see the names of the characters in it (the Settings
---     tooltip says so). Leaving the option off never joins it. A join that keeps failing (a password
+--     tooltip says so). Anyone can join it by name, and with an addon could read what is sent on it.
+--     Leaving the option off never joins it, except briefly to send the leaderboard's "take me off"
+--     for a character that shared before (Leaderboard.lua). A join that keeps failing (a password
 --     or ban set by whoever holds the name, or too many channels) is tried at most 3 times a session.
 --
 -- Protocol (Party.lua's prefix "TapCatFvr", which every version since 1.4 ignores unless a message
@@ -19,6 +21,9 @@
 --   A1;<nonce>;<version>;<class>;<level>;<zones>;<coins>    an answer, whispered to the developer
 -- The developer (name and realm checked by hash, or test mode) asks with /tcf players and sees who
 -- answered in a small window.
+--
+-- The same opt-in also puts you on the realm leaderboard (Leaderboard.lua), which uses this file's
+-- hidden channel and sending helpers (TCF.DevChannelId, TCF.DevSendRaw) for its own L1, R1 and X1 messages.
 local ADDON, TCF = ...
 local floor, min, max, random = math.floor, math.min, math.max, math.random
 
@@ -97,6 +102,7 @@ local function isDevName(full)
 end
 TCF.DevIsDeveloperName = isDevName
 TCF.DevFullKey = fullKey
+TCF.DevMyRealm = myRealm
 
 local function myName()
   local n = UnitName and UnitName("player")
@@ -123,6 +129,7 @@ local function zonesCleared(class)
   end)
   return ok and type(n) == "number" and n or 0
 end
+TCF.DevZonesCleared = zonesCleared
 
 -- the five things shared: addon version, class, cat level, zones cleared, TapCoins
 function TCF:DevSummary()
@@ -173,6 +180,7 @@ local function sendRaw(text, chatType, target)
   return ok and (res == nil or res == true or res == 0 or
     (Enum and Enum.SendAddonMessageResult and res == Enum.SendAddonMessageResult.Success)) and true or false
 end
+TCF.DevSendRaw = sendRaw
 
 local function groupType()
   if not IsInGroup then return nil end
@@ -216,8 +224,13 @@ local function hideChannel()
   end
 end
 
+-- opted out, and this character's leaderboard "take me off" has not gone out yet
+local function removalPending()
+  return TCF.LeaderboardRemovePending and TCF.LeaderboardRemovePending() and true or false
+end
+
 local function wantChannel()
-  return TCF.db and (TCF.db.ui.shareDev or devListening) and true or false
+  return TCF.db and (TCF.db.ui.shareDev or devListening or removalPending()) and true or false
 end
 
 local function join()
@@ -240,6 +253,11 @@ local function leave()
   if channelId() > 0 and LeaveChannelByName then pcall(LeaveChannelByName, CHANNEL) end
 end
 
+-- the leaderboard sent its "take me off": leave unless something else still needs the channel
+function TCF.DevLeaveIfUnwanted()
+  if not wantChannel() then leave() end
+end
+
 -- chat filter: anything about the hidden channel (join notices and the like) never reaches chat
 local function isOurChannel(v)
   return plain(v) and #v <= 80 and v:lower():find(CHANNEL:lower(), 1, true) ~= nil
@@ -260,13 +278,18 @@ do
   end
 end
 
--- Settings checkbox changed (UI.lua)
+-- Settings checkbox changed (UI.lua). The leaderboard hears it first: turning sharing off sends its
+-- "take me off" message while the channel is still joined. If that could not go out yet (no channel,
+-- combat, a refused send), the channel stays (or gets) joined until it has.
 function TCF:DevShareChanged()
+  if self.LeaderboardShareChanged then self:LeaderboardShareChanged(self.db.ui.shareDev and true or false) end
   if self.db.ui.shareDev then
     joinTries, joinGaveUp = 0, false   -- a click: a fresh try
     joinAt = now()   -- join now (out of combat)
-  elseif not devListening then
+  elseif not wantChannel() then
     leave()
+  elseif removalPending() and channelId() == 0 and not joinAt then
+    joinAt = now()
   end
 end
 
@@ -484,7 +507,8 @@ end
 local function onEvent(_, event, a1, a2, a3, a4, _, _, _, _, a9)
   if event == "PLAYER_LOGIN" then
     wrapSlash()
-    if TCF.db and TCF.db.ui.shareDev then joinAt = now() + JOIN_DELAY end
+    -- sharing, or a leaderboard "take me off" still to send for this character
+    if TCF.db and wantChannel() then joinAt = now() + JOIN_DELAY end
     return
   end
   if not TCF.db then return end

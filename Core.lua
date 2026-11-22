@@ -635,14 +635,15 @@ function TCF.ChestQuality(ch)
   return bestQ
 end
 
--- Puts an unopened chest in the Treasure Bag.
-function TCF:AwardChest(key, source)
+-- Puts an unopened chest in the Treasure Bag. force = true prints the chat line even with chat
+-- messages off (only for a reward the player's own click earned, such as joining the leaderboard).
+function TCF:AwardChest(key, source, force)
   local ch = TCF.CHEST_BY_KEY[key]
   self.db.keys[key] = (self.db.keys[key] or 0) + 1
   local col = TCF.RARITY[TCF.ChestQuality(ch)]
   local hex = ch.color or (col and col.hex) or "ff1eff00"
   local art = ch.name:find("^[AEIOUaeiou]") and "an" or "a"
-  self:Print(string.format("%s: you earned %s |c%s%s|r. Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name))
+  self:Print(string.format("%s: you earned %s |c%s%s|r. Open it from your Treasure Bag.", source or "Reward", art, hex, ch.name), force)
   self:PlaySound("loot")
   self:MarkDirty()
   self:RefreshAll()
