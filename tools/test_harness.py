@@ -2673,7 +2673,7 @@ TEST = r'''
         check(stratTip and stratTip:find("Also a 15% chance of a Dungeon Chest.", 1, true), "Stratholme tooltip shows its Dungeon Chest chance: " .. tostring(stratTip))
       end
       -- a real dungeon run (level 20 and up) sometimes rolls the Heroic Cache's skins (Golden
-      -- Treasure Cat, Diamond Cat) at the odds dungeons used to give a Heroic Cache; raids don't
+      -- Treasure Cat) at the odds dungeons used to give a Heroic Cache; raids don't
       do
         local rolls = {}
         TCF.RollSkinSource = function(_, kind, match) rolls[#rolls + 1] = { kind = kind, match = match } end

@@ -113,8 +113,9 @@ function TCF:DungeonComplete(run, how)
   local won = self:RollSkinSource("realdungeon", function(g) return g.run == run.type or g.run == "any" end,
     "Found after " .. (run.name or (run.type == "raid" and "a raid" or "a dungeon")))
   -- Dungeons used to give a Heroic Cache now and then (10% of runs from level 20, 25% from 50).
-  -- They give a Dungeon Chest now, so the Heroic Cache's own skins (Golden Treasure Cat, Diamond
-  -- Cat) roll here at those old odds instead, without the extra chest. At most one skin a run.
+  -- They give a Dungeon Chest now, so the Heroic Cache's own skins (the Golden Treasure Cat; the
+  -- Diamond Cat left it in 1.6.0) roll here at those old odds instead, without the extra chest.
+  -- At most one skin a run.
   if not won and run.type == "party" then
     local lvl = UnitLevel and UnitLevel("player") or 60
     if TCF.IsSecret(lvl) or type(lvl) ~= "number" then lvl = 60 end

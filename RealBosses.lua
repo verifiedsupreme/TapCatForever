@@ -51,7 +51,8 @@ end
 -- encounter IDs, when known (RealBossDebug prints the ID of every encounter it can't match).
 -- rewards: { id = TCF.ITEMS key, chance = per kill (1 = the first kill always gives it) }.
 -- Three skins that used to drop from these bosses in Adventure now only come from the real
--- bosses (Adventure keeps its other boss skins).
+-- bosses (Adventure keeps its other boss skins). The Diamond Cat drops from General Drakkisath
+-- and from Nefarian in Adventure (Data.lua).
 TCF.REAL_BOSSES = {
   { key = "hogger",      name = "Hogger",                   place = "Elwynn Forest", npc = 448, world = true,
     rewards = { { id = "rb_hogger_bandana", chance = 1 } } },
@@ -72,7 +73,7 @@ TCF.REAL_BOSSES = {
   { key = "thaurissan",  name = "Emperor Dagran Thaurissan", place = "Blackrock Depths", npc = 9019,
     rewards = { { id = "fx_boss_fire", chance = 1 } } },
   { key = "drakkisath",  name = "General Drakkisath",       place = "Blackrock Spire", npc = 10363,
-    rewards = { { id = "rb_drakkisath_crown", chance = 0.2 } } },
+    rewards = { { id = "rb_drakkisath_crown", chance = 0.2 }, { id = "skin_diamond", chance = 0.05 } } },
   { key = "frostwhisper", name = "Ras Frostwhisper",        place = "Scholomance", npc = 10508,
     rewards = { { id = "fx_boss_frost", chance = 1 } } },
   { key = "rivendare",   name = "Baron Rivendare",          place = "Stratholme", npc = 10440,
@@ -346,7 +347,12 @@ ev:SetScript("OnUpdate", function(_, e)
 end)
 
 ---------------------------------------------------------------- "how to get it" lines
-local function pct(p) return (p >= 0.1 and string.format("%d%%", math.floor(p * 100 + 0.5))) or string.format("%.1f%%", p * 100) end
+-- whole percents without a decimal ("5%"), others with one ("2.5%")
+local function pct(p)
+  local v = p * 100
+  if math.abs(v - math.floor(v + 0.5)) < 0.05 then return string.format("%d%%", math.floor(v + 0.5)) end
+  return string.format("%.1f%%", v)
+end
 
 function TCF:RealBossSourceLines(it)
   local out = {}

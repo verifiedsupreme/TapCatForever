@@ -301,6 +301,15 @@
 - Cosmetics you had before this update say "Got before this was tracked". Another copy of one later adds "Latest one from: ..." under it.
 - The cosmetics every cat starts with say "Got it from: Starter cosmetic".
 
+**Skins**
+- The three best-looking cat skins now come from the hardest bosses. If you already have one, you keep it.
+- Galaxy Cat: no longer in the Shop. In Adventure, Kel'Thuzad in Naxxramas drops it, 2% each kill.
+- Diamond Cat: no longer in the Heroic Cache. In WoW, kill General Drakkisath in Blackrock Spire with TapCatForever on, 5% each kill. In Adventure, Nefarian in Blackwing Lair drops it, 2% each kill.
+- Emberheart Cat: in Adventure, Ragnaros in Molten Core drops it, 3% each kill. The Molten Core expedition still has a 1% chance (it was 2%).
+- Shop skins with an animated effect cost more: Golden War Lion 12,000 TapCoins (the Spectral Tiger stays 12,000), Arcanist's Manasaber 8,000, Felsaber and Winterspring Frostsaber 7,000, Vermillion Lynx 6,500 and X-995 Mechanocat 6,000.
+- The plain Shop skins cost a little more too: Strawberry Sweetheart, Darkmoon Kitty and Maine Coon 2,500, Bengal and Spotted Frostsaber 2,000, Calico, Striped Frostsaber, Striped Nightsaber and Black Nightsaber 1,800, and the others 300 to 800.
+- Skins you already bought stay yours.
+
 **Quests**
 - Tap quests ask for a lot more: the daily Paws of Fury is now 4,000, 8,000 or 12,000 taps, and the weekly Tireless Tapper is 100,000 taps (it gives a little more too). New quests use the new numbers from the next daily and weekly reset.
 

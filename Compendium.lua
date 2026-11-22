@@ -348,12 +348,13 @@ end
 -- A short word for where a skin comes from (shown on grid cells): chest, quest, craft...
 local TAG = { chest = "chest", quest = "quest", expedition = "exped.", craft = "craft" }
 function TCF.SkinSourceTag(it)
+  -- an Adventure boss drop comes first (the Emberheart Cat is also a rarer expedition find)
+  if #skinDrops(it) > 0 then return "drop" end
   local g = getsOf(it)[1]
   if g then
     if g.kind == "realdungeon" then return g.run == "raid" and "raid" or "dungeon" end
     return TAG[g.kind] or "?"
   end
-  if #skinDrops(it) > 0 then return "drop" end
   if it.skinAch or achFor("skin", it.id) then return "ach." end
   return ""
 end
@@ -383,9 +384,9 @@ local function itemOrder(cat)
   local function group(it)
     if it.id == "skin_orange" then return 0 end
     if it.skinPrice then return 1 end
+    if #skinDrops(it) > 0 then return 7 end
     local g = getsOf(it)[1]
     if g then return SKIN_GROUP[g.kind] or 9 end
-    if #skinDrops(it) > 0 then return 7 end
     return 8
   end
   if cat == "skin" then
