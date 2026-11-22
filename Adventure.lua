@@ -432,6 +432,7 @@ function TCF:AdvTick(dt)
     local m, i = pickTarget(run)
     if m then
       local crit = random() * 100 < st.crit
+      self:AdvEvent("swing", 0, i) -- the basic attack's look (a shot, wand bolt, spell or swipe: AdventureFX.lua)
       self:AdvHitMob(m, i, st.dps * dmgMult(self, run) * (crit and 2 or 1), crit and "crit" or "hit")
     end
     if alive(run) > 0 then self:AdvUseAbility(run) end

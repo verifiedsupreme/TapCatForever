@@ -22,6 +22,7 @@ Cat.lua
 VectorData.lua
 CatVector.lua
 Abilities.lua
+SpellKitData.lua
 Adventure.lua
 Expeditions.lua
 Professions.lua
@@ -44,6 +45,7 @@ UI_DeathRoll.lua
 UI_RPS.lua
 Welcome.lua
 UI_Gear.lua
+AdventureFX.lua
 UI_Adventure.lua
 UI_Abilities.lua
 UI_Expeditions.lua
