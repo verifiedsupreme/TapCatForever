@@ -51,6 +51,9 @@
 --     TCF:ToolLevel(prof)  TCF:ToolMult(prof, lvl)  TCF:ToolCost(prof, lvl)  TCF:ToolCooldown(prof, lvl)
 --     TCF:ToolReadyIn(prof)  TCF:ToolCycleShare(prof, i)  TCF:ToolGold(prof, i)  TCF:ToolRolls(prof, lvl)
 --     TCF:ToolName(prof, lvl)  ("Iron Skinning Knife (Lv 23)")   TCF:UpgradeTool(prof)
+--   Hand speed (1.6), one per family, kept when the business is sold: shortens the click cooldown
+--     TCF:SpeedLevel(prof)  TCF:SpeedCost(prof, lvl)  TCF:SpeedMult(lvl)  TCF:UpgradeSpeed(prof)
+--     TCF:ClicksPerSecond(prof, toolLvl, speedLvl)   TCF.SPEED_MAX levels
 --     Old names still work: MineClick(i, prof), PickLevel(prof), PickMult(lvl, prof), PickCost(lvl, prof),
 --     PickCooldown(lvl, prof), PickReadyIn(prof), PickCycleShare(i, prof), PickGold(i, prof),
 --     PickOre(lvl, prof), PickName(lvl, prof), UpgradePick(prof)
@@ -309,6 +312,7 @@ local function repair(s, class)
     s.pick = nil
   end
   s.tools = type(s.tools) == "table" and s.tools or {}
+  s.speed = type(s.speed) == "table" and s.speed or {}   -- 1.6 hand speed per family (kept when selling)
   if s.pickLvl then s.tools.mining = max(s.tools.mining or 0, s.pickLvl); s.pickLvl = nil end
   for _, k in ipairs(FAM_KEYS) do
     s.ops[k] = type(s.ops[k]) == "table" and s.ops[k] or {}
@@ -714,8 +718,40 @@ end
 function TCF:ToolLevel(prof) return S(self).tools[famOf(self, prof)] or 0 end
 function TCF:ToolMult(prof, lvl) return TCF.PICK_BOOST ^ (lvl or self:ToolLevel(prof)) end
 function TCF:ToolCost(prof, lvl) lvl = lvl or self:ToolLevel(prof); return floor(TCF.PICK_COST * TCF.PICK_COST_GROWTH ^ lvl) end
--- one click per cooldown (shared by every spot of the family); upgrades shorten it a little, down to 0.75s
-function TCF:ToolCooldown(prof, lvl) return max(0.75, 1.5 * 0.985 ^ (lvl or self:ToolLevel(prof))) end
+-- one click per cooldown (shared by every spot of the family); tool upgrades shorten it a little,
+-- down to 0.75s, and Hand speed (1.6) shortens that again, step by step, down to 0.25s
+function TCF:ToolCooldown(prof, lvl, speedLvl)
+  local base = max(0.75, 1.5 * 0.985 ^ (lvl or self:ToolLevel(prof)))
+  return max(TCF.SPEED_FLOOR, base * self:SpeedMult(speedLvl or self:SpeedLevel(prof)))
+end
+
+-- Hand speed (1.6): a separate upgrade per family, bought with Trade Gold and kept when you sell
+-- the business. Each level makes the click cooldown about 7% shorter; at level 15 it is a third
+-- (0.75s -> 0.25s with a well upgraded tool). The cost curve is steep: the first levels cost
+-- little, the last ones are a goal for many business sales (tools/trade_sim.py --speed).
+TCF.SPEED_MAX, TCF.SPEED_FLOOR = 15, 0.25
+TCF.SPEED_COST_A, TCF.SPEED_COST_B, TCF.SPEED_COST_BASE = 0.5, 0.0306, 1e4
+function TCF:SpeedLevel(prof) return S(self).speed[famOf(self, prof)] or 0 end
+function TCF:SpeedMult(lvl) return (1 / 3) ^ (min(TCF.SPEED_MAX, max(0, lvl or 0)) / TCF.SPEED_MAX) end
+-- the Trade Gold the next level costs (from level lvl to lvl + 1); nil at the top
+function TCF:SpeedCost(prof, lvl)
+  lvl = lvl or self:SpeedLevel(prof)
+  if lvl >= TCF.SPEED_MAX then return nil end
+  local e = TCF.SPEED_COST_A * lvl + TCF.SPEED_COST_B * lvl * lvl
+  local c = TCF.SPEED_COST_BASE * 10 ^ e
+  local p = 10 ^ floor(math.log10(c) - 1)   -- two significant digits
+  return floor(c / p + 0.5) * p
+end
+function TCF:UpgradeSpeed(prof)
+  local f = famOf(self, prof)
+  local cost = self:SpeedCost(f)
+  if not cost or not self:SpendGold(cost) then return false end
+  local s = S(self)
+  s.speed[f] = (s.speed[f] or 0) + 1
+  self:MarkDirty()
+  return true
+end
+function TCF:ClicksPerSecond(prof, lvl, speedLvl) return 1 / self:ToolCooldown(prof, lvl, speedLvl) end
 function TCF:ToolReadyIn(prof)
   self.toolNext = self.toolNext or {}
   return max(0, (self.toolNext[famOf(self, prof)] or 0) - GetTime())
@@ -961,8 +997,8 @@ function TCF:RenownOnReset()
 end
 
 -- Sells everything this cat bought with Trade Gold for permanent Renown (for this cat only;
--- every class has its own business). Skills, known recipes, materials, bandages, dishes and
--- unlocked professions are kept.
+-- every class has its own business). Skills, Hand speed (1.6), known recipes, materials, bandages,
+-- dishes and unlocked professions are kept.
 function TCF:PrestigeTrade()
   local s = S(self)
   local gain = self:RenownOnReset()

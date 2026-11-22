@@ -259,18 +259,33 @@ TCF.UI.Builders.professions = function(page, win)
     rows[i] = r
   end
   -- one hand tool for every spot of the family, upgraded forever
-  local toolBtn = Button(spotView, "", 262, 24, function() TCF:UpgradeTool(FAM()); win:Refresh() end)
+  local toolBtn = Button(spotView, "", 176, 24, function() TCF:UpgradeTool(FAM()); win:Refresh() end)
   toolBtn:SetPoint("TOPLEFT", 14, -6 * 61 - 2)
+  -- 1.6 Hand speed: its own upgrade, kept when the business is sold
+  local speedBtn = Button(spotView, "", 176, 24, function() if TCF:UpgradeSpeed(FAM()) then TCF:PlaySound("buy") end; win:Refresh() end)
+  speedBtn:SetPoint("LEFT", toolBtn, "RIGHT", 6, 0)
+  Tip(speedBtn, function(tt)
+    local fam, f = FAM(), FT()
+    local lvl = TCF:SpeedLevel(fam)
+    tt:AddLine(string.format("Hand speed (level %d of %d)", lvl, TCF.SPEED_MAX), 1, 0.82, 0)
+    tt:AddLine(string.format("Your %s works faster by hand, on every %s: one click every %.2fs (%.1f a second).",
+      f.toolNoun:lower(), f.spotNoun, TCF:ToolCooldown(fam), TCF:ClicksPerSecond(fam)), 1, 1, 1, true)
+    local cost = TCF:SpeedCost(fam)
+    if cost then
+      tt:AddLine(string.format("Next level: one click every %.2fs (%.1f a second) for %s.", TCF:ToolCooldown(fam, nil, lvl + 1),
+        TCF:ClicksPerSecond(fam, nil, lvl + 1), TCF.GoldStr(cost)), 0.2, 1, 0.2, true)
+    else tt:AddLine("Fully upgraded.", 0.2, 1, 0.2) end
+    tt:AddLine(string.format("Each level costs a lot more than the last. Upgrading your %s also shortens the click a little, down to 0.25s at most together.", f.toolNoun:lower()), 0.7, 0.7, 0.7, true)
+    tt:AddLine("Kept when you sell the business.", 1, 0.82, 0, true)
+  end)
   local spotHint = Text(spotView, "GameFontDisableSmall", nil, "LEFT")
-  spotHint:SetPoint("TOPLEFT", toolBtn, "TOPRIGHT", 10, 2); spotHint:SetWidth(250)
-  local perClass = Text(spotView, "GameFontDisableSmall", PER_CLASS, "LEFT")
-  perClass:SetPoint("TOPLEFT", toolBtn, "BOTTOMLEFT", 2, -4); perClass:SetWidth(262)
+  spotHint:SetPoint("TOPLEFT", toolBtn, "BOTTOMLEFT", 2, -4); spotHint:SetWidth(520)
   Tip(toolBtn, function(tt)
     local fam, f = FAM(), FT()
     tt:AddLine("Upgrade your " .. f.toolNoun:lower(), 1, 0.82, 0)
     tt:AddLine(string.format("%s -> Lv %d: each click is worth 15%% more of a %s's cycle, on every %s.", TCF:ToolName(fam), TCF:ToolLevel(fam) + 1,
       f.spotNoun, f.spotNoun), 1, 1, 1, true)
-    tt:AddLine(string.format("Every 15 levels also adds another roll for %s. Click cooldown: %.2fs (shortens a little each level).", f.matNoun,
+    tt:AddLine(string.format("Every 15 levels also adds another roll for %s. Click cooldown: %.2fs (shortens a little each level, down to 0.75s; Hand speed shortens it more).", f.matNoun,
       TCF:ToolCooldown(fam)), 0.7, 0.7, 0.7, true)
   end)
 
@@ -317,7 +332,7 @@ TCF.UI.Builders.professions = function(page, win)
   local function enterSpots(fam)
     local f = TCF.FAMILIES[fam]
     for i, r in ipairs(rows) do setSpotPicture(r, f.ops[i]); r.pick.tex:SetTexture(TCF.Icon(toolIcon(fam))) end
-    spotHint:SetText(f.clickHint or "")
+    spotView.clickHint = f.clickHint or ""
   end
 
   local function refreshSpots(fam)
@@ -326,6 +341,17 @@ TCF.UI.Builders.professions = function(page, win)
     local cost = TCF:ToolCost(fam)
     toolBtn:SetText(string.format("Upgrade %s  %s", f.toolNoun, TCF.GoldStr(cost, 10)))
     toolBtn:SetEnabled(s.gold >= cost)
+    local slvl, scost = TCF:SpeedLevel(fam), TCF:SpeedCost(fam)
+    if scost then speedBtn:SetText(string.format("Hand speed %d  %s", slvl + 1, TCF.GoldStr(scost, 10))); speedBtn:SetEnabled(s.gold >= scost)
+    else speedBtn:SetText("|cff20ff20Hand speed max|r"); speedBtn:SetEnabled(false) end
+    -- a new cat sees how spots work; after that, how fast it clicks by hand
+    local owned = false
+    for i = 1, #s.ops[fam] do if s.ops[fam][i].n > 0 then owned = true; break end end
+    if not owned then spotHint:SetText(spotView.clickHint or "")
+    else
+      local nextTxt = scost and string.format(", next hand speed level %.1f", TCF:ClicksPerSecond(fam, nil, slvl + 1)) or ""
+      spotHint:SetText(string.format("By hand: %.1f clicks a second%s. Hand speed is kept when you sell the business.", TCF:ClicksPerSecond(fam), nextTxt))
+    end
     local lvl = TCF:ToolLevel(fam)
     local gskill = TCF:ProfSkill(fam)
     for i, r in ipairs(rows) do
@@ -1147,7 +1173,7 @@ TCF.UI.Builders.professions = function(page, win)
       "|cffffd100Renown|r is permanent: each point adds +2%% to this cat's Trade Gold, so it earns faster.\n\n" ..
       "Current Renown: |cffffffff%d|r (highest ever %d)\nTrade Gold earned in total: |cffffffff%s|r\nRenown you'd gain by selling now: |cff20ff20%d|r  (+%d TapCoins)\n\n" ..
       "New professions unlock at Trade Gold earned in total (selling never lowers it): %s\n\nSelling resets this cat's Trade Gold, %s, %s, garden plots, %s, helpers and upgrades. " ..
-      "You keep skills, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
+      "You keep skills, Hand speed, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
       PER_CLASS, className(), s.renown, s.renownEver, TCF.GoldStr(s.lifetime, 12), gain, min(1000, gain * 3), table.concat(unlocks, ", "),
       FT().spotsTitle:lower(), FT().toolNoun:lower(), FT().hirePlural:lower()))
     renBtn:SetEnabled(gain >= 5)

@@ -22,4 +22,17 @@
 - Data: tools/make_crafted.py STARTER / STARTER_VENDOR, written to CraftData.lua as TCF.CRAFT_STARTER and starter = true on the recipes.
 
 ## Art to build
-- None needed. The new starter items use existing item icons; pieces without a cat drawing show the plain look (Copper Chain Pants, Copper Bracers and the other non-visible slots are not drawn anyway).
+- None needed for the starter sets: every new piece in a slot the cat shows (chest, belt, cloak, weapons) already has a drawing.
+
+## Hand speed
+- A new upgrade on the gathering page, next to your tool: Hand speed. Each level makes your clicks by hand come faster, on every spot of your profession.
+- It goes from one click every 1.5 seconds (0.75 with a well upgraded tool) down to 0.25 seconds: 4 clicks a second at level 15.
+- The first levels are cheap. Each level costs a lot more than the last, and the last ones take many business sales to afford.
+- Hand speed is kept when you sell the business, like your skills.
+- The page shows how many clicks a second you make now and with the next level.
+
+## For the developer: hand speed numbers
+- Cooldown = max(0.25, tool cooldown x (1/3)^(level/15)); the tool cooldown is the old one (1.5 x 0.985^tool level, at least 0.75).
+- Level n+1 costs 10K x 10^(0.5n + 0.0306n^2), two significant digits: 10K, 34K, 130K, 590K, 3.1M, 19M, 130M, 1B, 9.1B, 95B, 1.1T, 16T, 250T, 4.7Qa, 100Qa.
+- tools/trade_sim.py --speed 2 56 (one cat, 2 h a day, selling whenever it doubles its Renown, buying a level when it costs at most a quarter of the gold in hand): levels 1-6 on day 0-1, 7 on day 4, 8 on day 11, 9 on day 17, 10 on day 26, 11 on day 32, 12 on day 45; 13-15 later than 8 weeks. Profession unlocks are where they were (First Aid day 22, Fishing day 31, Cooking day 48).
+- Clicking pays a share of a spot's cycle, so faster hands mean more gold for players who click a lot. Upper bound, clicking nonstop for the whole 2 hours every day (--clicker): 72T earned after 3 weeks with hand speed against 30T without. Helpers and idle income do not change.

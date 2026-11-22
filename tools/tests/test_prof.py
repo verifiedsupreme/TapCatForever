@@ -135,6 +135,61 @@ check(starterRows >= 7, "the first rows are the starter set: " .. starterRows)
 '''
 
 
+SPEED = r'''
+local T = TapCatForever
+T:SetClass("MAGE")
+local ps = T:ProfState()
+local fam = T:MainProf()
+check(T:SpeedLevel(fam) == 0 and math.abs(T:ToolCooldown(fam, 0) - 1.5) < 1e-9, "no hand speed at first: 1.5s")
+check(math.abs(T:ToolCooldown(fam, 60, 0) - 0.75) < 1e-9, "tool alone stops at 0.75s")
+check(math.abs(T:ToolCooldown(fam, 60, T.SPEED_MAX) - 0.25) < 1e-6, "hand speed max with a good tool: 0.25s")
+check(math.abs(T:ClicksPerSecond(fam, 60, T.SPEED_MAX) - 4) < 1e-6, "4 clicks a second at most")
+local prev, prevRatio = 0, 0
+for l = 0, T.SPEED_MAX - 1 do
+  local c = T:SpeedCost(fam, l)
+  check(c and c > prev, "hand speed costs rise: " .. l)
+  if l >= 2 then check(c / prev >= prevRatio * 0.97, "and rise faster and faster: " .. l) end
+  if l >= 1 then prevRatio = c / prev end
+  prev = c
+  local a, b = T:ToolCooldown(fam, 0, l), T:ToolCooldown(fam, 0, l + 1)
+  check(b < a, "every level is faster")
+end
+check(T:SpeedCost(fam, 0) <= 1e5 and T:SpeedCost(fam, T.SPEED_MAX - 1) >= 1e16, "first level cheap, last one a long-term goal")
+check(T:SpeedCost(fam, T.SPEED_MAX) == nil, "nothing past the top")
+-- buying: spends Trade Gold, one level per buy, per family
+ps.gold = 0
+check(not T:UpgradeSpeed(fam), "no gold, no hand speed")
+ps.gold = T:SpeedCost(fam) + 5
+check(T:UpgradeSpeed(fam) and T:SpeedLevel(fam) == 1 and math.abs(ps.gold - 5) < 1e-6, "bought level 1")
+check(T:SpeedLevel("mining") == 0, "other families keep their own")
+-- clicks by hand follow the shorter cooldown
+ps.tools[fam] = 60
+ps.speed[fam] = T.SPEED_MAX
+T.toolNext = {}
+local clicks = 0
+for k = 1, 2000 do _clock = _clock + 0.01; if T:GatherClick(fam, 1) then clicks = clicks + 1 end end
+check(clicks >= 74 and clicks <= 81, "20 seconds at 0.25s: about 80 clicks, got " .. clicks)
+-- selling the business keeps it (the tool resets)
+ps.lifetime = math.max(ps.lifetime, 1e12)
+check(T:PrestigeTrade(), "sell the business")
+check(T:SpeedLevel(fam) == T.SPEED_MAX and T:ToolLevel(fam) == 0, "hand speed kept, tool reset")
+check(math.abs(T:ToolCooldown(fam) - 0.5) < 1e-6, "fresh tool with max hand speed: 0.5s")
+-- the page: Hand speed button and the clicks-a-second line
+ps.speed[fam] = 3
+ps.ops[fam][1].n = 1
+T:CreateWindow(); T.window:Show(); T.window:SelectTab(5)
+T.window.profView = "main"; T.window:Refresh()
+local btn, line = false, false
+for _, f in ipairs(_frames) do
+  local t = f.GetText and f:GetText()
+  if type(t) == "string" and t:find("Hand speed 4", 1, true) then btn = true end
+  if type(t) == "string" and t:find("clicks a second", 1, true) and t:find("kept when you sell", 1, true) then line = true end
+end
+check(btn and line, "spots page shows the Hand speed button and clicks a second")
+ps.speed[fam] = nil
+'''
+
+
 def run(lua, code, name):
     lua.execute(PRE)
     lua.execute(code)
@@ -148,4 +203,6 @@ def check(seed, load_addon):
     run(lua, CURVE, "professions skill-up curve")
     print("professions skill-up curve section (orange 100%, yellow 50%, green 20%/5%, grey 0, every list reaches 300, colours): all checks passed")
     run(lua, STARTER, "professions starter sets")
+    run(lua, SPEED, "professions hand speed")
+    print("professions hand speed section (separate upgrade per family, steep costs, 1.5s to 0.25s, kept when selling, page): all checks passed")
     print("professions starter sets section (a white piece for every armour slot per craft, cheap, wearable, progress, shown first): all checks passed")
