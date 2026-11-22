@@ -74,6 +74,11 @@ Reference set: `molten_core.py` (Molten Core, animated fire).
    other `Sets\` lines, run `python3 tools/test_harness.py` (the art section checks every set: zone,
    bosses, one piece per boss, drawings, animation budget) and list the set in your notes.
    The global build runs every `tools/sets/*.py` again at its end, so sets survive a full rebuild.
+   `tools/tests/test_art_sets.py` fails while a `Sets/*.lua` file is missing from the TOC, and it
+   checks each set's final boss gives the helm (add the new set's key to its `SETS` table).
+7. Previews for approval: `python3 tools/sets_overview.py <out_dir>` (every set in the TOC worn in
+   full, after the global build) and `python3 tools/preview_index.py <out_dir>` (index.html with
+   every preview in the folder, sets in TOC order with their bosses).
 
 ## Later dungeons in Adventure and their bosses (GearData.lua, TCF.TIERS)
 | Zone key | Dungeon | Bosses (the last one is the final boss) |

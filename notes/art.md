@@ -26,6 +26,20 @@
   - Baron Geddon's Ember Aura (a heat glow and rising embers): Baron Geddon
 - The Compendium and tooltips show the set's progress, such as "Molten Core set (2/6)", and which boss drops each piece.
 
+## Dungeon sets
+- Ten more animated cosmetic sets, one for each later dungeon in Adventure, six pieces each: a helm or crown, shoulders, chest, cape, weapon and aura. Cosmetic only.
+- Each piece always drops from one boss of that dungeon in Adventure until you own it. The final boss gives the helm. The Compendium and tooltips show the set's progress, such as "Dire Maul set (2/6)", and which boss drops each piece.
+- Scarlet Monastery: crimson and gold with holy light, a winged helm under a halo, and feathers drifting down.
+- Uldaman: titan stone with glowing blue runes and violet crystals, with shards floating around the crown and staff.
+- Zul'Farrak: a striped sun headdress with a blazing sun turning behind it, a scarab collar, and a sandstorm.
+- Maraudon: living wood with antlers, violet blossoms, falling leaves and fireflies.
+- Sunken Temple: a serpent hood with a frill of swirling water, jade scales, a trident and rising bubbles.
+- Blackrock Depths: Dark Iron forge armour with turning gears, furnace fire, sparks and smoke.
+- Blackrock Spire: a storm dragon helm with wings, with lightning crackling over every piece.
+- Dire Maul: moonsilver and a night sky full of drifting stars, with planets circling the crown and staff.
+- Scholomance: bone and green soulfire, a skull crown, a ribcage of swirling souls and a reaper's scythe.
+- Stratholme: runed steel and living ice, with huge ice horns and falling snow.
+
 ## Shoulders
 - The cat has a new Shoulders slot in the Appearance tab.
 - Real shoulder gear now shows on your cat as pauldrons on both shoulders, in the colours of the item: plate, mail, leather and cloth each have their own shape.
@@ -44,4 +58,4 @@
 - A skin ranking with a proposal to move the best-looking skins behind the hardest content and to raise the prices of the skins with effects. Nothing moves and no price changes until it is approved.
 
 ## Art to build
-- None from other tracks yet. New sets go in tools/sets (see tools/sets/README.md); real gear shoulder drawings go in tools/shoulders/specs.txt (see tools/shoulders/README.md).
+- None. All sets and the 43 shoulder drawings are built into Art/v. New sets go in tools/sets (see tools/sets/README.md); real gear shoulder drawings go in tools/shoulders/specs.txt (see tools/shoulders/README.md).

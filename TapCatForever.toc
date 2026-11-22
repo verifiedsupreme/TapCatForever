@@ -25,6 +25,16 @@ CatAnim.lua
 CosmeticSets.lua
 CosmeticFX.lua
 Sets\MoltenCore.lua
+Sets\ScarletMonastery.lua
+Sets\Uldaman.lua
+Sets\ZulFarrak.lua
+Sets\Maraudon.lua
+Sets\SunkenTemple.lua
+Sets\BlackrockDepths.lua
+Sets\BlackrockSpire.lua
+Sets\DireMaul.lua
+Sets\Scholomance.lua
+Sets\Stratholme.lua
 Abilities.lua
 Adventure.lua
 Expeditions.lua
