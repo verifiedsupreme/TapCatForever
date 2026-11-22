@@ -12,6 +12,7 @@ import os, re
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
 HIGHLIGHTS = {
+    "1.5.1": "Each class now has its own professions and Trade Gold, real legendaries can drop, raids give the new Raider's Hoard, and there is lots more gear.",
     "1.5.0": "Class professions with crafted gear, party cats with a tap bonus, a fishing dock, 33 new cat skins and the Compendium.",
 }
 

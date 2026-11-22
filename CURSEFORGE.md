@@ -22,7 +22,7 @@ Features
 - Every class's cat now has its own Trade Gold and professions.
 - Lots more gear: plain whites and real "of the Monkey" style greens for every level and slot, and small finds from regular Adventure enemies that fill your empty slots first.
 - Real legendaries, such as Thunderfury and Sulfuras, can now drop: very rarely from a Heroic Cache, and a little more often from the new Raider's Hoard.
-- New Raider's Hoard and Dungeon Chest, earned only from raids and dungeons and full of their boss loot.
+- New Raider's Hoard, earned only from raids and full of epic raid boss loot.
 - Clearing a zone for the first time pays a few hundred TapCoins, and hovering gear shows what your cat wears beside it.
 
 **New in 1.5**
@@ -67,7 +67,7 @@ Features
 
 **Chests, shop and collecting**
 - Cat Treat Pouches, Adventurer's Strongboxes and Heroic Caches, opened with a spinning reel that lands on your reward. Pouches can hold a blue now and then, and Heroic Caches have a tiny chance of a real legendary.
-- The Dungeon Chest and the Raider's Hoard can't be bought: you earn them by finishing dungeons and raids, in Adventure, on expeditions and in real WoW. They are packed with boss loot, and the Raider's Hoard is the best place to find a legendary.
+- The Raider's Hoard can't be bought: you earn it from raids, in Adventure, on raid expeditions and in real WoW. It always holds epic raid boss loot and is the best place to find a legendary.
 - Gear you find outside chests goes straight into your bags with a small notice you can hover.
 - Daily shop wares, daily and weekly quests, and 77 achievements.
 - 64 cat skins: tabbies and tuxedos, Bengals and Maine Coons, a Galaxy Cat, Frostsabers, the Spectral Tiger, boss-drop cats, chest-only cats, quest and expedition cats, crafted cats, and achievement cats like Mr. Bigglesworth.

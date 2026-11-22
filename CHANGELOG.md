@@ -32,7 +32,11 @@
 - Small finds: trash enemies in Adventure now and then drop a white or green piece for your level. They favour slots your cat has empty, then upgrades, so a new cat fills most of its slots in its first hour or so. Finds slow down as your slots fill and as your cat finds more, so chests and bosses stay the main source of good loot.
 - White gear is never in chests. Sell junk and the Gear page handle it like other gear.
 
+**Professions help**
+- Each profession now explains itself: the first time you open one, a short "How it works" guide shows how gathering, crafting real gear with stats or cosmetic-only items, upgrades and Renown work, and where crafted items go. The Help button next to the profession's name opens it again.
+
 **Other fixes**
+- The welcome tour now always reaches new players, even if something else went wrong while logging in.
 - Prices and sources on item squares (Appearance tab and Compendium) are readable again: the text sat under the faded item picture.
 - Send feedback is in Settings (and /tcf feedback) instead of the top of the window.
 - Test mode: a Remove fake cats button, and fake party cats go away when you leave a group.
