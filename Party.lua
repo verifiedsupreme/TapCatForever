@@ -84,15 +84,9 @@ local function isMe(sender)
   if type(me) ~= "string" or isSecret(me) or me == "" then return false end
   local n, r = sender:match("^([^%-]+)%-?(.*)$")
   if not n or n:lower() ~= me:lower() then return false end
-  if not r or r == "" then return true end
-  local mine
-  if GetNormalizedRealmName then local ok, v = pcall(GetNormalizedRealmName); if ok then mine = v end end
-  if (type(mine) ~= "string" or isSecret(mine) or mine == "") and GetRealmName then
-    local ok, v = pcall(GetRealmName); if ok then mine = v end
-  end
-  if type(mine) ~= "string" or isSecret(mine) or mine == "" then return true end
-  local function norm(x) return (x:gsub("[%s%-']", "")):lower() end
-  return norm(r) == norm(mine)
+  -- 1.5.3.6: your own name is enough. Realm names come in different forms on different clients,
+  -- and two players with the same name in one group is rare enough to accept.
+  return true
 end
 TCF.PartyIsMe = isMe
 
@@ -206,7 +200,7 @@ local function parse(text)
   look.fur = cos(fur, "fur") or items.fur_ginger
   look.pattern = cos(pat, "pattern")
   look.skin = cos(skin, "skin")
-  return kind .. "1", class, floor(level), look
+  return kind .. "1", class, floor(level), look, eq
 end
 TCF.PartyParse = parse
 
@@ -289,7 +283,7 @@ local function onMessage(prefix, text, channel, sender)
   if isSecret(sender) or isSecret(text) then return end
   local name = nameKey(sender)
   if not name or name == myKey() or isMe(sender) then return end   -- never your own cat
-  local kind, class, level, look = parse(text)
+  local kind, class, level, look, eq = parse(text)
   if not kind then return end
   local m = known[name]
   if not m then
@@ -302,7 +296,8 @@ local function onMessage(prefix, text, channel, sender)
     order[#order + 1] = name
   end
   local isNew = not m.look
-  m.class, m.level, m.look, m.text = class, level, look, text
+  m.class, m.level, m.look, m.text, m.eq = class, level, look, text, eq
+  m.missing = nil
   -- answer a hello, or anyone we hadn't met; request() merges replies to one per SEND_GAP
   if kind == "H1" or isNew then request("U1") end
   refreshRow()
@@ -321,7 +316,16 @@ local function onRoster()
   local names, complete = roster()
   local pruned = false
   if complete then
-    for name in pairs(known) do if not names[name] then forget(name); pruned = true end end
+    -- names compare without the realm (clients write realms differently), and a cat is only
+    -- taken off when it is missing twice in a row, a few seconds apart, so the row doesn't blink
+    local short = {}
+    for k in pairs(names) do short[(k:match("^[^%-]+") or k):lower()] = true end
+    local t = now()
+    for name, m in pairs(known) do
+      if names[name] or short[(name:match("^[^%-]+") or name):lower()] then m.missing = nil
+      elseif not m.missing then m.missing = t
+      elseif t - m.missing >= 3 then forget(name); pruned = true end
+    end
   end
   -- just joined a group: say hello; after a prune, a hello also lets a wrongly pruned friend answer
   if not wasGrouped or pruned then request("H1") end  -- we just joined a group: say hello
@@ -340,6 +344,7 @@ local function tooltip(btn)
   local cl = TCF.CLASS_BY_KEY[m.class]
   if cl then tt:AddLine(string.format("Level %d %s cat", m.level or 1, cl.name), cl.color[1], cl.color[2], cl.color[3]) end
   if m.fake then tt:AddLine("Test party cat (test mode only)", 0.7, 0.7, 0.7) end
+  tt:AddLine("Click to see this cat and its gear.", 0.6, 0.8, 1)
   tt:AddLine("Party bonus: your taps count 20% more with one friend who has TapCatForever, and 10% more for each friend after that, up to +50% with a full party.", 0.4, 1, 0.4, true)
   tt:Show()
 end
@@ -358,6 +363,8 @@ local function createRow()
     b.cat = cat
     b:SetScript("OnEnter", tooltip)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:RegisterForClicks("LeftButtonUp")
+    b:SetScript("OnClick", function(self) if self.member and TCF.ShowPartyProfile then TCF:ShowPartyProfile(self.member) end end)
     b:Hide()
     f.cells[i] = b
   end
@@ -434,6 +441,81 @@ refreshRow = function()
   row:SetShown(#list > 0)
 end
 TCF.PartyRefresh = function() refreshRow() end
+
+---------------------------------------------------------------- a party cat's profile
+-- Click a party cat: a small window with that cat drawn big, its class and level, and the gear it
+-- wears (hover a piece for its tooltip). Opened by your click only; Escape or the X closes it.
+local profile
+local PROFILE_SLOTS = { "HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "WRIST", "HANDS", "WAIST", "LEGS", "FEET",
+  "FINGER1", "FINGER2", "TRINKET1", "TRINKET2", "MAINHAND", "OFFHAND", "RANGED" }
+function TCF:ShowPartyProfile(m)
+  if not m then return end
+  local U = TCF.UI
+  if not profile then
+    local f = CreateFrame("Frame", "TapCatForeverPartyProfile", UIParent, U and U.BT)
+    f:SetSize(360, 420); f:SetPoint("CENTER", 0, 60)
+    f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
+    f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    if f.SetBackdrop and U then f:SetBackdrop(U.BACKDROP_DIALOG) end
+    tinsert(UISpecialFrames, "TapCatForeverPartyProfile")
+    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", -6, -6)
+    f.title = U.Text(f, "GameFontNormalLarge"); f.title:SetPoint("TOP", 0, -16)
+    f.sub = U.Text(f, "GameFontHighlight"); f.sub:SetPoint("TOP", f.title, "BOTTOM", 0, -4)
+    local holder = CreateFrame("Frame", nil, f); holder:SetSize(150, 150); holder:SetPoint("TOPLEFT", 16, -56)
+    f.cat = TCF.CreateCat(holder, 150, { preview = true })
+    f.cat.frame:SetPoint("BOTTOM", holder, "BOTTOM", 0, 0)
+    f.cells = {}
+    for i, key in ipairs(PROFILE_SLOTS) do
+      local b = U.GearButton(f, 30)
+      local col, row = (i - 1) % 5, math.floor((i - 1) / 5)
+      b:SetPoint("TOPLEFT", 18 + col * 66, -226 - row * 40)
+      b.key = key
+      b:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        if self.item then TCF:GearTooltip(GameTooltip, self.item, f.class)
+        else
+          local s = TCF.GEAR_SLOT_BY_KEY and TCF.GEAR_SLOT_BY_KEY[key]
+          GameTooltip:AddLine(s and s.name or key, 1, 0.82, 0); GameTooltip:AddLine("Empty", 0.6, 0.6, 0.6)
+        end
+        GameTooltip:Show()
+      end)
+      b:SetScript("OnLeave", function() GameTooltip:Hide(); if TCF.HideGearCompare then TCF:HideGearCompare() end end)
+      f.cells[i] = b
+    end
+    f.note = U.Text(f, "GameFontDisableSmall", "What your friend's cat wears right now. Hover a piece for its details.")
+    f.note:SetPoint("BOTTOM", 0, 16); f.note:SetWidth(320)
+    f.info = U.Text(f, "GameFontHighlight", nil, "LEFT"); f.info:SetPoint("TOPLEFT", holder, "TOPRIGHT", 12, -6); f.info:SetWidth(170)
+    if f.info.SetJustifyV then f.info:SetJustifyV("TOP") end
+    profile = f
+  end
+  local f = profile
+  local cl = TCF.CLASS_BY_KEY[m.class]
+  f.class = m.class
+  f.title:SetText((m.name or "?"):gsub("|", "||"))
+  f.sub:SetText(cl and string.format("|cff%02x%02x%02xLevel %d %s cat|r", cl.color[1] * 255, cl.color[2] * 255, cl.color[3] * 255, m.level or 1, cl.name) or "")
+  if m.look then f.cat:ApplyAppearance(m.look) end
+  local eq, power, n = m.eq or {}, 0, 0
+  for i, key in ipairs(PROFILE_SLOTS) do
+    local id = eq[key]
+    local it = id and TCF.GEAR and TCF.GEAR[id]
+    f.cells[i].item = it
+    f.cells[i]:SetGear(it, TCF.GEAR_SLOT_BY_KEY and TCF.GEAR_SLOT_BY_KEY[key] and TCF.GEAR_SLOT_BY_KEY[key].icon)
+    if it then n = n + 1; power = power + (it.ilvl or 0) end
+  end
+  local look = m.look or {}
+  local lines = { string.format("Gear worn: %d pieces", n) }
+  if n > 0 then lines[#lines + 1] = string.format("Average item level: %d", math.floor(power / n + 0.5)) end
+  if look.skin then lines[#lines + 1] = "Skin: " .. look.skin.name end
+  if look.fur and not look.skin then lines[#lines + 1] = "Fur: " .. look.fur.name end
+  for _, slot in ipairs({ "head", "chest", "back", "acc", "main" }) do
+    local it = look[slot]
+    if it and not it.gear then lines[#lines + 1] = "Cosmetic: " .. it.name end
+  end
+  if m.fake then lines[#lines + 1] = "|cffaaaaaaTest party cat|r" end
+  f.info:SetText(table.concat(lines, "\n"))
+  f:Show()
+end
 
 ---------------------------------------------------------------- test mode
 -- Fake party cats so the row can be seen while playing alone. Test mode only (/tcf testmode).

@@ -77,7 +77,13 @@ local function myRealm()
     local ok, v = pcall(function() return GetRealmName and GetRealmName() end)
     r = ok and v or nil
   end
-  if not plain(r) or r == "" then return nil end
+  if not plain(r) or r == "" then
+    local ok, _, v = pcall(function() if UnitFullName then return UnitFullName("player") end end)
+    r = ok and v or nil
+  end
+  -- 1.5.3.6: the realm name can't be read on some clients. Everyone in your party, raid or guild
+  -- is on your realm, so a stand-in name keeps names and the leaderboard working there.
+  if not plain(r) or r == "" then return "Realm" end
   return r
 end
 

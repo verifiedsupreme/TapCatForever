@@ -3,6 +3,11 @@
 import sys
 
 def check(seed, load_addon):
+    _party(seed, load_addon, "")
+    # 1.5.3.6: a client that can't read its realm name still shares with its party
+    _party(seed, load_addon, "GetNormalizedRealmName = function() return nil end; GetRealmName = GetNormalizedRealmName; UnitFullName = nil")
+
+def _party(seed, load_addon, extra):
     LB_CLIENT = sys.modules["__main__"].LB_CLIENT
     srv = [1800000000]
     clients = []
@@ -14,6 +19,7 @@ def check(seed, load_addon):
                     'function GetNumGroupMembers() return 2 end; function IsInRaid() return false end')
         lua.execute("math.randomseed(%d)" % ((seed + sum(map(ord, name))) % 2147483647))
         lua.execute('_charName = "%s"; _srv = %d' % (name, srv[0]))
+        if extra: lua.execute(extra)
         lua.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
         lua.execute('TapCatForever.db.class = "%s"; TapCatForever.db.taps = %d' % (cls, 1000 + len(name)))
         lua.execute("_optIn(true)")
@@ -35,17 +41,17 @@ def check(seed, load_addon):
                 if ch != "PARTY": continue
                 for other, olua in clients:
                     if other != name:
-                        olua.globals()._deliver(p, msg, name + "-Forever", "PARTY", "")
+                        olua.globals()._deliver(p, msg, name if extra else name + "-Forever", "PARTY", "")
     if routes != {"PARTY"}:
         raise AssertionError("lb party: routes used %r" % routes)
     a, b = A.eval("_boardKeys()"), B.eval("_boardKeys()")
-    if "partyb-forever" not in a or "partya-forever" not in b:
+    if "partyb-" not in a or "partya-" not in b:
         raise AssertionError("lb party: boards A=%r B=%r" % (a, b))
     # a stranger's message over WHISPER is not leaderboard traffic
     A.globals()._deliver("TapCatFvr", "L1;Strang-Forever;MAGE;5;10;0;0;1.5.3;%d" % srv[0], "Strang-Forever", "WHISPER", "")
     if "strang" in A.eval("_boardKeys()"):
         raise AssertionError("lb party: whisper accepted")
-    print("leaderboard party section (shares through the party without the channel): all checks passed")
+    print("leaderboard party section (shares through the party without the channel%s): all checks passed" % (", no realm name" if extra else ""))
 
 def _own_row_odd_realms(load_addon):
     import sys

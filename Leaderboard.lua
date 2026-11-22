@@ -549,14 +549,18 @@ TCF.LeaderboardRoutes = routes
 -- true when there is somewhere to send (kept the old name: it used to mean "in the channel")
 local function channel() return #routes() > 0 end
 -- send on every route; true when at least one took it
+local sendLog = {}   -- route -> "sent" / "refused" (for /tcf lbdebug)
 local function sendAll(text)
   if not TCF.DevSendRaw then return false end
   local okAny = false
   for _, r in ipairs(routes()) do
-    if TCF.DevSendRaw(text, r[1], r[2]) then okAny = true end
+    local ok = TCF.DevSendRaw(text, r[1], r[2])
+    sendLog[r[1]] = ok and "sent" or "refused"
+    if ok then okAny = true end
   end
   return okAny
 end
+TCF.LeaderboardSendLog = sendLog
 
 -- one message every SEND_GAP seconds, within the budget, only while sharing and in the channel
 local function pump(t)
@@ -732,7 +736,29 @@ end
 
 -- the hidden channel, and (1.5.3.2) your party, raid, instance group and guild
 local ROUTE_OK = { CHANNEL = true, PARTY = true, RAID = true, INSTANCE_CHAT = true, GUILD = true }
+-- what /tcf lbdebug shows (1.5.3.6): messages heard and kept, and the last one heard
+local DBG = { heard = 0, kept = 0, sent = 0, failed = 0 }
+TCF.LeaderboardDebug = DBG
+local onAddonInner
 local function onAddon(prefix, text, chan, sender, chanName)
+  if not isSecret(prefix) and prefix == PREFIX and plain(text) then
+    local kind = text:sub(1, 3)
+    if kind == "L1;" or kind == "L2;" or kind == "R1;" or kind == "X1;" then
+      DBG.heard = DBG.heard + 1
+      DBG.lastFrom = plain(sender) and sender or "(hidden)"
+      DBG.lastChan = plain(chan) and chan or "?"
+      DBG.lastKind = kind
+      local d0 = dirty
+      dirty = false
+      onAddonInner(prefix, text, chan, sender, chanName)
+      if dirty then DBG.kept = DBG.kept + 1 end
+      dirty = dirty or d0
+      return
+    end
+  end
+  return onAddonInner(prefix, text, chan, sender, chanName)
+end
+function onAddonInner(prefix, text, chan, sender, chanName)
   if not optedIn() then return end                       -- opted out: nothing is read
   if isSecret(prefix) or prefix ~= PREFIX then return end
   if not plain(text) or not plain(chan) or not plain(sender) or not ROUTE_OK[chan] then return end
@@ -975,9 +1001,27 @@ local function wrapSlash()
   local WORDS = { top = true, leaderboard = true }
   SlashCmdList.TAPCATFOREVER = function(msg, ...)
     local cmd = type(msg) == "string" and msg:lower():match("^%s*(%S*)") or ""
+    if cmd == "lbdebug" and TCF.db then return TCF:LeaderboardDebugPrint() end
     if WORDS[cmd] and TCF.db then TCF:ShowLeaderboard(); return end
     return inner(msg, ...)
   end
+end
+
+-- /tcf lbdebug: what the leaderboard sees, to send to the developer when players don't show up
+function TCF:LeaderboardDebugPrint()
+  local function show(v) if v == nil then return "nil" end; if isSecret(v) then return "(hidden)" end; return tostring(v) end
+  local rawRealm
+  if GetNormalizedRealmName then local ok, v = pcall(GetNormalizedRealmName); rawRealm = ok and v or nil end
+  local rs = {}
+  for _, r in ipairs(routes()) do rs[#rs + 1] = r[1] .. "=" .. (sendLog[r[1]] or "not yet") end
+  local b = board(false)
+  local n = 0
+  if b then for _ in pairs(b.e) do n = n + 1 end end
+  self:Print(string.format("Leaderboard check: joined %s, realm %s (game says %s), you are %s", tostring(optedIn()),
+    show(myRealm()), show(rawRealm), show(myKey())), true)
+  self:Print(string.format("Sending to: %s. Players saved: %d. Heard %d leaderboard messages, kept %d. Last from %s on %s (%s).",
+    #rs > 0 and table.concat(rs, ", ") or "nowhere (no party, raid, guild or channel)", n, DBG.heard, DBG.kept,
+    show(DBG.lastFrom), show(DBG.lastChan), show(DBG.lastKind)), true)
 end
 
 ---------------------------------------------------------------- events

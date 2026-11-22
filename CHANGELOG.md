@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.3.6
+
+**Realm leaderboard**
+- Players in the same party, raid or guild now show up on each other's leaderboard on clients where the game doesn't give addons the realm's name. Before, the leaderboard had nowhere to keep other players, so only your own row showed.
+- /tcf lbdebug prints what the leaderboard sees (where it sends, how many messages it heard and kept). Send it to the developer if players still don't show up.
+
+**Party cats**
+- Your own cat no longer shows up in the little row beside your cat, however the game writes your realm. Only your party members' cats are there.
+- The row no longer blinks when someone changes their gear: a cat only leaves the row when that player is really gone from the group.
+- Click a party member's cat to see its profile: the cat drawn big, its class and level, and the gear it wears (hover a piece for its details).
+
 ## 1.5.3.5
 
 **Gear**

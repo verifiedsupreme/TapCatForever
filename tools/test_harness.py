@@ -1131,7 +1131,7 @@ TEST = r'''
     check(TCF:PartyCount() == 2, "malformed, secret and foreign messages are ignored")
     -- your own messages never add your own cat, however the sender name arrives
     for _, me in ipairs({ _charName, _charName .. "-Forever", _charName:lower() .. "-forever", _charName .. "-For ever" }) do msg("U1;MAGE;5;;;;", me) end
-    check(TCF:PartyCount() == 2 and TCF.PartyIsMe(_charName .. "-Forever") and not TCF.PartyIsMe(_charName .. "-Otherrealm"), "your own cat is never in the row")
+    check(TCF:PartyCount() == 2 and TCF.PartyIsMe(_charName .. "-Forever") and TCF.PartyIsMe(_charName .. "-Otherrealm") and not TCF.PartyIsMe("Someone-Forever"), "your own cat is never in the row (1.5.3.6: your name alone decides)")
     local g0 = ps.gold
     local got = TCF:EarnGold(100)
     check(near(got, 100 * (1 + 0.02 * ps.renown)), "Trade Gold is not boosted: " .. tostring(got))
@@ -1147,6 +1147,9 @@ TEST = r'''
     _group.party3 = { _SECRET, nil }
     _fire("GROUP_ROSTER_UPDATE"); check(TCF:PartyCount() == 2, "a secret roster name prunes nobody")
     _group.party3 = nil; _group.party2 = nil
+    -- 1.5.3.6: a cat only leaves the row when it is missing twice, a few seconds apart (no blinking)
+    _fire("GROUP_ROSTER_UPDATE"); check(TCF:PartyCount() == 2, "Bob missing once: still shown")
+    for k = 1, 8 do _update(0.5) end
     _fire("GROUP_ROSTER_UPDATE"); check(TCF:PartyCount() == 1 and not row.cells[2]:IsShown(), "Bob left: pruned")
     _raid, _group = true, {}
     for i, n in ipairs({ "Alice", "Cara", "Dan", "Fay", "Gus", "Hal" }) do _group["raid" .. i] = { n, nil }; msg("U1;HUNTER;" .. (10 + i) .. ";;;;", n .. "-Forever", "RAID") end
