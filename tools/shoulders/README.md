@@ -25,19 +25,27 @@ One line per icon in `tools/shoulders/specs.txt`:
 `shoulder()` mirrors it onto the right shoulder.
 - variants: `plate` (domed), `spiked` (dome with three spikes), `mail` (layered lames), `leather`
   (spaulder with a strap and buckle), `cloth` (padded mantle roll), `mantle` (fluffy ruff), `bone`
-  (skull cap), `crystal` (crystal shards). Add new variants in `shoulder_one()` when an icon needs one.
-- colours: `m` main, `t` trim or rim, `g` second colour (spikes, horns, fur), `e` gem; palette names
-  from `PAL` in vector_items.py or `#rrggbb`.
-- flags: `spikes`, `rivets`, `gem`, `fur`, `horns`, `skull`; `glow=<colour>` adds a soft glow.
+  (skull cap), `crystal` (crystal shards), and since the per-icon drawings: `domemail` (dome with a
+  zigzag rim over a mail skirt), `swirl` (mantle with a scroll curl), `drape` (two cloth flaps),
+  `ridge` (tall arched fin), `wedge` (angular plate with a thick riveted rim), `lames` (stacked
+  plates with a strap), `quilted` (diamond-quilted leather), `banded` (dome with a riveted band),
+  `orbs` (shaggy mantle with two ringed orbs), `ornate` (plate with scrollwork over mail), `flare`
+  (flame-like blades). Add new variants in `shoulder_one()` when an icon needs one.
+- colours: `m` main, `t` trim or rim, `g` second colour (spikes, fur, claws, lower lame), `h` horn,
+  `k` mail, `e` gem or runes; palette names from `PAL` in vector_items.py or `#rrggbb`.
+- flags: `spikes`, `rivets`, `gem`, `fur`, `horns` (bone horns), `horn` (one spike on the outer
+  half), `skull`, `zigzag`, `teeth` (toothed rim), `claws`, `runes`, `bolts` (lightning);
+  `glow=<colour>` adds a soft glow.
 - `tools/shoulders/specs.example.txt` has a few sample lines.
 
 ## Preview (does not touch Art/v)
 
-    python3 tools/shoulders/preview.py out.png --specs tools/shoulders/specs.txt --icons <icon jpg folder> [--only inv_shoulder_02,inv_shoulder_08]
+    python3 tools/shoulders/preview.py out.png --specs tools/shoulders/specs.txt --icons <icon jpg folder> [--only inv_shoulder_02,inv_shoulder_08] [--size 170 --cols 4] [--showcase inv_shoulder_22,inv_shoulder_08]
 
 One tile per icon: the real icon (from the folder, `<icon>.jpg`), the pauldrons alone on the cat
 and with a helm, chest and cape (greathelm, hood, wizard hat, horned helm in turn), drawn with the
-real CatVector code (`tools/catrender.py`).
+real CatVector code (`tools/catrender.py`). `--showcase` adds large cats in full outfits
+(helm, chest and cape) under the sheet.
 
 ## Ship
 Write `tools/shoulders/specs.txt`, then the art track runs the global build

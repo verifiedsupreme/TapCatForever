@@ -37,6 +37,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out"); ap.add_argument("--specs", default=os.path.join(HERE, "specs.txt"))
     ap.add_argument("--icons"); ap.add_argument("--only")
+    ap.add_argument("--size", type=int, default=150); ap.add_argument("--showcase", help="icons to show large in full outfits (helm, chest, cape) under the sheet"); ap.add_argument("--cols", type=int, default=3)
     a = ap.parse_args()
     specs = read_specs(a.specs)
     if a.only: specs = [s for s in specs if s[0] in a.only.split(",")]
@@ -49,8 +50,8 @@ def main():
     r = CatRender(extra_art=[scratch], extra_lua=[lua])
     tiles = []
     for i, (k, sp) in enumerate(specs):
-        alone = r.cat(150); r.apply(alone, {"fur": "fur_ginger", "shoulder": "shprev_" + k})
-        dressed = r.cat(150); r.apply(dressed, dict(OUTFITS[i % len(OUTFITS)], fur="fur_silver", shoulder="shprev_" + k))
+        alone = r.cat(a.size); r.apply(alone, {"fur": "fur_ginger", "shoulder": "shprev_" + k})
+        dressed = r.cat(a.size); r.apply(dressed, dict(OUTFITS[i % len(OUTFITS)], fur="fur_silver", shoulder="shprev_" + k))
         a1, a2 = r.paint(alone, margin=0.08), r.paint(dressed, margin=0.08)
         W, H = a1.size
         tile = Image.new("RGB", (W * 2 + 70, H), (30, 26, 38))
@@ -60,9 +61,20 @@ def main():
         d = ImageDraw.Draw(tile); d.text((4, 4), k, fill=(255, 225, 140)); d.text((4, H - 16), sp[:60], fill=(190, 185, 205))
         tiles.append(tile)
     W, H = tiles[0].size
-    cols = 3
-    sheet = Image.new("RGB", (cols * W, ((len(tiles) + cols - 1) // cols) * H), (22, 19, 28))
+    cols = a.cols
+    rows = (len(tiles) + cols - 1) // cols
+    show = []
+    if a.showcase:  # full outfits, large: every one with a helm, a chest piece and a cape
+        for i, k in enumerate(a.showcase.split(",")):
+            o = dict(OUTFITS[i % len(OUTFITS)]); o.setdefault("back", "MAGE:back_cape:4")
+            c = r.cat(int(a.size * 1.6)); r.apply(c, dict(o, fur=("fur_silver", "fur_ginger", "fur_midnight", "fur_cream")[i % 4], shoulder="shprev_" + k))
+            im = r.paint(c, margin=0.06); ImageDraw.Draw(im).text((6, 6), k, fill=(255, 225, 140)); show.append(im)
+    SW, SH = (show[0].size if show else (0, 0))
+    scols = max(1, (cols * W) // SW) if show else 1
+    srows = (len(show) + scols - 1) // scols if show else 0
+    sheet = Image.new("RGB", (max(cols * W, scols * SW), rows * H + srows * SH), (22, 19, 28))
     for i, t in enumerate(tiles): sheet.paste(t, ((i % cols) * W, (i // cols) * H))
+    for i, t in enumerate(show): sheet.paste(t, ((i % scols) * SW, rows * H + (i // scols) * SH))
     sheet.save(a.out)
     print("shoulder preview:", len(tiles), "drawings ->", a.out)
 

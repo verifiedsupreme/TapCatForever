@@ -29,6 +29,7 @@
 ## Shoulders
 - The cat has a new Shoulders slot in the Appearance tab.
 - Real shoulder gear now shows on your cat as pauldrons on both shoulders, in the colours of the item: plate, mail, leather and cloth each have their own shape.
+- Every real shoulder look in the game has its own cartoon drawing, made from the item's icon (43 in all): gold domes over mail, tall red fins, quilted leather, shaggy mantles with orbs, the tauren skull, the glowing Netherwind runes, Ten Storms lightning and more.
 - Pauldrons sit over capes and chest pieces and under hoods and big helms, and your paws stay in front of them.
 - Party members see your shoulders too.
 

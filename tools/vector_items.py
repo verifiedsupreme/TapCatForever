@@ -907,6 +907,31 @@ def acc(o):
 # One pauldron drawn on the cat's right shoulder (left of the picture) and mirrored onto the other,
 # tucked under the head's lower corner and over the top of the body, cape and chest. In body space.
 SH_C = (64, 131)  # centre of the left pauldron
+def _sh_mail(cx, cy, col):
+    """a short mail skirt hanging under a pauldron: scalloped rows of rings"""
+    s = P("M %d %d Q %d %d %d %d Q %d %d %d %d L %d %d Z" % (cx - 36, cy + 2, cx - 40, cy + 28, cx - 22, cy + 32,
+          cx + 2, cy + 34, cx + 26, cy + 20, cx + 28, cy, ), col, 4)
+    for r, (x0, x1) in enumerate(((cx - 32, cx + 22), (cx - 32, cx + 16), (cx - 24, cx + 6))):
+        y = cy + 12 + r * 7
+        s += "".join(LN("M %.1f %.1f Q %.1f %.1f %.1f %.1f" % (x - 3, y, x, y + 5, x + 3, y), darker(col, .55), 1.8)
+                     for x in range(x0 + (r % 2) * 3, x1, 7))
+    return s
+
+def _sh_dome(cx, cy, m, w=5, tall=0):
+    return P("M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 30, cy + 8, cx + 26, cy - 22 - tall, cx - 4, cy - 22 - tall,
+             cx - 34, cy - 20 - tall, cx - 36, cy + 12, cx - 4, cy + 22, cx + 30, cy + 8), m, w)
+
+def _sh_zigband(cx, cy, col, n=7, amp=7):
+    """a trim band along the dome's lower rim whose lower edge zigzags down (the dome-over-mail look)"""
+    top = qpts((cx - 35, cy - 2), (cx - 6, cy + 10), (cx + 29, cy - 4), n * 2)
+    low = qpts((cx - 35, cy + 6), (cx - 6, cy + 18), (cx + 29, cy + 4), n * 2)
+    low = [(x, y + (amp if k % 2 else 0)) for k, (x, y) in enumerate(low)]
+    return P("M " + " L ".join("%.1f %.1f" % q for q in top + low[::-1]) + " Z", col, 3.5)
+
+def _sh_spiral(x, y, r, col, w=3.5):
+    return LN("M %.1f %.1f A %.1f %.1f 0 1 1 %.1f %.1f A %.1f %.1f 0 1 1 %.1f %.1f A %.1f %.1f 0 0 1 %.1f %.1f" % (
+        x + r, y, r, r, x - r * 0.2, y - r, r * 0.6, r * 0.6, x + r * 0.15, y - r * 0.15, r * 0.25, r * 0.25, x, y - r * 0.45), col, w)
+
 def shoulder_one(o):
     """the left pauldron. variants: plate (domed), spiked, mail (layered lames), leather (spaulder
     with a strap), cloth (padded mantle roll), bone (skull cap), crystal, mantle (fur ruff).
@@ -950,6 +975,110 @@ def shoulder_one(o):
         for x, y, w, h, a in ((cx - 18, cy - 4, 12, 34, -30), (cx - 2, cy - 8, 14, 40, -6), (cx + 14, cy - 2, 11, 30, 20)):
             s += '<g transform="rotate(%d %d %d)">%s</g>' % (a, x, y + 14, P("M %d %d L %d %d L %d %d L %d %d Z" % (x - w / 2, y + 14, x, y + 14 - h, x + w / 2, y + 14, x, y + 22), m, 3.5))
         s += P("M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx - 30, cy + 14, cx - 4, cy - 2, cx + 26, cy + 10, cx - 2, cy + 24, cx - 30, cy + 14), t, 4)
+    elif v == "domemail":
+        # smooth dome over a mail skirt, its rim cut in a zigzag (inv_shoulder_10..16)
+        s += _sh_mail(cx, cy + 4, C(o.get("k"), "iron"))
+        s += _sh_dome(cx, cy, m) + LN("M %d %d Q %d %d %d %d" % (cx - 22, cy - 8, cx - 8, cy - 16, cx + 8, cy - 13), light(m, .55), 4)
+        s += _sh_zigband(cx, cy + 2, t)
+    elif v == "swirl":
+        # mantle with a broad rim and a big scroll curl (inv_shoulder_02, 05)
+        s += P("M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx - 34, cy + 6, cx - 30, cy + 30, cx - 8, cy + 30, cx + 18, cy + 28, cx + 26, cy + 6), C(o.get("g"), "purple"), 4)
+        s += _sh_dome(cx, cy - 2, m)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 34, cy + 4, cx - 6, cy + 16, cx + 28, cy + 2), INK, 11) + LN("M %d %d Q %d %d %d %d" % (cx - 34, cy + 4, cx - 6, cy + 16, cx + 28, cy + 2), t, 6)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 30, cy - 4, cx - 30, cy - 20, cx - 10, cy - 22), INK, 9) + LN("M %d %d Q %d %d %d %d" % (cx - 30, cy - 4, cx - 30, cy - 20, cx - 10, cy - 22), t, 4.5)
+        s += _sh_spiral(cx - 2, cy - 6, 9, INK, 8) + _sh_spiral(cx - 2, cy - 6, 9, t, 4)
+    elif v == "drape":
+        # layered cloth mantle: a top flap and a lower flap, both with a trimmed edge (inv_shoulder_09)
+        low = "M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx - 36, cy + 2, cx - 38, cy + 30, cx - 16, cy + 32, cx + 6, cy + 32, cx + 24, cy + 20, cx + 30, cy + 2, cx + 28, cy)
+        s += P(low, darker(m, .82), 4) + LN("M %d %d Q %d %d %d %d" % (cx - 34, cy + 26, cx - 6, cy + 34, cx + 22, cy + 20), t, 4.5)
+        top = "M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 30, cy + 4, cx + 24, cy - 22, cx - 4, cy - 20, cx - 32, cy - 18, cx - 36, cy + 8, cx - 6, cy + 20, cx + 30, cy + 4)
+        s += P(top, m, 5) + LN("M %d %d Q %d %d %d %d" % (cx - 34, cy + 6, cx - 6, cy + 18, cx + 28, cy + 3), INK, 10) + LN("M %d %d Q %d %d %d %d" % (cx - 34, cy + 6, cx - 6, cy + 18, cx + 28, cy + 3), t, 5)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 22, cy - 8, cx - 8, cy - 14, cx + 8, cy - 11), light(m, .6), 4)
+    elif v == "ridge":
+        # swept pauldron with a tall arched fin rising from its outer edge (inv_shoulder_23..25)
+        s += P("M %d %d Q %d %d %d %d Q %d %d %d %d L %d %d Z" % (cx - 32, cy + 6, cx - 32, cy + 30, cx - 8, cy + 30, cx + 18, cy + 28, cx + 24, cy + 6, cx, cy + 2), C(o.get("g"), darker(m, .75)), 4)
+        fin = "M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx - 34, cy + 8, cx - 40, cy - 30, cx - 14, cy - 40, cx + 2, cy - 30, cx + 4, cy - 4, cx - 14, cy + 4, cx - 34, cy + 8)
+        s += P(fin, t, 5) + P("M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx - 26, cy + 2, cx - 30, cy - 26, cx - 13, cy - 31, cx - 4, cy - 22, cx - 4, cy - 2), darker(m, .7), 2.5)
+        s += P("M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 28, cy + 8, cx + 24, cy - 12, cx + 2, cy - 12, cx - 24, cy - 8, cx - 30, cy + 10, cx - 4, cy + 20, cx + 28, cy + 8), m, 5)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 30, cy + 8, cx - 4, cy + 18, cx + 26, cy + 6), INK, 10) + LN("M %d %d Q %d %d %d %d" % (cx - 30, cy + 8, cx - 4, cy + 18, cx + 26, cy + 6), t, 5)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 16, cy - 2, cx - 2, cy - 7, cx + 14, cy - 4), light(m, .5), 3.5)
+    elif v == "wedge":
+        # angular plate with a thick riveted rim along the outer and lower edge (inv_shoulder_26..28)
+        s += P("M %d %d L %d %d L %d %d L %d %d Z" % (cx - 30, cy + 10, cx - 20, cy + 30, cx + 18, cy + 22, cx + 24, cy + 4), darker(m, .7), 4)
+        s += P("M %d %d L %d %d Q %d %d %d %d L %d %d L %d %d Z" % (cx - 38, cy + 4, cx - 24, cy - 20, cx, cy - 26, cx + 24, cy - 14, cx + 30, cy + 4, cx - 4, cy + 20), m, 5)
+        s += LN("M %d %d L %d %d L %d %d L %d %d" % (cx - 24, cy - 20, cx - 38, cy + 4, cx - 4, cy + 20, cx + 30, cy + 4), INK, 13) + LN("M %d %d L %d %d L %d %d L %d %d" % (cx - 24, cy - 20, cx - 38, cy + 4, cx - 4, cy + 20, cx + 30, cy + 4), t, 8)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 16, cy - 8, cx, cy - 18, cx + 14, cy - 10), light(m, .55), 4)
+        for x, y in ((cx - 30, cy + 3), (cx - 6, cy + 16), (cx + 22, cy + 5)): s += CI(x, y, 2.6, light(t, .35), 1.8)
+    elif v == "lames":
+        # stacked plates, each with a bright edge, and a strap with a buckle (inv_shoulder_29, 30, 71)
+        for k in range(3)[::-1]:
+            y = cy - 16 + k * 12; w = 32 - k * 3
+            band = "M %d %d Q %d %d %d %d L %d %d Q %d %d %d %d Z" % (cx - w - 2, y + 12, cx - 4, y - 16, cx + w - 4, y + 6, cx + w - 6, y + 16, cx - 4, y, cx - w, y + 22)
+            s += P(band, m if k != 1 else darker(m, .88), 4) + LN("M %d %d Q %d %d %d %d" % (cx - w, y + 20, cx - 4, y + 1, cx + w - 6, y + 14), t, 4)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 18, cy - 14, cx - 6, cy - 22, cx + 10, cy - 18), light(m, .55), 3.5)
+        s += RC(cx + 8, cy - 6, 9, 30, C(o.get("g"), "darkleather"), 2, 3) + RC(cx + 6, cy + 6, 13, 9, t, 2, 2.5)
+    elif v == "quilted":
+        # leather dome with diamond quilting and a rivet at each crossing (inv_shoulder_06)
+        s += _sh_dome(cx, cy, m)
+        lat = "".join(LN("M %d %d L %d %d" % (cx - 26 + k * 12, cy - 18, cx - 6 + k * 12, cy + 16), darker(m, .62), 2.2)
+                      + LN("M %d %d L %d %d" % (cx + 14 + k * 12, cy - 18, cx - 6 + k * 12, cy + 16), darker(m, .62), 2.2) for k in range(-3, 4))
+        dome = "M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 30, cy + 8, cx + 26, cy - 22, cx - 4, cy - 22, cx - 34, cy - 20, cx - 36, cy + 12, cx - 4, cy + 22, cx + 30, cy + 8)
+        s += '<clipPath id="shquilt"><path d="%s"/></clipPath><g clip-path="url(#shquilt)">%s</g>' % (dome, lat) + P(dome, "none", 5)
+        for x, y in ((cx - 16, cy - 8), (cx + 8, cy - 8), (cx - 4, cy + 4), (cx - 22, cy + 6), (cx + 16, cy + 2)): s += CI(x, y, 2.6, light(t, .3), 1.8)
+    elif v == "banded":
+        # leather dome with a riveted band across it (inv_shoulder_07, 08, 74)
+        s += _sh_dome(cx, cy, m) + LN("M %d %d Q %d %d %d %d" % (cx - 22, cy - 10, cx - 8, cy - 17, cx + 8, cy - 14), light(m, .5), 4)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 35, cy + 2, cx - 6, cy + 10, cx + 29, cy - 2), INK, 13) + LN("M %d %d Q %d %d %d %d" % (cx - 35, cy + 2, cx - 6, cy + 10, cx + 29, cy - 2), t, 8)
+        for x, y in qpts((cx - 30, cy + 3), (cx - 6, cy + 10), (cx + 24, cy - 1), 4): s += CI(x, y, 2.6, light(t, .45), 1.8)
+    elif v == "orbs":
+        # rough mantle with dripping ends and two ringed orbs (inv_shoulder_17..19)
+        drip = ("M %d %d Q %d %d %d %d Q %d %d %d %d L %d %d L %d %d L %d %d L %d %d L %d %d L %d %d L %d %d L %d %d Q %d %d %d %d Z"
+                % (cx + 30, cy + 6, cx + 26, cy - 22, cx - 4, cy - 22, cx - 34, cy - 20, cx - 36, cy + 8, cx - 34, cy + 26, cx - 26, cy + 14,
+                   cx - 18, cy + 28, cx - 10, cy + 16, cx - 2, cy + 26, cx + 6, cy + 14, cx + 14, cy + 22, cx + 20, cy + 10, cx + 28, cy + 12, cx + 30, cy + 6))
+        s += P(drip, m, 5)
+        for k in range(5): s += LN("M %d %d L %d %d" % (cx - 26 + k * 10, cy - 12 + (k % 2) * 3, cx - 20 + k * 10, cy - 6 + (k % 2) * 3), light(m, .4), 2)
+        for x, y, r in ((cx - 18, cy - 4, 8), (cx + 10, cy - 8, 7)):
+            s += CI(x, y, r + 3, t, 3.5) + GEM(x, y, r - 1.5, C(o.get("e"), "black"))
+    elif v == "ornate":
+        # rounded plate over mail with gold scrollwork (inv_shoulder_20..22, 78)
+        s += _sh_mail(cx, cy + 4, C(o.get("k"), "iron"))
+        s += _sh_dome(cx, cy - 2, m) + LN("M %d %d Q %d %d %d %d" % (cx - 22, cy - 12, cx - 8, cy - 19, cx + 8, cy - 16), light(m, .55), 4)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 35, cy + 6, cx - 6, cy + 16, cx + 29, cy + 2), INK, 12) + LN("M %d %d Q %d %d %d %d" % (cx - 35, cy + 6, cx - 6, cy + 16, cx + 29, cy + 2), t, 7)
+        sc = "M %d %d Q %d %d %d %d Q %d %d %d %d" % (cx - 24, cy + 8, cx - 22, cy - 4, cx - 8, cy - 4, cx + 8, cy - 4, cx + 10, cy - 14)
+        s += LN(sc, INK, 9) + LN(sc, t, 4.5) + _sh_spiral(cx + 12, cy - 15, 5, INK, 7) + _sh_spiral(cx + 12, cy - 15, 5, t, 3.5)
+    elif v == "flare":
+        # swept, flame-like blades fanning out and up (inv_shoulder_35)
+        s += _sh_dome(cx, cy + 2, C(o.get("g"), "maroon"))
+        for k, (dx, dy, col) in enumerate(((-30, -14, t), (-18, -26, m), (-2, -30, light(m, .35)))):
+            s += P("M %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx + 26, cy + 6 - k * 4, cx + dx + 20, cy + dy + 4, cx + dx - 10, cy + dy - 6,
+                   cx + dx + 4, cy + dy + 14, cx - 20 + k * 6, cy + 14 - k * 3), col, 4)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 32, cy + 10, cx - 4, cy + 22, cx + 28, cy + 8), INK, 11) + LN("M %d %d Q %d %d %d %d" % (cx - 32, cy + 10, cx - 4, cy + 22, cx + 28, cy + 8), C(o.get("e"), "gold"), 6)
+    if "zigzag" in f:
+        z = qpts((cx - 28, cy - 6), (cx - 6, cy - 14), (cx + 20, cy - 8), 6)
+        s += LN("M " + " L ".join("%.1f %.1f" % (x, y + (5 if k % 2 else 0)) for k, (x, y) in enumerate(z)), t, 3.5)
+        z = qpts((cx - 30, cy + 14), (cx - 6, cy + 24), (cx + 22, cy + 10), 6)
+        s += LN("M " + " L ".join("%.1f %.1f" % (x, y - (5 if k % 2 else 0)) for k, (x, y) in enumerate(z)), t, 3)
+    if "teeth" in f:
+        tt = qpts((cx - 40, cy + 12), (cx - 34, cy - 34), (cx + 30, cy - 18), 9)
+        s = "".join(P("M %.1f %.1f L %.1f %.1f L %.1f %.1f Z" % (x - 5, y + 4, x - 4 - (cx - x) * 0.12, y - 9, x + 5, y + 2), C(o.get("g"), "darkleather"), 3) for x, y in tt) + s
+    if "horn" in f:
+        # one horn spike on the outer half, where hoods and helms leave it showing
+        s += P("M %d %d Q %d %d %d %d Q %d %d %d %d Q %d %d %d %d Z" % (cx - 32, cy - 12, cx - 40, cy - 34, cx - 30, cy - 50, cx - 26, cy - 36,
+               cx - 12, cy - 24, cx - 18, cy - 14, cx - 32, cy - 12), C(o.get("h"), "brass"), 4)
+        s += LN("M %d %d Q %d %d %d %d" % (cx - 28, cy - 18, cx - 32, cy - 32, cx - 29, cy - 42), light(C(o.get("h"), "brass"), .5), 2.5)
+    if "claws" in f:
+        for x, y, a in ((cx - 30, cy - 6, -50), (cx - 18, cy - 18, -24), (cx + 2, cy - 22, 2)):
+            ca, sa = math.cos(math.radians(a)), math.sin(math.radians(a))
+            tip = (x + sa * 22, y - ca * 22); mid = (x + sa * 15 + ca * 7, y - ca * 15 + sa * 7)
+            s += P("M %.1f %.1f Q %.1f %.1f %.1f %.1f Q %.1f %.1f %.1f %.1f Z" % (x - ca * 7, y - sa * 7, mid[0], mid[1], tip[0], tip[1], mid[0] - ca * 6, mid[1] - sa * 6, x + ca * 7, y + sa * 7), C(o.get("g"), "purple"), 3.5)
+    if "runes" in f:
+        for k, (x, y) in enumerate(((cx - 20, cy - 4), (cx - 6, cy - 9), (cx + 8, cy - 6), (cx - 13, cy + 7), (cx + 2, cy + 4))):
+            s += LN(("M %d %d L %d %d L %d %d", "M %d %d L %d %d M %d %d L %d %d", "M %d %d L %d %d L %d %d")[k % 3] %
+                    ((x - 3, y - 4, x, y + 4, x + 3, y - 4), (x - 3, y, x + 3, y, x, y - 4, x, y + 4), (x - 3, y + 3, x - 3, y - 3, x + 3, y + 3))[k % 3],
+                    C(o.get("e"), "cyan"), 2.4)
+    if "bolts" in f:
+        for x, y, sg in ((cx - 30, cy - 18, 1), (cx + 10, cy - 30, -1)):
+            s += LN("M %d %d L %d %d L %d %d L %d %d" % (x, y, x + 6 * sg, y + 8, x, y + 10, x + 7 * sg, y + 20), INK, 6) + LN("M %d %d L %d %d L %d %d L %d %d" % (x, y, x + 6 * sg, y + 8, x, y + 10, x + 7 * sg, y + 20), C(o.get("e"), "storm"), 3)
     if "rivets" in f:
         for x, y in ((cx - 24, cy + 8), (cx - 6, cy + 12), (cx + 14, cy + 8)): s += CI(x, y, 3, light(t, .3), 2)
     if "gem" in f: s += GEM(cx - 4, cy - 4, 6.5, e)

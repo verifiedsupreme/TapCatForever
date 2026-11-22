@@ -1,0 +1,90 @@
+# Real gear shoulders: one cartoon drawing per shoulder icon in TCF.GEAR (see README.md).
+# icon: spec for tools/vector_items.py shoulder_one(). Written from the real icon images.
+# Colours: m main, t trim, g second colour (lower lame, spikes, fur, claws), h horn, k mail, e gem.
+
+# tauren skull with horns (Dreadmist Mantle)
+inv_misc_bone_taurenskull_01: shoulder:bone horns g=bone
+# purple mantle with a brown fur ruff and a horn spike
+inv_shoulder_01: shoulder:cloth m=#6a3fa0 t=#c9a14a g=#8a5a36 fur horn h=#c8a46a
+# blue mantle with a silver rim and scroll curl
+inv_shoulder_02: shoulder:swirl m=#3d6fd8 t=silver g=#5a3f9a
+# silver plate with a gold horn
+inv_shoulder_03: shoulder:plate m=silver t=#b8a27a horn h=#c8b07a
+# lavender plate with a silver rim and a bronze horn
+inv_shoulder_04: shoulder:plate m=#8a7ad6 t=silver horn h=#b8905a
+# purple mantle with a silver rim and scroll curl
+inv_shoulder_05: shoulder:swirl m=#7466b8 t=silver g=#4a3a7a
+# quilted brown leather with rivets and a grey fur roll
+inv_shoulder_06: shoulder:quilted m=#8a5a36 t=brass fur g=#a8a49a
+# dark leather with gold zigzags and a riveted band
+inv_shoulder_07: shoulder:banded m=#4a3a2e t=gold zigzag
+# brown leather dome with a riveted steel band
+inv_shoulder_08: shoulder:banded m=#7a4e2e t=#9a968c
+# silver cloth mantle in two layers with a gold edge
+inv_shoulder_09: shoulder:drape m=silver t=gold
+# gold dome over mail
+inv_shoulder_10: shoulder:domemail m=#f2c14e t=#c08a2a k=#8e8e78 rivets
+# purple dome with a gold zigzag rim, a silver spike and mail
+inv_shoulder_11: shoulder:domemail m=#7a68c0 t=gold k=#6a5a9a horn h=silver
+# deep purple dome over purple mail
+inv_shoulder_12: shoulder:domemail m=#5a46a8 t=#3e3070 k=#7a6aa0 rivets
+# grey dome over bronze mail
+inv_shoulder_13: shoulder:domemail m=#8e8e96 t=#55555e k=#9a9070 rivets
+# purple dome with a white zigzag rim over light mail
+inv_shoulder_14: shoulder:domemail m=#5a3fa8 t=white k=#cfcfe0
+# brown dome with a cream zigzag rim over mail
+inv_shoulder_15: shoulder:domemail m=#7a6a5a t=cream k=#a8a090
+# dark steel dome with a silver zigzag rim over mail
+inv_shoulder_16: shoulder:domemail m=#5e5e66 t=silver k=#a8a8ae
+# shaggy purple mantle with teal-ringed orbs
+inv_shoulder_17: shoulder:orbs m=#5a4a8a t=#3fb8b0 e=black
+# shaggy teal mantle with gold-ringed orbs
+inv_shoulder_18: shoulder:orbs m=#3a8a86 t=#c8b060 e=black
+# shaggy brown mantle with gold-ringed orbs
+inv_shoulder_19: shoulder:orbs m=#6e5a4a t=#c8b060 e=black
+# gold plate with scrollwork over mail
+inv_shoulder_20: shoulder:ornate m=#f2c14e t=#b07a1e k=steel
+# purple plate with dark scrollwork over mail
+inv_shoulder_21: shoulder:ornate m=#8a6ad0 t=#4a3a7a k=steel
+# silver plate with gold scrollwork over mail
+inv_shoulder_22: shoulder:ornate m=silver t=gold k=iron
+# red pauldron with a tall gold-rimmed fin
+inv_shoulder_23: shoulder:ridge m=crimson t=gold g=#6e1a26
+# mauve pauldron with a tall copper-rimmed fin
+inv_shoulder_24: shoulder:ridge m=#6a5a8a t=copper g=#4a3e66
+# indigo pauldron with a tall silver-blue fin
+inv_shoulder_25: shoulder:ridge m=#4a4e8a t=#a8b4f0 g=#34346a
+# grey plate with a thick gold rim
+inv_shoulder_26: shoulder:wedge m=#c8c8c4 t=gold
+# pale plate with a thick blue rim
+inv_shoulder_27: shoulder:wedge m=#d6dce6 t=sapphire
+# gold plate with a thick silver rim
+inv_shoulder_28: shoulder:wedge m=#f2c14e t=silver
+# stacked silver plates with a strap
+inv_shoulder_29: shoulder:lames m=#c9d3e0 t=#f4f6fa
+# stacked silver plates with gold edges
+inv_shoulder_30: shoulder:lames m=#c9d3e0 t=gold
+# Netherwind: midnight blue mantle with glowing runes
+inv_shoulder_32: shoulder:cloth m=navy t=#7fd0ff runes e=cyan glow=#6f9bff
+# Ten Storms: silver plate crackling with lightning
+inv_shoulder_33: shoulder:plate m=silver t=#6f88c8 bolts e=storm glow=storm
+# Wrath: purple pauldron with a white blade and a green gem
+inv_shoulder_34: shoulder:ridge m=#5a3e9a t=#f4eefa g=#3a2a6a gem e=fel
+# Conqueror's: flame-like orange and red blades
+inv_shoulder_35: shoulder:flare m=#ef8a35 t=#d8443a g=maroon e=gold glow=fire
+# Striker's: crimson pauldron with purple claws
+inv_shoulder_36: shoulder:plate m=#b02a3a t=#6e2230 claws g=#7a4ab0
+# Judgement: gold plate with a ruby and a warm glow
+inv_shoulder_37: shoulder:wedge m=#f2c14e t=#b0602a gem e=ruby glow=holy
+# Stalwart: stacked silver plates with gold edges and rivets
+inv_shoulder_71: shoulder:lames m=#d6dce6 t=#d9b25a rivets
+# Vigorous: brown leather with a toothed rim
+inv_shoulder_74: shoulder:banded m=#7a5a3a t=#a8a090 teeth g=#4a3424
+# Earthbound: grey-brown leather with a hooked horn
+inv_shoulder_77: shoulder:leather m=#6e5a4a t=#8a8a80 e=#a8a090 horn h=#a8b8b0
+# Saronite: dark bronze plate with scrollwork and a fur trim
+inv_shoulder_78: shoulder:ornate m=#6a5040 t=#b08a60 k=#4a4038 fur g=#9a7a56
+# Enumerated: copper plate with spikes
+inv_shoulder_80: shoulder:spiked m=copper t=#7a4a2a g=steel
+# Acherus: dark bronze plate with icy blue spikes
+inv_shoulder_92: shoulder:spiked m=#6a4a2e t=bronze g=#5a8ae8 glow=frost
