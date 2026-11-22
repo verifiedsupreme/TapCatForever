@@ -4295,7 +4295,8 @@ def check_leaderboard(seed=1):
     ck(len(names) == 12 and B.ev("#TapCatForever.window.tabButtons") == 12 and names[B.ev("TapCatForever.window.TAB_LEADERBOARD") - 1] == "Leaderboard"
        and names[-1] == "Settings", "12 tabs, Leaderboard among them: %r" % names)
     tw, ts = B.ev("TapCatForever.window.tabWidth"), B.ev("TapCatForever.window.tabStep")
-    ck(tw == 92 and ts > tw and abs(5 * ts + tw - 560) < 0.01, "two rows of 6 tabs, 92 wide, filling the 560 wide panel (step %s)" % ts)
+    # 1.6.0: ten tabs in two rows of 5 (Casino and Settings are icon buttons next to the title)
+    ck(tw == 110 and ts > tw and abs(4 * ts + tw - 560) < 0.01, "two rows of 5 tabs, 110 wide, filling the 560 wide panel (step %s)" % ts)
     for n in names:
         # clear of the button's rounded ends, 5 px each side (UI.lua switches to the small font past that)
         ck(est_width(n) <= tw - 10, "tab label fits: %s (about %.1f of %d px)" % (n, est_width(n), tw - 10))

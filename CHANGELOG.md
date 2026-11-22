@@ -2,6 +2,9 @@
 
 ## 1.6.0
 
+**Main window**
+- Casino and Settings are now two round buttons next to the TapCatForever title (a coin and a cog), so the other ten tabs sit in two roomier rows of five and every name fits.
+
 **Casino**
 - New: a Casino tab between Leaderboard and Settings, with Lucky Paws slots, blackjack, and death roll and rock paper scissors against a house cat or a friend in your party. It fills the whole window under the tabs: pick Slots, Blackjack or Death roll with the buttons at the top (the Death roll view also plays rock paper scissors).
 - The line at the top shows your bet limits, and your stats for the game you are playing: games played, total bet, paid back, net and your biggest win (hover it for every game).

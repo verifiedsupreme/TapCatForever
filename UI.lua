@@ -731,8 +731,11 @@ function TCF:CreateWindow()
 
   ------------------------------------------------ right column: two rows of six tabs over the 560 wide panel
   local right = Panel(win, W - 360, H - 126); right:SetPoint("TOPLEFT", left, "TOPRIGHT", 12, -60)
-  -- 5 steps plus one tab fill the 560 wide panel exactly (5 * 93.6 + 92 = 560)
-  local TAB_W, TAB_STEP, TAB_ROW = 92, 93.6, 6
+  -- 1.6.0: ten tabs in two rows of five (4 * 112.5 + 110 = 560); Casino and Settings are the
+  -- two round icon buttons next to the title instead, so every label has room
+  local TAB_W, TAB_STEP, TAB_ROW = 110, 112.5, 5
+  local ICON_TABS = { [TAB_CASINO] = { icon = "INV_Misc_Coin_02", title = "Casino", tip = "Slots, blackjack, death roll and rock paper scissors." },
+                      [TAB_SETTINGS] = { icon = "INV_Misc_Gear_01", title = "Settings", tip = "Cat, display, chat and sound options, help and info." } }
   win.tabButtons, win.tabWidth, win.tabStep = tabs, TAB_W, TAB_STEP
   SelectTab = function(i)
     win.tab = i
@@ -740,10 +743,28 @@ function TCF:CreateWindow()
     for j, t in ipairs(tabs) do if j == i then t:LockHighlight() else t:UnlockHighlight() end end
     win:Refresh()
   end
+  local iconPrev = ver
   for i, n in ipairs(tabNames) do
-    local b = Button(win, n, TAB_W, 24, function() SelectTab(i); TCF:PlaySound("click") end)
-    local col, row = (i - 1) % TAB_ROW, i <= TAB_ROW and 1 or 0
-    b:SetPoint("BOTTOMLEFT", right, "TOPLEFT", col * TAB_STEP, 4 + row * 27)
+    local b
+    local it = ICON_TABS[i]
+    if it then
+      b = CreateFrame("Button", nil, win)
+      b:SetSize(26, 26)
+      b:SetPoint("LEFT", iconPrev, "RIGHT", iconPrev == ver and 12 or 6, 0)
+      local ic = b:CreateTexture(nil, "ARTWORK"); ic:SetAllPoints(); ic:SetTexture(TCF.Icon(it.icon)); ic:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+      b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+      b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetPoint("TOPLEFT", -3, 3); b.sel:SetPoint("BOTTOMRIGHT", 3, -3)
+      b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD"); b.sel:Hide()
+      b.LockHighlight = function(self) self.sel:Show() end
+      b.UnlockHighlight = function(self) self.sel:Hide() end
+      b:SetScript("OnClick", function() SelectTab(i); TCF:PlaySound("click") end)
+      Tip(b, function(tt) tt:AddLine(it.title, 1, 0.82, 0); tt:AddLine(it.tip, 1, 1, 1, true) end)
+      iconPrev = b
+    else
+      b = Button(win, n, TAB_W, 24, function() SelectTab(i); TCF:PlaySound("click") end)
+      local col, row = (i - 1) % TAB_ROW, i <= TAB_ROW and 1 or 0
+      b:SetPoint("BOTTOMLEFT", right, "TOPLEFT", col * TAB_STEP, 4 + row * 27)
+    end
     tabs[i] = b
     local p = CreateFrame("Frame", nil, right); p:SetAllPoints(); p:Hide()
     pages[i] = p
@@ -753,16 +774,16 @@ function TCF:CreateWindow()
   -- so they still match
   do
     local tooWide = false
-    for _, b in ipairs(tabs) do
-      local fs = b.GetFontString and b:GetFontString()
+    for i, b in ipairs(tabs) do
+      local fs = not ICON_TABS[i] and b.GetFontString and b:GetFontString()
       local w = fs and fs.GetStringWidth and fs:GetStringWidth()
       if type(w) == "number" and w > TAB_W - 10 then tooWide = true end
     end
     if tooWide then
-      for _, b in ipairs(tabs) do
+      for i, b in ipairs(tabs) do if not ICON_TABS[i] then
         b:SetNormalFontObject("GameFontNormalSmall"); b:SetHighlightFontObject("GameFontHighlightSmall")
         b:SetDisabledFontObject("GameFontDisableSmall")
-      end
+      end end
     end
     win.tabSmallFont = tooWide
   end
