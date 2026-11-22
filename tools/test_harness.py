@@ -438,7 +438,7 @@ TEST = r'''
     for k = 1, 400 do _update(0.25) end
     assert((ps.mats.d_wolf or 0) >= 3, "sous-chef cooked")
     -- crafting and every professions screen
-    ps.mats.linen = (ps.mats.linen or 0) + 100; assert(TCF:Craft(TCF.RECIPES[TCF:CraftProf()][1]), "craft the first Tailoring cosmetic")
+    ps.mats.linen = (ps.mats.linen or 0) + 1000; assert(TCF:Craft(TCF.RECIPES[TCF:CraftProf()][1]), "craft the first Tailoring cosmetic")  -- (1.6: cosmetics cost more)
     for _, p in ipairs(TCF.PROFESSIONS) do
       win.profSel = p.key
       for _, v in ipairs({ "main", "upg", "craft", "renown" }) do win.profView = v; win:SelectTab(5); _update(0.2) end

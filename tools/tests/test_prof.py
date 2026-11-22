@@ -190,6 +190,29 @@ ps.speed[fam] = nil
 '''
 
 
+COSMETIC = r'''
+local T = TapCatForever
+local function find(key, item) for _, r in ipairs(T.RECIPES[key]) do if r.item == item then return r end end end
+check(find("tailoring", "craft_tl_scarf").mats.linen == 300, "an uncommon cosmetic costs 5x (60 -> 300 linen)")
+check(find("tailoring", "craft_tl_felwings").mats.felcloth == 16000 and find("tailoring", "craft_tl_felwings").mats.runecloth == 48000, "a legendary one 40x")
+local skin = find("tailoring", "skin_runestitch")
+check(skin and skin.mats.runecloth == 9000 and T.ITEMS.skin_runestitch.get.mats == skin.mats, "a fur colour costs 10x and the Compendium shows the same")
+check(find("herbalism", "craft_lotus_bloom").mats.lotus == 60 and find("fishing", "craft_pinchy_gift").mats.pinchy == 5, "rare inputs unchanged")
+check(find("cooking", "craft_chef_spice").mats.d_chili == 25 and find("cooking", "craft_chef_spice").mats.hotspice == 100, "dishes and spices unchanged")
+check(find("firstaid", "craft_onyxia_cloak").mats.b_heavyrunecloth == 100, "bandages unchanged")
+-- gear recipes are the CraftData.lua amounts
+for key, list in pairs(T.CRAFT_RECIPES) do
+  local byGear = {}
+  for _, r in ipairs(list) do byGear[r.gear] = r end
+  for _, r in ipairs(T.RECIPES[key]) do
+    if r.gear then
+      for m, n in pairs(r.mats) do check(byGear[r.gear].mats[m] == n, "gear recipe unchanged: " .. r.gear) end
+    end
+  end
+end
+'''
+
+
 def run(lua, code, name):
     lua.execute(PRE)
     lua.execute(code)
@@ -203,6 +226,8 @@ def check(seed, load_addon):
     run(lua, CURVE, "professions skill-up curve")
     print("professions skill-up curve section (orange 100%, yellow 50%, green 20%/5%, grey 0, every list reaches 300, colours): all checks passed")
     run(lua, STARTER, "professions starter sets")
+    run(lua, COSMETIC, "professions cosmetic costs")
+    print("professions cosmetic costs section (Cosmetic only recipes cost 3x-40x by rarity, rare inputs and gear recipes unchanged): all checks passed")
     run(lua, SPEED, "professions hand speed")
     print("professions hand speed section (separate upgrade per family, steep costs, 1.5s to 0.25s, kept when selling, page): all checks passed")
     print("professions starter sets section (a white piece for every armour slot per craft, cheap, wearable, progress, shown first): all checks passed")

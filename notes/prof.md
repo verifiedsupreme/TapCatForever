@@ -36,3 +36,13 @@
 - Level n+1 costs 10K x 10^(0.5n + 0.0306n^2), two significant digits: 10K, 34K, 130K, 600K, 3.1M, 18M, 130M, 1B, 9.1B, 95B, 1.1T, 16T, 250T, 4.7Qa, 99Qa.
 - tools/trade_sim.py --speed 2 56 (one cat, 2 h a day, selling whenever it doubles its Renown, buying a level when it costs at most a quarter of the gold in hand): levels 1-6 on day 0-1, 7 on day 4, 8 on day 11, 9 on day 17, 10 on day 26, 11 on day 32, 12 on day 45; 13-15 later than 8 weeks. Profession unlocks are where they were (First Aid day 22, Fishing day 31, Cooking day 48).
 - Clicking pays a share of a spot's cycle, so faster hands mean more gold for players who click a lot. Upper bound, clicking nonstop for the whole 2 hours every day (--clicker): 72T earned after 3 weeks with hand speed against 30T without. Helpers and idle income do not change.
+
+## Crafted cosmetics cost more
+- Cosmetic only recipes (fur colours and the other cosmetics in every profession) now need a lot more of the materials they are made from: 5 times as much for uncommon ones, 10 times for rare ones and fur colours, 20 times for epic and 40 times for legendary ones.
+- Rare ingredients stay as they were: Black Lotus, Mr. Pinchy, bandages, dishes and bought spices.
+- Gear recipes cost the same as before.
+
+## For the developer: cosmetic costs
+- Professions.lua TCF.COSMETIC_MAT_MULT by item rarity { 3, 5, 10, 20, 40 }; kept materials in TCF.COSMETIC_MAT_KEEP plus every d_ (dish) and b_ (bandage) key. Applied once at load to every cosmetic recipe; a skin's recipe shares its table with the skin's get.mats, so the Compendium shows the same amounts.
+- Examples: Linen Scarf 300 linen, Runestitched Cat 5000 mageweave + 9000 runecloth, Felcloth Wings 16000 felcloth + 48000 runecloth, Lotus Bloom 24000 dreamfoil + 60 Black Lotus.
+- tools/trade_sim.py --speed 2 28 (a Mage that sells; it keeps all its cloth, nothing else spends it): materials for the Linen Scarf on day 0, Silk Wizard Hat day 1, Runestitched Cat day 6, Runecloth Top Hat day 7, Felcloth Wings day 19. Real players also spend cloth on crafting levels and First Aid, so expect later. Herbalism and Fishing cosmetics were checked by hand from the garden and fishing buddy rates (Lotus Bloom and Pinchy's gift: about one to two weeks of a full garden or the best buddy at Azshara).

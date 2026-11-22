@@ -1097,6 +1097,36 @@ for prof, list in pairs(TCF.RECIPES) do
   for _, r in ipairs(list) do r.prof = r.prof or prof; if r.item then r.cosmetic = true end end
 end
 
+-- 1.6: Cosmetic only recipes (fur colours and the other cosmetics) cost a lot more of the materials
+-- they are made from, more for rarer ones. Gear recipes are unchanged. Gathered materials (ore,
+-- leather, cloth, herbs, fish) are multiplied; rare or made things (Black Lotus, Mr. Pinchy,
+-- bandages, dishes, bought spices) stay as they were. Amounts keep two significant digits.
+-- A skin's recipe shares its materials table with the skin's get (Data.lua), so the Compendium
+-- shows the same amounts. tools/trade_sim.py --speed shows when a cat can afford them.
+TCF.COSMETIC_MAT_MULT = { [1] = 3, [2] = 5, [3] = 10, [4] = 20, [5] = 40 }
+TCF.COSMETIC_MAT_KEEP = { lotus = true, pinchy = true, hotspice = true, mildspice = true }
+local function keepMat(k) return TCF.COSMETIC_MAT_KEEP[k] or k:sub(1, 2) == "d_" or k:sub(1, 2) == "b_" end
+local function tidyAmount(n)
+  if n < 100 then return floor(n + 0.5) end
+  local p = 10 ^ (floor(math.log10(n)) - 1)
+  return floor(n / p + 0.5) * p
+end
+do
+  local done = {}
+  for _, list in pairs(TCF.RECIPES) do
+    for _, r in ipairs(list) do
+      local it = r.cosmetic and TCF.ITEMS[r.item]
+      if it and not done[r.mats] then
+        done[r.mats] = true
+        local mult = TCF.COSMETIC_MAT_MULT[it.rarity] or 1
+        for k, n in pairs(r.mats) do
+          if not keepMat(k) then r.mats[k] = tidyAmount(n * mult) end
+        end
+      end
+    end
+  end
+end
+
 -- Gear recipes from CraftData.lua (TCF.CRAFT_RECIPES[craftKey] = { { gear, skill, mats }, ... }),
 -- after the cosmetics, sorted by skill. Unknown items and malformed rows are skipped.
 do

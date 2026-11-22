@@ -33,7 +33,8 @@
       whenever the sale would at least double its Renown. Hand speed levels are bought when one
       costs at most a quarter of the Trade Gold in hand. Prints, per week, Trade Gold earned in
       total, Renown, sales, hand speed and the spots owned, and the day each hand speed level, each
-      later spot (7-9) and each profession unlock was reached. --nospots plays without spots 7-9
+      later spot (7-9), each profession unlock and the materials for each Tailoring and First Aid
+      cosmetic (all gathered cloth kept, nothing else spends it) was reached. --nospots plays without spots 7-9
       (the 1.5 economy) to compare. --clicker clicks the tool as fast as its cooldown allows for the
       whole online time (an upper bound: nobody clicks for 2 hours straight). --nospeed never buys
       hand speed.
@@ -287,6 +288,16 @@ for d = 1, days do
   P.play(online * 3600, speedBuy, 5, 1)
   speedBuy()
   for i = 7, #P.ops do if P.ops[i].n > 0 then mark("spot " .. i) end end
+  -- when the materials gathered so far (nothing else spends them here) would pay for a cosmetic
+  for _, key in ipairs({ P.craft, "firstaid" }) do
+    for _, r in ipairs(TCF.RECIPES[key]) do
+      if r.cosmetic then
+        local ok = true
+        for m, n in pairs(r.mats) do if (s.mats[m] or 0) < n then ok = false end end
+        if ok then mark("materials for " .. TCF.ITEMS[r.item].name .. " (" .. key .. ")") end
+      end
+    end
+  end
   for _, p in ipairs(TCF.PROFESSIONS) do if p.gold > 0 and s.lifetime >= p.gold then mark(p.name) end end
   -- sell when it at least doubles the Renown
   local gain = TCF:RenownOnReset()
