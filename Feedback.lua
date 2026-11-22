@@ -1,11 +1,10 @@
 -- TapCatForever: a way for players to send feedback. Addons can't reach the internet, so this
--- shows copy-ready links (GitHub issues with bug/suggestion forms, the CurseForge page) and a
+-- shows a copy-ready link (GitHub issues with bug/suggestion forms) and a
 -- short "about my game" block to paste into the report.
 local ADDON, TCF = ...
 
 TCF.FEEDBACK_LINKS = {
   { "Report a bug or suggest an idea (GitHub)", "https://github.com/verifiedsupreme/TapCatForever/issues/new/choose" },
-  { "Comment on CurseForge", "https://www.curseforge.com/projects/1820339" },
 }
 
 -- facts that help track a bug down
@@ -45,7 +44,7 @@ function TCF:ShowFeedback()
   if not f then
     local U = TCF.UI
     f = CreateFrame("Frame", "TapCatForeverFeedback", UIParent, U.BT)
-    f:SetSize(520, 300); f:SetPoint("CENTER")
+    f:SetSize(520, 250); f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
     f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -53,7 +52,7 @@ function TCF:ShowFeedback()
     tinsert(UISpecialFrames, "TapCatForeverFeedback")
     local close = CreateFrame("Button", nil, f, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", -6, -6)
     local title = U.Text(f, "GameFontNormalLarge", "Send feedback"); title:SetPoint("TOP", 0, -18)
-    local intro = U.Text(f, "GameFontHighlight", "Found a bug or have an idea? I read everything. Click a box, press Ctrl+C to copy the link, then paste it into your browser.")
+    local intro = U.Text(f, "GameFontHighlight", "Found a bug or have an idea? I read everything. Click the link box, press Ctrl+C to copy it, then paste it into your browser.")
     intro:SetPoint("TOP", 0, -44); intro:SetWidth(470)
     local y = -92
     f.boxes = {}

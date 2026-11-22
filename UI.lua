@@ -600,13 +600,6 @@ function TCF:CreateWindow()
     tt:AddLine("Every skin, cosmetic, effect and piece of gear, what you have, and how to get the rest.", 1, 1, 1, true)
   end)
 
-  local fbBtn = Button(win, "Feedback", 84, 22, function() TCF:ShowFeedback(); TCF:PlaySound("click") end)
-  fbBtn:SetPoint("LEFT", compBtn, "RIGHT", 8, 0)
-  Tip(fbBtn, function(tt)
-    tt:AddLine("Send feedback", 1, 0.82, 0)
-    tt:AddLine("Found a bug or have an idea? This shows links to report it.", 1, 1, 1, true)
-  end)
-
   local tabs, pages = {}, {}
   local TAB_GEAR, TAB_ADVENTURE, TAB_ABILITIES, TAB_EXPEDITIONS, TAB_PROFESSIONS = 1, 2, 3, 4, 5
   local TAB_WARDROBE, TAB_QUESTS, TAB_SHOP, TAB_ACH, TAB_SETTINGS = 6, 7, 8, 9, 10
@@ -1185,7 +1178,7 @@ function TCF:CreateWindow()
   fbB:SetPoint("LEFT", welB, "RIGHT", 8, 0)
   Tip(fbB, function(tt)
     tt:AddLine("Send feedback", 1, 0.82, 0)
-    tt:AddLine("Report a bug or suggest an idea. Shows links you can copy into your browser.", 1, 1, 1, true)
+    tt:AddLine("Report a bug or suggest an idea. Shows a link you can copy into your browser.", 1, 1, 1, true)
   end)
   local function ConfirmReset(which, text)
     StaticPopupDialogs.TAPCATFOREVER_RESET = {
