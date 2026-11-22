@@ -402,7 +402,7 @@ local function SlotsView(box, cv)
     if win > 0 then
       local s1 = res.symbols[1]
       local what = res.kind == "three" and ("Three " .. SYM_PLURAL[s1]) or res.kind == "twocats" and "Two cats" or "One cat"
-      result:SetText(string.format("|cffffd100%s. You win %s TapCoins|r |cffbbbbbb(%s back)|r", what, TCF.Commas(win - res.bet), TCF.Commas(win)))
+      result:SetText(string.format("|cffffd100%s. You win %s TapCoins|r", what, TCF.Commas(win - res.bet)))
       for r = 1, 3 do if res.kind == "three" or res.symbols[r] == "cat" then self.reels[r].cells[0].bounce = 0 end end
       self.glowT = 0; glow:Show()
       if not quiet then
@@ -477,6 +477,9 @@ local function SlotsView(box, cv)
     bulbsUpdate(S.bigT and "big" or S.spinning and "spin" or "idle", S.clock)
     burst:Update(e)
     banner:Update(e)
+    -- the banner sits on the marquee: its name comes back when the banner is gone
+    local free = not banner:IsShown()
+    if marquee:IsShown() ~= free then marquee:SetShown(free) end
   end)
 
   function S:Refresh(light)
@@ -555,7 +558,7 @@ local function BlackjackView(box, cv)
   B.cat = cat
   local burst = Burst(box)
   -- the blackjack banner takes the result line's place while it shows (the line comes back after)
-  local banner = Banner(box, CW / 2, 206)
+  local banner = Banner(box, CW / 2, 176)   -- between the dealer's cards and yours
   level(banner, box, 250); level(burst.layer, box, 240)
 
   local bet = TCF.UI.CasinoBetChooser(box, function() cv:Refresh(true) end); at(bet, box, 24, 376, "TOPLEFT")

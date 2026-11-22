@@ -18,7 +18,7 @@
 - Only the middle line counts. Three of a kind wins, and every cat on the line pays something.
 - Pays (times your bet, your bet included): three cats 100, three gems 40, three bells 25, three coins 15, three fish 10, three yarn balls 5, three paws 3, two cats 5, one cat 2.
 - The rarer a line, the more it pays: three cats come up about 1 in 1,000 spins, gems 1 in 667, bells 1 in 500, coins 1 in 400, fish 1 in 296, yarn balls 1 in 222 and paws 1 in 178.
-- The result line says what you won on top of your bet, for example "One cat. You win 10 TapCoins (20 back)" on a bet of 10.
+- The result line says what you won on top of your bet: "One cat. You win 10 TapCoins" on a bet of 10 (you get 20 back).
 - About 3 spins in 10 win something. Over many spins the machine pays back about 94% of what is bet.
 - Hover the "How it works" line for the chance of every line.
 - A big win (10 times your bet or more) gets a coin shower, flashing lights and a cheer from your cat, inside the window only.
