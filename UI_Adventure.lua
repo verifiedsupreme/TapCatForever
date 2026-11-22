@@ -489,7 +489,7 @@ TCF.UI.Builders.adventure = function(page, win)
   end)
   nextTier:SetPoint("TOPRIGHT", -12, -12); prevTier:SetPoint("RIGHT", nextTier, "LEFT", -4, 0)
   local tierLabel = Text(page, "GameFontDisableSmall", "Zone", "RIGHT"); tierLabel:SetPoint("RIGHT", prevTier, "LEFT", -6, 0)
-  Tip(nextTier, function(tt) tt:AddLine("Next zone", 1, 0.82, 0); tt:AddLine("Unlocks when you've beaten every stage of this zone, including its final boss. You can go even if your cat is under-levelled. With Auto-advance on, your cat moves on by itself once it reaches the zone's level.", 1, 1, 1, true) end)
+  Tip(nextTier, function(tt) tt:AddLine("Next zone", 1, 0.82, 0); tt:AddLine("Unlocks when you've beaten every stage of this zone, including its final boss. You can go even if your cat is under-levelled. With Auto-advance on, your cat moves on by itself 2 levels before the zone's level (raids: at level 60).", 1, 1, 1, true) end)
 
   -- scene
   local scene = Panel(page, 532, 250, 1); scene:SetPoint("TOP", 0, -50)
@@ -589,6 +589,7 @@ TCF.UI.Builders.adventure = function(page, win)
   logText:SetWidth(524); logText:SetSpacing(3); logText:SetJustifyV("TOP")
   local help = Text(page, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 10); help:SetWidth(524)
   help:SetText("Your cat fights with this class's gear, level and learned abilities. Every key you press lands a bonus paw strike. Bosses and zone clears drop chests that can hold the zone's real loot.")
+  page.advHelp = help  -- UI_AdventureInfo.lua turns this into the status line
 
   ------------------------------------------------ ability bar (under the fight) and spell effects
   local SPELL = TCF.SPELL_FX
@@ -814,7 +815,7 @@ TCF.UI.Builders.adventure = function(page, win)
     local nt = TCF.TIERS[adv.tier + 1]
     if not nt then
       tierLabel:SetText("|cffaaaaaaLast zone|r")
-    elseif TCF:AdvCanGoTo(adv.tier + 1, 1) and TCF:CD().level >= nt.min then
+    elseif TCF:AdvCanGoTo(adv.tier + 1, 1) and TCF:CD().level >= TCF:AdvAutoLevel(adv.tier + 1) then
       tierLabel:SetText("|cff20ff20Next: " .. nt.name .. " is open >|r")
     else
       local cleared = adv.best >= TCF.AdvStageCode(adv.tier, TCF:AdvStages(adv.tier))

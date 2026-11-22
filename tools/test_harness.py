@@ -1875,6 +1875,8 @@ TEST = r'''
       local zg = firstRaid
       cd.adv.tier, cd.adv.stage = zg, 1
       cd.adv.chestClock = 1e6
+      -- (adv track: first kills now give their own chests, so these are repeat kills)
+      cd.adv.cleared[TCF.AdvStageCode(zg, 1)], cd.adv.cleared[TCF.AdvStageCode(2, 1)] = true, true
       TCF:AdvMobKilled({ name = "High Priest Venoxis", boss = 1, level = 63 })
       cd.adv.tier, cd.adv.stage = 2, 1
       cd.adv.chestClock = 1e6
@@ -4471,7 +4473,7 @@ def main():
         for _, n in ipairs(names) do bad[#bad + 1] = n end
       end
       return bad''')
-    gone = sorted(set(n for n in bad.values() if not os.path.exists(os.path.join(art, n + ".tga"))))
+    gone = sorted(set(n for n in bad.values() if not os.path.exists(os.path.join(art, n.replace("\\", "/") + ".tga"))))  # (adv track: Art/adv\\ paths)
     print("item art missing:", gone)
     print("items:", lua.eval("#TapCatForever.ITEM_LIST"))
     return 1 if (missing or gone) else 0

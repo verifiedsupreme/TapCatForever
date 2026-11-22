@@ -82,6 +82,11 @@ local function chestBlocked(db, run)
   end
 end
 
+-- for the in-dungeon banner (UI_DungeonBanner.lua): where you are, why no chest, the limits
+TCF.CurrentInstance = currentInstance
+TCF.DUNGEON_BOSS_COINS, TCF.DUNGEON_CHESTS_PER_DAY = BOSS_COINS, DUNGEON_CHESTS_PER_DAY
+function TCF:DungeonChestBlockedReason(run) return chestBlocked(self.db, run) end
+
 function TCF:DungeonComplete(run, how)
   if run.rewarded then return end
   run.rewarded = true
@@ -159,7 +164,9 @@ end
 ev:SetScript("OnEvent", function(_, event, ...)
   if not TCF.db then return end
   if event == "ENCOUNTER_END" then
-    local _, _, _, _, success = ...
+    local encounterID, encounterName, _, _, success = ...
+    -- rewards for killing specific real bosses (RealBosses.lua)
+    if TCF.RealBossEncounter then TCF:RealBossEncounter(encounterID, encounterName, success) end
     local run = TCF.db.dungeonRun
     if run and not run.leftAt and safeEq(success, 1) then
       run.bosses = run.bosses + 1
@@ -172,4 +179,5 @@ ev:SetScript("OnEvent", function(_, event, ...)
   else
     TCF:DungeonCheck()
   end
+  if TCF.RefreshDungeonBanner then TCF:RefreshDungeonBanner() end
 end)

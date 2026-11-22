@@ -38,6 +38,7 @@ Sets\Scholomance.lua
 Sets\Stratholme.lua
 Abilities.lua
 Adventure.lua
+AdventureRewards.lua
 Expeditions.lua
 Professions.lua
 Herbalism.lua
@@ -46,6 +47,8 @@ Fishing.lua
 Cooking.lua
 Quests.lua
 Dungeons.lua
+RealBosses.lua
+BossEffects.lua
 UI.lua
 ChestReel.lua
 TreasureBag.lua
@@ -64,12 +67,15 @@ UI_RPS.lua
 Welcome.lua
 UI_Gear.lua
 UI_Adventure.lua
+UI_AdventureInfo.lua
+UI_DungeonBanner.lua
 UI_Abilities.lua
 UI_Expeditions.lua
 UI_Professions.lua
 UI_Leaderboard.lua
 UI_Casino.lua
 Compendium.lua
+AdventureSources.lua
 Feedback.lua
 NewsData.lua
 News.lua

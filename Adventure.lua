@@ -30,6 +30,11 @@ TCF.ADV = {
   -- chance ((clock - 2h) / 1h) to give one, which resets it: about one every 2.5 hours of
   -- dungeon fighting, so running a dungeon over and over can't farm them.
   DUNGEON_CHEST_MIN = 2 * 3600, DUNGEON_CHEST_RAMP = 3600,
+  -- Auto-advance tries a zone this many levels before its minimum level (raids still wait for 60;
+  -- travelling by hand has no level gate at all).
+  AUTO_EARLY = 2,
+  -- A zone's final boss has extra health: 1.3x, or 1.1x in the starter zones (minimum level under 20).
+  FINAL_HP = 1.3, STARTER_FINAL_HP = 1.1, STARTER_BELOW = 20,
 }
 local K, ADV = TCF.ADV.K, TCF.ADV
 
@@ -69,8 +74,9 @@ function TCF:AdvPack(tier, stage)
     local b = t.bosses[bi]
     local mult = t.raid and ADV.RAIDBOSS or ADV.BOSS
     local final = bi == #t.bosses
+    local finalHp = (t.min or 1) < ADV.STARTER_BELOW and ADV.STARTER_FINAL_HP or ADV.FINAL_HP
     pack[1] = { name = b[1], display = b[2], boss = bi, final = final, level = D + (t.raid and 3 or 1),
-      max = floor(hp * mult.hp * (final and 1.3 or 1)), dmg = dps * mult.dps * ADV.MOB_SWING }
+      max = floor(hp * mult.hp * (final and finalHp or 1)), dmg = dps * mult.dps * ADV.MOB_SWING }
   else
     local n = 1 + (stage % 3 == 1 and 1 or 0) + ((stage > 2 and random() < 0.5) and 1 or 0)
     n = min(3, n)
@@ -85,6 +91,15 @@ function TCF:AdvPack(tier, stage)
   end
   for _, m in ipairs(pack) do m.hp = m.max; m.alive = true; m.swing = random() * ADV.MOB_SWING end
   return pack, D
+end
+
+-- The level at which Auto-advance moves into a zone: AUTO_EARLY levels before its minimum level,
+-- except raids, which wait for their full level (60).
+function TCF:AdvAutoLevel(tier)
+  local t = TCF.TIERS[tier]
+  if not t then return nil end
+  if t.raid then return t.min end
+  return max(1, t.min - ADV.AUTO_EARLY)
 end
 
 ---------------------------------------------------------------- run state
@@ -277,13 +292,21 @@ function TCF:AdvMobKilled(m)
         end
       end
     end
-    -- the first time you beat each boss it always drops a piece of its real loot
-    if first and self.RollBossLoot then
-      local loot = self:RollBossLoot(adv.tier, m.boss, self.db.class)
-      -- open-world zones have no loot tables: give gear for the zone's level, with better odds
-      if not loot and self.RollWorldLoot then loot = self:RollWorldLoot(max(t.min, m.level or t.min), self.db.class, { 55, 38, 7 }, adv.tier) end
-      if loot then self:GrantGear(loot, m.name .. " (first kill)", true) end
+    -- the first time you beat each boss it gives a reward that grows with the zone
+    -- (AdventureRewards.lua: gear from its real loot, and chests in bigger zones)
+    if first and self.AdvFirstKillReward then
+      local got = self:AdvFirstKillReward(adv.tier, m)
+      if got and got ~= "" then self:AdvLog("First kill: " .. got) end
+    elseif self.AdvRepeatLoot then
+      -- repeat kills: a small chance of a piece of its real loot (farming)
+      local drop = self:AdvRepeatLoot(adv.tier, m)
+      if drop then self:AdvLog("Loot: " .. (TCF.GearLink and TCF.GearLink(drop) or drop.name) .. " from " .. m.name) end
+      if self.AdvFarmKill then self:AdvFarmKill(adv.tier, m, drop) end
     end
+    -- cosmetics this boss gives on every kill until you have them (TCF.BOSS_COSMETICS)
+    if self.AdvBossCosmetics then self:AdvBossCosmetics(m) end
+    -- back effects some late final bosses unlock (BossEffects.lua: a short notice over the cat)
+    if self.AdvBossEffect then self:AdvBossEffect(m) end
     if m.final and first then
       local coins = self:AdvClearCoins(adv.tier)
       self.db.zonesCleared = self.db.zonesCleared or {}   -- account-wide: the first cat to clear it gets the full bonus
@@ -332,20 +355,22 @@ function TCF:AdvPackCleared()
   if adv.auto then
     if adv.stage >= self:AdvStages(adv.tier) then
       local nt = TCF.TIERS[adv.tier + 1]
-      if nt and cd.level >= nt.min then
+      if nt and cd.level >= self:AdvAutoLevel(adv.tier + 1) then
         adv.tier, adv.stage = adv.tier + 1, 1
         run.catHP = run.catMax
         self:AdvLog("Onward to " .. nt.name .. ".")
       else
         adv.stage = 1
         if nt then
-          self:AdvLog(string.format("|cffaaaaaa%s needs class level %d. Running %s again.|r", nt.name, nt.min, self:AdvTier(adv.tier).name))
+          self:AdvLog(string.format("|cffaaaaaa%s opens at level %d. Running %s again.|r", nt.name, self:AdvAutoLevel(adv.tier + 1), self:AdvTier(adv.tier).name))
         end
       end
     else
       adv.stage = adv.stage + 1
     end
   end
+  -- farming one boss keeps the cat on its stage (AdventureRewards.lua)
+  if adv.farm and self.AdvFarmAfterClear then self:AdvFarmAfterClear() end
   self:AdvEvent("kill")
   run.pack = nil
   run.respawn = 1.2
