@@ -4090,12 +4090,13 @@ def check_leaderboard(seed=1):
         (good.replace("MAGE", "DRAGON"), "Good-Forever"), (good.replace(";5;", ";0;"), "Good-Forever"),
         (good.replace(";5;", ";9999;"), "Good-Forever"), (good.replace(";100;", ";9999999999999999;"), "Good-Forever"),
         (good.replace("Good-Forever", "Go0d-Forever"), "Good-Forever"), (good.replace("Good-Forever", "Good"), "Good-Forever"),
-        (good.replace("Good-Forever", "Go|cffd-Forever"), "Good-Forever"), (good.replace("Good-Forever", "Go od-Forever"), "Good-Forever"),
+        (good.replace("Good-Forever", "Go|cffd-Forever"), "Good-Forever"), (good.replace("Good-Forever", "Go  od-Forever"), "Good-Forever"),
+        (good.replace("Good-Forever", " Good-Forever"), "Good-Forever"), (good.replace("Good-Forever", "Good -Forever"), "Good-Forever"),
         (good.replace("Good-Forever", "Good-For-ever"), "Good-Forever"), (good.replace("1.5.3", "1.5;3"), "Good-Forever"),
         (good + ";extra", "Good-Forever"), (good[:-1] + "x", "Good-Forever"), ("L1;" + "A" * 300, "Good-Forever"),
         (good.replace("Good-Forever", "G" * 60 + "-Forever"), "Good-Forever"), ("R1;abc", "Cedric-Forever"),
         ("R1;" + "9" * 13, "Cedric-Forever"), ("R1;%d" % (now + 99999), "Cedric-Forever"), ("X1;hello", "Good-Forever"),
-        (good, "Bad Name-Forever"), (good, ""),
+        (good, "Bad  Name-Forever"), (good, ""),
     ]
     for msg, sender in bad:
         D.lua.globals()._deliver("TapCatFvr", msg, sender)
@@ -4112,6 +4113,10 @@ def check_leaderboard(seed=1):
     D.ex('GetServerTime = function() return _srv end')
     ck(D.ev("_boardCount()") == n0 and D.ev('_entry("good-forever")') is None,
        "odd or secret messages change nothing (%d -> %d)" % (n0, D.ev("_boardCount()")))
+    # (1.6.1.1) a single space inside a name is allowed: WoW: Forever has two-word character names
+    D.ex('_deliver("TapCatFvr", "%s", "Two Words-Forever", "CHANNEL")' % good.replace("Good-Forever", "Two Words-Forever"))
+    ck(D.ev('_entry("twowords-forever") ~= nil'), "a two-word name is a player")
+    ck(D.ev("_boardCount()") == n0 + 1, "the two-word name added one row (%d -> %d)" % (n0, D.ev("_boardCount()")))
     D.lua.globals()._deliver("TapCatFvr", good, "Good-Forever")
     ck(D.ev('_entry("good-forever")') is not None, "the good one is read")
 
