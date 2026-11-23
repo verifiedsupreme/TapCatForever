@@ -8,7 +8,12 @@
 #   - a death roll duel end to end (challenge names the target as "Name-Realm", your own /roll
 #     lines are yours), and rock paper scissors end to end
 #   - the Casino's friend line: "Ready to play", "Checking their TapCatForever...", and "didn't
-#     answer (they need 1.6.0)" for a friend whose addon is older (no D0 answer)
+#     answer (they need the newest version)" for a friend whose addon is older (no D0 answer)
+#   - a challenge while your name isn't known yet is refused with a plain line, and works once your
+#     hello came back; a /roll by someone else in the group is never taken for yours
+#   - a party message you sent before a /reload (old tag) leaves the row as soon as your name is known
+#   - old stand-in leaderboard rows ("You-<realm>") are dropped and never taken in
+#   - a raid of 10: one roster change costs each addon one hello and at most one answer
 #   - a party expedition invite, accept and start (names in the start match the learned names)
 #   - the leaderboard: both opted in, in a party, see each other's rows under their real names
 #     (nothing is shared under a stand-in name while the name isn't known)
@@ -124,24 +129,38 @@ def check(seed, load_addon):
     ck({ra, rb} == {"win", "lose"}, "one wins, one loses (%s %s)" % (ra, rb))
     ck(TD.settled(net.coins("Alice") - a0, net.coins("Bob") - b0, 100, ra), "both settle the same amount")
 
-    # --- your own /roll line before the name is known: the roll you just asked for is yours
+    # --- a challenge before your name is known: a plain "try again", then it works once your hello is back
     C = net.add("Cara")
     net.group(["Alice", "Bob", "Cara"])
     ck(C.eval("TapCatForever.SelfSender") == "Cara-Forever", "Cara learned her name too")
-    # Cara's addon forgets it (as if her own messages hadn't come back yet) and challenges Alice:
-    # the /roll line she just asked for is still hers, and it teaches her the name
+    # Cara's addon forgets it (as if her own messages hadn't come back yet)
     C.execute("TapCatForever.SelfSender, TapCatForever.SelfBase = nil, nil")
     net.pump(4)
+    ok, err = two(C.execute('return TapCatForever:DeathRollChallenge("Alice", 30, 100)'))
+    ck(not ok and "still getting your name" in err and "!" not in err, "no challenge before the name is known: %r" % (err,))
+    ck(not [m for (n, m, ch) in net.log[-20:] if n == "Cara" and m.startswith("D1;")], "no D1 went out")
+    net.pump(2)
+    ck(C.eval("TapCatForever.SelfBase") == "cara", "her hello came back and taught her the name again")
     a0, c0 = net.coins("Alice"), net.coins("Cara")
     ok, err = two(C.execute('return TapCatForever:DeathRollChallenge("Alice", 30, 100)'))
     ck(ok, "Cara's challenge: %r" % (err,))
     net.pump(1)
     ck(A.eval("(TapCatForever:DeathRollAnswer(true))"), "Alice accepts Cara's challenge")
     net.pump(1)
+    # Bob (in the group, not in the duel) rolls the same range just after the roller pressed Roll,
+    # even while the roller's name is unknown: never counted, and nobody learns "bob" as their name
+    roller = "Cara" if net.st("Cara", "turn") == "me" else "Alice"
+    R = net.c[roller]
+    R.execute("TapCatForever.SelfSender, TapCatForever.SelfBase = nil, nil")
+    R.execute("local d = TapCatForever.DR.duel; d.rolledAt, d.rolledHi = GetTime(), d.cur")
+    net.sys("Bob rolls 7 (1-100)")
+    ck(net.st("Cara", "n") == 0 and net.st("Alice", "n") == 0, "Bob's roll is no part of the duel")
+    ck(R.eval("TapCatForever.SelfBase") is None, "%s didn't take Bob's name for theirs" % roller)
+    ck(not R.eval("TapCatForever.PartyIsMe('Bob-Forever')"), "Bob is still Bob for %s" % roller)
+    R.execute("TapCatForever.DR.duel.rolledAt = nil; TapCatForever.LearnSelf('%s-Forever')" % roller)
     TD._play_to_end(net, "Cara", "Alice", [60, 30, 9, 1])
     rc, ra = net.st("Cara", "result"), net.st("Alice", "result")
     ck({rc, ra} == {"win", "lose"} and TD.settled(net.coins("Cara") - c0, net.coins("Alice") - a0, 30, rc), "Cara's duel settles (%s %s)" % (rc, ra))
-    ck(C.eval("TapCatForever.SelfBase") == "cara", "Cara's roll taught her name")
 
     # --- rock paper scissors end to end
     net.pump(4)
@@ -185,6 +204,78 @@ def check(seed, load_addon):
     ck(rows(A) == "Alice-Forever*,Bob-Forever", "Alice's board: %s" % rows(A))
     ck(rows(B) == "Alice-Forever,Bob-Forever*", "Bob's board: %s" % rows(B))
 
+    # --- a party message Alice sent before a /reload comes back with the old session's tag while her
+    # new session doesn't know her name yet: her cat shows for a moment, and goes as soon as she knows
+    A.execute("TapCatForever.SelfSender, TapCatForever.SelfBase = nil, nil")
+    mine = [m for (n, m, ch) in net.log if n == "Alice" and m[:3] in ("H1;", "U1;")][-1]
+    oldtag = "fffff" if not mine.endswith("z=fffff") else "eeeee"
+    stale = mine.rsplit("z=", 1)[0] + "z=" + oldtag
+    before = A.eval("TapCatForever:PartyCount()")
+    A.globals()._deliver("TapCatFvr", stale, "Alice-Forever", "PARTY")
+    ck(A.eval("TapCatForever:PartyCount()") == before + 1, "the stale message put her own cat up (the case being fixed)")
+    A.execute("TapCatForever.DR.SayHello(true)")
+    net.pump(1)
+    ck(A.eval("TapCatForever.SelfBase") == "alice", "Alice's hello taught her name")
+    rowNames = lambda: A.eval('(function() local t = {} for _, m in ipairs(TapCatForever:PartyMembers()) do t[#t + 1] = m.name end return table.concat(t, ",") end)()')
+    ck(A.eval("TapCatForever:PartyCount()") == before and "Alice" not in rowNames(),
+       "her own cat left the row as soon as the name was known: %s" % rowNames())
+    A.globals()._deliver("TapCatFvr", stale, "Alice-Forever", "PARTY")
+    ck(A.eval("TapCatForever:PartyCount()") == before, "and doesn't come back")
+
+    # --- stand-in leaderboard rows from older versions ("You-<realm>", "Unknown-<realm>")
+    A.execute("""
+      local b = TapCatForever.LeaderboardBoard(true)
+      local t = TapCatForever.LeaderboardServerNow()
+      for _, n in ipairs({ "You-Forever", "Unknown-Forever" }) do
+        b.e[n:lower()] = { n = n, c = "MAGE", l = 10, t = 5000, a = 0, z = 0, v = "1.5.3", ts = t - 60 }
+      end
+      TapCatForever.LeaderboardTest.prune(b, t)
+    """)
+    ck(A.eval("TapCatForever.LeaderboardBoard(true).e['you-forever'] == nil and TapCatForever.LeaderboardBoard(true).e['unknown-forever'] == nil"),
+       "stand-in rows are dropped from the saved board")
+    ck(rows(A) == "Alice-Forever*,Bob-Forever", "the board is just the two players: %s" % rows(A))
+    ts = A.eval("TapCatForever.LeaderboardServerNow()")
+    A.globals()._deliver("TapCatFvr", "L1;You-Forever;MAGE;10;5000;0;0;1.5.3;%d" % (ts - 30), "Bob-Forever", "PARTY")
+    ck(A.eval("TapCatForever.LeaderboardBoard(true).e['you-forever'] == nil"), "a stand-in row passed on is not taken in")
+    ck(A.eval("select(2, TapCatForever.LeaderboardMerge(TapCatForever.LeaderboardBoard(true), { n = 'You-Forever', c = 'MAGE', l = 1, t = 0, a = 0, z = 0, v = '1', ts = %d }, %d))" % (ts, ts)) == "name",
+       "merge refuses a stand-in name")
+    for n in ("Alice", "Bob"):
+        net.c[n].execute("TapCatForever.db.ui.shareDev = false; TapCatForever:DevShareChanged()")
+    net.pump(4)
+
+    # --- a raid of 10: one roster change costs each addon one hello and at most one answer, and
+    # every addon still learns that every other one can play
+    net3 = Net(load_addon, seed + 2, rnd)
+    names = ["P%s" % ch for ch in "abcdefghij"]
+    for n in names: net3.add(n)
+    net3.group(names, raid=True)
+    net3.pump(30)
+    start = len(net3.log)
+    for n in names: net3.c[n].execute('_fire("GROUP_ROSTER_UPDATE")')
+    net3.pump(10)
+    d0 = [(n, m) for (n, m, ch) in net3.log[start:] if m.startswith("D0;")]
+    per = {n: len([1 for (x, m) in d0 if x == n]) for n in names}
+    ck(max(per.values()) <= 2, "at most a hello and an answer per addon: %r" % per)
+    ck(len(d0) <= 2 * len(names), "D0 messages for one roster change: %d" % len(d0))
+    for n in names:
+        L = net3.c[n]
+        ck(L.eval("TapCatForever.SelfBase") == n.lower(), "%s learned its name" % n)
+        for o in names:
+            if o != n: ck(L.eval("TapCatForever:CasinoCanPlay(%r)" % (o + "-Forever")) is True, "%s knows %s can play" % (n, o))
+    # a newcomer's hello right after our last answer still gets one (a little later), so they see us
+    net3.c["Pa"].execute("TapCatForever.DR.SayHello(true)")
+    net3.pump(6)
+    oks = [n for (n, m, ch) in net3.log[-60:] if m.startswith("D0;") and m.endswith(";ok")]
+    ck(len(oks) >= len(names) - 1, "everyone answered the new hello: %r" % oks)
+    # a refused hello is never queued: nothing of it goes out later
+    L = net3.c["Pb"]
+    L.execute("_sendResult = 9")
+    L.execute("TapCatForever.DR.SayHello(true)")
+    L.execute("_sendResult = 0")
+    start = len(net3.log)
+    net3.pump(10)
+    ck(not [m for (n, m, ch) in net3.log[start:] if n == "Pb" and m.startswith("D0;") and m.endswith(";hi")], "a refused hello is dropped, not sent later")
+
     # --- a friend on an older version: the line says so instead of waiting for nothing
     net2 = Net(load_addon, seed + 1, rnd)
     X, Y = net2.add("Xan"), net2.add("Yorr", old=True)
@@ -196,20 +287,21 @@ def check(seed, load_addon):
     ck(not ok and "Checking" in err and "!" not in err, "a challenge waits for the check: %r" % err)
     net2.pump(8)
     st = X.eval("(TapCatForever.DR.FriendStatus('Yorr'))")
-    ck(st == "Their TapCatForever didn't answer (they need 1.6.0)", "then: didn't answer (%s)" % st)
+    ck(st == "Their TapCatForever didn't answer (they need the newest version)", "then: didn't answer (%s)" % st)
     ok, err = two(X.execute('return TapCatForever:DeathRollChallenge("Yorr", 50, 1000)'))
-    ck(not ok and "1.6.0" in err and "!" not in err, "the challenge explains it: %r" % err)
+    ck(not ok and "need the newest TapCatForever" in err and "!" not in err, "the challenge explains it: %r" % err)
     ok, err = two(X.execute('return TapCatForever:RPSChallenge("Yorr", 50)'))
-    ck(not ok and "1.6.0" in err, "rock paper scissors too: %r" % err)
+    ck(not ok and "need the newest TapCatForever" in err, "rock paper scissors too: %r" % err)
     # the line in the Casino's friend view
     X.execute("_drRefresh = TapCatForever.UI.CasinoDeathRoll(CreateFrame('Frame', nil, UIParent), nil)")
     X.execute("local v = TapCatForever.DR.views[#TapCatForever.DR.views]; v:SetMode('friend'); v:Refresh(true)")
     line = X.eval("TapCatForever.DR.views[#TapCatForever.DR.views].friendState:GetText()")
-    ck(line and "didn't answer (they need 1.6.0)" in line, "the friend line in the Casino: %r" % line)
+    ck(line and "didn't answer (they need the newest version)" in line, "the friend line in the Casino: %r" % line)
     print("own name section (secret UnitName on every client, senders as Name-Realm: names learned from echoed "
           "messages, party row without your own cat, a death roll and rock paper scissors end to end, a party "
           "expedition start, leaderboard rows under real names, the Casino's friend line for ready, checking and "
-          "an older version): all checks passed")
+          "an older version, no challenge or roll guessing before the name is known, an old-session party message, "
+          "stand-in leaderboard rows, hellos in a raid of 10): all checks passed")
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.join(ROOT, "tools"))

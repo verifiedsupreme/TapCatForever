@@ -30,12 +30,12 @@ Features
 - Professions level like WoW (orange, yellow, green, grey), with a cheap white starter set for each craft and three more spots per gathering profession.
 - Every class's cat has its own Treasure Bag and wears its own skin and fur, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.
 - Party expeditions: send your cats out together with group members who have the addon, on Normal, Hard or Heroic. Every class's cat also has its own 23 class achievements.
-- The realm leaderboard is still under construction: we're working on getting players to show up on each other's leaderboard. Your own row and the opt-in work as before.
+- The realm leaderboard: players who joined and are in a party, raid or guild together now show up on each other's leaderboard.
 
 **New in 1.5.3**
 - A realm leaderboard tab, opt-in and off by default: see the cats of other players on your realm who joined, by total taps, per class and by professions. It all stays inside the game, and the first time you join you get a Heroic Cache. Open the Leaderboard tab, or type /tcf top.
 - Cat levels now stop at 60, like Classic. Early levels come faster: about 2 hours a day gets a new cat to level 10 in about an hour, and to 60 in a few months. Existing cats keep their share of the current level.
-- New Dungeon Chest, full of dungeon boss gear near your cat's level, mostly blue. The first clear of each dungeon in Adventure gives one, repeat clears give one about every 2 to 3 hours of dungeon fighting, and real WoW dungeons give one (up to 2 a day).
+- New Dungeon Chest, full of dungeon boss gear near your cat's level, mostly blue. The first clear of each dungeon in Adventure gives one, repeat clears now and then give one, and real WoW dungeons give one (up to 2 a day).
 - Herbalism, First Aid, Fishing and Cooking unlock as each cat earns Trade Gold, and the Professions page shows how far along it is.
 - Chests now and then hold a few TapCoins on top of their contents.
 - Every class starts with a weapon of its own, and capes now hang down both sides of your cat.

@@ -26,6 +26,7 @@ local GEAR_SLOT = { head = "HEAD", chest = "CHEST", back = "BACK", main = "MAINH
   neck = "NECK", belt = "WAIST", ring = "FINGER1", shoulder = "SHOULDER" }
 
 local known, order = {}, {}  -- name -> member; names in the order they said hello
+local refreshRow  -- defined below
 local fakes = {}             -- test-mode party cats (TCF:PartyTestInject)
 local seq = 0
 local lastSent, pendingKind, pendingAt, retryOnRegen = -1e9, nil, nil, false
@@ -100,8 +101,21 @@ end
 function TCF.LearnSelf(sender)
   local b = baseOf(sender)
   if not b or #sender > 80 then return end
+  local changed = TCF.SelfSender ~= sender or TCF.SelfBase ~= b
   TCF.SelfSender = sender
   TCF.SelfBase = b
+  if not changed then return end
+  -- a cat that came in under this name before we knew it was us (a message sent before a /reload
+  -- comes back with the old session's tag): take it off the row now
+  local gone = false
+  for k in pairs(known) do
+    if baseOf(k) == b then
+      known[k] = nil
+      for i, n in ipairs(order) do if n == k then table.remove(order, i); break end end
+      gone = true
+    end
+  end
+  if gone and refreshRow then refreshRow() end
 end
 local function rememberSent(text)
   sentTexts[#sentTexts + 1] = text
@@ -341,8 +355,6 @@ local function clearAll()
   for k in pairs(known) do known[k] = nil end
   for i = #order, 1, -1 do order[i] = nil end
 end
-
-local refreshRow  -- defined below
 
 local function onMessage(prefix, text, channel, sender)
   if isSecret(prefix) or prefix ~= PREFIX then return end

@@ -4,8 +4,11 @@
 
 **Casino**
 - New: the Casino (the round coin button next to the TapCatForever title), with Lucky Paws slots, blackjack, and death roll and rock paper scissors against a house cat or a friend in your party. It fills the whole window under the tabs: pick Slots, Blackjack or Death roll with the buttons at the top (the Death roll view also plays rock paper scissors).
-- In the Friend view a short line under the top bar says whether the friend you picked can play: "Ready to play", "Checking their TapCatForever..." or "Their TapCatForever didn't answer (they need 1.6.0)". Party cats work on older versions too, so you can see a friend's cat while their addon can't take a challenge yet.
+- In the Friend view a short line under the top bar says whether the friend you picked can play: "Ready to play", "Checking their TapCatForever..." or "Their TapCatForever didn't answer (they need the newest version)". Party cats work on older versions too, so you can see a friend's cat while their addon can't take a challenge yet.
 - Challenges between friends now reach the right player even when the game doesn't let addons read your own name: each addon learns the name the game gives you from your own messages.
+- Right after you join a group your addon may not know your name yet: a challenge then says so, and works a few seconds later.
+- The Casino's hellos between addons are kept to one hello and at most one answer each when the group changes, so they never hold up duel messages in a big raid.
+- /tcf name says whether the game lets addons read your name and which name TapCatForever learned for you.
 - The line at the top shows your bet limits, and your stats for the game you are playing: games played, total bet, paid back, net and your biggest win (hover it for every game).
 
 **Casino: bets**
@@ -106,7 +109,7 @@
 - The fight log and that line each have their own rows at the bottom of the page, so they never draw over each other. The log shows as many of its newest lines as fit.
 - "Wailing Caverns opens at level 15. Running Ragefire Chasm again until then." is logged once, not after every run of the zone.
 - Hover the zone name to see what is left to earn there: bosses still to beat for the first time and what they give, the zone clear bonus, the chance a boss kill drops a chest right now (for example "Cat Treat Pouch from boss kills: 12% a kill right now"; it grows the longer your cat fights), and which bosses can drop loot again.
-- Area spells (Arcane Explosion, Thunder Clap, Consecration and the others) now also go off against a single enemy, such as a boss, when no single-target spell is ready. Arcane Explosion rings out from your cat before it hits every enemy.
+- Area spells (Arcane Explosion, Thunder Clap, Consecration and the others) now also go off against a single enemy, such as a boss, when no single-target spell is ready, so every class deals a little more damage to bosses. Arcane Explosion rings out from your cat before it hits every enemy.
 
 **Adventure: first kills give more in bigger zones**
 - The first time your cat beats a boss, the reward now grows with the zone:
@@ -119,7 +122,7 @@
 - First-kill gear is always something your cat's class can use, and never Legendary.
 
 **Adventure: farm a boss for its loot**
-- Bosses can now drop their real loot again after the first kill. The chance is small: usually 0.03% to 0.3% a kill for a piece, and never under 0.02%.
+- Bosses can now drop their real loot again after the first kill. The chance is small: at most about 0.3% a kill for a piece, most are under 0.1% a kill, and none is under 0.02%.
 - Bosses and loot (next to Help) lists each boss in the zone, its first-kill reward, and the pieces it can drop for your cat with the chance per kill.
 - Press Farm on a piece (or Farm this boss): your cat stays on that boss and fights it again and again. Auto-advance turns off while you farm and comes back when you stop.
 - The line under the fight shows "Farming Edwin VanCleef for Cruel Barb (0.2% a kill), kills so far: 12."
@@ -251,7 +254,7 @@
 - One invite at a time. Party members need the newest TapCatForever to join. Members on an older version don't hold the invite up.
 
 **Party cats**
-- Your own cat no longer shows up in the small row of party cats: the addon now learns the name the game gives you from your own messages, also when it can't read your name directly. Only your friends' cats sit there.
+- Your own cat no longer shows up in the small row of party cats: the addon now learns the name the game gives you from your own messages, also when it can't read your name directly. Only your friends' cats sit there, also right after a reload.
 
 **Achievements**
 - The Achievements tab has two views: Account (the achievements you know, shared by every character) and This class.
@@ -318,8 +321,9 @@
 - Tap quests ask for a lot more: the daily Paws of Fury is now 4,000, 8,000 or 12,000 taps, and the weekly Tireless Tapper is 100,000 taps (it gives a little more too). New quests use the new numbers from the next daily and weekly reset.
 
 **Realm leaderboard**
-- The leaderboard is still under construction, and the tab says so for now. Your own row and the opt-in work as before.
 - Players in your party, raid or guild who joined now show up on each other's board: your summary goes out under the name the game gives you, and never under a stand-in name while that name isn't known yet.
+- Rows named "You" (or "Unknown") that older versions shared when they couldn't read a player's name are taken off every board.
+- The "still under construction" note is gone from the Leaderboard tab.
 
 ## 1.5.3.6
 

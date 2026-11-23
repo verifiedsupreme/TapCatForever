@@ -25,7 +25,7 @@ local GUIDE = {
     "|cffffd100Zone clears|r: TapCoins and a chest the first time each cat clears a zone (a quarter of the TapCoins if another of your cats cleared it first).\n\n" ..
     "|cffffd100Chests for fighting time|r: boss kills can drop a Cat Treat Pouch (raids: a Raider's Hoard). The chance a kill starts at 0% and grows the longer your cat fights, then starts again after a drop. Finishing a dungeon again can give a Dungeon Chest the same way. Hover the zone name to see each chance right now.\n\n" ..
     "|cffffd100Small finds|r: regular enemies now and then drop plain gear, cloth and meat.\n\n" ..
-    "|cffffd100Farming|r: later kills of a boss have a small chance to drop its loot again, usually 0.03% to 0.3% a kill for a piece. Bosses and loot shows each chance; press Farm to stay on a boss until the piece drops.\n\n" ..
+    "|cffffd100Farming|r: later kills of a boss have a small chance to drop its loot again, at most about 0.3% a kill for a piece, and most are under 0.1% a kill. Bosses and loot shows each chance; press Farm to stay on a boss until the piece drops.\n\n" ..
     "Some bosses also drop cat skins and effects (Cosmetic only)." },
 }
 

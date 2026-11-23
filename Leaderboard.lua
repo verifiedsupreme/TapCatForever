@@ -102,6 +102,15 @@ TCF.LeaderboardValidName = validName
 
 local function keyOf(full) return TCF.DevFullKey and TCF.DevFullKey(full) or nil end
 
+-- (1.6.0) before 1.6.0 an addon that couldn't read its own name shared its row as "You-<realm>" (or
+-- "Unknown-<realm>"): everyone's stand-in shared one key, so such rows are dropped and never taken in
+local STAND_IN = { you = true, unknown = true }
+local function standIn(full)
+  local n = type(full) == "string" and full:match("^([^%-]+)")
+  return n ~= nil and STAND_IN[n:lower()] == true
+end
+TCF.LeaderboardStandIn = standIn
+
 local function myRealm()
   local r = TCF.DevMyRealm and TCF.DevMyRealm()
   if not plain(r) then return nil end
@@ -164,7 +173,7 @@ local pruned = {}   -- realm -> true once tidied this session
 local function prune(b, t)
   local n, list = 0, {}
   for k, e in pairs(b.e) do
-    if type(k) ~= "string" or not validEntry(e) or keyOf(e.n) ~= k or e.ts < t - EXPIRE or e.ts > t + SKEW then
+    if type(k) ~= "string" or not validEntry(e) or keyOf(e.n) ~= k or standIn(e.n) or e.ts < t - EXPIRE or e.ts > t + SKEW then
       b.e[k] = nil
     else
       if e.x ~= nil and not (validExtra(e.x) and type(e.xts) == "number" and e.xts > 0 and e.xts <= t + SKEW) then e.x, e.xts = nil, nil end
@@ -326,7 +335,7 @@ end
 -- Returns "added" or "updated", or nil and why not.
 local function merge(b, e, t, mine, direct)
   local k = keyOf(e.n)
-  if not k then return nil, "name" end
+  if not k or standIn(e.n) then return nil, "name" end
   if mine and k == mine then return nil, "self" end
   if e.ts > t + SKEW then return nil, "future" end
   if e.ts < t - EXPIRE then return nil, "old" end

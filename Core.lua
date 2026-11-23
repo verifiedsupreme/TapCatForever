@@ -1795,6 +1795,13 @@ SlashCmdList.TAPCATFOREVER = function(msg)
     if not ui.testMode and TCF.PartyTestClear then TCF:PartyTestClear() end
     TCF:Print(ui.testMode and "Test mode ON: shortcuts are in Settings." or "Test mode off.", true)
     if TCF.window and TCF.window:IsShown() then TCF.window:Refresh() end
+  elseif cmd == "name" then
+    -- (1.6.0) what the addon knows about your name, for checking the party row and casino games
+    local n = UnitName and UnitName("player")
+    local readable = type(n) == "string" and not TCF.IsSecret(n) and n ~= ""
+    TCF:Print(string.format("The game %s addons read your name. Name learned from your own messages: %s. Saves are kept under: %s.",
+      readable and "lets" or "doesn't let", TCF.SelfSender or "not yet (join a group with a friend)",
+      readable and "your character" or "a shared save for this realm"), true)
   elseif cmd == "stats" then
     local n, total = TCF:CountOwned()
     TCF:Print(string.format("Level %d (%s), %s lifetime taps, %s TapCoins, %d/%d cosmetics.",

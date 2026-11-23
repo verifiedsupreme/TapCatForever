@@ -18,8 +18,10 @@
 -- so they never make or take TapCoins overall).
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel, every field checked; v = 1):
---   D0;v;id;hi / D0;v;000000;ok  hello (1.6.0): every version with the casino answers "ok"; our own
---                                hello coming back (its random id) tells us the name the game uses for us
+--   D0;v;id;hi / D0;v;000000;ok  hello (1.6.0): every version with the casino answers "ok" (one answer
+--                                covers every hello heard in a short while, and any D0 of ours sent after
+--                                a hello arrived counts as the answer); our own hello coming back (its
+--                                random id) tells us the name the game uses for us. D0 is never queued.
 --   D1;v;id;target;bet;range     challenge (target = the challenged player's name, as the game sends
 --                                it with their messages: "Name-Realm")
 --   D2;v;id;answer;first         y accept (first: c challenger or t target rolls first),
@@ -408,10 +410,17 @@ local function rawSend(text)
     (Enum and Enum.SendAddonMessageResult and res == Enum.SendAddonMessageResult.Success)) and true or false
 end
 
+local d0SentAt = -1e9   -- when our last hello or answer went out
 local function send(kind, ...)
   local parts = { kind, VER, ... }
   local text = table.concat(parts, ";")
-  if rawSend(text) then return true end
+  if rawSend(text) then
+    if kind == "D0" then d0SentAt = now() end
+    return true
+  end
+  -- a hello or its answer is never kept for later: a stale one would only stand in front of a duel
+  -- message (and use up the prefix's sending allowance in a raid)
+  if kind == "D0" then return false end
   -- refused (combat in an instance, throttled): try again a few times
   if #outQ < OUT_MAX then outQ[#outQ + 1] = { text = text, at = now() + OUT_RETRY, tries = 1 } end
   return false
@@ -532,24 +541,51 @@ local capable, helloAt, asked = {}, -1e9, {}
 -- our hellos carry a random id (made on first use): when one comes back to us, the sender is us
 -- (TCF.LearnSelf), which is how this side learns the name the game uses for you
 local helloId
-local HELLO_GAP, ASK_WAIT, ASK_AGAIN = 10, 6, 30
+local HELLO_GAP, ASK_WAIT, ASK_AGAIN, FORCE_GAP = 10, 6, 30, 2
+local helloTry = -1e9
+-- true when a hello went out
 local function sayHello(force)
-  if not inGroup() then return end
+  if not inGroup() then return false end
   local t = now()
-  if not force and t - helloAt < HELLO_GAP then return end
-  helloAt = t
+  if not force and t - helloAt < HELLO_GAP then return false end
+  if t - helloTry < FORCE_GAP then return false end   -- the game just refused one: not every frame
+  helloTry = t
   helloId = helloId or newId()
-  send("D0", helloId, "hi")
+  if not send("D0", helloId, "hi") then return false end
+  helloAt = t
+  return true
 end
 DR.SayHello = sayHello
--- ask a friend's addon (a hello) unless it already answered or we asked a moment ago
+-- ask a friend's addon (a hello) unless it already answered or we asked a moment ago; the wait for
+-- an answer only starts once the hello really went out
 function DR.AskFriend(name)
   local b = base(name)
   if not b or capable[b] then return end
   if asked[b] and now() - asked[b] < ASK_AGAIN then return end
-  asked[b] = now()
-  sayHello(true)
+  if sayHello(true) then asked[b] = now() end
 end
+-- Answering hellos: one "ok" covers every hello heard in a short while. It goes out after a short
+-- random wait, never sooner than OK_GAP after our last one, and not at all when a D0 of ours went out
+-- after the first of those hellos arrived (everyone who said hello has heard that one). So a roster
+-- change in a raid costs each addon one hello and at most one answer.
+local OK_GAP, OK_WAIT = 3, 1.2
+local okDue, okSince, okSentAt = nil, nil, -1e9
+local function heardHello()
+  if okDue then return end
+  local t = now()
+  okSince = t
+  okDue = max(t + 0.3 + random() * OK_WAIT, okSentAt + OK_GAP)
+end
+local function answerHellos()
+  if not okDue or now() < okDue then return end
+  if not inGroup() or d0SentAt >= okSince then okDue = nil; return end
+  if send("D0", "000000", "ok") then
+    okSentAt, okDue = now(), nil
+  else
+    okDue = now() + 2   -- refused (throttled, combat in an instance): try again in a moment
+  end
+end
+DR.HelloState = function() return okDue, d0SentAt, okSentAt end
 -- true: their addon answered; false: asked a while ago and no answer (older version); nil: not known yet
 function TCF:CasinoCanPlay(name)
   local b = base(name)
@@ -562,7 +598,7 @@ end
 function DR.FriendStatus(name)
   local can = TCF:CasinoCanPlay(name)
   if can then return "Ready to play", "ready" end
-  if can == false then return "Their TapCatForever didn't answer (they need 1.6.0)", "old" end
+  if can == false then return "Their TapCatForever didn't answer (they need the newest version)", "old" end
   return "Checking their TapCatForever...", "checking"
 end
 -- checks a friend before a challenge: true when they can play, else false and the reason
@@ -573,7 +609,7 @@ function DR.CheckFriend(name)
   local shown = (type(name) == "string" and name:match("^([^%-]+)")) or "Your friend"
   if can == false then
     DR.AskFriend(name)   -- ask again now and then: they may have updated or come back
-    return false, shown .. "'s TapCatForever didn't answer. They need version 1.6.0 or newer for casino games with friends (party cats work on older versions, which is why you can see their cat)."
+    return false, shown .. "'s TapCatForever didn't answer. They need the newest TapCatForever for casino games with friends (party cats work on older versions, which is why you can see their cat)."
   end
   DR.AskFriend(name)
   return false, "Checking " .. shown .. "'s TapCatForever. Try again in a few seconds."
@@ -590,6 +626,12 @@ function TCF:DeathRollChallenge(name, bet, range)
   if chatHidden() then return false, NO_DUEL_HERE end
   local m = member(name)
   if not m or isMe(m.name) then return false, "Pick a friend in your group who has TapCatForever." end
+  -- your /roll lines are told apart by your name: it must be known first (learned from your own
+  -- messages coming back, which takes a moment after joining a group)
+  if not myBase() then
+    sayHello(true)
+    return false, "Your TapCatForever is still getting your name from the group. Try again in a few seconds."
+  end
   local okFriend, why = DR.CheckFriend(m.name)
   if not okFriend then return false, why end
   if not validRange(range) then return false, "Pick a roll range." end
@@ -785,11 +827,8 @@ local function onAddon(prefix, text, channel, sender)
   local sb = base(sender)
   if sb then capable[sb] = now(); asked[sb] = nil end
   if kind == "D0" then
-    -- a hello: answer it (not more than once every few seconds), an answer needs nothing more
-    if a == "hi" and (not s.helloAnswered or now() - s.helloAnswered > 5) then
-      s.helloAnswered = now()
-      send("D0", "000000", "ok")
-    end
+    -- any D0 shows their addon can play (above); a hello also wants to hear from us
+    if a == "hi" then heardHello() end
     return
   end
   local d = DR.duel
@@ -838,13 +877,9 @@ local function onSystem(text)
   if not name then return end
   local b = base(name)
   local mb = myBase()
+  -- (a duel only starts once your name is known: a roll is never guessed to be yours, as someone
+  -- else in the group may /roll the same range at the same moment)
   local who = (mb and b == mb) and "me" or (b == d.oppBase and "opp") or nil
-  -- your own name can't be read yet: a roll of exactly this range right after you pressed Roll,
-  -- from someone who isn't your opponent, is yours (and teaches this side your name)
-  if not who and not mb and d.turn == "me" and d.rolledAt and now() - d.rolledAt < 10 and lo == 1 and hi == d.cur then
-    who = "me"
-    if TCF.LearnSelf then TCF.LearnSelf(name) end
-  end
   if not who or who ~= d.turn then return end          -- not this player's turn: not part of the duel
   if lo ~= 1 or hi ~= d.cur or v < 1 or v > hi then return end   -- a different /roll
   d.rolls[#d.rolls + 1] = { who = who, v = v, hi = hi }
@@ -873,6 +908,7 @@ DR.OnSystem = onSystem
 local function tick()
   local t = now()
   flushQueue()
+  answerHellos()
   local g = solo
   if g and not g.over and g.turn == "house" and g.houseAt and t >= g.houseAt then
     g.houseAt = nil
