@@ -195,37 +195,6 @@ end
 DR.ChatHidden = chatHidden
 local NO_DUEL_HERE = "Death rolls with friends don't work inside dungeons, raids, battlegrounds or arenas: the game hides the rolls there."
 
--- the opponent is still in the group: false only when every group member's name could be read
--- and theirs isn't there (or they went offline)
-local function oppPresent(d)
-  if not (UnitName and GetNumGroupMembers) then return true end
-  local raid = IsInRaid and IsInRaid()
-  local ok, count = pcall(GetNumGroupMembers)
-  if not ok or isSecret(count) or type(count) ~= "number" then return true end
-  for i = 1, raid and math.min(40, count) or 4 do
-    local unit = (raid and "raid" or "party") .. i
-    local n = UnitName(unit)
-    if isSecret(n) then return true end
-    if type(n) == "string" and n ~= "" and n:gsub("%s", ""):lower() == d.oppBase then
-      if UnitIsConnected then
-        local c = UnitIsConnected(unit)
-        if c == false then return false end
-      end
-      return true
-    end
-  end
-  return false
-end
-DR.OppPresent = oppPresent
-
-local function chatType()
-  local home = LE_PARTY_CATEGORY_HOME and IsInGroup and IsInGroup(LE_PARTY_CATEGORY_HOME)
-  local inst = LE_PARTY_CATEGORY_INSTANCE and IsInGroup and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
-  if inst and not home then return "INSTANCE_CHAT" end
-  if IsInRaid and IsInRaid() then return "RAID" end
-  return "PARTY"
-end
-
 -- the party member (TCF:PartyMembers) with this name, or nil
 local function member(name)
   local b = base(name)
@@ -235,6 +204,63 @@ local function member(name)
   end
 end
 DR.Member = member
+
+-- Is the opponent still in the group? The addon's own knowledge decides, never UnitName: on WoW:
+-- Forever the roster's names can come back as protected values, "Unknown" or in another form, so a
+-- name that can't be matched means nothing. They are present while Party.lua lists them (it takes a
+-- cat off only when a roster it could read in full doesn't have them, twice, 3 seconds apart); once
+-- Party.lua has them missing or forgot them, they get OPP_GONE_GRACE more seconds, counted from the
+-- last message or roll of theirs, so a roster blink never ends a duel. One roster fact counts right
+-- away: a unit whose name was read as a plain string and is theirs says they went offline.
+local OPP_GONE_GRACE = 10
+DR.OPP_GONE_GRACE = OPP_GONE_GRACE
+local function oppOffline(d)
+  if not (UnitName and UnitIsConnected and GetNumGroupMembers) then return false end
+  local okr, raid = pcall(IsInRaid or function() return false end)
+  raid = okr and raid == true
+  local ok, count = pcall(GetNumGroupMembers)
+  if not ok or isSecret(count) or type(count) ~= "number" then return false end
+  for i = 1, raid and min(40, count) or 4 do
+    local unit = (raid and "raid" or "party") .. i
+    local okn, n = pcall(UnitName, unit)
+    if okn and type(n) == "string" and not isSecret(n) and base(n) == d.oppBase then
+      local okc, c = pcall(UnitIsConnected, unit)
+      return okc and not isSecret(c) and c == false
+    end
+  end
+  return false
+end
+local function oppPresent(d)
+  if oppOffline(d) then return false end
+  local t = now()
+  local m = member(d.opp)
+  local since
+  if m and not m.missing then
+    d.oppMissingAt = nil
+    return true
+  elseif m then
+    since = m.missing                 -- Party.lua read a full roster without them
+  else
+    since = d.oppMissingAt or t       -- Party.lua forgot them: the wait starts now
+  end
+  d.oppMissingAt = since
+  local heard = max(d.oppHeardAt or 0, m and m.heardAt or 0)
+  if heard > since then since = heard end
+  return t - since < OPP_GONE_GRACE
+end
+DR.OppPresent = oppPresent
+-- a message (or a roll) of the opponent's arrived: they are here right now (RPS.lua calls it too)
+local function oppHeard(d) if d then d.oppHeardAt = now() end end
+DR.OppHeard = oppHeard
+
+local function chatType()
+  local home = LE_PARTY_CATEGORY_HOME and IsInGroup and IsInGroup(LE_PARTY_CATEGORY_HOME)
+  local inst = LE_PARTY_CATEGORY_INSTANCE and IsInGroup and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+  if inst and not home then return "INSTANCE_CHAT" end
+  if IsInRaid and IsInRaid() then return "RAID" end
+  return "PARTY"
+end
+
 -- the name to put in a challenge: the sender name the game gave their messages
 function DR.TargetName(m)
   local s = m and m.sender
@@ -830,12 +856,13 @@ local function onAddon(prefix, text, channel, sender)
   if not ok then return end
   local sb = base(sender)
   if sb then capable[sb] = now(); asked[sb] = nil end
+  local d = DR.duel
+  if d and d.state ~= "over" and fromOpp(d, sender) then oppHeard(d) end
   if kind == "D0" then
     -- any D0 shows their addon can play (above); a hello also wants to hear from us
     if a == "hi" then heardHello() end
     return
   end
-  local d = DR.duel
   if kind == "D1" then
     if a ~= "" and b ~= "" and c ~= "" then onChallenge(sender, id, a, b, c, s) end
     return
@@ -876,7 +903,9 @@ local function onSystem(text)
     return
   end
   if d.state ~= "rolling" then return end
-  if isSecret(text) then callOff("s", true); return end
+  -- a protected line (or one that isn't text at all: a protected value on a client without
+  -- issecretvalue) can't be read: nobody is to blame
+  if isSecret(text) or (text ~= nil and type(text) ~= "string") then callOff("s", true); return end
   local name, v, lo, hi = DR.ParseRoll(text)
   if not name then return end
   local b = base(name)
@@ -886,6 +915,7 @@ local function onSystem(text)
   local who = (mb and b == mb) and "me" or (b == d.oppBase and "opp") or nil
   if not who or who ~= d.turn then return end          -- not this player's turn: not part of the duel
   if lo ~= 1 or hi ~= d.cur or v < 1 or v > hi then return end   -- a different /roll
+  if who == "opp" then oppHeard(d) end
   d.rolls[#d.rolls + 1] = { who = who, v = v, hi = hi }
   while #d.rolls > 40 do table.remove(d.rolls, 1) end
   d.n = d.n + 1

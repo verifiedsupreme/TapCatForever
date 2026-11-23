@@ -249,6 +249,8 @@ class Net:
     def coins(self, name): return self.c[name].eval("_coins()")
     def ex(self, name, code): return self.c[name].execute(code)
 
+def TapGrace(lua): return int(lua.eval("TapCatForever.DR.OPP_GONE_GRACE or 10"))
+
 def _play_to_end(net, a, b, values, check_turns=True):
     """rolls for whoever's turn it is until the 1; values are handed out in order"""
     net.forced = list(values)
@@ -569,6 +571,9 @@ def _duels(seed, load_addon, rnd):
     start("Bob", "Alice")
     net.ungroup("Bob"); net.c["Alice"].execute("_group = {}; _fire('GROUP_ROSTER_UPDATE')"); net.pump(1)
     ck(net.st("Bob", "reason") == "g", "left the group: called off")
+    # 1.6.1: the other side goes by Party.lua's roster knowledge plus a grace period, never by UnitName
+    ck(net.st("Alice", "state") == "rolling", "the other side waits the grace period first")
+    net.pump(TapGrace(net.c["Alice"]) + 1)
     ck(net.st("Alice", "result") == "cancel" and net.st("Alice", "reason") == "g", "the other side sees them gone")
     ck(net.coins("Alice") == a0 and net.coins("Bob") == b0, "left the group: no coins moved")
     net.group(["Alice", "Bob"])
