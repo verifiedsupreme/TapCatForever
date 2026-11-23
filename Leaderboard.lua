@@ -131,17 +131,31 @@ end
 local function myFull()
   local ss = TCF.SelfSender
   if plain(ss) and ss:find("-", 1, true) then
-    local full = ss:gsub("%s", "")
-    if validName(full) then return full end
+    local n0, r0 = ss:match("^([^%-]+)%-(.+)$")
+    local full = n0 and (n0:gsub("^%s+", ""):gsub("%s+$", "") .. "-" .. r0:gsub("%s", ""))
+    if full and validName(full) then return full end
   end
+  -- (1.6.1.2) only the name the game puts on our own messages is what other players see: WoW:
+  -- Forever gives UnitName("player") the first word of a two-word name only. Until that name is
+  -- learned (a party message or a probe coming back), nothing is shared under a guess.
+  if not plain(ss) then return nil end
   local n = TCF.SelfName and TCF.SelfName()
-  if not plain(n) then n = UnitName and UnitName("player") end
   local r = myRealm()
   if not plain(n) or not r then return nil end
   local full = n .. "-" .. r
   return validName(full) and full or nil
 end
 local function myKey() local f = myFull(); return f and keyOf(f) end
+-- a sender key that is ours: the learned name, or, while that isn't known, the name the game gives us
+-- (good enough for telling our own echoes apart, not for sharing under)
+local function looksMine(sk)
+  local mine = myKey()
+  if mine then return sk == mine end
+  local n = UnitName and UnitName("player")
+  if not plain(n) or n == "" then return false end
+  local r = myRealm()
+  return r ~= nil and sk == keyOf(n .. "-" .. r)
+end
 
 ---------------------------------------------------------------- the saved board
 -- TapCatForeverDB.board[realm] = { e = { [key] = entry }, rm = { [key] = time }, rmn = { [key] = "Name-Realm" } }
@@ -534,9 +548,14 @@ local function pendingRemoval()
 end
 
 -- DevView.lua keeps the hidden channel joined while this is true (opted out, removal not sent yet)
+-- (1.6.1.2) while the own name isn't known yet, a saved "take me off" may be ours: the channel stays
+local function removalMaybe()
+  local ui = TCF.db and TCF.db.ui
+  return ui ~= nil and type(ui.lbRemove) == "table" and next(ui.lbRemove) ~= nil and myKey() == nil
+end
 function TCF.LeaderboardRemovePending()
   if optedIn() then return false end
-  return pendingRemoval() ~= nil
+  return pendingRemoval() ~= nil or removalMaybe()
 end
 
 local function underBudget(t)
@@ -841,17 +860,17 @@ function TCF.LeaderboardForgetSelf()
   local gone = false
   if b.e[mine] then b.e[mine] = nil; gone = true end
   -- (1.6.1.1) before this version a two-word name ("Ziggu Trip") was saved as a row of its own under a
-  -- wrong key ("ziggu-trip": the second word taken for the realm): rows whose whole key spells your
-  -- own name are yours and go too
-  local own = TCF.SelfBase or (function()
-    local n = TCF.SelfName and TCF.SelfName()
-    return plain(n) and (n:gsub("%s", "")):lower() or nil
-  end)()
-  if own and #own >= 2 then
-    for k in pairs(b.e) do
-      if k ~= mine and (k:gsub("[%-%s]", "")) == own then b.e[k] = nil; gone = true end
+  -- wrong key ("ziggu-trip": the second word taken for the realm); that one exact key goes too
+  local n = TCF.SelfName and TCF.SelfName()
+  local first, second = plain(n) and n:match("^(%S+)%s+(%S+)$") or nil, nil
+  if first then first, second = n:match("^(%S+)%s+(%S+)$") end
+  if first and second then
+    local wrong = (first .. "-" .. second):lower()
+    if wrong ~= mine then
+      if b.e[wrong] then b.e[wrong] = nil; gone = true end
+      if b.rm and b.rm[wrong] then b.rm[wrong] = nil end
+      if b.rmn and b.rmn[wrong] then b.rmn[wrong] = nil end
     end
-    if b.rm then for k in pairs(b.rm) do if (k:gsub("[%-%s]", "")) == own then b.rm[k] = nil end end end
   end
   if gone then dirty = true end
   return gone
@@ -887,7 +906,7 @@ function onAddonInner(prefix, text, chan, sender, chanName)
   local sk = keyOf(sender)
   if not sk then return drop("nokey") end
   local mine = myKey()
-  if sk == mine then return drop("own") end              -- our own message coming back: costs nothing
+  if looksMine(sk) then return drop("own") end          -- our own message coming back: costs nothing
   local t = now()
   if not senderOk(sk, t) then return drop("sender") end  -- one sender can't use up everyone's reading
   if not readBudget(t) then return drop("read") end
@@ -1207,6 +1226,7 @@ ev:SetScript("OnUpdate", function(_, e)
     if #queue > 0 then wipe(queue) end
     signupPending = false
     -- this character's "take me off", once DevView.lua has joined the channel for it; then it leaves
+    if removalMaybe() then probeSelf(t) end   -- the note is sent under the name the game uses for us
     if pendingRemoval() and sendRemove(t) and TCF.DevLeaveIfUnwanted then TCF.DevLeaveIfUnwanted() end
     return
   end
@@ -1246,6 +1266,7 @@ TCF.LeaderboardTest = {
     lastRelayAt = -1e9
     signupPending = false
     probeAt, probes = -1e9, 0
+    TCF.SelfSender, TCF.SelfBase = nil, nil   -- the tests' stand-in for a relog: the own name is learned again
   end,
   setOwnAt = function(t) ownAt = t end,
   event = function(...) onEvent(ev, ...) end,

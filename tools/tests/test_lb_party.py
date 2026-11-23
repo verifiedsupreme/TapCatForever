@@ -36,12 +36,11 @@ def _party(seed, load_addon, extra):
             out = lua.globals()._takeOut()
             for i in range(1, len(out) + 1):
                 p, msg, ch = out[i][1], out[i][2], out[i][3]
-                if msg[:3] not in ("L1;", "L2;", "R1;", "X1;"): continue
-                routes.add(ch)
+                if msg[:3] in ("L1;", "L2;", "R1;", "X1;"): routes.add(ch)
                 if ch != "PARTY": continue
+                # the whole party hears it, the sender too (the game echoes addon messages)
                 for other, olua in clients:
-                    if other != name:
-                        olua.globals()._deliver(p, msg, name if extra else name + "-Forever", "PARTY", "")
+                    olua.globals()._deliver(p, msg, name if extra else name + "-Forever", "PARTY", "")
     if routes != {"PARTY"}:
         raise AssertionError("lb party: routes used %r" % routes)
     a, b = A.eval("_boardKeys()"), B.eval("_boardKeys()")

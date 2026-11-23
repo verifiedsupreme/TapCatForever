@@ -84,16 +84,21 @@ local function realmFromUnitFullName()
 end
 
 local function myRealm()
-  local r
+  local r, said = nil, false   -- said: the game answered with a plain (maybe empty) realm name
   if GetNormalizedRealmName then
     local ok, v = pcall(GetNormalizedRealmName)
     if ok then r = v end
+    if plain(r) then said = true end
   end
   if not plain(r) or r == "" then
     local ok, v = pcall(function() return GetRealmName and GetRealmName() end)
     r = ok and v or nil
+    if plain(r) then said = true end
   end
-  if not plain(r) or r == "" then r = realmFromUnitFullName() end
+  -- (1.6.1.2) when the game plainly says "" for the realm (WoW: Forever), that is its answer: the
+  -- UnitFullName fallback there gives the second word of a two-word name, not a realm. It is only
+  -- asked when the realm functions gave nothing readable at all.
+  if (not plain(r) or r == "") and not said then r = realmFromUnitFullName() end
   -- 1.5.3.6: the realm name can't be read on some clients. Everyone in your party, raid or guild
   -- is on your realm, so a stand-in name keeps names and the leaderboard working there.
   if not plain(r) or r == "" then return "Realm" end
@@ -361,7 +366,7 @@ local function onAnswer(text, chan, sender)
   if not TCF:IsDeveloper() then return end
   local nonce, rec = parseAnswer(text)
   if not nonce or nonce ~= askNonce then return end
-  local name = plain(sender) and #sender <= 64 and not sender:find("[%s;|]") and sender or nil
+  local name = shortName(sender) and sender or nil   -- (1.6.1.2) a two-word name answers too
   if not name then return end
   if not answers[name] then
     if #answerOrder >= MAX_KEPT then return end

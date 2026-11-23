@@ -143,12 +143,16 @@ local function isOwnEcho(text)
   local z = text:match("[;,]z=(%x+)$")
   return z ~= nil and z == selfTag
 end
--- your name: what UnitName says when it can be read, else the name the game puts on your messages
--- (without the realm); nil while neither is known
+-- your name: the name the game puts on your messages (without the realm) once it is known, since
+-- that is the name every other player's addon sees; until then what UnitName says when it can be
+-- read; nil while neither is known. (1.6.1.2) WoW: Forever gives UnitName("player") only the first
+-- word of a two-word name ("Ziggu" for "Ziggu Trip") while messages carry the whole name.
 function TCF.SelfName()
+  local ss = TCF.SelfSender
+  if type(ss) == "string" and ss ~= "" then return ss:match("^([^%-]+)") or ss end
   local n = UnitName and UnitName("player")
   if type(n) == "string" and not isSecret(n) and n ~= "" then return n end
-  return TCF.SelfSender and (TCF.SelfSender:match("^([^%-]+)") or TCF.SelfSender) or nil
+  return nil
 end
 
 -- A probe for learning your own name where no party message goes (the leaderboard's guild and

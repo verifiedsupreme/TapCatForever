@@ -3744,6 +3744,9 @@ def check_leaderboard(seed=1):
                     c.sent.append((srv[0], msg))
                     log.append((srv[0], c.name, msg, ch, target))
                     ck(p == "TapCatFvr", "prefix " + str(p))
+                    if msg[:3] == "N1;":   # (1.6.1.2) the own-name probe: the game echoes it to its sender
+                        c.lua.globals()._deliver(p, msg, c.full, ch if ch != "CHANNEL" else None)
+                        continue
                     if msg[:3] not in LB_KINDS: continue
                     ck(ch == "CHANNEL" and target in (7, "7"), "leaderboard messages only go to the hidden channel when not grouped: %s %s" % (ch, target))
                     ck(len(msg) <= 255, "message too long")
@@ -3968,7 +3971,7 @@ def check_leaderboard(seed=1):
     click(A, "TapCatForever.leaderboardView.confirmYes")
     ck(A.ev("TapCatForever.db.ui.shareDev") == False, "Leave turns sharing off")
     step(1)
-    rm = [m for (t, m) in A.sent[s0:]]
+    rm = [m for (t, m) in A.sent[s0:] if not m.startswith("N1;")]
     ck(len(rm) == 1 and rm[0].startswith("R1;"), "opting out sends one take-me-off: %r" % rm)
     for c in (B, D):
         ck(c.ev('_entry("alpha-forever")') is None, c.name + " took Alpha off")
@@ -4202,9 +4205,10 @@ def check_leaderboard(seed=1):
     ck(len(N.sent) == s0, "no channel: nothing sent yet")
     ck(N.ev('TapCatForever.db.ui.lbRemove["november-forever"] ~= nil and TapCatForever.db.ui.lbRemove["novalt-forever"] ~= nil') == True,
        "a take-me-off is saved for both characters")
-    step(30)
-    rm = [m for (t, m) in N.sent[s0:]]
-    ck(len(rm) == 1 and rm[0].startswith("R1;"), "it goes out once the channel is joined: %r" % rm)
+    step(45)
+    # (1.6.1.2) the note waits for the own name: the probe goes out first and comes back, then the R1
+    rm = [m for (t, m) in N.sent[s0:] if not m.startswith("N1;")]
+    ck(len(rm) == 1 and rm[0].startswith("R1;"), "it goes out once the channel is joined and the own name is known: %r" % rm)
     ck(K.ev('_entry("november-forever")') is None and K.ev('_entry("novalt-forever")') is not None, "Kilo took November off; the alt waits for its own login")
     ck(N.ev("_chanId") == 0 and N.ev('TapCatForever.db.ui.lbRemove["november-forever"]') is None, "then the channel is left and the note cleared")
     # the alt logs in while opted out: its own take-me-off after the usual join delay, then it leaves
@@ -4212,7 +4216,7 @@ def check_leaderboard(seed=1):
     N.full = "Novalt-Forever"
     s0 = len(N.sent)
     step(40)
-    rm = [m for (t, m) in N.sent[s0:]]
+    rm = [m for (t, m) in N.sent[s0:] if not m.startswith("N1;")]
     ck(len(rm) == 1 and rm[0].startswith("R1;"), "the alt sends its own take-me-off at login: %r" % rm)
     ck(K.ev('_entry("novalt-forever")') is None, "and Kilo took the alt off")
     ck(N.ev("_chanId") == 0 and N.ev("TapCatForever.db.ui.lbRemove") is None, "nothing left to send, channel left")
@@ -4221,7 +4225,7 @@ def check_leaderboard(seed=1):
     N.ex('TapCatForever.LeaderboardTest.reset(); TapCatForever.DevTest.reset(); _charName = "November"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
     N.full = "November-Forever"
     step(60)
-    ck(len(N.sent) == s0 + 1 and N.ev("_joins") == j0 and N.ev("_chanId") == 0, "opted out with nothing to send: no channel, nothing sent")
+    ck(len([m for (t, m) in N.sent[s0:] if not m.startswith("N1;")]) == 1 and N.ev("_joins") == j0 and N.ev("_chanId") == 0, "opted out with nothing to send: no channel, nothing sent")
 
     # 11d. off, on, our own summary sent, off again within 10 seconds: a second take-me-off at once
     s0 = len(K.sent)

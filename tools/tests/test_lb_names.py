@@ -1,9 +1,13 @@
-# 1.6.1.1: WoW: Forever allows a space inside a character name ("Ziggu Trip", "Its Caffeinated"), and its
-# GetNormalizedRealmName / GetRealmName come back empty while UnitFullName("player") splits the two words
-# ("Ziggu", "Trip"). Before this version the leaderboard refused every message from such a sender (no name
-# key) and took "Trip" for the realm. Two clients named that way, no realm from the game, messages passed
-# with the plain sender name as Forever sends it: both see each other, by the real messages and by the
-# party feed; the own key spells the whole name; a row saved under the old wrong key goes away.
+# 1.6.1.1 / 1.6.1.2: WoW: Forever allows a space inside a character name ("Ziggu Trip", "Its Caffeinated").
+# There GetNormalizedRealmName / GetRealmName come back "" and the game splits the two words for its own
+# player: UnitName("player") is "Ziggu" and UnitFullName("player") is ("Ziggu", "Trip"), while the name
+# on addon messages (what every other player sees) is the whole "Ziggu Trip". Before 1.6.1.1 the
+# leaderboard refused every message from such a sender (no name key), and the own key became
+# "ziggu-trip" (the second word taken for the realm), which no other player could ever match.
+# Two clients named that way, messages passed with the plain sender name and echoed to the sender as the
+# game does: own keys spell the whole name on the stand-in realm, the two see each other by the real
+# messages and by the party feed, a row saved under the old wrong key goes at login, and nothing is
+# shared before the own name is learned from an echo. Also with UnitName("player") hidden (secret).
 # Run on its own:  python3 tools/tests/test_lb_names.py
 import sys
 
@@ -12,12 +16,25 @@ FOREVER = '''
 GetNormalizedRealmName = function() return "" end
 GetRealmName = function() return "" end
 function UnitFullName(u) local a, b = _charName:match("^(%S+)%s+(%S+)$"); return a, b end
+local realUnitName = UnitName
+function UnitName(u)
+  if u == "player" then
+    if _ownSecret then return _SECRET end
+    return (_charName:match("^(%S+)")) -- Forever: only the first word of a two-word name
+  end
+  return realUnitName(u)
+end
 '''
 
 def ck(c, m):
     if not c: raise AssertionError("lb names: " + m)
 
 def check(seed, load_addon):
+    _run(seed, load_addon, False)
+    _run(seed, load_addon, True)
+    print("leaderboard two-word names section (Forever names with a space, empty realm, the own name split by the game or hidden, echoed messages): all checks passed")
+
+def _run(seed, load_addon, secret):
     LB_CLIENT = sys.modules["__main__"].LB_CLIENT
     srv = [1800000000]
     clients = []
@@ -27,11 +44,11 @@ def check(seed, load_addon):
         lua.execute('function JoinTemporaryChannel() _joins = _joins + 1 end; _group = {}; '
                     'function GetNumGroupMembers() return 2 end; function IsInRaid() return false end')
         lua.execute("math.randomseed(%d)" % ((seed + sum(map(ord, name))) % 2147483647))
-        lua.execute('_charName = "%s"; _srv = %d' % (name, srv[0]))
+        lua.execute('_charName = "%s"; _srv = %d; _ownSecret = %s' % (name, srv[0], "true" if secret else "false"))
         lua.execute(FOREVER)
         if stale:
             # a board saved by 1.6.1 with the own row under the wrong key ("ziggu-trip")
-            lua.execute('TapCatForeverDB = TapCatForeverDB or {}; TapCatForeverDB.lb = { Realm = { e = { ["%s"] = { n = "%s", c = "MAGE", l = 3, t = 50, a = 0, z = 0, v = "1.6.1", ts = %d } }, rm = {} } }'
+            lua.execute('TapCatForeverDB = TapCatForeverDB or {}; TapCatForeverDB.board = { realm = { e = { ["%s"] = { n = "%s", c = "MAGE", l = 3, t = 50, a = 0, z = 0, v = "1.6.1", ts = %d, d = true } }, rm = {}, rmn = {} } }'
                         % (stale[0], stale[1], srv[0]))
         lua.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
         lua.execute('TapCatForever.db.class = "%s"; TapCatForever.db.taps = %d' % (cls, 1000 + len(name)))
@@ -41,15 +58,16 @@ def check(seed, load_addon):
     A = make(NAMES[0], "MAGE", stale=("ziggu-trip", "Ziggu-Trip"))
     B = make(NAMES[1], "WARRIOR")
     realm = A.eval("TapCatForever.LeaderboardRealm()")
-    ck(realm == "Realm", "an empty realm from the game is the stand-in realm, not the second word of the name: %r" % realm)
-    ck(A.eval("TapCatForever.DevFullKey(_charName)") == "ziggutrip-realm", "own key spells the whole name: %r" % A.eval("TapCatForever.DevFullKey(_charName)"))
+    ck(realm == "Realm", "an empty realm from the game is the stand-in realm, never the second word of the name: %r" % realm)
     ck(A.eval("TapCatForever.DevFullKey('Its Caffeinated')") == "itscaffeinated-realm", "friend's key from the plain sender name")
     ck(A.eval("TapCatForever.LeaderboardValidName('Its Caffeinated-Realm')") is True, "a two-word name travels")
     ck(A.eval("TapCatForever.LeaderboardValidName('Its  Caffeinated-Realm')") is False, "two spaces are not a name")
     ck(A.eval("TapCatForever.LeaderboardValidName(' Its-Realm')") is False, "a leading space is not a name")
-    # the stale own row went at login
-    ck("ziggu-trip" not in A.eval("_boardKeys()"), "the old wrong-key own row is gone at login: %r" % A.eval("_boardKeys()"))
+    # before the own name is learned nothing is shared under a guess: the own row shows, the key is unknown
+    ck(A.eval("TapCatForever:LeaderboardOwnEntry().guess") is True, "own entry is a guess until the own name is learned (secret=%s)" % secret)
+    ck("ziggu-trip" in A.eval("_boardKeys()"), "the stale row waits for the own name")   # UnitName alone can't say which rows are ours
     A.execute('_fire("GROUP_ROSTER_UPDATE")'); B.execute('_fire("GROUP_ROSTER_UPDATE")')
+    sent_before_name = []
     for _ in range(150):
         for name, lua in clients: lua.globals()._tick(1, srv[0])
         srv[0] += 1
@@ -57,25 +75,38 @@ def check(seed, load_addon):
             out = lua.globals()._takeOut()
             for i in range(1, len(out) + 1):
                 p, msg, ch = out[i][1], out[i][2], out[i][3]
-                if msg[:3] not in ("L1;", "L2;", "R1;", "X1;") or ch != "PARTY": continue
-                for other, olua in clients:
-                    if other != name:
-                        olua.globals()._deliver(p, msg, name, "PARTY", "")   # Forever: the plain name, no realm
+                if msg[:3] in ("L1;", "L2;", "R1;", "X1;") and not lua.eval("TapCatForever.SelfSender"):
+                    sent_before_name.append(msg)
+                if ch != "PARTY": continue
+                for other, olua in clients:   # the whole party hears it, the sender too (Forever: the plain name, no realm)
+                    olua.globals()._deliver(p, msg, name, "PARTY", "")
+    ck(not sent_before_name, "no leaderboard message went out before the own name was known: %r" % sent_before_name[:2])
+    ck(A.eval("TapCatForever.SelfSender") == NAMES[0], "the own name is learned from the echo: %r" % A.eval("TapCatForever.SelfSender"))
+    ck(A.eval("TapCatForever.SelfName()") == NAMES[0], "SelfName is the whole name, not the game's first word: %r" % A.eval("TapCatForever.SelfName()"))
+    own = A.eval("(function() local e = TapCatForever:LeaderboardOwnEntry(); return e.n .. '/' .. tostring(e.guess) end)()")
+    ck(own == "Ziggu Trip-Realm/nil", "own entry under the whole name on the stand-in realm: %r" % own)
     a, b = A.eval("_boardKeys()"), B.eval("_boardKeys()")
-    ck("itscaffeinated-realm" in a, "A sees B by the real messages: %r" % a)
-    ck("ziggutrip-realm" in b, "B sees A by the real messages: %r" % b)
+    ck("ziggu-trip" not in a, "the old wrong-key own row is gone once the own name is known: %r" % a)
+    ck(a == "itscaffeinated-realm", "A's board holds exactly the friend (no own row, no junk): %r" % a)
+    ck(b == "ziggutrip-realm", "B's board holds exactly the friend: %r" % b)
     e = A.eval('_entry("itscaffeinated-realm")')
-    ck(e["n"] == "Its Caffeinated-Realm" and e["t"] == 1000 + len(NAMES[1]) and e["c"] == "WARRIOR", "the row keeps the name with its space and the right numbers: %r %r %r" % (e["n"], e["t"], e["c"]))
+    ck(e["n"] == "Its Caffeinated-Realm" and e["t"] == 1000 + len(NAMES[1]) and e["c"] == "WARRIOR" and e["d"] is True,
+       "the row keeps the name with its space, the right numbers, and counts as heard from the player: %r %r %r %r" % (e["n"], e["t"], e["c"], e["d"]))
     ck(A.eval('TapCatForever.LeaderboardDisplayName("Its Caffeinated-Realm")') == "Its Caffeinated", "shown without the stand-in realm")
     rows = A.eval('(function() local l = TapCatForever:LeaderboardSection("taps", "taps"); local t = {}; for _, r in ipairs(l) do t[#t + 1] = (r.self and "*" or "") .. TapCatForever.LeaderboardDisplayName(r.n) end; return table.concat(t, ",") end)()')
     ck(rows == "Its Caffeinated,*Ziggu Trip", "Total taps shows the friend and your own row: %r" % rows)
+    # the own echo is recognised as own, nothing from these senders was dropped for its name
+    dbg = A.eval('(function() local d = TapCatForever.LeaderboardDebug.drop; return (d.nokey or 0) .. "/" .. (d.own or 0) end)()')
+    ck(dbg.split("/")[0] == "0" and int(dbg.split("/")[1]) > 0, "no name drops, own echoes recognised: %r" % dbg)
     # the party feed path (Party.lua hands a member to the leaderboard) with the same kind of sender
     C = make("Big Whiskers", "HUNTER")
     res = C.eval('(function() local r, why = TapCatForever.LeaderboardFromParty({ sender = "Its Caffeinated", name = "ItsCaffeinated", joined = true, class = "WARRIOR", level = 7, taps = 4242, ach = 2, zones = 1, version = "1_6_1" }); return tostring(r) .. "/" .. tostring(why) end)()')
     ck(res.startswith("added"), "a party member with a two-word name goes on the board: %r" % res)
     e = C.eval('_entry("itscaffeinated-realm")')
     ck(e and e["t"] == 4242 and e["n"] == "Its Caffeinated-Realm", "the party row has the right taps and name")
-    # dropped-message counters stay quiet for these senders
-    dbg = A.eval('(function() local d = TapCatForever.LeaderboardDebug; return (d.drop and d.drop.nokey or 0) end)()')
-    ck(dbg == 0, "no message from a two-word name was dropped for its name: %r" % dbg)
-    print("leaderboard two-word names section (Forever names with a space, empty realm): all checks passed")
+    # ForgetSelf only takes the one exact wrong key, never a friend's row
+    C.execute('TapCatForever.LearnSelf("Big Whiskers")')
+    C.execute('(function() local b = TapCatForever.LeaderboardBoard(true); b.e["big-whiskers"] = { n = "Big-Whiskers", c = "MAGE", l = 1, t = 1, a = 0, z = 0, v = "?", ts = _srv }; '
+              'b.e["bigwhis-kers"] = { n = "Bigwhis-kers", c = "MAGE", l = 1, t = 1, a = 0, z = 0, v = "?", ts = _srv }; TapCatForever.LeaderboardForgetSelf() end)()')
+    keys = C.eval("_boardKeys()")
+    ck("big-whiskers" not in keys and "bigwhis-kers" in keys and "itscaffeinated-realm" in keys, "only the exact old own key goes: %r" % keys)
