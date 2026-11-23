@@ -380,6 +380,7 @@ local function onMessage(prefix, text, channel, sender)
   m.class, m.level, m.look, m.text, m.eq = class, level, look, text, eq
   m.sender = sender   -- the name exactly as the game sends it (challenges name you this way)
   m.missing = nil
+  m.heardAt = now()   -- a duel keeps them present a while after their last message (DeathRoll.lua)
   -- answer a hello, or anyone we hadn't met; request() merges replies to one per SEND_GAP
   if kind == "H1" or isNew then request("U1") end
   refreshRow()

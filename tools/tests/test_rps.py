@@ -339,7 +339,11 @@ def _duels(seed, load_addon, rnd):
     a0, b0 = coins("Alice"), coins("Bob")
     start("Bob", "Alice")
     net.ungroup("Bob"); net.c["Alice"].execute("_group = {}; _fire('GROUP_ROSTER_UPDATE')"); net.pump(1)
-    ck(g("Bob", "reason") == "g" and g("Alice", "result") == "cancel", "left the group: called off")
+    ck(g("Bob", "reason") == "g", "left the group: called off")
+    # 1.6.1: the other side goes by Party.lua's roster knowledge plus a grace period, never by UnitName
+    ck(g("Alice", "state") == "picking", "the other side waits the grace period first")
+    net.pump(TD.TapGrace(net.c["Alice"]) + 1)
+    ck(g("Alice", "result") == "cancel" and g("Alice", "reason") == "g", "the other side sees them gone")
     ck(coins("Alice") == a0 and coins("Bob") == b0, "left the group: no coins moved")
     net.group(["Alice", "Bob"])
 

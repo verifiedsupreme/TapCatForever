@@ -507,6 +507,7 @@ local function onAddon(prefix, text, channel, sender)
   end
   local d = R.duel
   if not d or d.id ~= id or base(sender) ~= d.oppBase then return end
+  if d.state ~= "over" and DR.OppHeard then DR.OppHeard(d) end   -- they are here right now
   local round = tonumber(a)
   if kind == "R2" then
     if d.role == "out" then onAnswer(d, a) end
@@ -542,6 +543,7 @@ local function tick()
     finish(d, "expired", nil, "me")
   elseif d.state == "picking" or d.state == "reveal" then
     if not inGroup() then callOff("g", false)
+    -- gone by the addon's own knowledge (Party.lua, after a grace period: DeathRoll.lua's OppPresent)
     elseif DR.OppPresent and not DR.OppPresent(d) then callOff("g", false, "opp")
     elseif d.state == "picking" then
       if not d.myPick and t - d.roundAt >= R.PICK_TIME then callOff("p", true)
