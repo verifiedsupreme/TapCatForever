@@ -35,6 +35,16 @@ TCF.ADV = {
   AUTO_EARLY = 2,
   -- A zone's final boss has extra health: 1.3x, or 1.1x in the starter zones (minimum level under 20).
   FINAL_HP = 1.3, STARTER_FINAL_HP = 1.1, STARTER_BELOW = 20,
+  -- (1.6.0) Level difference, like WoW. Enemies up to DIFF_FREE levels above the cat fight as
+  -- before. For each level past that the cat deals DIFF_DMG x less damage (never under DIFF_DMG_MIN)
+  -- and takes DIFF_TAKEN x more, and it misses DIFF_MISS plus DIFF_MISS_STEP for each level above
+  -- DIFF_FREE (at most DIFF_MISS_MAX). Enemies below the cat give it DIFF_BONUS more damage a level,
+  -- at most DIFF_BONUS_MAX. TCF.AdvEnemyLevel says what level an enemy counts as. Tuned with
+  -- tools/balance.py --levels: normal progression with Auto-advance stays as it was.
+  DIFF_FREE = 3, DIFF_DMG = 0.94, DIFF_DMG_MIN = 0.05, DIFF_TAKEN = 1.06,
+  DIFF_MISS = 0.05, DIFF_MISS_STEP = 0.02, DIFF_MISS_MAX = 0.6,
+  DIFF_BONUS = 0.01, DIFF_BONUS_MAX = 0.05, ENEMY_LEVEL_MAX = 60,
+  LEVEL_DIFF = true,   -- (tools/balance.py turns it off to compare with before)
 }
 local K, ADV = TCF.ADV.K, TCF.ADV
 
@@ -89,7 +99,10 @@ function TCF:AdvPack(tier, stage)
       pack[i] = { name = m[1], display = m[2], level = D, max = floor(hp * (0.85 + random() * 0.3)), dmg = dps * ADV.MOB_SWING }
     end
   end
-  for _, m in ipairs(pack) do m.hp = m.max; m.alive = true; m.swing = random() * ADV.MOB_SWING end
+  for _, m in ipairs(pack) do
+    m.hp = m.max; m.alive = true; m.swing = random() * ADV.MOB_SWING
+    m.zoneMin, m.zoneLow = t.min, t.diff - 2   -- (for TCF.AdvEnemyLevel)
+  end
   return pack, D
 end
 
@@ -146,6 +159,56 @@ local function pickTarget(run)
   for i, m in ipairs(run.pack) do if m.alive then run.target = i; return m, i end end
 end
 
+---------------------------------------------------------------- level difference (1.6.0)
+-- The level an enemy counts as against the cat: the zone's lowest level (the "Levels 10-18" on
+-- the Adventure page) for the first packs, one level more for every 2 levels its pack's difficulty
+-- (TCF:AdvLevel, plus 1 for a boss) is above the zone's first stage, so a zone's last boss counts
+-- as 2 or 3 levels over the zone's lowest level. Raids count as level 60 (their difficulty above
+-- 60 is for gear, not levels). m: an enemy of TCF:AdvPack, or a level.
+function TCF.AdvEnemyLevel(m)
+  local lv = (type(m) == "table" and m.level) or tonumber(m) or 1
+  if type(m) == "table" and m.zoneMin and m.zoneLow then
+    lv = m.zoneMin + floor(max(0, lv - m.zoneLow) / 2)
+  end
+  return min(ADV.ENEMY_LEVEL_MAX, lv)
+end
+-- the level the enemies of a stage count as (a boss: its own level)
+function TCF:AdvStageEnemyLevel(tier, stage)
+  local t = self:AdvTier(tier)
+  local D = self:AdvLevel(tier, stage)
+  if stage % 2 == 0 then D = D + (t.raid and 3 or 1) end
+  return TCF.AdvEnemyLevel({ level = D, zoneMin = t.min, zoneLow = t.diff - 2 })
+end
+-- how many levels the enemies where the cat is now are above it (the pack it fights, else its stage)
+function TCF:AdvLevelGap(class)
+  local cd = self:CD(class)
+  if not cd then return 0 end
+  local run = self.advRun
+  local top
+  if run and run.pack and run.class == (class or self.db.class) then
+    for _, m in ipairs(run.pack) do
+      if m.alive ~= false then local lv = TCF.AdvEnemyLevel(m); if not top or lv > top then top = lv end end
+    end
+  end
+  top = top or self:AdvStageEnemyLevel(cd.adv.tier, cd.adv.stage)
+  return top - (cd.level or 1)
+end
+TCF.ADV_GAP_WARN = 5   -- the Adventure page says so from this many levels
+
+-- levels the enemy is above the cat (negative: below)
+local function levelDiff(self, run, m)
+  local cd = self:CD(run and run.class)
+  return TCF.AdvEnemyLevel(m) - (cd and cd.level or 1)
+end
+-- the cat's damage multiplier, its miss chance and the enemy's damage multiplier at a level difference
+function TCF.AdvLevelMods(diff)
+  if not ADV.LEVEL_DIFF or diff == 0 then return 1, 0, 1 end
+  if diff < 0 then return 1 + min(ADV.DIFF_BONUS_MAX, ADV.DIFF_BONUS * -diff), 0, 1 end
+  local d = diff - ADV.DIFF_FREE
+  if d <= 0 then return 1, 0, 1 end
+  return max(ADV.DIFF_DMG_MIN, ADV.DIFF_DMG ^ d), min(ADV.DIFF_MISS_MAX, ADV.DIFF_MISS + ADV.DIFF_MISS_STEP * d), ADV.DIFF_TAKEN ^ d
+end
+
 ---------------------------------------------------------------- damage
 local function dmgMult(self, run)
   local m = 1
@@ -169,6 +232,17 @@ end
 
 function TCF:AdvHitMob(m, idx, dmg, kind)
   if not m.alive then return end
+  -- (1.6.0) an enemy above the cat's level takes less damage and dodges more (damage over time
+  -- ticks can't miss: the spell already landed)
+  local run = self.advRun
+  if run then
+    local mult, miss = TCF.AdvLevelMods(levelDiff(self, run, m))
+    if miss > 0 and kind ~= "dot" and random() < miss then
+      self:AdvEvent("miss", 0, idx)
+      return
+    end
+    dmg = dmg * mult
+  end
   m.hp = m.hp - dmg
   self:AdvEvent(kind, dmg, idx)
   if m.hp <= 0 then
@@ -486,7 +560,8 @@ function TCF:AdvTick(dt)
       m.swing = m.swing + dt
       if m.swing >= ADV.MOB_SWING then
         m.swing = m.swing - ADV.MOB_SWING
-        local dmg = m.dmg * mult * (0.85 + random() * 0.3)
+        local _, _, taken = TCF.AdvLevelMods(levelDiff(self, run, m))   -- (1.6.0) higher enemies hit harder
+        local dmg = m.dmg * mult * taken * (0.85 + random() * 0.3)
         if run.shield > 0 then
           local absorbed = min(run.shield, dmg)
           run.shield = run.shield - absorbed; dmg = dmg - absorbed

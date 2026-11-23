@@ -13,7 +13,7 @@ local GUIDE = {
     "|cffffd100Stages and zones|r: each zone has trash packs and bosses in turn, for example 12 stages in Shadowfang Keep. The last stage is the zone's final boss. Beating it clears the zone.\n\n" ..
     "|cffffd100Auto-advance on|r: after each win your cat moves to the next stage. After the final boss it goes on to the next zone once it is within 2 levels of that zone's level (raids wait for level 60). Until then it runs the cleared zone again from the start and farms it. If it loses, it drops back to the last trash pack and works its way up again.\n\n" ..
     "|cffffd100Auto-advance off|r: your cat stays on its stage and farms it. After 3 losses in a row it drops back to an easier pack.\n\n" ..
-    "|cffffd100Going back or ahead|r: use < and > by the zone name to visit an earlier zone or go on to the next one (no level limit, but the enemies may be too strong), and < Stage and Stage > to pick a stage.\n\n" ..
+    "|cffffd100Going back or ahead|r: use < and > by the zone name to visit an earlier zone or go on to the next one (no level limit), and < Stage and Stage > to pick a stage. Like in WoW, enemies more than 3 levels above your cat are harder: it hits less, misses more and takes more damage for every level. Raids count as level 60.\n\n" ..
     "The line under the fight always says what your cat is doing and what it waits for. Hover the zone name to see what is left to earn there." },
   { title = "How Adventure works: rewards", body =
     "|cffffd100First kills|r: the first time your cat beats each boss it gets a reward that grows with the zone:\n" ..

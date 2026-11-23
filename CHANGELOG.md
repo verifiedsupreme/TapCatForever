@@ -127,6 +127,14 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 - Enemies are no longer cut off by an invisible box: each one is drawn in a space that covers the whole fight scene, and is sized with room for its attacks and its fall when it dies. Big bosses and wide creatures fit too, in every window size and layout.
 - Area spells (Arcane Explosion, Thunder Clap, Consecration and the others) now also go off against a single enemy, such as a boss, when no single-target spell is ready, so every class deals a little more damage to bosses. Arcane Explosion rings out from your cat before it hits every enemy.
 
+**Adventure: enemies above your cat's level**
+- Fights now count the level difference, like WoW. Enemies up to 3 levels above your cat fight as before.
+- For each level past that, your cat deals about 6% less damage (never under 5% of it) and takes about 6% more, and it misses more: 7% at 4 levels above and 2% more for each level after that, up to 60%. A miss shows "Miss" over the enemy.
+- Enemies below your cat give it a little more damage: 1% a level, at most 5%.
+- An enemy's level is the zone's lowest level for its first packs, up to 2 or 3 levels more for its last boss. Raids count as level 60.
+- When the enemies are 5 or more levels above your cat, a line along the top of the fight says so, for example "Enemies here are 29 levels above your cat: it hits much less and takes far more damage."
+- Auto-advance's zones (2 levels early) stay winnable, and normal progression is about the same as before. A level 31 cat in Molten Core now loses within seconds. Travelling by hand still has no level limit.
+
 **Adventure: first kills give more in bigger zones**
 - The first time your cat beats a boss, the reward now grows with the zone:
 - Elwynn Forest and Westfall: a green piece of gear or a Cat Treat Pouch.

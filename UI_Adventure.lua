@@ -653,6 +653,16 @@ TCF.UI.Builders.adventure = function(page, win)
     fs.active, fs.age, fs.x, fs.y = true, 0, x + random(-12, 12), y
   end
 
+  -- (1.6.0) enemies 5 or more levels above the cat: one plain line along the top of the fight
+  local gapBar = CreateFrame("Frame", nil, scene)
+  gapBar:SetPoint("TOPLEFT", 4, -4); gapBar:SetPoint("TOPRIGHT", -4, -4); gapBar:SetHeight(22)
+  if gapBar.SetFrameLevel then gapBar:SetFrameLevel((scene:GetFrameLevel() or 1) + 25) end
+  local gapBg = gapBar:CreateTexture(nil, "BACKGROUND"); gapBg:SetAllPoints(); gapBg:SetColorTexture(0, 0, 0, 0.55)
+  local gapText = Text(gapBar, "GameFontNormalSmall"); gapText:SetPoint("CENTER", 0, 0); gapText:SetWidth(516)
+  gapText:SetTextColor(1, 0.45, 0.3)
+  gapBar:Hide()
+  page.advGapBar, page.advGapText = gapBar, gapText
+
   local awayText = Text(scene, "GameFontNormalLarge"); awayText:SetPoint("CENTER", 60, 30); awayText:SetWidth(300)
   local startPanel = CreateFrame("Frame", nil, scene); startPanel:SetAllPoints()
   local startDim = startPanel:CreateTexture(nil, "OVERLAY", nil, -1); startDim:SetAllPoints(); startDim:SetColorTexture(0, 0, 0, 0.45)
@@ -890,6 +900,11 @@ TCF.UI.Builders.adventure = function(page, win)
       end
     end
     prevTier:SetEnabled(adv.tier > 1)
+    local gap = TCF.AdvLevelGap and TCF:AdvLevelGap() or 0
+    if gap >= TCF.ADV_GAP_WARN then
+      gapText:SetText(string.format("Enemies here are %d levels above your cat: it hits much less and takes far more damage.", gap))
+      gapBar:Show()
+    else gapBar:Hide() end
     logText:SetText(TCF.UI.AdvLogFit(TCF.advLog or { "|cff888888Your cat sets out on an adventure...|r" }, logText, LOG_H))
     local active = adv.active
     startPanel:SetShown(not active and not TCF:IsOnExpedition(TCF.db.class))
@@ -931,6 +946,11 @@ TCF.UI.Builders.adventure = function(page, win)
         if kind == "crit" then FloatText(short(amt), fx, 150, 1, 0.82, 0.1, true)
         elseif kind == "hit" then FloatText(short(amt), fx, 140, 1, 1, 1)
         elseif amt >= 1 and random() < 0.25 then FloatText(short(amt * 4), fx, 120, 0.9, 0.8, 0.3) end
+      elseif kind == "miss" then
+        -- (1.6.0) an enemy far above the cat's level dodges: a shot on its way carries the word
+        local pend = FX:TakePending(idx)
+        if pend then FX.Carry(pend, "Miss", fx, 140, 0.75, 0.75, 0.75, false, nil)
+        else FloatText("Miss", fx, 140, 0.75, 0.75, 0.75) end
       elseif kind == "tap" then
         if f then f.shake = max(f.shake, 0.1) end
         FloatText(short(amt), fx, 115, 0.55, 0.85, 1)

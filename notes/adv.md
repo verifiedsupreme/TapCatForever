@@ -76,3 +76,11 @@
 ## Adventure help
 - The Help guide now says the right thing about losing: with Auto-advance on, a loss sends your cat back to the last trash pack; with it off, your cat drops back to an easier pack after 3 losses in a row.
 - The next-zone tooltip says Auto-advance moves on 2 levels before a zone's level.
+
+## Enemies above your cat's level (1.6.0)
+- Fights count the level difference, like WoW (Adventure.lua TCF.AdvLevelMods, TCF.AdvEnemyLevel). Enemies up to 3 levels above the cat fight as before.
+- For each level past 3: the cat's damage x0.94 (never under 5%), damage it takes x1.06, and it misses 5% + 2% for each level above 3 (7% at 4 levels, at most 60%). Damage over time ticks never miss. Below the cat: +1% damage a level, at most +5%.
+- An enemy's level: the zone's lowest level (the "Levels 10-18" on the page) for its first packs, one more for every 2 levels of the pack's difficulty above the zone's first stage, so the last boss is 2-3 levels higher. Raids count as level 60: their difficulty above 60 is for gear.
+- Why 3 free levels and not the formula from the first level: with the zone levels, Auto-advance enters zones 2 levels early and the cat often fights bosses 3-4 levels above it while it levels there. Counting from the first level cost 10-16% of all kills, 15-20% of boss kills and 3-4 times the defeats over 30 hours (Warrior, Mage, Rogue). From 4 levels, over 20 hours of Auto-advance from level 1 (Warrior, Mage, Rogue, Priest, Hunter, 2 runs each): kills x1.00, boss kills x0.995, defeats x1.18; every zone is reached at the same time except The Deadmines, now and then up to 20 minutes later (it is reached right after Wailing Caverns is cleared, not by level). A cat at each zone's Auto-advance level with typical gear: the same kills in 10 minutes and no defeats, in every zone and class (tools/balance.py --levels).
+- The line at the top of the fight panel shows from 5 levels above: "Enemies here are 29 levels above your cat: it hits much less and takes far more damage." It sits inside the panel's top edge, away from the log and the status line at the bottom.
+- A level 31 cat with level 31 gear in Molten Core used to kill 60 to 85 enemies in 10 minutes; now it kills none and loses within 2 to 11 seconds. Travelling by hand is still free.
