@@ -812,7 +812,7 @@ function TCF:CreateWindow()
     b:SetScript("OnClick", function() win.slot = s.key; win.page = 1; win:RefreshWardrobe(); TCF:PlaySound("click") end)
     Tip(b, function(tt)
       tt:AddLine(s.name, 1, 0.82, 0)
-      tt:AddLine(s.desc or (s.look and "Shared by every class." or "Saved separately for each class. Shows over your real gear."), 0.8, 0.8, 0.8, true)
+      tt:AddLine(s.desc or (s.look and "Saved separately for each class's cat." or "Saved separately for each class. Shows over your real gear."), 0.8, 0.8, 0.8, true)
     end)
     b.key = s.key
     slotBtns[i] = b

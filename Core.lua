@@ -112,7 +112,7 @@ local DEFAULTS = {
 -- Professions live in classData (each class's cat has its own trade since 1.5.1); "trade" is
 -- the old shared trade of 1.5.0 and older, split once per character (tradeSplit) and removed.
 TCF.PER_CHARACTER = {
-  owned = true, gear = true, loadouts = true, look = true, keys = true, classData = true,
+  owned = true, gear = true, loadouts = true, look = true, looks = true, keys = true, classData = true,
   trade = true, tradeSplit = true, expeditions = true, class = true, prof = true, dungeonRun = true, shop = true,
 }
 
@@ -220,6 +220,26 @@ function TCF:InitDB()
   if self.MigrateRaceSlot then self:MigrateRaceSlot(db) end  -- 1.6: the racial accessory has its own slot
   if db.look.fur and not TCF.ITEMS[db.look.fur] then db.look.fur = "fur_ginger" end
   if db.look.pattern and not TCF.ITEMS[db.look.pattern] then db.look.pattern = nil end
+  -- 1.6.0: each class's cat wears its own fur, pattern, skin and tap effect. db.look is the look of
+  -- the cat being played, db.looks[class] the others' (TCF:LookOf). Saves from before: every cat
+  -- starts with the look worn now; a new character's cats start in their own class fur.
+  if type(db.looks) ~= "table" then
+    db.looks = {}
+    for _, cl in ipairs(TCF.CLASSES) do
+      if cl.key ~= db.class then
+        local l = TCF.CopyLook(db.look)
+        if not self.charExisted then l.fur = cl.fur end
+        db.looks[cl.key] = l
+      end
+    end
+  end
+  for k, l in pairs(db.looks) do
+    if not TCF.CLASS_BY_KEY[k] or type(l) ~= "table" then db.looks[k] = nil
+    else
+      if not (l.fur and TCF.ITEMS[l.fur]) then l.fur = "fur_ginger" end
+      for _, slot in ipairs({ "pattern", "skin", "tap" }) do if l[slot] and not TCF.ITEMS[l[slot]] then l[slot] = nil end end
+    end
+  end
   -- v1 -> v2: levels became per-class; the old shared level goes to the current class
   if db.level then
     db.classData[db.class] = { level = db.level, xp = db.xp or 0 }
@@ -297,16 +317,49 @@ function TCF:CD(class) return self.db.classData[class or self.db.class] end
 ---------------------------------------------------------------- appearance
 function TCF:GetLoadout(class) return self.db.loadouts[class or self.db.class] end
 
+-- the fur, pattern, skin and tap effect slots (TCF.SLOTS entries with look = true) of one cat
+local LOOK_FIELDS = { "fur", "pattern", "skin", "tap", "tapSet" }
+function TCF.CopyLook(l)
+  local out = {}
+  for _, k in ipairs(LOOK_FIELDS) do out[k] = l and l[k] end
+  return out
+end
+-- (1.6.0) the worn look of a class's cat: db.look for the cat being played, db.looks[class] for
+-- the others (a class without one starts with the look being worn)
+function TCF:LookOf(class)
+  local db = self.db
+  if not class or class == db.class then return db.look end
+  db.looks = db.looks or {}
+  local l = db.looks[class]
+  if type(l) ~= "table" then l = TCF.CopyLook(db.look); db.looks[class] = l end
+  return l
+end
+-- switching cats: the old cat keeps its look, the new one puts its own on (db.look stays the same
+-- table, so anything holding it sees the new look)
+local function swapLook(db, from, to)
+  if from == to then return end
+  db.looks = db.looks or {}
+  local cur = db.look
+  local mine = db.looks[to]
+  db.looks[from] = TCF.CopyLook(cur)
+  if type(mine) == "table" then
+    for _, k in ipairs(LOOK_FIELDS) do cur[k] = mine[k] end
+  end
+  db.looks[to] = nil   -- the current cat's look lives in db.look
+  if not (cur.fur and TCF.ITEMS[cur.fur]) then cur.fur = "fur_ginger" end
+end
+
 -- Returns a flat table slot -> item for drawing, optionally with one item previewed.
 -- The cat wears its real gear; a cosmetic chosen for a slot overrides it (transmog).
 function TCF:GetAppearance(class, previewItem, previewGear)
   local lo = self:GetLoadout(class)
   local out = self.GearAppearance and self:GearAppearance(class, previewGear) or {}
   for slot, id in pairs(lo) do out[slot] = TCF.ITEMS[id] end
-  out.fur = TCF.ITEMS[self.db.look.fur]
-  out.pattern = self.db.look.pattern and TCF.ITEMS[self.db.look.pattern] or nil
-  out.skin = self.db.look.skin and TCF.ITEMS[self.db.look.skin] or nil
-  out.tap = self.db.look.tap and TCF.ITEMS[self.db.look.tap] or nil
+  local look = self:LookOf(class)
+  out.fur = TCF.ITEMS[look.fur] or TCF.ITEMS.fur_ginger
+  out.pattern = look.pattern and TCF.ITEMS[look.pattern] or nil
+  out.skin = look.skin and TCF.ITEMS[look.skin] or nil
+  out.tap = look.tap and TCF.ITEMS[look.tap] or nil
   -- racial accessory can be hidden in Settings (since 1.6 it has its own slot, "race")
   if not self.db.ui.racial and out.acc and out.acc.source == "race" then out.acc = nil end
   if not self.db.ui.racial then out.race = nil end
@@ -321,14 +374,14 @@ end
 
 function TCF:IsEquipped(it, class)
   if not it then return false end
-  if TCF.SLOT_BY_KEY[it.slot].look then return self.db.look[it.slot] == it.id end
+  if TCF.SLOT_BY_KEY[it.slot].look then return self:LookOf(class)[it.slot] == it.id end
   return self:GetLoadout(class)[it.slot] == it.id
 end
 
 function TCF:Equip(it, class)
   if not it or not self.db.owned[it.id] or not self:CanEquip(it, class) then return end
   if TCF.SLOT_BY_KEY[it.slot].look then
-    self.db.look[it.slot] = it.id
+    self:LookOf(class)[it.slot] = it.id
   else
     self:GetLoadout(class)[it.slot] = it.id
   end
@@ -337,7 +390,7 @@ end
 
 function TCF:Unequip(slot, class)
   if slot == "fur" then return end
-  if TCF.SLOT_BY_KEY[slot].look then self.db.look[slot] = nil
+  if TCF.SLOT_BY_KEY[slot].look then self:LookOf(class)[slot] = nil
   else self:GetLoadout(class)[slot] = nil end
   self:RefreshAll()
 end
@@ -346,6 +399,7 @@ function TCF:SetClass(key)
   if not TCF.CLASS_BY_KEY[key] then return end
   -- every other cat's idle professions catch up first, so none skips or repeats any time
   if self.ProfCatchUp and key ~= self.db.class then self:ProfCatchUp() end
+  swapLook(self.db, self.db.class, key)   -- (1.6.0) each cat wears its own look
   self.db.class = key
   self.db.stats.classesPlayed[key] = true
   -- professions this cat unlocked while you played another one are announced now
