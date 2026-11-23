@@ -109,6 +109,7 @@
 - The fight log and that line each have their own rows at the bottom of the page, so they never draw over each other. The log shows as many of its newest lines as fit.
 - "Wailing Caverns opens at level 15. Running Ragefire Chasm again until then." is logged once, not after every run of the zone.
 - Hover the zone name to see what is left to earn there: bosses still to beat for the first time and what they give, the zone clear bonus, the chance a boss kill drops a chest right now (for example "Cat Treat Pouch from boss kills: 12% a kill right now"; it grows the longer your cat fights), and which bosses can drop loot again.
+- Enemies are no longer cut off by an invisible box: each one is drawn in a space that covers the whole fight scene, and is sized with room for its attacks and its fall when it dies. Big bosses and wide creatures fit too, in every window size and layout.
 - Area spells (Arcane Explosion, Thunder Clap, Consecration and the others) now also go off against a single enemy, such as a boss, when no single-target spell is ready, so every class deals a little more damage to bosses. Arcane Explosion rings out from your cat before it hits every enemy.
 
 **Adventure: first kills give more in bigger zones**

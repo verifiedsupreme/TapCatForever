@@ -69,6 +69,10 @@
 ## Art to build
 - tools/art_specs_adv/boss_effects.txt: six back-effect drawings in the full sticker style (fx_storm_aura, fx_firelord, fx_frost_chill, fx_shadow_shroud, fx_holy_radiance, fx_verdant_wisps). Until they exist, the effects use simple glow stand-ins of their own (Art/adv/fx_boss_*.tga, made by tools/make_adv_fx.py), soft white shapes tinted like the other effects. When built, change the art field in BossEffects.lua (TCF.BOSS_EFFECTS).
 
+## Enemies never cut off
+- Enemies are no longer cut off by an invisible box: each one is drawn in a space that covers the whole fight scene, and is sized with room for its attacks and its fall when it dies.
+- For the developer: UI_Adventure.lua slotGeometry gives every enemy's ModelScene twice the fight panel's size, centred on its slot and the ground line, so the panel's own (visible) edge is the only clip. The fit keeps 20% of the model's height free above it under the panel's top (FIT.ANIM_TOP); FIT.ANIM_SIDE / ANIM_WIDE give the sideways room the test checks. The old PlayerModel fallback's frame is 1.5x bigger with its camera 1.5x further back. tools/tests/test_adv_fit.py runs the real fit on a mock scene for every display.
+
 ## Adventure help
 - The Help guide now says the right thing about losing: with Auto-advance on, a loss sends your cat back to the last trash pack; with it off, your cat drops back to an easier pack after 3 losses in a row.
 - The next-zone tooltip says Auto-advance moves on 2 levels before a zone's level.

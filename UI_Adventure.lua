@@ -15,8 +15,10 @@ local function short(n)
 end
 
 ------------------------------------------------ enemy models: measure each one and fit it on screen
--- Each enemy is an actor in its own ModelScene (an invisible frame much bigger than the slot,
--- so models are never cut off and can overlap). When the model loads we read its bounding box,
+-- Each enemy is an actor in its own ModelScene. WoW cuts a model off at its frame's edges, so each
+-- enemy's scene is an invisible frame that covers the whole fight panel and more (see slotGeometry):
+-- the only edge a model can meet is the panel's own, and the fit keeps the model, with room for its
+-- attack and death animations, inside that. Scenes overlap each other; they are see-through. When the model loads we read its bounding box,
 -- scale it to a set on-screen height, stand its feet on the ground line and aim our own camera
 -- at it. The scene is centred on the ground line and the camera sits at ground height, looking
 -- level, so the ground is one flat line at every depth (nothing sinks below it) and the
@@ -27,6 +29,10 @@ local FIT = {
   GROUND = 5,                    -- feet stand this far above the slot's bottom edge
   HEADROOM = 14,                 -- the model's top stays this far under the slot's top (name, health bar)
   EDGE = 4,                      -- models stay this far inside their scene and the fight panel
+  SCENE_PAD = 24,                -- each scene reaches this far past every edge of the fight panel
+  ANIM_TOP = 0.2,                -- room above a fitted model for its animations (raised arms, rearing), x its height
+  ANIM_SIDE = 0.7,               -- room beside it (a lunge, a fall on death), x its height from its middle ...
+  ANIM_WIDE = 1.2,               -- ... or x its half-width, whichever is more
   CAT_EDGE = 170,                -- models stay right of this x in the fight panel (the cat and its bar)
   TURN = 0.7,                    -- turned toward the cat, like the old SetFacing(-0.7)
   CAM_DIST = 50, FOV = 0.2,      -- far camera, narrow view: level feet, little perspective
@@ -54,6 +60,39 @@ local MODEL_OVERRIDE = {
 local FIT_SHRINK = {
   [11010] = 0.45, -- Earthborer (Ragefire Chasm): too big for the scene in 1.6 testing
 }
+-- the fight panel (UI units, before the window's own scale) and where the enemy slots stand in it
+local PANEL_W, PANEL_H, SLOT_Y = 532, 250, 8
+local CLASSIC_ROOM = 1.5 -- the old PlayerModel's frame is this much bigger than it used to be, its camera as much further back
+
+-- Where enemy i of a pack of n stands, the room its model has, and its scene. Positions are from the
+-- fight panel's bottom-left corner. The scene is centred on the slot's middle and on the ground line
+-- (the camera looks level from there) and reaches past every edge of the panel, so no enemy is ever
+-- cut off by its own scene: big bosses, wide models, animations and the shake all stay inside it.
+local function slotGeometry(n, i, boss)
+  local w, h = boss and 170 or 110, boss and 200 or 140
+  local baseX = boss and -50 or (-12 - (n - i) * 112)
+  local cx, gy = PANEL_W + baseX - w / 2, SLOT_Y + FIT.GROUND
+  return {
+    w = w, h = h, baseX = baseX, cx = cx, gy = gy,
+    -- room from the slot's centre to the fight panel's right edge (models slide left, never past it)
+    roomRight = PANEL_W - cx - 4 - FIT.EDGE,
+    -- and from the slot's centre to the cat (models may overlap each other, not the cat)
+    roomLeft = cx - FIT.CAT_EDGE,
+    -- and from the ground to the panel's top
+    roomTop = PANEL_H - gy - FIT.EDGE,
+    -- twice the panel each way: wherever the slot is, its scene covers the whole panel and more
+    sceneW = 2 * (PANEL_W + FIT.SCENE_PAD),
+    sceneH = 2 * (PANEL_H + FIT.SCENE_PAD),
+  }
+end
+
+-- the box a fitted model may fill while it animates, from the aim point (the scene's centre plus
+-- the slide): its height and half-width on screen, grown by the animation room
+local function animEnvelope(fitH, halfW)
+  local side = max(halfW * FIT.ANIM_WIDE, fitH * FIT.ANIM_SIDE)
+  return side, fitH * (1 + FIT.ANIM_TOP)
+end
+
 local DEFAULT_BOX = { x1 = -0.75, x2 = 0.75, y1 = -0.6, y2 = 0.6, z1 = 0, z2 = FIT.TYPICAL_H }
 local FIT_CACHE = {} -- layout key -> finished fit, so reopening the page doesn't re-measure
 local BAD_MODEL = {} -- display IDs this client has no model for (skipped from then on)
@@ -223,6 +262,8 @@ local function newScene(f)
   -- the model's transparency is driven only through the actor (see modelAlpha), so the death fade
   -- isn't applied twice and "hidden until placed" works whatever the scene does with frame alpha
   sc.ownAlpha = (call(sc, "SetIgnoreParentAlpha", true))
+  -- it covers the whole fight panel: clicks go through to what is under it
+  call(sc, "EnableMouse", false)
   return sc, a
 end
 
@@ -241,8 +282,8 @@ end
 local function layoutKey(f, id)
   local sc = f.scene
   local es = sc.GetEffectiveScale and sc:GetEffectiveScale() or 1
-  return string.format("%d:%.1f:%.1f:%d:%s:%.1f:%.1f:%.4f", id, sc:GetWidth() or 0, sc:GetHeight() or 0, f.slotH or 0,
-    tostring(f.isBoss and true or false), f.roomLeft or 0, f.roomRight or 0, es or 1)
+  return string.format("%d:%.1f:%.1f:%d:%s:%.1f:%.1f:%.1f:%.4f", id, sc:GetWidth() or 0, sc:GetHeight() or 0, f.slotH or 0,
+    tostring(f.isBoss and true or false), f.roomLeft or 0, f.roomRight or 0, f.roomTop or 0, es or 1)
 end
 
 -- width: stay inside the scene frame, left of the panel's right edge and right of the cat;
@@ -292,7 +333,9 @@ local function fitActor(f, box, src, ratio)
   -- a small size nudge from the creature's real height: wolves a bit shorter than ogres
   local ref = boundsRow(f.fitId)
   local nudge = ref and ref[1] and ref[1] > 0 and max(0.8, min(1.15, (ref[1] / FIT.TYPICAL_H) ^ 0.3)) or 1
-  local target = min((f.isBoss and FIT.BOSS_PX or FIT.TRASH_PX) * nudge, f.slotH - FIT.HEADROOM - FIT.GROUND, G.H / 2 - FIT.EDGE)
+  -- (with room above it for its animations, under the fight panel's top and its scene's)
+  local target = min((f.isBoss and FIT.BOSS_PX or FIT.TRASH_PX) * nudge, f.slotH - FIT.HEADROOM - FIT.GROUND,
+    (G.H / 2 - FIT.EDGE) / (1 + FIT.ANIM_TOP), (f.roomTop or math.huge) / (1 + FIT.ANIM_TOP))
   local s = target / (G.h * G.k)
   -- the front of a deep model is nearer the camera and looks a little bigger
   G.persp = FIT.CAM_DIST / max(FIT.CAM_DIST * 0.5, FIT.CAM_DIST - (G.xmax - G.xmin) / 2 * s)
@@ -323,7 +366,8 @@ local function verifyFit(f)
   -- extents from the aim point; scaling by q scales them by about q, and the slide can change
   local cu = W / 2 + p.shift
   local L0, R0 = max(1, cu - left), max(1, right - cu)
-  local topLimit = min(H - FIT.EDGE, H / 2 + f.slotH - FIT.GROUND - FIT.HEADROOM / 2)
+  local topLimit = min(H / 2 + (H / 2 - FIT.EDGE) / (1 + FIT.ANIM_TOP), H / 2 + f.slotH - FIT.GROUND - FIT.HEADROOM / 2,
+    H / 2 + (f.roomTop or math.huge) / (1 + FIT.ANIM_TOP))
   local q = min(1, (topLimit - H / 2) / max(1, top - H / 2), (G.Ll + G.Rr) / (L0 + R0))
   q = max(0.3, q)
   -- the slide nearest the middle that keeps both sides inside (right of the cat, left of the panel's edge)
@@ -359,12 +403,13 @@ local function ensureClassic(f, why)
   if f.scene then f.scene:Hide() end
   f.mode, f.fit, f.placed = "classic", nil, nil
   if why then f.classicWhy = why end
-  if not f.model then
-    local m = CreateFrame("PlayerModel", nil, f)
-    m:SetPoint("BOTTOM", f, "BOTTOM", 0, 0)
-    f.model = m
-  end
-  f.model:SetSize((f.slotW or 110) * 2.3, (f.slotH or 140) * 1.35)
+  if not f.model then f.model = CreateFrame("PlayerModel", nil, f) end
+  -- a bigger frame with the camera as much further back: the model is drawn the same size, with
+  -- more room around it before the frame's edge (its middle stays where it was)
+  local w, h = (f.slotW or 110) * 2.3, (f.slotH or 140) * 1.35
+  f.model:ClearAllPoints()
+  f.model:SetPoint("CENTER", f, "BOTTOM", 0, h / 2)
+  f.model:SetSize(w * CLASSIC_ROOM, h * CLASSIC_ROOM)
 end
 
 local function setAnim(f, anim)
@@ -454,7 +499,7 @@ local function classicLoad(f, id)
   local o = MODEL_OVERRIDE[id]
   call(m, "SetFacing", -0.7)
   -- pulled back to match the bigger box (a touch smaller than before, with headroom)
-  call(m, "SetCamDistanceScale", o and o.cam or (f.isBoss and 1.85 or 1.65))
+  call(m, "SetCamDistanceScale", (o and o.cam or (f.isBoss and 1.85 or 1.65)) * CLASSIC_ROOM)
   call(m, "SetPosition", 0, 0, 0)
   call(m, "SetAnimation", ANIM_STAND)
   m:Show(); f.icon:Hide()
@@ -507,6 +552,13 @@ function TCF.UI.AdvLogFit(list, fs, h)
   return text
 end
 
+-- for the tests: the fit's parts (tools/tests/test_adv_fit.py)
+TCF.UI.AdvFitLab = {
+  FIT = FIT, PANEL_W = PANEL_W, PANEL_H = PANEL_H, SLOT_Y = SLOT_Y, slotGeometry = slotGeometry, animEnvelope = animEnvelope,
+  sceneLoad = function(f, id) return sceneLoad(f, id) end, sceneStep = function(f, e) return sceneStep(f, e) end,
+  clearCache = function() for k in pairs(FIT_CACHE) do FIT_CACHE[k] = nil end end,
+}
+
 TCF.UI.Builders.adventure = function(page, win)
   local U = TCF.UI
   local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel
@@ -527,7 +579,9 @@ TCF.UI.Builders.adventure = function(page, win)
   Tip(nextTier, function(tt) tt:AddLine("Next zone", 1, 0.82, 0); tt:AddLine("Unlocks when you've beaten every stage of this zone, including its final boss. You can go even if your cat is under-levelled. With Auto-advance on, your cat moves on by itself 2 levels before the zone's level (raids: at level 60).", 1, 1, 1, true) end)
 
   -- scene
-  local scene = Panel(page, 532, 250, 1); scene:SetPoint("TOP", 0, -50)
+  local scene = Panel(page, PANEL_W, PANEL_H, 1); scene:SetPoint("TOP", 0, -50)
+  -- the panel's own (visible) edge is the only place an enemy model can be cut: each enemy's
+  -- invisible scene reaches past it, and the fit keeps the model and its animations inside it
   scene:SetClipsChildren(true)
   local fallbackSky = scene:CreateTexture(nil, "BACKGROUND", nil, 0); fallbackSky:SetPoint("TOPLEFT", 4, -4); fallbackSky:SetPoint("BOTTOMRIGHT", -4, 4)
   fallbackSky:SetColorTexture(0.16, 0.14, 0.22, 1)
@@ -556,12 +610,14 @@ TCF.UI.Builders.adventure = function(page, win)
     local f = CreateFrame("Frame", nil, scene)
     f:SetSize(110, 140); f.slotW, f.slotH = 110, 140
     -- the model draws in a much bigger, invisible box than its slot: WoW cuts a model off at
-    -- its frame's edges, so a slot-sized box sliced big creatures with a straight line
+    -- its frame's edges, so a slot-sized box sliced big creatures with a straight line. The box
+    -- covers the whole fight panel (slotGeometry sizes it for each place)
     local why
     f.scene, f.actor, why = newScene(f)
     if f.scene then
       f.mode = "scene"
-      f.scene:SetPoint("CENTER", f, "BOTTOM", 0, FIT.GROUND); f.scene:SetSize(330, 290)
+      local g = slotGeometry(3, i, false)
+      f.scene:SetPoint("CENTER", f, "BOTTOM", 0, FIT.GROUND); f.scene:SetSize(g.sceneW, g.sceneH)
     else
       ensureClassic(f, why)
     end
@@ -739,16 +795,13 @@ TCF.UI.Builders.adventure = function(page, win)
         f.fade, f.modelCheck, f.fit, f.gone = 0, nil, nil, true
         f:SetAlpha(0); f:Hide()
       elseif m then
-        local w, h = boss and 170 or 110, boss and 200 or 140
+        local g = slotGeometry(n, i, boss)
+        local w, h = g.w, g.h
         f:SetSize(w, h); f.slotW, f.slotH = w, h
-        f.baseX = boss and -50 or (-12 - (n - i) * 112)
-        -- room from the slot's centre to the fight panel's right edge (models slide left, never past it)
-        f.roomRight = -f.baseX + w / 2 - 4 - FIT.EDGE
-        -- and from the slot's centre to the cat (models may overlap each other, not the cat)
-        f.roomLeft = 532 + f.baseX - w / 2 - FIT.CAT_EDGE
-        -- scene: centred on the ground line, so its top half holds the model (with headroom)
-        if f.mode == "scene" then f.scene:SetSize(boss and w * 2.3 or w * 3, (h + 10) * 2) else ensureClassic(f) end
-        f:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", f.baseX, 8)
+        f.baseX, f.roomRight, f.roomLeft, f.roomTop = g.baseX, g.roomRight, g.roomLeft, g.roomTop
+        -- scene: centred on the ground line and the slot, reaching past every edge of the fight panel
+        if f.mode == "scene" then f.scene:SetSize(g.sceneW, g.sceneH) else ensureClassic(f) end
+        f:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", f.baseX, SLOT_Y)
         f.name:SetText(m.boss and ("|cffff8000" .. m.name .. "|r") or m.name)
         f.bar:SetWidth(boss and 150 or 96)
         f.fade, f.gone = 0, false
