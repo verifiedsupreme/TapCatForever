@@ -1234,7 +1234,7 @@ end
 -- Older versions gave every class the lowest-numbered green weapon it could use from the
 -- level 0-4 world pool (a staff for hunters, a hammer for rogues). A cat still wearing exactly
 -- that weapon gets its class weapon instead (the old one stays in the bag); a cat with no weapon
--- at all gets one. Anything the player chose is left alone. Runs once per character and class.
+-- at all gets one. Anything the player chose is left alone. Runs once per cat.
 local function oldStarter(self, class)
   local best
   for _, it in ipairs(TCF.WORLD_POOL[0] or {}) do

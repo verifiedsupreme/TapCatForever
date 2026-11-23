@@ -172,7 +172,7 @@ do
 end
 
 ---------------------------------------------------------------- Compendium: Item Sets
--- One row per set: its name and level, how many pieces this character has (any cat's bag or
+-- One row per set: its name and level, how many pieces your cats have (any cat's bag or
 -- worn) out of the set's total. Hover for the members and bonuses. Compendium.lua shows this
 -- view for its "Item Sets" category and passes its paging helpers in ctx.
 local SROWS, SCOLS, SROW_H = 18, 2, 24

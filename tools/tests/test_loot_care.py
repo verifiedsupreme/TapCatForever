@@ -69,12 +69,18 @@ def check(seed, load_addon):
       local whites2 = 0
       for id, n in pairs(T:Bag("MAGE")) do local it = T.GEAR[id]; if it and it.q == 1 then whites2 = whites2 + n end end
       ck(T.db.coins == coins and whites2 == whites, "never twice")
-      -- a brand-new character on this account: nothing (the account gift is already paid)
+      -- a brand-new character on this account: nothing more (the account gift is already paid; since
+      -- 1.6.0 it plays the account's cats, which already have their pieces)
+      local function allWhites()
+        local n = 0
+        for _, cl in ipairs(T.CLASSES) do for id, c in pairs(T:Bag(cl.key)) do local it = T.GEAR[id]; if it and it.q == 1 then n = n + c end end end
+        return n
+      end
+      local before = allWhites()
       login("Newalt")
-      local any = 0
-      for _, cl in ipairs(T.CLASSES) do for id in pairs(T:Bag(cl.key)) do local it = T.GEAR[id]; if it and it.q == 1 then any = any + 1 end end end
-      ck(any == 0 and T.db.coins == coins, "a new character gets nothing")
-      -- an old character on this account that logs in later gets its gear, not more coins
+      ck(allWhites() == before and T.db.coins == coins, "a new character gets nothing")
+      -- an old character on this account that logs in later: its level 30 Warrior joins the account's
+      -- cats (1.6.0) and gets its gear, not more coins; the Mage that had its package gets nothing more
       TapCatForeverDB.chars["Oldwar-Forever"] = { class = "WARRIOR", started = true, classData = { WARRIOR = { level = 30, xp = 0 } } }
       login("Oldwar")
       local wwhites, heavy = 0, 0
@@ -88,6 +94,15 @@ def check(seed, load_addon):
       ck(wwhites >= 8 and T.db.coins == coins, "the old Warrior's pieces: " .. wwhites .. ", coins " .. T.db.coins)
       -- (whites are mostly cloth in Classic; a Warrior still gets mail or plate where there is any)
       ck(heavy >= 4, "mostly mail or plate for a Warrior: " .. heavy)
+      local mw = 0
+      for id, n in pairs(T:Bag("MAGE")) do local it = T.GEAR[id]; if it and it.q == 1 then mw = mw + n end end
+      ck(mw == whites, "the Mage's package came once: " .. mw .. " / " .. whites)
+      -- a character from before 1.5.4 whose care package was paid joins: its cats get nothing again
+      TapCatForeverDB.chars["Oldpaid-Forever"] = { class = "PRIEST", started = true, carePackage = true, classData = { PRIEST = { level = 40, xp = 0 } } }
+      login("Oldpaid")
+      local pw = 0
+      for id, n in pairs(T:Bag("PRIEST")) do local it = T.GEAR[id]; if it and it.q == 1 then pw = pw + n end end
+      ck(T:CD("PRIEST").level == 40 and pw == 0, "a cat whose character had its package gets nothing again: " .. pw)
       return table.concat(p, "\n")
     ''')
     if r:
@@ -103,4 +118,4 @@ def check(seed, load_addon):
     r = tuple(r)
     if not (r[0] == 0 and r[1] < 100 and r[2] and r[3]):   # (only the daily treat)
         raise AssertionError("loot care package: a new account got something %r" % (tuple(r),))
-    print("loot care package section (old cats get whites for empty slots in their bags, 150 TapCoins once per account, one chat line, never twice, nothing for new characters or accounts): all checks passed")
+    print("loot care package section (old cats get whites for empty slots in their bags, 150 TapCoins once per account, one chat line, never twice, nothing for new characters or accounts, once per cat with shared cats): all checks passed")

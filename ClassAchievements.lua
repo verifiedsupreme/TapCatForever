@@ -4,13 +4,12 @@
 -- expeditions and party expeditions.
 --
 -- Each class earns each one once per account (db.classAch[class][id] = time, shared by every
--- character), so an alt of the same class can't earn it again. Progress is read from the cats of
--- the character you are playing (levels, gear and Adventure are per character), except the
--- expedition counts, which are kept for the whole account (db.classProgress[class]).
+-- character). Progress is read from the account's cats (shared by every character since 1.6.0),
+-- and the expedition counts from db.classProgress[class].
 --
 -- Rewards: a few TapCoins (kept small on purpose) and a chest for that class's cat. The chest
--- goes straight into that class cat's own Treasure Bag (TCF:AwardChest with its class); only a class
--- with no cat on this character keeps its chests waiting (db.classAchPending[class]). Reaching level 60 also
+-- goes straight into that class cat's own Treasure Bag (TCF:AwardChest with its class); a class
+-- without a cat yet keeps its chests waiting (db.classAchPending[class]). Reaching level 60 also
 -- gives that class's Legendary main hand cosmetic (cosmetic only).
 --
 -- Existing saves: everything is checked at login, so cats get credit for what they already did.
@@ -441,7 +440,7 @@ function TCF:ClassAchRefresh(win)
           for _, id in ipairs(pending[class] or {}) do if id == a.id then waiting = true end end
           GameTooltip:AddLine(string.format("Reward: %d TapCoins and %s %s for your %s cat.", a.coins or 0,
             ch.name:find("^[AEIOU]") and "an" or "a", ch.name, cl.name), 0.8, 0.8, 0.8, true)
-          if waiting then GameTooltip:AddLine("The chest waits until you play this cat on this character.", 1, 0.6, 0.2, true) end
+          if waiting then GameTooltip:AddLine("The chest waits until you play this cat.", 1, 0.6, 0.2, true) end
         end
         if it then GameTooltip:AddLine(it.name .. ": Cosmetic only. It changes how your cat looks, not its Power.", 0.8, 0.8, 0.8, true) end
         if got then GameTooltip:AddLine("Earned for your account: no other " .. cl.name .. " cat can earn it again.", 0.6, 0.8, 1, true) end

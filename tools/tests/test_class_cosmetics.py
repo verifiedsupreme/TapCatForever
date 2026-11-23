@@ -16,6 +16,7 @@ import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import test_deathroll as TD
+import savehelp
 
 def ck(c, m):
     if not c: raise AssertionError("class cosmetics: " + m)
@@ -23,6 +24,7 @@ def ck(c, m):
 def login(load_addon, name, db=None):
     lua = load_addon(login=False)
     lua.execute(TD.CLIENT)
+    lua.execute(savehelp.AS_OLD)
     lua.execute('_charName = "%s"' % name)
     if db: lua.execute("TapCatForeverDB = loadstring(%r)()" % ("return " + db))
     lua.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
@@ -34,11 +36,9 @@ def check(seed, load_addon):
     A.execute('''
       local T = TapCatForever
       T:SetClass("MAGE")
-      local all = {}
-      for _, cd in pairs(T.db.classData) do for id, n in pairs(cd.owned or {}) do all[id] = n end; cd.owned = nil; cd.itemSources = nil end
-      for _, id in ipairs({ "skin_frostsaber", "skin_lion" }) do all[id] = 1 end
-      all.skin_lion = 3
-      T.charData.owned = all
+      T:Owned("MAGE").skin_frostsaber = 1
+      T:Owned("MAGE").skin_lion = 3
+      _as15()
       T.charData.itemSources = { skin_frostsaber = { first = { "Heroic Cache", 1000 }, last = { "Heroic Cache", 1000 } } }
     ''')
     B = login(load_addon, "Wardrobe", A.eval("_dbString()"))
@@ -49,7 +49,7 @@ def check(seed, load_addon):
         ck(E("T:Owned(%r).skin_frostsaber == 1 and T:Owned(%r).skin_lion == 3 and T:Owned(%r).skin_orange ~= nil" % (cls, cls, cls)),
            "migration: the %s cat owns everything the character owned" % cls)
         ck(E("T:ItemSourceRecord('skin_frostsaber', %r).first[1]" % cls) == "Heroic Cache", "the old source for the %s cat" % cls)
-    ck(E("rawget(T.charData, 'owned') == nil"), "the old collection is gone from the character")
+    ck(E("rawget(T.charData, 'owned') == nil and rawget(T.charData, 'classData') == nil"), "the old collection and cats are gone from the character")
 
     # --- "diamond skin on my mage, not on my hunter"
     X('T:SetClass("MAGE"); _new, _salv = T:GrantItem(T.ITEMS.skin_diamond, "Dropped by Nefarian in Blackwing Lair")')
@@ -164,7 +164,7 @@ def check(seed, load_addon):
     ck(C.eval("TapCatForever:Owned('HUNTER')[%r] == nil and TapCatForever:Owned('MAGE')[%r] == 1" % (ach_item, ach_item)),
        "the achievement cosmetic stays the Mage's after a reload")
 
-    # --- a new character: its cats own the starters
+    # --- a new account: its cats own the starters
     N = login(load_addon, "Freshwardrobe")
     for cls in ("WARRIOR", "MAGE", "HUNTER"):
         ck(N.eval("TapCatForever:Owned(%r).skin_orange == 1" % cls) and N.eval("TapCatForever:Owned(%r).skin_diamond == nil" % cls),

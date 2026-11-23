@@ -6,13 +6,14 @@
 #   - fur and tap effect per class, IsEquipped / Equip / Unequip for another class
 #   - the party message and the previews (Shop try on, Gear page, Casino) use the current class's look
 #   - set pieces and the racial slot follow the class too (loadouts), a racial piece goes on the cat that bought it
-#   - a new character's cats start in their own class fur
+#   - a new account's cats start in their own class fur
 # Run on its own:  python3 tools/tests/test_class_looks.py [seed]
 import os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import test_deathroll as TD
+import savehelp
 
 def ck(c, m):
     if not c: raise AssertionError("class looks: " + m)
@@ -20,6 +21,7 @@ def ck(c, m):
 def login(load_addon, name, db=None):
     lua = load_addon(login=False)
     lua.execute(TD.CLIENT)
+    lua.execute(savehelp.AS_OLD)
     lua.execute('_charName = "%s"' % name)
     if db: lua.execute("TapCatForeverDB = loadstring(%r)()" % ("return " + db))
     lua.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
@@ -33,11 +35,8 @@ def check(seed, load_addon):
       T:SetClass("MAGE")
       for _, id in ipairs({ "skin_frostsaber", "skin_lion", "fur_snow", "tap_puff" }) do T.db.owned[id] = 1 end
       T:Equip(T.ITEMS.skin_frostsaber); T:Equip(T.ITEMS.fur_snow)
-      -- as a 1.5.x save looked: no per-class looks yet, one collection for the character
-      TapCatForever.charData.looks = nil
-      local all = {}
-      for _, cd in pairs(T.db.classData) do for id, n in pairs(cd.owned or {}) do all[id] = n end; cd.owned = nil end
-      TapCatForever.charData.owned = all
+      -- as a 1.5.x save looked: the character's own cats, one look and one collection for all of them
+      _as15()
     ''')
     old = A.eval("_dbString()")
     B = login(load_addon, "Lookcat", old)
@@ -140,7 +139,7 @@ def check(seed, load_addon):
     C.execute('TapCatForever:SetClass("MAGE")')
     ck(C.eval("TapCatForever:GetAppearance().skin.id") == "skin_lion" and C.eval("TapCatForever:GetAppearance().fur.id") == "fur_snow", "the Mage after a reload")
 
-    # --- a new character: each cat in its own class fur
+    # --- a new account: each cat in its own class fur
     N = login(load_addon, "Freshcat")
     furs = {}
     for cls in ("WARRIOR", "MAGE", "ROGUE", "DRUID"):

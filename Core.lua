@@ -89,7 +89,7 @@ local DEFAULTS = {
   gear = {},        -- real gear: itemID -> count
   class = nil,
   loadouts = {},
-  look = { fur = "fur_ginger", pattern = nil },
+  -- look: (1.6.0) each class cat's look is in looks[class] (TCF:LookOf); db.look is the current cat's
   achievements = {},
   stats = { chests = 0, drops = 0, frenzies = 0, pets = 0, peakTPS = 0, classesPlayed = {} },
   daily = { last = "", streak = 0, best = 0 },
@@ -105,8 +105,10 @@ local DEFAULTS = {
   },
 }
 
--- Saved data that belongs to the current character. Everything else (TapCoins,
--- quests, daily streak, achievements, settings) is shared by the whole account.
+-- Saved data that belonged to the current character before 1.6.0. Everything else (TapCoins,
+-- quests, daily streak, achievements, settings) is shared by the whole account. Since 1.6.0 the
+-- cats themselves are the account's too (TCF.ACCOUNT_CATS, AccountCats.lua): what is left per
+-- character is which cat it plays, the Shop and real WoW lockouts (see AccountCats.lua).
 -- The Daily Wares (shop) are per character: the stock is picked for this character's
 -- cat class and collection, and keeping it per character means relogging can't reroll it.
 -- Professions live in classData (each class's cat has its own trade since 1.5.1); "trade" is
@@ -116,9 +118,14 @@ TCF.PER_CHARACTER = {
   trade = true, tradeSplit = true, expeditions = true, class = true, prof = true, dungeonRun = true, shop = true,
 }
 
--- (1.6.0) keys that read something else than a saved table of their own (see bindCharacter)
+-- (1.6.0) the account's cats: these keys read and write TapCatForeverDB.cats (AccountCats.lua)
+TCF.ACCOUNT_CATS = { classData = true, loadouts = true, looks = true, expeditions = true }
+
+-- (1.6.0) keys that read something else than a saved table of their own (see bindCharacter):
+-- db.owned is the collection of the cat things are given to now, db.look the look of the cat played
 TCF.VIRTUAL = {
   owned = function() return TCF:Owned() end,
+  look = function() return TCF:LookOf() end,
 }
 
 local function characterKey()
@@ -157,22 +164,32 @@ local function bindCharacter(sv)
   -- (1.6.0) TCF.VIRTUAL keys stand for something else: db.owned is the collection of the cat
   -- things are given to right now (TCF:Owned)
   setmetatable(sv, {
-    __index = function(_, k)
+    __index = function(t, k)
       local virt = TCF.VIRTUAL[k]
       if virt then return virt(char) end
+      if TCF.ACCOUNT_CATS[k] then
+        local cats = rawget(t, "cats")
+        return type(cats) == "table" and cats[k] or nil
+      end
       if TCF.PER_CHARACTER[k] then return char[k] end
     end,
     __newindex = function(t, k, v)
       if TCF.VIRTUAL[k] then return end   -- (never replaced as a whole)
-      if TCF.PER_CHARACTER[k] then char[k] = v else rawset(t, k, v) end
+      if TCF.ACCOUNT_CATS[k] then
+        local cats = rawget(t, "cats")
+        if type(cats) ~= "table" then cats = {}; rawset(t, "cats", cats) end
+        cats[k] = v
+      elseif TCF.PER_CHARACTER[k] then char[k] = v else rawset(t, k, v) end
     end,
   })
   TCF.charKey, TCF.charData = key, char
   return char
 end
 
--- Wipe saved progress and reload. scope "char": this character's gear, cosmetics, professions,
--- cat levels and adventures. scope "all": everything on the account (settings and position are kept).
+-- Wipe saved progress and reload. scope "cats" (or the old "char"): the account's nine cats (gear,
+-- cosmetics, professions, levels, abilities, adventures and expeditions) for every character;
+-- TapCoins, quests and achievements are kept. scope "all": everything on the account (settings
+-- and position are kept).
 function TCF:ResetProgress(scope)
   local sv = TapCatForeverDB
   if scope == "all" then
@@ -181,32 +198,51 @@ function TCF:ResetProgress(scope)
     for k in pairs(sv) do sv[k] = nil end
     sv.ui, sv.charsMigrated = ui, true
   else
-    sv.chars = sv.chars or {}
-    sv.chars[self.charKey] = { fresh = true }
+    rawset(sv, "cats", nil)
+    local chars = rawget(sv, "chars")
+    for _, ch in pairs(type(chars) == "table" and chars or {}) do
+      -- (cats an older version saved on a character would come back with the next merge)
+      if type(ch) == "table" then for _, k in ipairs(TCF.CHAR_CAT_KEYS or {}) do ch[k] = nil end end
+    end
   end
   if ReloadUI then ReloadUI() end
 end
 
 function TCF:InitDB()
   TapCatForeverDB = TapCatForeverDB or {}
-  local char = bindCharacter(TapCatForeverDB)
+  local sv = TapCatForeverDB
+  local char = bindCharacter(sv)
   -- 1.5.4 care package (CarePackage.lua): only for an account and a character that existed before
-  self.saveExisted = rawget(TapCatForeverDB, "version") ~= nil
+  self.saveExisted = rawget(sv, "version") ~= nil
   self.charExisted = self.saveExisted and not (char.fresh and not char.started)
-  local db = copyDefaults(DEFAULTS, TapCatForeverDB)
+  -- (1.6.0) the nine class cats are the account's: characters that still have cats of their own
+  -- (every one, the first time) are merged in (AccountCats.lua)
+  local merged = self:MergeAccountCats(sv)
+  local cats = rawget(sv, "cats")
+  self.db = sv
+  local db = copyDefaults(DEFAULTS, sv)
   self.db = db
+  if merged > 0 and self.saveExisted and not cats.notice then
+    cats.notice = true
+    self.catsNotice = true   -- (printed at login, CarePackage.lua's event)
+  end
   -- 1.3: the level text moved above the cat (once, for saves made before that)
   if not db.ui.textAboveSet then db.ui.textAbove = true; db.ui.textAboveSet = true end
-  -- every cat starts with the basic dust puffs equipped
-  if not db.look.tapSet then db.look.tap = db.look.tap or "tap_puff"; db.look.tapSet = true end
   -- default class = the character's own class the very first time
   if not db.class then
     local _, cls = UnitClass("player")
     if isSecret(cls) then cls = nil end
     db.class = (cls and TCF.CLASS_BY_KEY[cls]) and cls or "WARRIOR"
-    local cl = TCF.CLASS_BY_KEY[db.class]
-    db.look.fur = cl.fur
   end
+  -- (1.6.0) each class's cat wears its own fur, pattern, skin and tap effect (db.looks[class],
+  -- TCF:LookOf). A brand-new cat starts in its class fur with the basic dust puffs.
+  for _, cl in ipairs(TCF.CLASSES) do
+    local l = self:LookOf(cl.key)
+    if not l.tapSet then l.tap = l.tap or "tap_puff"; l.tapSet = true end
+    if not (l.fur and TCF.ITEMS[l.fur]) then l.fur = "fur_ginger" end
+    for _, slot in ipairs({ "pattern", "skin", "tap" }) do if l[slot] and not TCF.ITEMS[l[slot]] then l[slot] = nil end end
+  end
+  for k in pairs(db.looks) do if not TCF.CLASS_BY_KEY[k] then db.looks[k] = nil end end
   -- cosmetic overrides per class (empty = the cat shows its real gear)
   for _, cl in ipairs(TCF.CLASSES) do db.loadouts[cl.key] = db.loadouts[cl.key] or {} end
   -- drop references to items that no longer exist
@@ -214,31 +250,12 @@ function TCF:InitDB()
     for slot, id in pairs(lo) do if not TCF.ITEMS[id] then lo[slot] = nil end end
   end
   if self.MigrateRaceSlot then self:MigrateRaceSlot(db) end  -- 1.6: the racial accessory has its own slot
-  if db.look.fur and not TCF.ITEMS[db.look.fur] then db.look.fur = "fur_ginger" end
-  if db.look.pattern and not TCF.ITEMS[db.look.pattern] then db.look.pattern = nil end
-  -- 1.6.0: each class's cat wears its own fur, pattern, skin and tap effect. db.look is the look of
-  -- the cat being played, db.looks[class] the others' (TCF:LookOf). Saves from before: every cat
-  -- starts with the look worn now; a new character's cats start in their own class fur.
-  if type(db.looks) ~= "table" then
-    db.looks = {}
-    for _, cl in ipairs(TCF.CLASSES) do
-      if cl.key ~= db.class then
-        local l = TCF.CopyLook(db.look)
-        if not self.charExisted then l.fur = cl.fur end
-        db.looks[cl.key] = l
-      end
-    end
-  end
-  for k, l in pairs(db.looks) do
-    if not TCF.CLASS_BY_KEY[k] or type(l) ~= "table" then db.looks[k] = nil
-    else
-      if not (l.fur and TCF.ITEMS[l.fur]) then l.fur = "fur_ginger" end
-      for _, slot in ipairs({ "pattern", "skin", "tap" }) do if l[slot] and not TCF.ITEMS[l[slot]] then l[slot] = nil end end
-    end
-  end
   -- v1 -> v2: levels became per-class; the old shared level goes to the current class
   if db.level then
-    db.classData[db.class] = { level = db.level, xp = db.xp or 0 }
+    local cur = db.classData[db.class]
+    if type(cur) ~= "table" or (tonumber(cur.level) or 1) < db.level then
+      db.classData[db.class] = { level = db.level, xp = db.xp or 0 }
+    end
     db.level, db.xp = nil, nil
   end
   for _, cl in ipairs(TCF.CLASSES) do
@@ -272,6 +289,9 @@ function TCF:InitDB()
     end
   end
   self:InitOwned(char)
+  -- quests that count the cats go on from the merged cats (Quests.lua)
+  if self.questSnap and self.QuestCatRebase then self.QuestCatRebase(sv, self.questSnap, db.classData) end
+  self.questSnap = nil
   -- 1.5.3: level-up rewards are paid once per class and level for the whole account. Every
   -- level any character's cat already reached was paid, so it starts from the highest of them.
   if type(db.levelPaid) ~= "table" then
@@ -290,8 +310,9 @@ function TCF:InitDB()
   for cl, cd in pairs(db.classData) do
     if (db.levelPaid[cl] or 1) < cd.level then db.levelPaid[cl] = cd.level end
   end
-  -- v2 -> v3: real gear. Every class starts with a simple weapon (also for new characters).
-  if ((db.version or 0) < 3 or (char.fresh and not char.started)) and self.StarterGear then
+  -- v2 -> v3: real gear. Every class starts with a simple weapon (also brand-new cats: a new
+  -- account, or after "Reset your cats").
+  if ((db.version or 0) < 3 or not cats.started) and self.StarterGear then
     for _, cl in ipairs(TCF.CLASSES) do
       self:StarterGear(cl.key)
       db.loadouts[cl.key] = {}   -- show real gear instead of the old starter cosmetics
@@ -304,6 +325,7 @@ function TCF:InitDB()
   if self.FixStarterWeapons then self:FixStarterWeapons() end
   self:InitChests(char)   -- 1.5.4: chests belong to each class's cat
   char.started = true
+  cats.started = true
   db.version = 3
   db.stats.classesPlayed[db.class] = true
 end
@@ -410,29 +432,23 @@ function TCF.CopyLook(l)
   for _, k in ipairs(LOOK_FIELDS) do out[k] = l and l[k] end
   return out
 end
--- (1.6.0) the worn look of a class's cat: db.look for the cat being played, db.looks[class] for
--- the others (a class without one starts with the look being worn)
+-- (1.6.0) the worn look of a class's cat (default: the cat being played): db.looks[class], the
+-- account's. A cat without one starts in its class fur with the basic dust puffs. db.look is the
+-- look of the cat being played.
 function TCF:LookOf(class)
   local db = self.db
-  if not class or class == db.class then return db.look end
-  db.looks = db.looks or {}
-  local l = db.looks[class]
-  if type(l) ~= "table" then l = TCF.CopyLook(db.look); db.looks[class] = l end
-  return l
-end
--- switching cats: the old cat keeps its look, the new one puts its own on (db.look stays the same
--- table, so anything holding it sees the new look)
-local function swapLook(db, from, to)
-  if from == to then return end
-  db.looks = db.looks or {}
-  local cur = db.look
-  local mine = db.looks[to]
-  db.looks[from] = TCF.CopyLook(cur)
-  if type(mine) == "table" then
-    for _, k in ipairs(LOOK_FIELDS) do cur[k] = mine[k] end
+  if not db then return TCF.CopyLook(nil) end
+  class = class or db.class
+  local looks = db.looks
+  if type(looks) ~= "table" then looks = {}; db.looks = looks end
+  if not class then return TCF.CopyLook(nil) end
+  local l = looks[class]
+  if type(l) ~= "table" then
+    local cl = TCF.CLASS_BY_KEY[class]
+    l = { fur = cl and cl.fur or "fur_ginger", tap = "tap_puff", tapSet = true }
+    looks[class] = l
   end
-  db.looks[to] = nil   -- the current cat's look lives in db.look
-  if not (cur.fur and TCF.ITEMS[cur.fur]) then cur.fur = "fur_ginger" end
+  return l
 end
 
 -- Returns a flat table slot -> item for drawing, optionally with one item previewed.
@@ -485,7 +501,6 @@ function TCF:SetClass(key)
   if not TCF.CLASS_BY_KEY[key] then return end
   -- every other cat's idle professions catch up first, so none skips or repeats any time
   if self.ProfCatchUp and key ~= self.db.class then self:ProfCatchUp() end
-  swapLook(self.db, self.db.class, key)   -- (1.6.0) each cat wears its own look
   self.db.class = key
   self.db.stats.classesPlayed[key] = true
   -- professions this cat unlocked while you played another one are announced now
@@ -549,7 +564,7 @@ end
 
 -- The highest level each class's cat has been paid for on this account (db.levelPaid, shared by
 -- every character). Level-up TapCoins and level chests are paid once per class and level for the
--- whole account, so a new alt or "Reset this character" can't collect them again.
+-- whole account, so "Reset your cats" (or an older alt) can't collect them again.
 function TCF:LevelPaid(class)
   local paid = self.db.levelPaid
   if type(paid) ~= "table" then paid = {}; self.db.levelPaid = paid end

@@ -686,6 +686,12 @@ function TCF:GroupExpClaim()
   local g = st.group
   if not g or serverNow() < g.finish then return nil end
   st.group = nil
+  -- (1.6.0) party expeditions two characters had under way when their cats were merged: the
+  -- next one takes the slot (AccountCats.lua)
+  if type(st.groupQueue) == "table" and #st.groupQueue > 0 then
+    st.group = table.remove(st.groupQueue, 1)
+    if #st.groupQueue == 0 then st.groupQueue = nil end
+  end
   st.groupDone = (st.groupDone or 0) + 1
   local p = TCF.GroupExpPlace(g.place)
   local name = p and p.name or "a dungeon"

@@ -129,6 +129,22 @@ function _fire(event, ...)
     if f.events and f.events[event] and f.scripts.OnEvent then f.scripts.OnEvent(f, event, ...) end
   end
 end
+-- Test fixture for the sections written when every character had its own cats: _loginAs(name)
+-- logs in as name with that test character's own copy of the account's cats (TapCatForeverDB.cats),
+-- so a new test character starts with fresh cats as it did before 1.6.0. The real sharing of cats
+-- between characters is tested in tools/tests/test_account_cats.py.
+_catStash = {}
+function _loginAs(name)
+  if type(TapCatForeverDB) == "table" then
+    _catStash[_charName] = rawget(TapCatForeverDB, "cats") or false
+    -- (a character save a test just put in, with cats or a trade of its own, starts on fresh cats)
+    local chars = rawget(TapCatForeverDB, "chars")
+    local ch = type(chars) == "table" and chars[name .. "-Forever"]
+    local injected = type(ch) == "table" and (rawget(ch, "classData") or rawget(ch, "trade"))
+    rawset(TapCatForeverDB, "cats", (not injected and _catStash[name]) or nil)
+  end
+  _charName = name; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
+end
 function _update(dt)
   _clock = _clock + dt
   for _, f in ipairs(frames) do if f.scripts.OnUpdate and f.shown then f.scripts.OnUpdate(f, dt) end end
@@ -457,18 +473,21 @@ TEST = r'''
     _fire("ADDON_LOADED", "TapCatForever")
     assert(TCF:CD("PALADIN").level == 17 and TCF:CD("WARRIOR").level == 1, "migration")
     TapCatForeverDB = old
-    -- per-character data: a second character has its own gear, cosmetics, professions and levels
+    -- (1.6.0) the cats are the account's: a second character plays the same cats (levels, gear,
+    -- cosmetics, professions); what it gets goes to those cats, seen from every character
     _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
     local coinsBefore = TCF.db.coins
-    local mainOwned = 0; for _ in pairs(TCF.db.owned) do mainOwned = mainOwned + 1 end
+    local mainOwned = 0; for _ in pairs(TCF:Owned("MAGE")) do mainOwned = mainOwned + 1 end
     local mainLevel = TCF:CD("WARRIOR").level
+    local mainRenown, mainBag = TCF:ProfState("WARRIOR").renown, 0
+    for _ in pairs(TCF:Bag("MAGE")) do mainBag = mainBag + 1 end
     _charName = "Altcat"; _race = "Tauren"
     _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
     assert(TCF.db.coins == coinsBefore, "TapCoins are shared: " .. tostring(coinsBefore) .. " -> " .. tostring(TCF.db.coins) .. " " .. tostring(_chat[#_chat]))
-    assert(TCF:CD("WARRIOR").level == 1, "alt cats start at level 1")
-    assert(not TCF.db.owned.race_tauren and not TCF.db.owned.race_orc, "alt has its own cosmetics")
+    assert(TCF:CD("WARRIOR").level == mainLevel, "the alt plays the account's cats")
+    assert(TCF.db.class == "MAGE" and not TCF:Owned("MAGE").race_tauren, "a new character starts on its own class's cat")
     TCF:AddCoins(1000); assert(TCF:BuyRaceAccessory())
-    assert(TCF:GetLoadout("MAGE").race == "race_tauren", "racial piece worn by the alt's cats (1.6: in its own slot)")
+    assert(TCF:GetLoadout("MAGE").race == "race_tauren" and TCF:GetLoadout("WARRIOR").race ~= "race_tauren", "racial piece worn by the Mage cat that bought it")
     -- only the selected class's cat adventures: others stay paused
     TCF:SetClass("MAGE"); TCF:AdvStart()
     for i = 1, 400 do _update(0.25) end
@@ -481,17 +500,18 @@ TEST = r'''
     assert(TCF:CD("MAGE").adv.kills == mageKills, "the mage pauses while another class is selected")
     TCF:SetClass("MAGE"); for i = 1, 200 do _update(0.25) end
     assert(TCF:CD("MAGE").adv.kills > mageKills, "the mage resumes when selected again")
-    assert(not TCF.db.trade and TCF:ProfState().renown == 0 and TCF:ProfState("WARRIOR").renown == 0, "alt has its own professions")
-    local altGear = 0; for _ in pairs(TCF:Bag()) do altGear = altGear + 1 end
-    assert(altGear <= 9, "alt starts with just starter weapons")
+    assert(not TCF.db.trade and TCF:ProfState("WARRIOR").renown == mainRenown, "the alt has the same professions")
+    local altGear = 0; for _ in pairs(TCF:Bag("MAGE")) do altGear = altGear + 1 end
+    assert(altGear >= mainBag, "the alt has the Mage cat's bag")
     TCF:AddCoins(1)
     local coinsAlt = TCF.db.coins
     _charName = "Kittyhawk"; _race = nil
     _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
-    local back = 0; for _ in pairs(TCF.db.owned) do back = back + 1 end
-    assert(back == mainOwned and TCF:CD("WARRIOR").level == mainLevel, "main character data intact")
+    local back = 0; for _ in pairs(TCF:Owned("MAGE")) do back = back + 1 end
+    assert(back >= mainOwned + 1 and TCF:Owned("MAGE").race_tauren and TCF:CD("WARRIOR").level == mainLevel, "the main character sees what the alt's Mage got: " .. back .. " " .. mainOwned .. " " .. tostring(TCF:Owned("MAGE").race_tauren) .. " " .. TCF:CD("WARRIOR").level .. " " .. mainLevel)
     assert(TCF.db.coins == coinsAlt, "coins shared both ways")
-    assert(rawget(TapCatForeverDB, "owned") == nil and TapCatForeverDB.chars.Altcat_Forever == nil, "per-char data lives under chars")
+    assert(rawget(TapCatForeverDB, "owned") == nil and TapCatForeverDB.chars["Altcat-Forever"].classData == nil
+      and rawget(TapCatForeverDB, "cats").classData.MAGE, "the cats live in TapCatForeverDB.cats")
     print("characters:", (function() local n = 0 for _ in pairs(TapCatForeverDB.chars) do n = n + 1 end return n end)())
     -- re-login with existing saved data
     TCF.db = nil
@@ -502,7 +522,7 @@ TEST = r'''
     do
     local function check(c, m) if not c then error("check failed: " .. tostring(m), 2) end end
     local function near(a, b) return math.abs(a - b) <= 1e-9 * math.max(1, math.abs(a), math.abs(b)) end
-    local function login(name) _charName = name; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN") end
+    local function login(name) _loginAs(name) end   -- (each test character with cats of its own)
     local function tipText(fn)
       local lines = {}
       GameTooltip.AddLine = function(_, t) lines[#lines + 1] = tostring(t) end
@@ -759,7 +779,7 @@ TEST = r'''
       -- 4g. selling the business is per cat
       m.lifetime = 1e14
       check(TCF:PrestigeTrade() and m.gold == 0 and m.ops.cloth[1].n == 0 and w.ops.mining[1].n == 110 and w.gold > 0, "selling the Mage's business leaves the Warrior's")
-      -- 4h. "Reset this character" clears every class's professions; "Reset ALL" clears every character
+      -- 4h. "Reset your cats" clears every class's professions; "Reset ALL" clears every character
       TCF:ResetProgress("char")
       login("Twofam")
       for _, cl in ipairs(TCF.CLASSES) do
@@ -1213,11 +1233,11 @@ TEST = r'''
         local a = byLabel[n]
         check(a and a.w == byLabel["Welcome tour"].w and a.y == byLabel["Welcome tour"].y, "Help and info buttons: one row, one size: " .. n)
       end
-      for _, n in ipairs({ "Reset position", "Minimap icon", "Reset this character", "Reset ALL progress" }) do
+      for _, n in ipairs({ "Reset position", "Minimap icon", "Reset your cats", "Reset ALL progress" }) do
         check(byLabel[n] and byLabel[n].frame.scripts.OnClick, "Settings button works: " .. n)
       end
-      check(byLabel["Reset this character"].y > byLabel["Compendium"].y and byLabel["Reset ALL progress"].frame:GetText():find("ff5555", 1, true)
-        and byLabel["Reset this character"].frame:GetText():find("ff5555", 1, true), "the reset buttons are red, at the bottom")
+      check(byLabel["Reset your cats"].y > byLabel["Compendium"].y and byLabel["Reset ALL progress"].frame:GetText():find("ff5555", 1, true)
+        and byLabel["Reset your cats"].frame:GetText():find("ff5555", 1, true), "the reset buttons are red, at the bottom")
       -- every setting from before still has its checkbox, and each one flips its setting
       local want = { "shown", "locked", "clickThrough", "catOnly", "mouse", "showLevel", "showXP", "showTaps", "showCoins",
                      "popups", "sound", "racial", "chat", "chestAnim", "textAbove" }
@@ -2855,7 +2875,7 @@ TEST = r'''
       check(#chatSince(chat0, "already got this level's rewards") >= 9, "the chat line says why")
       got, strong = levelTo(11)
       check(got == TCF.LevelReward(11) and strong == 0, "level 11 is new for the account")
-      -- "Reset this character" gives a level 1 cat that can't collect them again
+      -- "Reset your cats" gives a level 1 cat that can't collect them again
       TCF:ResetProgress("char")
       login("Progalt2")
       check(TCF:CD("HUNTER").level == 1, "reset: a level 1 Hunter")

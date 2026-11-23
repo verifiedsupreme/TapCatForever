@@ -4,6 +4,16 @@
 
 Multiplayer is still in the works: party death roll, rock paper scissors and the leaderboard may not work yet.
 
+**Your cats on every character**
+- Your cats are now shared by all your characters: each class has one cat for your whole account. Any character plays the account's cat of its class (or the one you pick), with its level, XP, gear and bags, Treasure Bag, professions, look and cosmetics, Adventure progress and farming, abilities and expeditions.
+- The first time you log in on 1.6, the cats of all your characters are put together, so nothing is lost. For each class the cat with the highest level (then the most XP) keeps its level, XP, worn gear, look and place in Adventure.
+- The other cats of that class add their bag items (with the gear they wore), unopened chests, cosmetics, materials, Adventure kills and abilities. Professions keep the business with the most Trade Gold earned, the best skill in each profession and the best Renown.
+- One chat line says so, once. A copy of every character's old cats is kept in your saved data.
+- A character that logs in later with cats of its own (for example one you played on an older version) is put together the same way.
+- A new character starts on the account's cat of its class.
+- Still per character: which cat it plays, the Shop's Daily Wares, real WoW dungeon and raid chest limits, and how many times you killed a real WoW boss. TapCoins, quests, achievements and settings were already shared.
+- "Reset this character" in Settings is now "Reset your cats": it starts all nine cats over, for every character. TapCoins, quests and achievements are kept.
+
 **Casino**
 - New: the Casino (a new tab between Shop and Leaderboard), with Lucky Paws slots, blackjack, and death roll and rock paper scissors against a house cat or a friend in your party. It fills the whole window under the tabs: pick Slots, Blackjack or Death roll with the buttons at the top (the Death roll view also plays rock paper scissors).
 - In the Friend view a short line under the top bar says whether the friend you picked can play: "Ready to play", "Checking their TapCatForever..." or "Their TapCatForever didn't answer (they need the newest version)". Party cats work on older versions too, so you can see a friend's cat while their addon can't take a challenge yet.
@@ -228,7 +238,7 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 - The title says whose bag it is, and a line lists chests waiting in your other cats' bags.
 
 **Loot and chests: a care package for players who were already playing**
-- The first time a character that played before this update logs in, every class cat on it that has been played gets a plain white piece for each empty gear slot it can use at its level.
+- The first time a character that played before this update logs in, every one of your cats that has been played gets a plain white piece for each empty gear slot it can use at its level, once per cat.
 - The pieces go into that cat's gear bag. Nothing is equipped for you.
 - Once per account there are also 150 TapCoins.
 - One chat line says what you got. No pop-up, and it never comes twice.
@@ -275,7 +285,7 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 
 **Cosmetics and art**
 - Each class's cat now has its own look and its own collection: skins, furs, patterns, tap effects, hats, capes, effects, accessories, racial pieces, set pieces and crafted cosmetics. Switch class and that cat puts on its own look and shows its own collection.
-- After the update every class's cat owns everything you owned and starts with the look you were wearing, so nobody loses anything. A new character's cats start in their own class fur.
+- After the update every class's cat owns everything your characters owned and starts with the look it was wearing, so nobody loses anything. A brand-new cat starts in its own class fur.
 - From now on a new cosmetic goes to the cat you are playing: chests, Adventure drops, real WoW boss rewards, quests, achievements and the Shop (skins and the racial piece too). Crafting, an expedition and a class achievement give it to the cat that earned it.
 - A cosmetic a cat already has is salvaged for TapCoins, as before. The same cosmetic on another cat is new for that cat.
 - The Appearance tab, the Shop (what you own, and the skins a Heroic Cache can still hold), the Compendium, trying on and "Got it from" all show the cat you are playing.

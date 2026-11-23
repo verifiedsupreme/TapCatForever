@@ -36,6 +36,7 @@ FEATURES = [
         "Every class's cat has its own Treasure Bag, its own look and its own collection of cosmetics, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.",
         "Party expeditions: send your cats out together with group members who have the addon, on Normal, Hard or Heroic. Every class's cat also has its own 23 class achievements.",
         "The realm leaderboard: players who joined and are in a party, raid or guild together now show up on each other's leaderboard.",
+        "Your cats are shared by all your characters: each class has one cat for your whole account, with its level, gear, professions, cosmetics and Adventure. The first login on 1.6 puts your characters' cats together, so nothing is lost.",
         "Multiplayer is still in the works: party death roll, rock paper scissors and the leaderboard may not work yet.",
     ]),
     ("New in 1.5.3", [
@@ -126,7 +127,7 @@ FEATURES = [
         "The Compendium lists every skin, cosmetic, effect and piece of gear, what you own, and how to get the rest.",
     ]),
     ("Account and character", [
-        "Gear, cosmetics and cat levels belong to each character, and each class's cat has its own cosmetics, Trade Gold and professions. TapCoins, quests and achievements are shared across your account.",
+        "Your nine class cats are shared by all your characters: each has its own level, gear, cosmetics, Trade Gold and professions, and any character can play it. TapCoins, quests and achievements are shared across your account too.",
     ]),
 ]
 

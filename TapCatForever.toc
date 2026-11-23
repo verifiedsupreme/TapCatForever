@@ -13,6 +13,7 @@
 Data.lua
 ArtData.lua
 Core.lua
+AccountCats.lua
 Gear.lua
 GearData.lua
 WorldGearData.lua

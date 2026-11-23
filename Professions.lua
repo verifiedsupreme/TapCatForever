@@ -32,7 +32,7 @@
 --                                ops[fam][i], tools[fam], upgrades, milestones, skill, garden, aid, fish, cook)
 --     TCF:WithTradeClass(cl, fn, ...)  run fn with every profession call on class cl's cat (quiet)
 --     TCF:ProfCatchUp()          the cats you aren't playing catch up their idle work to now
---     TCF:TradeTotals()          Trade Gold earned by all this character's cats, best Renown of one
+--     TCF:TradeTotals()          Trade Gold earned by all the cats, best Renown of one
 --     TCF:ProfSkill(key)         1..300 for any profession, family or crafting key
 --     TCF:ProfSkillUp(key, diff) WoW-style chance to gain a point (1.6 bands: TCF.SKILLUP_BANDS)
 --     TCF.SkillUpChance(skill, diff)  TCF.SkillUpColor(skill, diff)  TCF.SkillUpLine(skill, diff)
@@ -271,7 +271,7 @@ TCF.PICK_SECONDS, TCF.PICK_ORE_CHANCE = 0.5, 0.25
 ---------------------------------------------------------------- state
 -- Every class's cat has its own trade: Trade Gold, Renown, gathering spots, tools, upgrades,
 -- milestones, skills, materials, garden, bandages, fishing and cooking all live in
--- db.classData[class].trade (classData is per character). TCF:ProfState() is the current
+-- db.classData[class].trade (classData is the account's since 1.6.0). TCF:ProfState() is the current
 -- class's. TCF.tradeClass, set only inside TCF:WithTradeClass, points every profession call at
 -- another class's cat, which is how idle work runs for the cats you aren't playing.
 local function freshOp() return { n = 0, p = 0, run = false, mgr = false } end
@@ -526,7 +526,7 @@ TCF.TradeState = S
 -- the current class's trade (or the given class's)
 function TCF:ProfState(class) return S(self, class) end
 
--- class keys whose cat has a trade on this character
+-- class keys whose cat has a trade
 local function tradeClasses(self)
   local list = {}
   for _, cl in ipairs(TCF.CLASSES or {}) do
@@ -549,7 +549,7 @@ function TCF:WithTradeClass(class, fn, ...)
   return a, b
 end
 
--- Trade Gold earned in total by all of this character's cats, and the best Renown of one cat
+-- Trade Gold earned in total by all the cats, and the best Renown of one cat
 function TCF:TradeTotals()
   S(self)
   local life, renown = 0, 0

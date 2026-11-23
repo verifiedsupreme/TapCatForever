@@ -79,10 +79,15 @@ def check(seed, load_addon):
         T.GetStat = o
         ck(T:ItemSourceRecord(ach.item) and T:ItemSourceRecord(ach.item).first[1] == "Achievement: " .. ach.name, "achievement")
       end
-      -- a brand-new character: its starters say where they came from
-      _charName = "Sourcealt"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
+      -- starters say where they came from; (1.6.0) sources belong to each class's cat, which every
+      -- character of the account shares
       ck(T:ItemSourceRecord("skin_orange") and T:ItemSourceRecord("skin_orange").first[1] == "Starter cosmetic", "starter skin")
-      ck(T:ItemSourceRecord(cos.id) == nil, "sources are per character")
+      local mine = T.db.class
+      local other = mine == "ROGUE" and "PRIEST" or "ROGUE"
+      ck(T:ItemSourceRecord(cos.id, other) == nil and T:ItemSourceRecord(cos.id, mine) ~= nil, "sources are per cat")
+      _charName = "Sourcealt"; _fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")
+      T:SetClass(mine)
+      ck(T:ItemSourceRecord(cos.id) and T:ItemSourceRecord(cos.id).first[1] == "Heroic Cache", "another character sees the same cat's sources")
       -- time words
       local now = 1000000000
       local words = { T.TimeAgo(now - 30, now), T.TimeAgo(now - 120, now), T.TimeAgo(now - 3 * 3600, now), T.TimeAgo(now - 30 * 3600, now),
@@ -93,4 +98,4 @@ def check(seed, load_addon):
     ''')
     if r:
         raise AssertionError("loot sources:\n" + r)
-    print("loot sources section (chests, boss drops, bought, expeditions, real dungeons, quests, shop, achievements, starters; first and latest; per character): all checks passed")
+    print("loot sources section (chests, boss drops, bought, expeditions, real dungeons, quests, shop, achievements, starters; first and latest; per cat, shared by characters): all checks passed")

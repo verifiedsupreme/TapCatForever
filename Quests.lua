@@ -17,10 +17,12 @@ local COUNTERS = {
   expeditions = function(db) return db.stats.expeditionsSent or 0 end,
   stages    = function(db) local n = 0; for _, cd in pairs(db.classData) do n = n + (cd.adv.newStages or 0) end; return n end,
 }
--- These counters read classData, which belongs to the logged-in character, while
--- quests are shared by the whole account. Their progress is kept per character
--- (see charProgress) so switching characters neither breaks nor finishes a quest.
-local PER_CHAR = { kills = true, bosses = true, levels = true, stages = true }
+-- These counters read classData. Before 1.6.0 that belonged to the logged-in character, so
+-- their progress was kept per character (see charProgress). Since 1.6.0 the cats are the
+-- account's (AccountCats.lua): new quests count them like any other counter, and quests rolled
+-- before keep the progress they had when the cats were merged (TCF.QuestCatRebase).
+local CAT_COUNTER = { kills = true, bosses = true, levels = true, stages = true }
+local PER_CHAR = {}
 
 -- name, description (%s = goal), counter, goals, coin reward per goal step, icon
 TCF.QUEST_TEMPLATES = {
@@ -86,6 +88,51 @@ local function charProgress(quest, v)
   if e ~= quest and quest.char then n = n + earned(quest) end
   for _, o in pairs(quest.others or {}) do if o ~= e then n = n + earned(o) end end
   return n
+end
+
+local function earned(o) return (o.bank or 0) + max(0, (o.last or o.base) - o.base) end
+-- a cat counter over some cats (0 if their data is odd)
+local CAT_FIELD = { kills = "kills", bosses = "bossKills", stages = "newStages" }
+local function catCount(counter, classData)
+  local n = 0
+  for _, cd in pairs(classData or {}) do
+    if type(cd) == "table" then
+      if counter == "levels" then n = n + (tonumber(cd.level) or 1)
+      elseif type(cd.adv) == "table" then n = n + (tonumber(cd.adv[CAT_FIELD[counter]]) or 0) end
+    end
+  end
+  return n
+end
+
+-- (1.6.0) the progress of every open quest that counts the cats, read just before cats are
+-- merged into the account's: quests rolled before 1.6.0 from what each character saved, later
+-- ones from the account's cats (classData) as they are now. { [quest] = progress }
+function TCF.QuestCatProgress(sv, classData)
+  local q = type(sv) == "table" and rawget(sv, "quests")
+  if type(q) ~= "table" then return nil end
+  local out = {}
+  for _, list in ipairs({ q.daily or {}, q.weekly or {} }) do
+    for _, quest in ipairs(list) do
+      if type(quest) == "table" and not quest.claimed and CAT_COUNTER[quest.counter] then
+        local n
+        if quest.char then
+          n = earned(quest)
+          for _, o in pairs(quest.others or {}) do n = n + earned(o) end
+        else
+          n = catCount(quest.counter, classData) - (quest.base or 0)
+        end
+        out[quest] = max(0, n)
+      end
+    end
+  end
+  return out
+end
+-- ... and counted on from the merged cats
+function TCF.QuestCatRebase(sv, snap, classData)
+  for quest, n in pairs(snap or {}) do
+    quest.base = catCount(quest.counter, classData) - n
+    quest.char, quest.others = nil, nil
+  end
 end
 
 -- Record this character's current value on every open per-character quest.

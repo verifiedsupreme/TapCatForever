@@ -1,5 +1,5 @@
 -- TapCatForever: a care package for players who were playing before this update (1.5.4).
--- Once per character: every class cat with some progress gets a plain white (Common) piece for
+-- Once per character (since 1.6.0 at most once for each of the account's cats): every class cat with some progress gets a plain white (Common) piece for
 -- each empty gear slot it can use at its level, in that cat's gear bag (not equipped). Once per
 -- account: a small TapCoin gift. One chat line, no pop-up. Brand-new characters and accounts
 -- get nothing (Core.lua's InitDB says which saves existed: TCF.charExisted, TCF.saveExisted).
@@ -11,7 +11,7 @@ local ARMOR_RANK = { cloth = 1, leather = 2, mail = 3, plate = 4 }
 local CARE_SLOTS = { "HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "WRIST", "WAIST", "HANDS", "LEGS", "FEET",
   "FINGER1", "FINGER2", "MAINHAND", "OFFHAND", "RANGED" }
 
--- has this class's cat ever been played on this character?
+-- has this class's cat ever been played?
 function TCF:CatHasProgress(class)
   local cd = self.db.classData[class]
   if type(cd) ~= "table" then return false end
@@ -75,7 +75,12 @@ function TCF:CarePackage()
     char.carePackage = true
     if self.charExisted then
       for _, cl in ipairs(TCF.CLASSES) do
-        if self:CatHasProgress(cl.key) then
+        -- (1.6.0) the cats are the account's: each cat gets its pieces once (classData[class].carePackage;
+        -- a cat merged in from a character that already had its package is marked, AccountCats.lua)
+        local cd = self.db.classData[cl.key]
+        local done = type(cd) == "table" and cd.carePackage
+        if type(cd) == "table" then cd.carePackage = true end
+        if not done and self:CatHasProgress(cl.key) then
           local bag = self:Bag(cl.key)
           local n = 0
           for _, it in ipairs(self:CarePieces(cl.key)) do

@@ -47,7 +47,7 @@
 
 ## Cosmetics belong to each class's cat (1.6.0)
 - Every class's cat has its own collection: skins, furs, patterns, tap effects, hats, capes, effects, accessories, racial pieces, set pieces and crafted cosmetics. Its look was already its own.
-- After the update every cat owns everything the character owned, with where it came from, so nobody loses anything.
+- After the update every cat owns everything your characters owned, with where it came from, so nobody loses anything (the cats are the account's since the same update: notes/cats.md).
 - New cosmetics go to the cat being played (chests, Adventure drops, real WoW bosses, quests, achievements, the Shop with its skins and racial piece). Crafting, expeditions and class achievements give it to the cat that earned it. Duplicates are salvaged per cat.
 - The Appearance tab, the Shop (owned marks, Heroic Cache skins), the Compendium, try on and "Got it from" show the cat being played.
 - Achievements that count cosmetics count the best cat's collection (decided so switching cats never loses progress and no achievement goes backwards). The racial heritage one counts different pieces on any cat.

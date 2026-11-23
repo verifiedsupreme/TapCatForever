@@ -409,7 +409,7 @@ local function itemOrder(cat)
   end
 end
 
--- every piece of gear this character has (any class's bag or worn)
+-- every piece of gear your cats have (any class's bag or worn)
 local function ownedGear()
   local set = {}
   for _, cd in pairs(TCF.db.classData or {}) do
