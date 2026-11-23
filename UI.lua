@@ -1787,7 +1787,7 @@ TCF.CHEST_SOURCES = {
   "Cat Treat Pouch: each daily quest, Adventure bosses.",
   "Adventurer's Strongbox: weekly quest, every 5 class levels, first clears of open-world zones in Adventure, dungeon expeditions.",
   "Heroic Cache: every 20 class levels, raid expeditions.",
-  "Dungeon Chest: finishing a dungeon in Adventure (always the first time, then about once every 2 to 3 hours of dungeon fighting), finishing a real dungeon, dungeon expeditions. Never sold.",
+  "Dungeon Chest: finishing a dungeon in Adventure (always the first time, then a chance on later clears that grows with dungeon fighting), finishing a real dungeon, dungeon expeditions. Never sold.",
   "Raider's Hoard: raid bosses and first raid clears in Adventure, finishing a real raid, raid expeditions. Never sold.",
 }
 

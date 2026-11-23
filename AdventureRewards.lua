@@ -236,6 +236,19 @@ function TCF.AdvPct(p)
   return string.format("%d%%", floor(p + 0.5))
 end
 
+-- (1.6.0) a drop chance per kill as players read it: "0.4% a kill", "12% a kill", "under 0.1% a kill"
+-- (no "after so many minutes of fighting": the chance per kill says it plainly)
+function TCF.AdvKillChance(p)
+  p = (p or 0) * 100
+  if p <= 0 then return "0% a kill" end
+  if p < 0.1 then return "under 0.1% a kill" end
+  if p < 10 then
+    local s = string.format("%.1f", p):gsub("%.0$", "")
+    return s .. "% a kill"
+  end
+  return string.format("%d%% a kill", floor(p + 0.5))
+end
+
 -- "about 1 in 650 kills" for a chance per kill
 function TCF.AdvOneIn(p)
   if not p or p <= 0 then return "never" end
@@ -266,7 +279,7 @@ function TCF:AdvStartFarm(tier, bi, itemId)
   adv.farm = { tier = tier, stage = stage, boss = bi, name = b[1], item = itemId, kills = 0, prevAuto = prevAuto }
   local it = itemId and TCF.GEAR[itemId]
   local p = itemId and self:AdvFarmChance(tier, bi, itemId) or select(2, self:AdvFarmTable(tier, bi))
-  self:AdvLog(string.format("|cffffd100Farming %s%s (about %s per kill).|r", b[1], it and (" for " .. it.name) or "", TCF.AdvPct(p)))
+  self:AdvLog(string.format("|cffffd100Farming %s%s (%s).|r", b[1], it and (" for " .. it.name) or "", TCF.AdvKillChance(p)))
   if not adv.active and not (self.IsOnExpedition and self:IsOnExpedition(self.db.class)) then self:AdvStart() end
   self:MarkDirty()
   return true
@@ -387,23 +400,12 @@ function TCF:AdvZoneSummary(tier)
   else
     lines[#lines + 1] = "Zone cleared."
   end
-  -- chests on the fighting-time clocks
-  local A = TCF.ADV
-  local lo = t.raid and A.RAID_CHEST_MIN or A.CHEST_MIN
-  local clock = adv.chestClock or 0
+  -- chests on the fighting-time clocks: the chance per kill right now (it grows while the cat fights)
+  local cA, cD = self:AdvChestChances(tier)
   local chest = t.raid and "Raider's Hoard" or "Cat Treat Pouch"
-  if clock < lo then
-    lines[#lines + 1] = string.format("Boss kills can drop %s after about %d more minutes of fighting.", TCF.WithArticle(chest), math.ceil((lo - clock) / 60))
-  else
-    lines[#lines + 1] = string.format("Boss kills have a growing chance to drop %s now.", TCF.WithArticle(chest))
-  end
-  if TCF.IsDungeonTier(t) then
-    local dc = adv.dungeonClock or 0
-    if dc < A.DUNGEON_CHEST_MIN then
-      lines[#lines + 1] = string.format("Finishing this dungeon again can give a Dungeon Chest after about %d more minutes of dungeon fighting.", math.ceil((A.DUNGEON_CHEST_MIN - dc) / 60))
-    else
-      lines[#lines + 1] = "Finishing this dungeon again has a growing chance of a Dungeon Chest now."
-    end
+  lines[#lines + 1] = string.format("%s from boss kills: %s right now (it grows the longer your cat fights, until one drops).", chest, TCF.AdvKillChance(cA))
+  if cD then
+    lines[#lines + 1] = string.format("Dungeon Chest from finishing this dungeon again: %s right now (it grows with dungeon fighting).", TCF.AdvKillChance(cD))
   end
   local farmable = 0
   for bi = 1, #t.bosses do
@@ -416,6 +418,20 @@ function TCF:AdvZoneSummary(tier)
   return lines
 end
 
+-- the chance a boss kill drops a chest right now (the fighting-time clocks, Adventure.lua), and for
+-- a dungeon the chance its final boss gives a Dungeon Chest (nil outside dungeons)
+function TCF:AdvChestChances(tier)
+  local adv = self:CD().adv
+  local t = self:AdvTier(tier or adv.tier)
+  local A = TCF.ADV
+  local lo, ramp = A.CHEST_MIN, A.CHEST_RAMP
+  if t.raid then lo, ramp = A.RAID_CHEST_MIN, A.RAID_CHEST_RAMP end
+  local c = min(1, max(0, ((adv.chestClock or 0) - lo) / ramp))
+  local d
+  if TCF.IsDungeonTier(t) then d = min(1, max(0, ((adv.dungeonClock or 0) - A.DUNGEON_CHEST_MIN) / A.DUNGEON_CHEST_RAMP)) end
+  return c, d
+end
+
 -- The status line under the fight: what the cat is doing and why, in plain English.
 function TCF:AdvStatusText()
   local cd = self:CD()
@@ -425,8 +441,8 @@ function TCF:AdvStatusText()
   if f and not adv.auto then
     local it = f.item and TCF.GEAR[f.item]
     local p = it and self:AdvFarmChance(f.tier, f.boss, f.item) or select(2, self:AdvFarmTable(f.tier, f.boss))
-    return string.format("Farming %s for %s (about %s per kill), kills so far: %d.", f.name,
-      it and it.name or "any of its loot", TCF.AdvPct(p), f.kills)
+    return string.format("Farming %s for %s (%s), kills so far: %d.", f.name,
+      it and it.name or "any of its loot", TCF.AdvKillChance(p), f.kills)
   end
   local n = self:AdvStages(adv.tier)
   local cleared = adv.best >= TCF.AdvStageCode(adv.tier, n)

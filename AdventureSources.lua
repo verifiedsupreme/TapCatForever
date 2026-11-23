@@ -15,8 +15,8 @@ local function extraLines(self, it)
     if b and self.AdvFarmChance and self.db then
       local p = self:AdvFarmChance(it.tier, it.boss, it.id)
       if p > 0 then
-        out[#out + 1] = string.format("Adventure: after its first kill, %s drops it for your cat about %s of the time (%s). Use Farm in Bosses and loot",
-          b[1], TCF.AdvPct(p), TCF.AdvOneIn(p))
+        out[#out + 1] = string.format("Adventure: after its first kill, %s can drop it for your cat (%s). Use Farm in Bosses and loot",
+          b[1], TCF.AdvKillChance(p))
       end
     end
     return out

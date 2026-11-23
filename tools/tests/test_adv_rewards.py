@@ -117,7 +117,7 @@ def check(seed, load_addon):
       local ok = T:AdvStartFarm(dm, 6, want and want.id)
       ck(ok and adv.farm and adv.auto == false and adv.tier == dm and adv.stage == 12 and adv.active, "Farm this: Auto-advance off, on the boss's stage, fighting")
       local st = T:AdvStatusText()
-      ck(st:find("^Farming Edwin VanCleef for ") and st:find("per kill%), kills so far: 0%.$"), "farming status line: " .. st)
+      ck(st:find("^Farming Edwin VanCleef for ") and st:find("%% a kill%), kills so far: 0%.$"), "farming status line: " .. st)
       T.window:Refresh()
       local page = T.window and T.window.tabButtons and nil
       -- a drop-back after losses comes back to the boss after the easier pack
@@ -188,6 +188,23 @@ def check(seed, load_addon):
       local lines = T:AdvZoneSummary(dm)
       ck(#lines >= 4, "zone summary lines")
       for _, l in ipairs(lines) do ck(not l:find("!", 1, true), "no exclamation marks: " .. l) end
+      -- (1.6.0) chances, never a time to wait: "0.4% a kill", no "minutes of fighting"
+      for _, l in ipairs(lines) do ck(not l:find("minute", 1, true) and not l:find("hour", 1, true), "no time to a drop: " .. l) end
+      local zs = table.concat(lines, " / ")
+      ck(zs:find("Cat Treat Pouch from boss kills: ", 1, true) and zs:find("% a kill right now", 1, true)
+        and zs:find("Dungeon Chest from finishing this dungeon again: ", 1, true), "chest chances in the zone tooltip: " .. zs)
+      adv.chestClock = T.ADV.CHEST_MIN + T.ADV.CHEST_RAMP * 0.25
+      ck(table.concat(T:AdvZoneSummary(dm), " / "):find("Cat Treat Pouch from boss kills: 25% a kill right now", 1, true), "the chest chance grows with the clock")
+      adv.chestClock = 0
+      local K = T.AdvKillChance
+      ck(K(0.004) == "0.4% a kill" and K(0.0002) == "under 0.1% a kill" and K(0.00099) == "under 0.1% a kill" and K(0.001) == "0.1% a kill"
+        and K(0.25) == "25% a kill" and K(0.02) == "2% a kill" and K(0) == "0% a kill", "AdvKillChance: " .. K(0.004) .. ", " .. K(0.0002) .. ", " .. K(0.02))
+      -- the Compendium's how-to-get line for a farmable piece shows the chance
+      local wantIt = T:AdvFarmTable(dm, 6, cls)[1]
+      if wantIt then
+        local src = table.concat(T.AdvExtraSourceLines(T, wantIt[1]), " / ")
+        ck(src:find("% a kill)", 1, true) and not src:find("1 in ", 1, true), "Compendium farm line: " .. src)
+      end
       -- the 12/12 case: cleared and waiting for the next zone's level
       local sfk, bfd = tierOf("sfk"), tierOf("bfd")
       adv.tier, adv.stage, adv.auto = sfk, 12, true

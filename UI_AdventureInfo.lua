@@ -23,9 +23,9 @@ local GUIDE = {
     "- Dungeons from level 45: two pieces, or a piece and a Dungeon Chest\n" ..
     "- Raids: two pieces with a chance of a Raider's Hoard. Final bosses: two or three pieces and a Hoard\n\n" ..
     "|cffffd100Zone clears|r: TapCoins and a chest the first time each cat clears a zone (a quarter of the TapCoins if another of your cats cleared it first).\n\n" ..
-    "|cffffd100Chests for fighting time|r: boss kills drop a Cat Treat Pouch about every 18 minutes of fighting (raids: a Raider's Hoard a little over every 3 hours). Finishing a dungeon again gives a Dungeon Chest about every 2 to 3 hours of dungeon fighting.\n\n" ..
+    "|cffffd100Chests for fighting time|r: boss kills can drop a Cat Treat Pouch (raids: a Raider's Hoard). The chance a kill starts at 0% and grows the longer your cat fights, then starts again after a drop. Finishing a dungeon again can give a Dungeon Chest the same way. Hover the zone name to see each chance right now.\n\n" ..
     "|cffffd100Small finds|r: regular enemies now and then drop plain gear, cloth and meat.\n\n" ..
-    "|cffffd100Farming|r: later kills of a boss have a small chance to drop its loot again. A piece usually takes 1 in 350 to 1 in 3,000 kills (2 to 15 hours of farming one boss). Bosses and loot shows each chance; press Farm to stay on a boss until the piece drops.\n\n" ..
+    "|cffffd100Farming|r: later kills of a boss have a small chance to drop its loot again, usually 0.03% to 0.3% a kill for a piece. Bosses and loot shows each chance; press Farm to stay on a boss until the piece drops.\n\n" ..
     "Some bosses also drop cat skins and effects (Cosmetic only)." },
 }
 
@@ -132,9 +132,9 @@ TCF.UI.Builders.adventure = function(page, win)
     row:SetSize(340, 26); row:SetPoint("TOPLEFT", 180, -130 - (r - 1) * 28)
     row.icon = row:CreateTexture(nil, "ARTWORK"); row.icon:SetSize(22, 22); row.icon:SetPoint("LEFT", 2, 0)
     row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-    row.name = Text(row, "GameFontHighlightSmall", nil, "LEFT"); row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0); row.name:SetWidth(180)
+    row.name = Text(row, "GameFontHighlightSmall", nil, "LEFT"); row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0); row.name:SetWidth(150)
     if row.name.SetWordWrap then row.name:SetWordWrap(false) end
-    row.pct = Text(row, "GameFontHighlightSmall", nil, "RIGHT"); row.pct:SetPoint("RIGHT", -58, 0); row.pct:SetWidth(70)
+    row.pct = Text(row, "GameFontHighlightSmall", nil, "RIGHT"); row.pct:SetPoint("RIGHT", -58, 0); row.pct:SetWidth(100)
     row.farm = Button(row, "Farm", 52, 20, function()
       if not row.item then return end
       local ok, why = TCF:AdvStartFarm(loot.tier, loot.boss, row.item.id)
@@ -146,7 +146,7 @@ TCF.UI.Builders.adventure = function(page, win)
       if not s.item then return end
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
       TCF:GearTooltip(GameTooltip, s.item)
-      GameTooltip:AddLine(string.format("Later kills of %s: about %s per kill (%s).", s.bossName or "this boss", TCF.AdvPct(s.p), TCF.AdvOneIn(s.p)), 0.6, 0.8, 1, true)
+      GameTooltip:AddLine(string.format("Later kills of %s: %s.", s.bossName or "this boss", TCF.AdvKillChance(s.p)), 0.6, 0.8, 1, true)
       GameTooltip:Show()
     end)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -182,7 +182,7 @@ TCF.UI.Builders.adventure = function(page, win)
     local beaten = adv.cleared[TCF.AdvStageCode(tier, bi * 2)]
     local reached = TCF:AdvCanGoTo(tier, bi * 2)
     local first = beaten and "|cff20ff20First kill done.|r" or ("First kill: " .. TCF:AdvFirstKillText(tier, bi == #t.bosses) .. ".")
-    local again = #list > 0 and string.format("Later kills: about %s per kill for one of these pieces.", TCF.AdvPct(total))
+    local again = #list > 0 and string.format("Later kills: %s for one of these pieces.", TCF.AdvKillChance(total))
       or "No loot of its own for your cat on later kills."
     self.head:SetText(bName .. "\n" .. first .. "\n" .. again .. (reached and "" or "\n|cffff6060Your cat hasn't reached this boss yet.|r"))
     self.farmBoss:SetEnabled(reached and #list > 0)
@@ -196,7 +196,7 @@ TCF.UI.Builders.adventure = function(page, win)
         row.item, row.p, row.bossName = it, e[2], bName
         row.icon:SetTexture(TCF.Icon(it.icon))
         row.name:SetText(TCF.GearLink(it))
-        row.pct:SetText("about " .. TCF.AdvPct(e[2]))
+        row.pct:SetText(TCF.AdvKillChance(e[2]))
         row.farm:SetEnabled(reached)
         row:Show()
       else
