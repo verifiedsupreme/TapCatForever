@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.6.2
+
+**Phone view**
+- Everything is bigger: the phone view is a little wider and every page in it is drawn larger, so text is easier to read and buttons are easier to hit.
+- New Tabs button next to the Compendium in the phone view: fold the two rows of round page buttons into one menu button, so the pages get more room. Click the menu to pick a page, or click Tabs again to get the round buttons back. Your choice is remembered.
+
+**Header**
+- Achievements and Settings now sit right after the Compendium, and the whole row (character, phone view, Compendium, Achievements, Settings) stays in the same place when you fold the character panel away or open it again.
+- Very large TapCoin amounts show in short form at the top of the window (1.25M).
+
+**Gear**
+- With no spare gear, the note about where gear comes from now sits in the middle of the list and wraps, instead of running across the whole window behind Sell junk and Equip best.
+
+**Professions**
+- The Buy and Hire buttons on every spot are taller and easier to click, and Hire shows just the price ("Hire 75.00K") so it fits on one line. Hover it to see who you hire.
+- The profession icons and the page buttons under them are a little bigger.
+
 ## 1.6.1.2
 
 **Realm leaderboard: one row per player**

@@ -42,7 +42,7 @@ def check(seed, load_addon):
       local function rightX() return sx() + _pt(P.right, "TOPLEFT")[4] * win:GetScale() end
       win:Show()
       ck(win._w == 920 and win._h == 620, "full width to start: " .. tostring(win._w))
-      ck(P.left:IsShown() and P.compBtn:IsShown() and not win.compIcon:IsShown() and P.bagLabel:IsShown(), "the pane, Compendium button and bag label show")
+      ck(P.left:IsShown() and not P.compBtn:IsShown() and win.compIcon:IsShown() and P.bagLabel:IsShown(), "the pane, Compendium icon (1.6.2) and bag label show")
       local rp = _pt(P.right, "TOPLEFT")
       ck(rp and rp[2] == win and rp[4] == 344 and rp[5] == -106, "the right column sits right of the pane")
       local pb = win.paneButton
@@ -50,12 +50,12 @@ def check(seed, load_addon):
         -- 1.6.0: the Casino is a text tab where Achievements was (second row, fourth), Achievements the round icon by the title
         local cp, ap = _pt(win.tabButtons[win.TAB_CASINO], "BOTTOMLEFT"), _pt(win.tabButtons[win.TAB_ACH], "LEFT")
         ck(cp and cp[2] == P.right and math.abs(cp[4] - 3 * win.tabStep) < 1e-6 and cp[5] == 4, "the Casino tab sits in the second row, fourth")
-        ck(ap and ap[2] == P.ver, "the Achievements icon sits right after the title's version")
+        ck(ap and ap[2] == win.compIcon, "1.6.2: the Achievements icon sits right of the Compendium")
         ck(win.parts.iconTabs[win.TAB_ACH] and not win.parts.iconTabs[win.TAB_CASINO], "Achievements is an icon, the Casino a text tab")
       end
       local lb = win.layoutButton
-      ck(lb and _pt(lb, "RIGHT") and _pt(lb, "RIGHT")[2] == P.compBtn, "the layout button sits left of the Compendium button")
-      ck(pb and _pt(pb, "RIGHT") and _pt(pb, "RIGHT")[2] == lb, "the pane button sits left of the layout button, nearest the character column")
+      ck(lb and _pt(win.compIcon, "LEFT") and _pt(win.compIcon, "LEFT")[2] == lb, "the layout button sits left of the Compendium")
+      ck(pb and _pt(pb, "LEFT") and _pt(pb, "LEFT")[2] == P.ver and _pt(lb, "LEFT")[2] == pb, "the pane button first after the title, then the layout button")
       win:SelectTab(win.TAB_GEAR)
       local x0 = sx()
       -- fold it away
@@ -67,7 +67,7 @@ def check(seed, load_addon):
       ck(rp[4] == 16 and rp[5] == -106, "the right column slides left")
       ck(math.abs(sx() - x0) < 1e-6, "the top-left corner stays put")
       ck(not P.compBtn:IsShown() and win.compIcon:IsShown() and not P.bagLabel:IsShown(), "the narrow header: Compendium icon, no bag label")
-      ck(_pt(pb, "LEFT")[2] == win.tabButtons[win.TAB_SETTINGS] and _pt(win.layoutButton, "LEFT")[2] == pb, "narrow: the pane button first after the icons, then the layout button")
+      ck(_pt(pb, "LEFT")[2] == P.ver and _pt(win.layoutButton, "LEFT")[2] == pb, "narrow: the same row as the full window, the pane button first")
       ck(_pt(win.compIcon, "LEFT")[2] == win.layoutButton, "the Compendium icon is right of the layout button")
       ck(win.compIcon.scripts.OnClick ~= nil, "the Compendium icon works")
       win.compIcon.scripts.OnClick(win.compIcon); ck(T.compendium and T.compendium:IsShown(), "the Compendium icon opens it")
@@ -103,7 +103,7 @@ def check(seed, load_addon):
       ck(math.abs(sx() - x0) < 1e-6, "and keeps its corner")
       -- open it again
       pb.scripts.OnClick(pb)
-      ck(T.db.ui.winPaneHidden == nil and win._w == 920 and P.left:IsShown() and P.compBtn:IsShown(), "the pane opens again")
+      ck(T.db.ui.winPaneHidden == nil and win._w == 920 and P.left:IsShown() and win.compIcon:IsShown(), "the pane opens again")
       ck(_pt(P.right, "TOPLEFT")[4] == 344, "the right column moves back")
       ck(math.abs(sx() - x0) < 1e-6, "the corner stays put opening it")
       -- tooltips say what it does
@@ -161,7 +161,7 @@ def check(seed, load_addon):
       win:AddHeaderButton(extra, function(b) b:SetPoint("RIGHT", win.layoutButton, "LEFT", -6, 0) end)
       ck(_pt(extra, "RIGHT") and _pt(extra, "RIGHT")[2] == win.layoutButton, "an added button keeps its place in the full header")
       pb.scripts.OnClick(pb)
-      ck(_pt(extra, "LEFT") and _pt(extra, "LEFT")[2] == win.compIcon, "and goes after the Compendium icon in the narrow header")
+      ck(_pt(extra, "LEFT") and _pt(extra, "LEFT")[2] == win.tabButtons[win.TAB_SETTINGS], "and goes after the last header icon (Settings, 1.6.2) in the narrow header")
       pb.scripts.OnClick(pb)
       ck(_pt(extra, "RIGHT") and not _pt(extra, "LEFT"), "and back in the full header")
       return table.concat(fails, "; ")

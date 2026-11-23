@@ -87,8 +87,8 @@ TCF.UI.Builders.professions = function(page, win)
   ------------------------------------------------ header
   local ptabs = {}
   for i = 1, 5 do
-    local b = IconButton(page, 30)
-    b:SetPoint("TOPLEFT", 12 + (i - 1) * 36, -10)
+    local b = IconButton(page, 34)   -- (1.6.2) 34 (was 30): easier to hit in the small window
+    b:SetPoint("TOPLEFT", 10 + (i - 1) * 36, -8)
     b:SetScript("OnClick", function(s)
       if not s.prof then return end
       win.profSel = s.prof.key; win.profView = "main"; TCF:PlaySound("click"); win:Refresh()
@@ -130,8 +130,8 @@ TCF.UI.Builders.professions = function(page, win)
 
   local vbtns = {}
   for i, key in ipairs({ "main", "upg", "craft", "renown" }) do
-    local b = Button(page, "", 108, 22, function() win.profView = key; TCF:PlaySound("click"); win:Refresh() end)
-    b:SetPoint("TOPLEFT", 12 + (i - 1) * 111, -48)
+    local b = Button(page, "", 108, 24, function() win.profView = key; TCF:PlaySound("click"); win:Refresh() end)
+    b:SetPoint("TOPLEFT", 12 + (i - 1) * 111, -47)
     b.key = key
     vbtns[i] = b
   end
@@ -239,7 +239,7 @@ TCF.UI.Builders.professions = function(page, win)
     r.info = Text(r, "GameFontDisableSmall", nil, "LEFT"); r.info:SetPoint("BOTTOMLEFT", r.box, "BOTTOMRIGHT", 8, 2); r.info:SetWidth(258)
     if r.info.SetWordWrap then r.info:SetWordWrap(false) end
     -- the hand tool: click to gather by hand
-    r.pick = IconButton(r, 40); r.pick:SetPoint("RIGHT", -124, 0)
+    r.pick = IconButton(r, 40); r.pick:SetPoint("RIGHT", -130, 0)
     -- a little "+gold +material" pop-up rises from the tool on every click
     r.pop = Text(r, "GameFontNormal"); r.pop:SetPoint("BOTTOM", r.pick, "TOP", 0, 0); r.pop:Hide()
     r.pickLabel = Text(r, "GameFontDisableSmall", "By hand"); r.pickLabel:SetPoint("TOP", r.pick, "BOTTOM", 0, -1)
@@ -281,8 +281,9 @@ TCF.UI.Builders.professions = function(page, win)
       addTeachLine(tt, TCF:ProfSkill(fam), TCF.SpotDifficulty(i))
       tt:AddLine(string.format("Upgrade your %s with the button below the %s.", f.toolNoun:lower(), f.spotNounPlural), 0.7, 0.7, 0.7, true)
     end)
-    r.buy = Button(r, "Buy", 112, 22, function() TCF:BuyOp(FAM(), r.spot, TCF:ProfState().buy); win:Refresh() end)
-    r.buy:SetPoint("TOPRIGHT", -6, -6)
+    -- (1.6.2) both buttons as tall as the row allows, so they are easy to hit in the small window too
+    r.buy = Button(r, "Buy", 116, 24, function() TCF:BuyOp(FAM(), r.spot, TCF:ProfState().buy); win:Refresh() end)
+    r.buy:SetPoint("TOPRIGHT", -5, -4)
     Tip(r.buy, function(tt)
       local f = FT()
       tt:AddLine("Buy " .. f.ops[r.spot][1], 1, 0.82, 0)
@@ -290,8 +291,8 @@ TCF.UI.Builders.professions = function(page, win)
       if not open then tt:AddLine(why, 1, 0.5, 0.3, true) end
       tt:AddLine("Each one you own adds to the gold of every cycle here. Owning 25, 50, 100 and more makes the cycle twice as fast each time.", 1, 1, 1, true)
     end)
-    r.mgr = Button(r, "", 112, 20, function() TCF:HireForeman(FAM(), r.spot); win:Refresh() end)
-    r.mgr:SetPoint("BOTTOMRIGHT", -6, 6)
+    r.mgr = Button(r, "", 116, 24, function() TCF:HireForeman(FAM(), r.spot); win:Refresh() end)
+    r.mgr:SetPoint("BOTTOMRIGHT", -5, 4)
     Tip(r.mgr, function(tt)
       local f = FT()
       tt:AddLine("Hire a " .. f.hire:lower(), 1, 0.82, 0)
@@ -488,7 +489,8 @@ TCF.UI.Builders.professions = function(page, win)
       else r.buy:SetText("|cff888888Locked|r"); r.buy:SetEnabled(false) end
       local fcost = TCF.PROF_OPS[i].foreman
       if st.mgr then r.mgr:SetText("|cff20ff20Automated|r"); r.mgr:SetEnabled(false)
-      else r.mgr:SetText(f.hire .. " " .. TCF.GoldStr(fcost, 10)); r.mgr:SetEnabled(st.n > 0 and s.gold >= fcost) end
+      -- (1.6.2) "Hire" and the price fit the button on one line; the tooltip names the helper
+      else r.mgr:SetText("Hire " .. TCF.GoldStr(fcost, 10)); r.mgr:SetEnabled(st.n > 0 and s.gold >= fcost) end
     end
   end
 

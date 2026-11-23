@@ -29,11 +29,11 @@ def check(seed, load_addon):
         if type(rel) == "number" then rel, rp, x, y = nil, p, rel, rp end
         f._pts[#f._pts + 1] = { p, rel, rp or p, x or 0, y or 0 }
       end
-      ck(lay and _pt(lay, "RIGHT") and _pt(lay, "RIGHT")[2] == P.compBtn and _pt(win.paneButton, "RIGHT")[2] == lay, "the cat button, then the layout button, then the Compendium")
+      ck(lay and _pt(lay, "LEFT") and _pt(win.compIcon, "LEFT")[2] == lay and _pt(lay, "LEFT")[2] == win.paneButton, "the cat button, then the layout button, then the Compendium")
       ck(lay.icon.tex and lay.icon.tex:find("layout_compact", 1, true), "it shows the phone icon")
       lay.scripts.OnClick(lay)
       ck(T.db.ui.winCompact == true and win.layoutMode == "compact", "compact on, and saved")
-      ck(win._w == 420 and win._h == C.H and C.H >= 590 and C.H <= 630, "compact is narrow and tall: " .. tostring(win._w) .. "x" .. tostring(win._h))
+      ck(win._w == C.W and C.W == 470 and win._h == C.H and C.H >= 600 and C.H <= 680, "compact is narrow and tall: " .. tostring(win._w) .. "x" .. tostring(win._h))
       ck(near(sx(), x0), "the top-left corner stays put")
       ck(lay.icon.tex:find("layout_wide", 1, true), "the layout button now offers the full window")
       -- the tabs: round buttons, two rows of five, in the window
@@ -59,8 +59,8 @@ def check(seed, load_addon):
       -- the pages: scaled to the width, between the tabs and the bottom line
       local s = P.right:GetScale()
       local rp = _pt(P.right, "TOPLEFT")
-      ck(near(s, 388 / 560) and near(rp[4] * s, 16) and near(rp[5] * s, C.PAGE_Y), "the pages are scaled to fit: " .. s)
-      ck(near(rp[4] * s + 560 * s, 404), "the pages end 16 from the right edge")
+      ck(near(s, C.CW / 560) and s > 0.77 and near(rp[4] * s, 16) and near(rp[5] * s, C.PAGE_Y), "the pages are scaled to fit: " .. s)
+      ck(near(rp[4] * s + 560 * s, C.W - 16), "the pages end 16 from the right edge")
       local stripTop = -_pt(win.compactStrip, "TOPLEFT")[5]
       ck(-C.PAGE_Y + 494 * s <= stripTop and stripTop + win.compactStrip._h <= C.H - 12, "the pages end above the bottom line, and it inside the window")
       ck(-C.TAB_Y + C.TAB_ROW * 2 <= -C.PAGE_Y + 2, "the tabs end above the pages")
@@ -90,8 +90,8 @@ def check(seed, load_addon):
       ck(win.layoutMode == "compact" and P.right:IsShown(), "Settings in compact")
       win:SelectTab(win.TAB_CASINO)
       local cv = T.casinoView
-      local k = 388 / 888
-      ck(win.layoutMode == "compact" and win._w == 420, "the Casino stays compact")
+      local k = C.CW / 888
+      ck(win.layoutMode == "compact" and win._w == C.W, "the Casino stays compact")
       ck(near(cv:GetScale() * s, k), "the Casino is scaled to the width: " .. cv:GetScale() * s)
       local cp, sp = _pt(cv, "TOPLEFT"), _pt(cv.sign, "TOPLEFT")
       ck(cp[2] == win and near(cp[4] * k, 16) and near(sp[4] * k, 16), "the Casino starts at the left edge")
@@ -103,7 +103,7 @@ def check(seed, load_addon):
       pb.scripts.OnClick(pb)
       ck(win.compactChar and P.left:IsShown() and not P.right:IsShown() and not win.compactStrip:IsShown(), "the cat button shows the character view")
       local lp = _pt(P.left, "TOPLEFT")
-      ck(near(P.left:GetScale(), s) and lp[4] * s >= 16 and lp[4] * s + 316 * s <= 404 and near(lp[5] * s, C.PAGE_Y) and -C.PAGE_Y + 554 * s <= C.H - 8,
+      ck(near(P.left:GetScale(), s) and lp[4] * s >= 16 and lp[4] * s + 316 * s <= C.W - 16 and near(lp[5] * s, C.PAGE_Y) and -C.PAGE_Y + 554 * s <= C.H - 8,
         "the character view fits under the tabs")
       for _, b in pairs(win.roundTabs) do ck(not b.selected, "no tab glows in the character view") end
       pb.scripts.OnClick(pb)
@@ -113,12 +113,12 @@ def check(seed, load_addon):
       win.roundTabs[win.TAB_GEAR].scripts.OnClick(win.roundTabs[win.TAB_GEAR])
       ck(not win.compactChar and P.right:IsShown(), "a tab closes the character view")
       -- the grip measures the compact window
-      ck(win.layoutW == 420 and win.layoutH == C.H, "the grip uses the compact size")
-      local gx, gy = x0 + 420, 900 - C.H
+      ck(win.layoutW == C.W and win.layoutH == C.H, "the grip uses the compact size")
+      local gx, gy = x0 + C.W, 900 - C.H
       GetCursorPosition = function() return gx, gy end
       local g = win.sizeGrip
       g.scripts.OnMouseDown(g, "LeftButton")
-      gx, gy = x0 + 420 * 1.3, 900 - C.H * 1.3
+      gx, gy = x0 + C.W * 1.3, 900 - C.H * 1.3
       g.scripts.OnUpdate(g, 0.02); g.scripts.OnMouseUp(g)
       ck(math.abs(win:GetScale() - 1.3) < 0.011 and near(sx(), x0), "the grip scales the compact window: " .. win:GetScale())
       ck(T.db.ui.winScaleCompact == win:GetScale() and T.db.ui.winScale == nil, "the compact size is saved apart: " .. tostring(T.db.ui.winScaleCompact) .. " " .. tostring(T.db.ui.winScale))
@@ -146,7 +146,7 @@ def check(seed, load_addon):
       ck(near(P.right:GetScale(), 1) and _pt(P.right, "TOPLEFT")[4] == 344 and P.left:IsShown() and near(P.left:GetScale(), 1), "the pages and pane are back")
       ck(not win.compactStrip:IsShown(), "no bottom line")
       for i, b in ipairs(win.tabButtons) do ck(b:IsShown(), "text tab " .. i .. " back") end
-      ck(_pt(P.compBtn, "TOP") and _pt(P.compBtn, "TOP")[4] == 0, "the Compendium button is back in the middle")
+      ck(not P.compBtn:IsShown() and win.compIcon:IsShown() and _pt(win.tabButtons[win.TAB_ACH], "LEFT")[2] == win.compIcon, "the Compendium icon is back, Achievements after it")
       win:SelectTab(win.TAB_CASINO)
       ck(near(cv:GetScale(), 1) and _pt(cv, "TOPLEFT")[4] == 16 and _pt(cv, "TOPLEFT")[5] == -106 and _pt(cv.sign, "TOPLEFT")[5] == -46, "the Casino is full size again")
       win:SelectTab(win.TAB_GEAR)
@@ -169,13 +169,64 @@ def check(seed, load_addon):
       -- 1.6.0: no round Professions button in the header; the narrow header's cat button follows
       -- Settings, then the layout button
       ck(win.profQuick == nil, "no Professions button by the title")
-      ck(_pt(win.paneButton, "LEFT") and _pt(win.paneButton, "LEFT")[2] == win.tabButtons[win.TAB_SETTINGS], "narrow: the cat button follows Settings")
-      ck(_pt(lay, "LEFT") and _pt(lay, "LEFT")[2] == win.paneButton, "narrow: the layout button follows the cat button")
+      -- 1.6.2: [cat][layout][Compendium][Achievements][Settings] after the title in the full and narrow windows:
+      -- the window keeps its top-left corner when the column folds, so none of them moves
+      do
+        local achB, setB = win.tabButtons[win.TAB_ACH], win.tabButtons[win.TAB_SETTINGS]
+        local function chain()
+          return _pt(win.paneButton, "LEFT") and _pt(win.paneButton, "LEFT")[2] == P.ver
+            and _pt(lay, "LEFT")[2] == win.paneButton and _pt(win.compIcon, "LEFT")[2] == lay
+            and _pt(achB, "LEFT")[2] == win.compIcon and _pt(setB, "LEFT")[2] == achB
+            and win.compIcon:IsShown() and not P.compBtn:IsShown()
+        end
+        ck(chain(), "narrow: cat, layout, Compendium, Achievements, Settings after the title")
+        win.paneButton.scripts.OnClick(win.paneButton)
+        ck(win.layoutMode == "full" and near(sx(), x0) and chain(), "full: the same row, the corner kept")
+        ck(P.bagLabel:IsShown(), "full: the bag label")
+        win.paneButton.scripts.OnClick(win.paneButton)
+        ck(win.layoutMode == "narrow" and chain() and not P.bagLabel:IsShown(), "folded again")
+      end
       -- an added header button goes after the Compendium button in compact; the try-on cat shows
       local extra = CreateFrame("Button", nil, win)
       win:AddHeaderButton(extra, function(b) b:SetPoint("RIGHT", lay, "LEFT", -6, 0) end)
       lay.scripts.OnClick(lay)
-      ck(win.layoutMode == "compact" and _pt(extra, "LEFT") and _pt(extra, "LEFT")[2] == P.compBtn, "an added header button sits after the Compendium button")
+      ck(win.layoutMode == "compact" and _pt(extra, "LEFT") and _pt(extra, "LEFT")[2] == win.compactMenuToggle, "an added header button sits after the Tabs button")
+      -- 1.6.2: the Tabs button folds the round buttons into one menu: the pages start higher, the window is
+      -- shorter, the menu opens the same round buttons over the page, a pick closes it
+      do
+        local tg, mb = win.compactMenuToggle, win.compactMenuButton
+        ck(tg:IsShown() and _pt(tg, "LEFT")[2] == P.compBtn, "the Tabs button sits after the Compendium in compact")
+        local h0, y0 = win._h, C.PAGE_Y
+        win.compactTabs.SetFrameLevel = function(f, l) f._lvl = l end
+        tg.scripts.OnClick(tg)
+        ck(T.db.ui.compactMenu == true and mb:IsShown() and not win.compactTabsShown, "menu mode on, saved, the menu button shows")
+        local rt = win.compactTabs
+        ck(not rt:IsShown(), "the round buttons are folded away")
+        ck(C.PAGE_Y > y0 + 80 and win._h < h0 - 80 and win._h == C.H, "the pages start higher and the window is shorter: " .. C.PAGE_Y .. " " .. win._h)
+        local s2 = P.right:GetScale()
+        ck(near(_pt(P.right, "TOPLEFT")[5] * s2, C.PAGE_Y) and -C.PAGE_Y + 494 * s2 <= -_pt(win.compactStrip, "TOPLEFT")[5], "the pages sit under the menu, above the bottom line")
+        ck(-C.MENU_Y + C.MENU_H <= -C.PAGE_Y, "the menu button ends above the pages")
+        ck(mb.text:GetText() == win.tabNames[win.tab], "the menu button names the open page: " .. tostring(mb.text:GetText()))
+        mb.scripts.OnClick(mb)
+        ck(rt:IsShown() and win.menuOpen, "the menu opens the round buttons")
+        ck((rt._lvl or 0) >= 60, "over the page: " .. tostring(rt._lvl))
+        local adv = win.roundTabs[2]
+        adv.scripts.OnClick(adv)
+        ck(win.tab == 2 and not rt:IsShown() and not win.menuOpen and mb.text:GetText() == win.tabNames[2], "a pick opens the page and closes the menu")
+        pb.scripts.OnClick(pb)
+        ck(win.compactChar and P.left:IsShown() and -C.PAGE_Y + 554 * s2 <= C.H - 8 and mb.text:GetText() == "Character", "the character view fits in menu mode too")
+        pb.scripts.OnClick(pb)
+        tg.scripts.OnClick(tg)
+        ck(T.db.ui.compactMenu == nil and not mb:IsShown() and rt:IsShown() and win._h == h0 and C.PAGE_Y == y0, "and back to the round buttons")
+        for _, b in ipairs({ tg, mb }) do
+          local lines = {}
+          local add = GameTooltip.AddLine
+          GameTooltip.AddLine = function(_, t) lines[#lines + 1] = t end
+          b.scripts.OnEnter(b)
+          GameTooltip.AddLine = add
+          ck(#lines >= 2 and not table.concat(lines):find("!", 1, true), "menu tooltip: " .. table.concat(lines, " / "))
+        end
+      end
       win.preview:ApplyAppearance(T:GetAppearance(nil, T.ITEM_LIST[1]))
       ck(win.tryOnStage:IsShown(), "the try-on cat shows in compact")
       win.preview:ApplyAppearance(T:GetAppearance())
@@ -205,7 +256,7 @@ def check(seed, load_addon):
       local win = T.window
       local fails = {}
       local function ck(c, m) if not c then fails[#fails + 1] = m end end
-      ck(win._w == 420 and win.layoutMode == "compact" and win.roundTabs[2].selected, "compact is remembered, Adventure open")
+      ck(win._w == T.WIN_COMPACT.W and win.layoutMode == "compact" and win.roundTabs[2].selected, "compact is remembered, Adventure open")
       for i = 1, #win.tabButtons do win:SelectTab(i); win:Refresh(); ck(win.tab == i and win.parts.right:IsShown(), "tab " .. i .. " in compact") end
       for _, cl in ipairs(T.CLASSES) do T:SetClass(cl.key) end
       ck(win.compactStrip.lvl:GetText():find(T.CLASS_BY_KEY[T.db.class].name, 1, true), "the bottom line names the class")
@@ -216,7 +267,7 @@ def check(seed, load_addon):
       win:Hide(); win:Show(); T:CheckNews()
       local strip = T.newsStrip
       if strip then strip.text.SetWidth = function(fs, w) fs._w = w end; T:FitNewsStrip() end
-      ck(T:CurrentNews() == nil or strip and strip:IsShown() and strip._w == 420 and strip.text._w == 420 - 192 and strip._h >= 46, "the news strip fits the compact window: " .. tostring(strip and strip._w) .. " x " .. tostring(strip and strip._h))
+      ck(T:CurrentNews() == nil or strip and strip:IsShown() and strip._w == T.WIN_COMPACT.W and strip.text._w == T.WIN_COMPACT.W - 192 and strip._h >= 46, "the news strip fits the compact window: " .. tostring(strip and strip._w) .. " x " .. tostring(strip and strip._h))
       if strip then
       win.layoutButton.scripts.OnClick(win.layoutButton)
       ck(strip._w == 760 and strip.text._w == 520, "and is full width with the full window: " .. tostring(strip._w))

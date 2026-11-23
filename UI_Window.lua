@@ -180,10 +180,20 @@ local PAGE_W, PAGE_H = 560, 494        -- every page's own size
 local LEFT_W, LEFT_H = 316, 554        -- the character pane's
 local CASINO_W, CASINO_H = 888, 554    -- the Casino (its sign and table) covers this much
 -- compact: window size, the content width, the round tab rows and where the pages start
-local C = { W = 420, H = 604, X = 16, CW = 388, TAB = 44, TAB_Y = -78, TAB_ROW = 64, PAGE_Y = -206 }
-C.S = C.CW / PAGE_W                     -- the pages' scale (0.69)
-C.PAGE_BOTTOM = C.PAGE_Y - PAGE_H * C.S  -- -548
-TCF.WIN_COMPACT = C
+-- (1.6.2) 470 wide (was 420): the pages at 0.78 (was 0.69), so every page's text and buttons are bigger.
+-- The tabs are two rows of round buttons, or (db.ui.compactMenu) folded into one menu button, which
+-- leaves the pages more room; C.PAGE_Y, C.PAGE_BOTTOM and C.H follow that choice (CompactGeom).
+local C = { W = 470, X = 16, CW = 438, TAB = 44, TAB_Y = -78, TAB_ROW = 64, MENU_Y = -76, MENU_H = 30 }
+C.S = C.CW / PAGE_W                     -- the pages' scale (0.78)
+local function CompactGeom(menu)
+  C.menu = menu and true or false
+  C.PAGE_Y = menu and -114 or -206
+  C.PAGE_BOTTOM = C.PAGE_Y - PAGE_H * C.S
+  -- room for the pages and the bottom line, and for the character view (taller than a page)
+  C.H = math.ceil(math.max(-C.PAGE_BOTTOM + 8 + 32 + 12, -C.PAGE_Y + LEFT_H * C.S + 8))
+end
+CompactGeom(false)
+TCF.WIN_COMPACT, TCF.WinCompactGeom = C, CompactGeom
 local TAB_ICONS = {
   Gear = { "INV_Helmet_03", "Your cat's gear for this class." },
   Adventure = { "INV_Sword_04", "Your cat fights through zones and dungeons." },
@@ -292,8 +302,13 @@ local function SetupLayout(win)
   local rtabs = CreateFrame("Frame", nil, win)
   rtabs:SetSize(C.CW, 2 * C.TAB_ROW); rtabs:SetPoint("TOPLEFT", win, "TOPLEFT", C.X, C.TAB_Y)
   rtabs:Hide()
+  -- (1.6.2) in the menu mode the same buttons open under the menu button, over the page
+  rtabs.bg = rtabs:CreateTexture(nil, "BACKGROUND")
+  rtabs.bg:SetPoint("TOPLEFT", -6, 10); rtabs.bg:SetPoint("BOTTOMRIGHT", 6, -8)
+  rtabs.bg:SetColorTexture(0.05, 0.04, 0.08, 0.97); rtabs.bg:Hide()
+  rtabs:EnableMouse(true)
   local round = {}
-  win.roundTabs = round
+  win.roundTabs, win.compactTabs = round, rtabs
   local slots = {}
   -- in the text tabs' order (UI.lua win.tabOrder: the Casino sits where Achievements was)
   for _, i in ipairs(win.tabOrder or {}) do if not iconTabs[i] then slots[#slots + 1] = i end end
@@ -310,7 +325,7 @@ local function SetupLayout(win)
     b:SetPoint("TOP", rtabs, "TOPLEFT", step * (col + 0.5), -row * C.TAB_ROW)
     b.label = U.Text(rtabs, "GameFontHighlightSmall", name); b.label:SetPoint("TOP", b, "BOTTOM", 0, -1)
     b.tab, b.name = i, name
-    b:SetScript("OnClick", function() win:SelectTab(i); TCF:PlaySound("click") end)
+    b:SetScript("OnClick", function() win.menuOpen = nil; win:SelectTab(i); TCF:PlaySound("click"); win:ApplyLayout() end)
     b:SetScript("OnEnter", function(self)
       self.hover = true; self:ShowGlow()
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -322,9 +337,54 @@ local function SetupLayout(win)
     round[i] = b
   end
 
+  ------------------------------------------------ compact (1.6.2): the tabs folded into a menu
+  local menuBtn = CreateFrame("Button", nil, win, U.BT)
+  menuBtn:SetSize(C.CW, C.MENU_H); menuBtn:SetPoint("TOPLEFT", win, "TOPLEFT", C.X, C.MENU_Y)
+  if menuBtn.SetBackdrop then
+    menuBtn:SetBackdrop(U.BACKDROP_PANEL)
+    if menuBtn.SetBackdropColor then menuBtn:SetBackdropColor(0.16, 0.05, 0.05, 0.95) end
+  end
+  menuBtn:SetHighlightTexture("Interface\\Buttons\\UI-Listbox-Highlight2", "ADD")
+  menuBtn.icon = menuBtn:CreateTexture(nil, "ARTWORK"); menuBtn.icon:SetSize(22, 22); menuBtn.icon:SetPoint("LEFT", 8, 0)
+  menuBtn.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  menuBtn.text = U.Text(menuBtn, "GameFontNormalLarge", nil, "LEFT"); menuBtn.text:SetPoint("LEFT", menuBtn.icon, "RIGHT", 8, 0)
+  menuBtn.hint = U.Text(menuBtn, "GameFontHighlight", nil, "RIGHT"); menuBtn.hint:SetPoint("RIGHT", -12, 0)
+  menuBtn:SetScript("OnClick", function() win.menuOpen = not win.menuOpen or nil; TCF:PlaySound("click"); win:ApplyLayout() end)
+  U.Tip(menuBtn, function(tt)
+    tt:AddLine("Pages", 1, 0.82, 0)
+    tt:AddLine("Click to pick a page. The tabs button at the top shows them all as buttons again.", 1, 1, 1, true)
+  end)
+  menuBtn:Hide()
+  win.compactMenuButton = menuBtn
+  function win:RefreshMenuButton()
+    local i = self.tab
+    local name = i and self.tabNames and self.tabNames[i] or ""
+    local info = TAB_ICONS[name]
+    if self.compactChar then name, info = "Character", { "Ability_Druid_CatForm" } end
+    if i == self.TAB_ACH then info = { "Achievement_General" } elseif i == self.TAB_SETTINGS then info = { "INV_Misc_Gear_01" } end
+    menuBtn.icon:SetTexture(TCF.Icon(info and info[1] or "INV_Misc_QuestionMark"))
+    menuBtn.text:SetText(name)
+    menuBtn.hint:SetText(self.menuOpen and "Close" or "All pages")
+  end
+  -- the switch between the two, on the compact header's second row
+  local menuToggle = U.Button(win, "Tabs", 52, 22, function()
+    local u = uiDB()
+    if u then if u.compactMenu then u.compactMenu = nil else u.compactMenu = true end end
+    win.menuOpen = nil
+    TCF:PlaySound("click"); win:ApplyLayout(); win:Refresh()
+  end)
+  menuToggle:Hide()
+  U.Tip(menuToggle, function(tt)
+    tt:AddLine("Tabs", 1, 0.82, 0)
+    local u = uiDB()
+    if u and u.compactMenu then tt:AddLine("Show the pages as round buttons again.", 1, 1, 1, true)
+    else tt:AddLine("Fold the round buttons into one menu, so the pages have more room.", 1, 1, 1, true) end
+  end)
+  win.compactMenuToggle = menuToggle
+
   ------------------------------------------------ compact: level, XP and Power at the bottom
   local strip = CreateFrame("Button", nil, win)
-  strip:SetSize(C.CW - 20, 32); strip:SetPoint("TOPLEFT", win, "TOPLEFT", C.X, C.PAGE_BOTTOM - 8)
+  strip:SetSize(C.CW - 20, 32)   -- placed by ApplyLayout (under the pages)
   strip.lvl = U.Text(strip, "GameFontHighlightSmall", nil, "LEFT"); strip.lvl:SetPoint("TOPLEFT", 0, 0)
   strip.power = U.Text(strip, "GameFontNormalSmall", nil, "RIGHT"); strip.power:SetPoint("TOPRIGHT", 0, 0)
   local xp = CreateFrame("StatusBar", nil, strip)
@@ -466,6 +526,10 @@ local function SetupLayout(win)
     local mode = self:LayoutMode()
     local W, H = P.W or 920, P.H or 620
     local compact = mode == "compact"
+    local uu = ui()
+    local menu = compact and uu and uu.compactMenu and true or false
+    if compact then CompactGeom(menu) end
+    if not menu then self.menuOpen = nil end
     local paneW = (mode == "full") and TCF.WIN_PANE_W or 0
     local w, h = W - TCF.WIN_PANE_W + paneW, H
     if compact then w, h = C.W, C.H end
@@ -519,26 +583,59 @@ local function SetupLayout(win)
     placeCasino(mode)
     -- the tabs: text tabs, or the round buttons
     for i, b in ipairs(self.tabButtons or {}) do if not iconTabs[i] then b:SetShown(not compact) end end
-    rtabs:SetShown(compact)
+    rtabs:ClearAllPoints()
+    if menu then
+      -- the menu open: the round buttons drop down over the page, above everything on it
+      rtabs:SetPoint("TOPLEFT", self, "TOPLEFT", C.X, C.MENU_Y - C.MENU_H - 14)
+      rtabs:SetFrameLevel((self:GetFrameLevel() or 1) + 60)
+      rtabs.bg:Show()
+      rtabs:SetShown(self.menuOpen and true or false)
+    else
+      rtabs:SetPoint("TOPLEFT", self, "TOPLEFT", C.X, C.TAB_Y)
+      rtabs:SetFrameLevel((self:GetFrameLevel() or 1) + 2)
+      rtabs.bg:Hide()
+      rtabs:SetShown(compact)
+    end
+    menuBtn:SetShown(menu)
+    menuToggle:SetShown(compact)
+    if menu then self:RefreshMenuButton() end
     for i, b in pairs(round) do b:SetSelected(self.tab == i and not charView) end
+    strip:ClearAllPoints(); strip:SetPoint("TOPLEFT", self, "TOPLEFT", C.X, C.PAGE_BOTTOM - 8)
     strip:SetShown(compact and not charView)
 
     -- the header
     local narrow = mode == "narrow"
     if P.bagLabel then P.bagLabel:SetShown(not narrow and not compact) end
-    P.compBtn:SetShown(not narrow); compIcon:SetShown(narrow)
+    -- (1.6.2) full and narrow share one header row, [cat][layout][Compendium][Achievements][Settings]
+    -- after the title: the window keeps its top-left corner when the character column folds, so not one
+    -- of these moves under the mouse. The Compendium is its book icon in both (the wide button only in compact).
+    P.compBtn:SetShown(compact); compIcon:SetShown(not compact)
     pane:ClearAllPoints(); compIcon:ClearAllPoints(); lay:ClearAllPoints(); P.compBtn:ClearAllPoints()
     if P.bagBtn then P.bagBtn:ClearAllPoints() end
     if P.coins then P.coins:ClearAllPoints() end
     -- the round icons by the title: Achievements and Settings; the narrow header's buttons follow
     -- the last one. The cat button always comes first (nearest the character column it folds),
     -- then the layout button.
-    local iconRow = (self.tabButtons and self.TAB_SETTINGS and self.tabButtons[self.TAB_SETTINGS]) or P.ver
+    local achB = self.tabButtons and self.TAB_ACH and self.tabButtons[self.TAB_ACH]
+    local setB = self.tabButtons and self.TAB_SETTINGS and self.tabButtons[self.TAB_SETTINGS]
+    if achB and setB then
+      achB:ClearAllPoints(); setB:ClearAllPoints()
+      if compact then
+        -- by the title, as before (the second row has the TapCoins)
+        achB:SetPoint("LEFT", P.ver, "RIGHT", 12, 0)
+        setB:SetPoint("LEFT", achB, "RIGHT", 6, 0)
+      else
+        -- (1.6.2) after the Compendium (placed below)
+        achB:SetPoint("LEFT", compIcon, "RIGHT", 10, 0)
+        setB:SetPoint("LEFT", achB, "RIGHT", 6, 0)
+      end
+    end
     if compact then
       -- a second row: [cat][layout][Compendium] on the left, the Treasure Bag on the right
       pane:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -45)
       lay:SetPoint("LEFT", pane, "RIGHT", 6, 0)
       P.compBtn:SetPoint("LEFT", lay, "RIGHT", 8, 0)
+      menuToggle:ClearAllPoints(); menuToggle:SetPoint("LEFT", P.compBtn, "RIGHT", 8, 0)
       -- the TapCoins move down beside the Treasure Bag, so large numbers don't reach the
       -- Achievements and Settings icons by the title
       if P.bagBtn then P.bagBtn:SetPoint("TOPRIGHT", self, "TOPRIGHT", -20, -42) end
@@ -548,19 +645,13 @@ local function SetupLayout(win)
       end
     else
       if P.coins then P.coins:SetPoint("TOPRIGHT", self, "TOPRIGHT", -44, -18) end
-      if narrow then
-        pane:SetPoint("LEFT", iconRow, "RIGHT", 18, 0)
-        lay:SetPoint("LEFT", pane, "RIGHT", 6, 0)
-        compIcon:SetPoint("LEFT", lay, "RIGHT", 6, 0)
-      else
-        lay:SetPoint("RIGHT", P.compBtn, "LEFT", -6, 0)
-        pane:SetPoint("RIGHT", lay, "LEFT", -6, 0)
-      end
-      P.compBtn:SetPoint("TOP", self, "TOP", 0, -15)
+      pane:SetPoint("LEFT", P.ver, "RIGHT", 18, 0)
+      lay:SetPoint("LEFT", pane, "RIGHT", 6, 0)
+      compIcon:SetPoint("LEFT", lay, "RIGHT", 6, 0)
       if P.bagBtn and P.coins then P.bagBtn:SetPoint("RIGHT", P.coins, "LEFT", -18, 0) end
     end
     -- buttons other parts added (win:AddHeaderButton): in a row after the last header button
-    local prev = compact and P.compBtn or narrow and compIcon or nil
+    local prev = compact and menuToggle or narrow and setB or nil
     for _, e in ipairs(self.headerExtras) do
       local b = e.frame
       if prev then

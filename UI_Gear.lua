@@ -204,6 +204,12 @@ TCF.UI.Builders.gear = function(page, win)
     rows[i] = r
   end
   local pageText = Text(page, "GameFontHighlightSmall"); pageText:SetPoint("BOTTOM", 0, 14)
+  -- (1.6.2) the empty list's note sits in the middle of the list area and wraps there: as the page
+  -- line it ran across the window, behind Sell junk and Equip best
+  local emptyText = Text(page, "GameFontHighlight", nil, "CENTER")
+  emptyText:SetPoint("CENTER", page, "CENTER", 0, 0); emptyText:SetWidth(400)
+  if emptyText.SetWordWrap then emptyText:SetWordWrap(true) end
+  emptyText:Hide()
   local prev = Button(page, "<", 28, 22, function() win.gearPage = max(1, (win.gearPage or 1) - 1); win:Refresh() end)
   prev:SetPoint("RIGHT", pageText, "LEFT", -10, 0)
   local nextB = Button(page, ">", 28, 22, function() win.gearPage = (win.gearPage or 1) + 1; win:Refresh() end)
@@ -310,8 +316,11 @@ TCF.UI.Builders.gear = function(page, win)
         r:Hide()
       end
     end
-    pageText:SetText(#list > 0 and string.format("Page %d / %d  (%d items)", win.gearPage, pagesN, #list)
-      or "|cff888888No spare gear here. What your cat wears is on the slots around it (right-click one to take it off). Enemies and bosses in Adventure, chests and expeditions drop real items, and your crafting profession makes them.|r")
+    local any = #list > 0
+    pageText:SetText(any and string.format("Page %d / %d  (%d items)", win.gearPage, pagesN, #list) or "")
+    emptyText:SetText("|cff888888No spare gear here. What your cat wears is on the slots around it (right-click one to take it off).\n\nEnemies and bosses in Adventure, chests and expeditions drop real items, and your crafting profession makes them.|r")
+    emptyText:SetShown(not any)
+    prev:SetShown(any); nextB:SetShown(any)
     prev:SetEnabled(win.gearPage > 1); nextB:SetEnabled(win.gearPage < pagesN)
   end
 end

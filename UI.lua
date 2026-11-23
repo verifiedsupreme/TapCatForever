@@ -1427,7 +1427,9 @@ function TCF:CreateWindow()
   ------------------------------------------------ refresh
   function win:RefreshLight()
     local db = TCF.db
-    coins:SetText(coinStr(db.coins, 18))
+    -- (1.6.2) up to 999,999 in full, then short (1.25M), so the header's buttons always have room
+    local c = db.coins or 0
+    coins:SetText(c < 1e6 and coinStr(c, 18) or ("|T" .. ART .. "ui_coin:18:18|t " .. TCF.FormatBig(c)))
     local nChests = TCF:ChestCount()
     bagCount:SetText(nChests > 0 and nChests or "")
     bagIcon:SetDesaturated(nChests == 0)
