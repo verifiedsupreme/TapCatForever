@@ -230,6 +230,13 @@ function TCF:AdvUseAbility(run)
     for _, a in ipairs(list) do
       if usable(a) and (a.kind == "nuke" or a.kind == "drain") and (not best or a.value > best.value) then best = a end
     end
+    -- (1.6.0) an area spell also hits a lone enemy (a boss): it goes off when no single-target
+    -- spell is ready, so spells like Arcane Explosion aren't kept for packs only
+    if not best then
+      for _, a in ipairs(list) do
+        if usable(a) and a.kind == "aoe" and (not best or a.value > best.value) then best = a end
+      end
+    end
     choice = best
   end
   if not choice then return end

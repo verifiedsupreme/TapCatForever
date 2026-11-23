@@ -339,7 +339,7 @@ function FX:Ability(info)
   local impact, aura = 0, 0
   if onEnemy then impact, aura = FX.KitsFor(info.class, info.key, sprite) end
   local n = collect(self, info, not SINGLE_KINDS[info.kind]
-    and (mode == "each" or mode == "multi" or mode == "rain" or (mode == "stun" and info.kind == "stun")))
+    and (mode == "each" or mode == "nova" or mode == "multi" or mode == "rain" or (mode == "stun" and info.kind == "stun")))
   local carried = false
   local cx, cy = FX.MUZZLE[1] - 8, FX.MUZZLE[2] + 20
   if mode == "proj" or mode == "multi" then
@@ -353,7 +353,9 @@ function FX:Ability(info)
       self:Play(sprite, "proj", targets[1].x, targets[1].y, cx, cy, 36, 0.45)
       self:Kit(targets[1].i, impact, true)
     end
-  elseif mode == "hit" or mode == "each" then
+  elseif mode == "hit" or mode == "each" or mode == "nova" then
+    -- nova: the blast rings out from the cat first (in its school's colour)
+    if mode == "nova" then self:Play("aura", "ring", FX.FEET[1], FX.FEET[2] + 10, nil, nil, 170, 0.6, FX.SCHOOL_TINT[TCF.SPELL_FX.SCHOOL[sprite] or "arcane"]) end
     for k = 1, n do
       local p = targets[k]
       self:Play(sprite, "burst", p.x, p.y, nil, nil, 60, 0.4)

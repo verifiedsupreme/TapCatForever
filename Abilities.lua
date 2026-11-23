@@ -142,7 +142,8 @@ end
 -- How each ability looks in Adventure fights: { sprite, mode [, tint] }
 -- modes: proj (fly to the target), multi (fly to every enemy), drain (fly back to the cat),
 --        hit (pop on the target), each (pop on every enemy), rain (fall on every enemy),
---        stun (stars over enemies), self (rise on the cat), bubble (surround the cat)
+--        stun (stars over enemies), self (rise on the cat), bubble (surround the cat),
+--        nova (a ring bursts out from the cat, then pops on every enemy: Arcane Explosion)
 local SPELL = {
   WARRIOR = { hs = { "slash", "hit" }, bs = { "buff", "self" }, rend = { "slash", "hit" }, tc = { "lightning", "each" },
               exe = { "slash", "hit" }, sw = { "shield", "bubble", { 1, 0.85, 0.4 } }, ww = { "slash", "each" }, ms = { "slash", "hit" }, reck = { "buff", "self" } },
@@ -156,7 +157,7 @@ local SPELL = {
              mb = { "shadow", "proj" }, scream = { "shadow", "stun" }, nova = { "holy", "each" } },
   SHAMAN = { lb = { "lightning", "proj" }, es = { "rock", "proj" }, hw = { "heal", "self" }, fs = { "fire", "proj" },
              wf = { "buff", "self" }, cl = { "lightning", "multi" }, storm = { "lightning", "hit" } },
-  MAGE = { fb = { "fire", "proj" }, blast = { "fire", "hit" }, nova = { "frost", "stun" }, ae = { "arcane", "each" },
+  MAGE = { fb = { "fire", "proj" }, blast = { "fire", "hit" }, nova = { "frost", "stun" }, ae = { "arcane", "nova" },
            bliz = { "frost", "rain" }, pyro = { "fire", "proj" }, block = { "shield", "bubble", { 0.7, 0.9, 1 } },
            barrier = { "shield", "bubble", { 0.6, 0.85, 1 } }, ap = { "arcane", "self" } },
   WARLOCK = { sb = { "shadow", "proj" }, immo = { "fire", "hit" }, corr = { "shadow", "proj" }, fear = { "shadow", "stun" },
