@@ -85,7 +85,7 @@ local DEFAULTS = {
   taps = 0,
   classData = {},   -- per class: level, xp, adventure progress
   coins = 0, coinsEarned = 0, coinsSpent = 0, coinFrac = 0,
-  owned = {},       -- cosmetics
+  -- owned: (1.6.0) the cosmetics of each class's cat are in classData[class].owned (TCF:Owned)
   gear = {},        -- real gear: itemID -> count
   class = nil,
   loadouts = {},
@@ -114,6 +114,11 @@ local DEFAULTS = {
 TCF.PER_CHARACTER = {
   owned = true, gear = true, loadouts = true, look = true, looks = true, keys = true, classData = true,
   trade = true, tradeSplit = true, expeditions = true, class = true, prof = true, dungeonRun = true, shop = true,
+}
+
+-- (1.6.0) keys that read something else than a saved table of their own (see bindCharacter)
+TCF.VIRTUAL = {
+  owned = function() return TCF:Owned() end,
 }
 
 local function characterKey()
@@ -149,9 +154,18 @@ local function bindCharacter(sv)
     if v ~= nil and char[k] == nil then char[k] = v end
   end
   for k in pairs(TCF.PER_CHARACTER) do rawset(sv, k, nil) end
+  -- (1.6.0) TCF.VIRTUAL keys stand for something else: db.owned is the collection of the cat
+  -- things are given to right now (TCF:Owned)
   setmetatable(sv, {
-    __index = function(_, k) if TCF.PER_CHARACTER[k] then return char[k] end end,
-    __newindex = function(t, k, v) if TCF.PER_CHARACTER[k] then char[k] = v else rawset(t, k, v) end end,
+    __index = function(_, k)
+      local virt = TCF.VIRTUAL[k]
+      if virt then return virt(char) end
+      if TCF.PER_CHARACTER[k] then return char[k] end
+    end,
+    __newindex = function(t, k, v)
+      if TCF.VIRTUAL[k] then return end   -- (never replaced as a whole)
+      if TCF.PER_CHARACTER[k] then char[k] = v else rawset(t, k, v) end
+    end,
   })
   TCF.charKey, TCF.charData = key, char
   return char
@@ -193,27 +207,9 @@ function TCF:InitDB()
     local cl = TCF.CLASS_BY_KEY[db.class]
     db.look.fur = cl.fur
   end
-  -- (ItemSources.lua: a cosmetic given here for the first time records where it came from)
-  local function give(id, src)
-    if db.owned[id] then return end
-    db.owned[id] = 1
-    if self.NoteItemSource then self:NoteItemSource(id, src) end
-  end
-  for _, id in ipairs(TCF.STARTER) do give(id, "Starter cosmetic") end
-  -- every character owns a basic Orange Tabby skin
-  give("skin_orange", "Starter cosmetic")
-  -- Achievements are account-wide but cosmetics are per character: give alts (and a
-  -- character after "Reset this character") the rewards of achievements already earned.
-  for _, a in ipairs(TCF.ACHIEVEMENTS) do
-    if db.achievements[a.id] then
-      if a.item and TCF.ITEMS[a.item] then give(a.item, "Achievement: " .. a.name) end
-      if a.skin and TCF.ITEMS[a.skin] then give(a.skin, "Achievement: " .. a.name) end
-    end
-  end
   -- cosmetic overrides per class (empty = the cat shows its real gear)
   for _, cl in ipairs(TCF.CLASSES) do db.loadouts[cl.key] = db.loadouts[cl.key] or {} end
   -- drop references to items that no longer exist
-  for id in pairs(db.owned) do if not TCF.ITEMS[id] then db.owned[id] = nil end end
   for _, lo in pairs(db.loadouts) do
     for slot, id in pairs(lo) do if not TCF.ITEMS[id] then lo[slot] = nil end end
   end
@@ -275,6 +271,7 @@ function TCF:InitDB()
       cd.xpCurve2 = true
     end
   end
+  self:InitOwned(char)
   -- 1.5.3: level-up rewards are paid once per class and level for the whole account. Every
   -- level any character's cat already reached was paid, so it starts from the highest of them.
   if type(db.levelPaid) ~= "table" then
@@ -313,6 +310,95 @@ end
 
 -- Per-class progress (level, xp, adventure)
 function TCF:CD(class) return self.db.classData[class or self.db.class] end
+
+---------------------------------------------------------------- cosmetics per class cat (1.6.0)
+-- Every class's cat has its own collection of cosmetics (skins, fur, patterns, hats, capes,
+-- effects, tap effects, accessories, racial pieces, set pieces, crafted cosmetics):
+-- classData[class].owned = { [item id] = copies }. db.owned (TCF.VIRTUAL) is the collection of the
+-- cat things are given to right now (TCF:OwnerClass): the cat a crafting job, an expedition being
+-- claimed or a class achievement is for (TCF:WithOwner), else the cat you are playing. So every
+-- unlock goes to that cat, and the Appearance tab, Shop, Compendium and try-on show its collection.
+
+-- the class whose cat gets what is given right now
+function TCF:OwnerClass()
+  local db = self.db
+  local all = db and db.classData
+  if not all then return db and db.class end
+  local c = self.ownerClass
+  if not (c and all[c]) then c = self.claimChests and self.claimChests.owner end
+  if not (c and all[c]) then c = self.tradeClass end
+  if not (c and all[c]) then c = db.class end
+  return c
+end
+
+-- a class cat's cosmetics (default: TCF:OwnerClass). A class without a cat (never in a real
+-- save) gets a table that is not saved.
+function TCF:Owned(class)
+  local db = self.db
+  class = class or self:OwnerClass()
+  local cd = db and db.classData and class and db.classData[class]
+  if type(cd) ~= "table" then return {} end
+  if type(cd.owned) ~= "table" then cd.owned = {} end
+  return cd.owned
+end
+
+-- runs fn(self, ...) with everything given going to class's cat
+function TCF:WithOwner(class, fn, ...)
+  local prev = self.ownerClass
+  self.ownerClass = class
+  local ok, a, b, c = pcall(fn, self, ...)
+  self.ownerClass = prev
+  if not ok then error(a, 0) end
+  return a, b, c
+end
+
+-- does any class's cat own this cosmetic?
+function TCF:AnyCatOwns(id)
+  for _, cl in ipairs(TCF.CLASSES) do
+    local cd = self.db.classData[cl.key]
+    if type(cd) == "table" and type(cd.owned) == "table" and cd.owned[id] then return cl.key end
+  end
+end
+
+-- Once per load: the cosmetics a character owned before 1.6.0 (char.owned, also a collection an
+-- older version wrote after going back) go to every class's cat, so nobody loses anything.
+-- Every cat owns the starter cosmetics; an account achievement already earned whose reward no
+-- cat has (a new character, a reset) gives it to the cat being played.
+function TCF:InitOwned(char)
+  local db = self.db
+  local legacy = char and rawget(char, "owned")
+  for _, cl in ipairs(TCF.CLASSES) do
+    local cd = db.classData[cl.key]
+    if type(cd.owned) ~= "table" then cd.owned = {} end
+    local o = cd.owned
+    if type(legacy) == "table" then
+      for id, n in pairs(legacy) do
+        if type(id) == "string" then o[id] = max(tonumber(o[id]) or 0, tonumber(n) or 1) end
+      end
+    end
+    for id in pairs(o) do if not TCF.ITEMS[id] then o[id] = nil end end
+  end
+  if char then char.owned = nil end
+  -- (ItemSources.lua: a cosmetic given here for the first time records where it came from)
+  local function give(id, src, class)
+    local o = self:Owned(class)
+    if o[id] then return end
+    o[id] = 1
+    if self.NoteItemSource then self:NoteItemSource(id, src, nil, nil, class) end
+  end
+  for _, cl in ipairs(TCF.CLASSES) do
+    for _, id in ipairs(TCF.STARTER) do give(id, "Starter cosmetic", cl.key) end
+    -- every cat owns a basic Orange Tabby skin
+    give("skin_orange", "Starter cosmetic", cl.key)
+  end
+  for _, a in ipairs(TCF.ACHIEVEMENTS) do
+    if db.achievements[a.id] then
+      for _, id in ipairs({ a.item or false, a.skin or false }) do
+        if id and TCF.ITEMS[id] and not self:AnyCatOwns(id) then give(id, "Achievement: " .. a.name, db.class) end
+      end
+    end
+  end
+end
 
 ---------------------------------------------------------------- appearance
 function TCF:GetLoadout(class) return self.db.loadouts[class or self.db.class] end
@@ -379,7 +465,7 @@ function TCF:IsEquipped(it, class)
 end
 
 function TCF:Equip(it, class)
-  if not it or not self.db.owned[it.id] or not self:CanEquip(it, class) then return end
+  if not it or not self:Owned(class or self.db.class)[it.id] or not self:CanEquip(it, class) then return end
   if TCF.SLOT_BY_KEY[it.slot].look then
     self:LookOf(class)[it.slot] = it.id
   else
@@ -1484,10 +1570,9 @@ function TCF:BuyRaceAccessory()
   self.db.owned[it.id] = 1
   if self.NoteItemSource then self:NoteItemSource(it.id, "Racial heritage in the Shop") end
   self.db.ui.racial = true
-  for _, cl in ipairs(TCF.CLASSES) do
-    local lo = self:GetLoadout(cl.key)
-    if not lo[it.slot] then lo[it.slot] = it.id end
-  end
+  -- (1.6.0) it belongs to the cat you are playing, which puts it on
+  local lo = self:GetLoadout()
+  if not lo[it.slot] then lo[it.slot] = it.id end
   self:Print(string.format("Your cat shows its %s pride: %s.", raceName or "racial", TCF.ItemLink(it)), true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, (raceName or "Racial") .. " heritage") end
   self:PlaySound("buy")
@@ -1512,14 +1597,16 @@ function TCF:CheckDaily()
 end
 
 ---------------------------------------------------------------- stats & achievements
-function TCF:CountOwned()
+-- a class cat's collection (default: the cat you are playing): owned, total, owned per rarity
+function TCF:CountOwned(class)
   local n, total, r = 0, 0, { 0, 0, 0, 0, 0 }
+  local mine = self:Owned(class or self.db.class)
   -- A character can only buy its own race's heritage piece, so other races' pieces
-  -- count toward the total only if this character already owns them.
+  -- count toward the total only if this cat already owns them.
   local myRace = self:RaceItemForPlayer()
   for _, it in ipairs(TCF.ITEM_LIST) do
     if it.source ~= "retired" then
-      local owned = self.db.owned[it.id]
+      local owned = mine[it.id]
       if it.source ~= "race" or owned or (myRace and myRace.id == it.id) then
         total = total + 1
         if owned then n = n + 1; r[it.rarity] = r[it.rarity] + 1 end
@@ -1553,27 +1640,39 @@ function TCF:GetStat(stat)
     for _, d in pairs(TCF.SKIN_DROPS or {}) do
       if d.id then drops[d.id] = true else for _, e in ipairs(d) do drops[e.id] = true end end
     end
-    local n = 0
-    for _, it in ipairs(TCF.ITEM_LIST) do
-      if it.slot == "skin" and db.owned[it.id] and (stat == "skins" or drops[it.id] or it.get ~= nil) then n = n + 1 end
+    -- (1.6.0) cosmetics belong to each class's cat: the best cat's collection counts
+    local best = 0
+    for _, cl in ipairs(TCF.CLASSES) do
+      local mine, n = self:Owned(cl.key), 0
+      for _, it in ipairs(TCF.ITEM_LIST) do
+        if it.slot == "skin" and mine[it.id] and (stat == "skins" or drops[it.id] or it.get ~= nil) then n = n + 1 end
+      end
+      best = max(best, n)
     end
-    return n
+    return best
   elseif stat == "tradeGold" or stat == "renown" then
     -- every class's cat has its own trade: Trade Gold earned by all of them, the best Renown of one
     if not self.TradeTotals then return 0 end
     local life, renown = self:TradeTotals()
     return stat == "tradeGold" and life or renown
   elseif stat == "races" then
-    -- heritage pieces are bought per character, so count distinct pieces across the account
+    -- heritage pieces are bought per race, so count distinct pieces any cat on the account owns
     local seen, n = {}, 0
+    local function scan(owned)
+      if type(owned) ~= "table" then return end
+      for id in pairs(owned) do
+        local it = TCF.ITEMS[id]
+        if it and it.source == "race" and not seen[id] then seen[id] = true; n = n + 1 end
+      end
+    end
+    local function scanCats(classData)
+      if type(classData) ~= "table" then return end
+      for _, cd in pairs(classData) do if type(cd) == "table" then scan(cd.owned) end end
+    end
+    scanCats(db.classData)
     local chars = TapCatForeverDB and rawget(TapCatForeverDB, "chars") or {}
     for _, ch in pairs(chars) do
-      if type(ch) == "table" and ch.owned then
-        for id in pairs(ch.owned) do
-          local it = TCF.ITEMS[id]
-          if it and it.source == "race" and not seen[id] then seen[id] = true; n = n + 1 end
-        end
-      end
+      if type(ch) == "table" then scan(rawget(ch, "owned")); scanCats(rawget(ch, "classData")) end
     end
     return n
   elseif stat == "epicGear" or stat == "legendGear" then
@@ -1597,12 +1696,19 @@ function TCF:GetStat(stat)
   elseif stat == "coinsSpent" then return db.coinsSpent
   elseif stat == "streak" then return db.daily.best
   elseif stat == "owned" or stat == "ownedPct" or stat == "rares" or stat == "epics" or stat == "legends" then
-    local n, total, r = self:CountOwned()
-    if stat == "owned" then return n end
-    if stat == "ownedPct" then return floor(n / total * 100) end
-    if stat == "rares" then return r[3] + r[4] + r[5] end
-    if stat == "epics" then return r[4] end
-    return r[5]
+    -- (1.6.0) the best class cat's collection counts, so playing another cat never loses progress
+    local best = 0
+    for _, cl in ipairs(TCF.CLASSES) do
+      local n, total, r = self:CountOwned(cl.key)
+      local v
+      if stat == "owned" then v = n
+      elseif stat == "ownedPct" then v = floor(n / max(1, total) * 100)
+      elseif stat == "rares" then v = r[3] + r[4] + r[5]
+      elseif stat == "epics" then v = r[4]
+      else v = r[5] end
+      best = max(best, v)
+    end
+    return best
   elseif stat == "classesPlayed" then
     local n = 0
     for _ in pairs(db.stats.classesPlayed) do n = n + 1 end

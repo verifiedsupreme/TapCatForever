@@ -267,14 +267,19 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 - Pick a class with the class icons at the bottom of the page to see its progress. Hover a row for the details.
 - Each class earns each one once for your whole account, so an alt of the same class can't earn it again.
 - Rewards are a few TapCoins (595 for all 23 of one class) and a chest for that class's cat, which goes straight into that cat's own Treasure Bag.
-- Level 60 with a class also gives that class's Legendary main hand look, on every character. It is labelled Cosmetic only: it changes how your cat looks, not its Power.
+- Level 60 with a class also gives that class's cat its Legendary main hand look. It is labelled Cosmetic only: it changes how your cat looks, not its Power.
 - Already played a lot? At login your cats get credit for what they have already done, with one chat line.
 - Expeditions count for every cat that went, from this update on. Party expeditions count for Better Together and Party Regular, and as expeditions for the expedition ones.
 - Natural: get a blackjack (25 TapCoins).
 - Three Cats in a Row: line up three cats on the slots (100 TapCoins).
 
 **Cosmetics and art**
-- Each class's cat now wears its own skin, fur, pattern and tap effect, like its other cosmetics. Switch class and that cat puts on its own look. Everything you own stays yours and any cat can wear it. After the update every cat starts with the look you were wearing; a new character's cats start in their own class fur.
+- Each class's cat now has its own look and its own collection: skins, furs, patterns, tap effects, hats, capes, effects, accessories, racial pieces, set pieces and crafted cosmetics. Switch class and that cat puts on its own look and shows its own collection.
+- After the update every class's cat owns everything you owned and starts with the look you were wearing, so nobody loses anything. A new character's cats start in their own class fur.
+- From now on a new cosmetic goes to the cat you are playing: chests, Adventure drops, real WoW boss rewards, quests, achievements and the Shop (skins and the racial piece too). Crafting, an expedition and a class achievement give it to the cat that earned it.
+- A cosmetic a cat already has is salvaged for TapCoins, as before. The same cosmetic on another cat is new for that cat.
+- The Appearance tab, the Shop (what you own, and the skins a Heroic Cache can still hold), the Compendium, trying on and "Got it from" all show the cat you are playing.
+- Achievements that count cosmetics (Wardrobe Started to Completionist, Crazy Cat Collector and the others) count your best cat's collection, so playing another cat never loses progress.
 - Party members, the Casino, the Shop's try on and the Gear page show the look of the cat you are playing.
 - Cosmetics can now move on your cat: flickering flames, lava that flows, glows that breathe, stars drifting inside a helm or through the fur, rising embers, falling snow and leaves, bubbles, sparkles and ghostly wisps.
 - Effects only play on the cartoon cat and stop while the cat is hidden. Small cats (the party row) show only the light parts, and they come back when you make the cat bigger.

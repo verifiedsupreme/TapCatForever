@@ -140,14 +140,16 @@ check(TCF:ClassAchEarned("MAGE", "c_exp10") and TCF:ClassAchEarned("ROGUE", "c_e
 
 -- 4. level 60: the class's Legendary main hand cosmetic
 local legend = TCF:ClassAchItem(TCF.CLASS_ACH_BY_ID.c_lvl60, "PRIEST")
-TCF.db.owned[legend.id] = nil
+TCF:Owned("PRIEST")[legend.id] = nil
 TCF.db.classData.PRIEST.level = 60
 TCF:CheckAchievements()
-check(TCF:ClassAchEarned("PRIEST", "c_lvl60") and TCF.db.owned[legend.id], "level 60 cosmetic")
+-- (1.6.0) it belongs to the Priest's cat, not to the cat being played
+check(TCF:ClassAchEarned("PRIEST", "c_lvl60") and TCF:Owned("PRIEST")[legend.id], "level 60 cosmetic")
+check(TCF.db.class == "PRIEST" or not TCF.db.owned[legend.id], "only the Priest's cat gets it")
 
 -- 5. once per account: another character with the same classes earns nothing again, but gets the cosmetic
 login("Classalt")
-check(TCF.db.owned[legend.id], "the cosmetic on an alt too")
+check(TCF:Owned("PRIEST")[legend.id], "the cosmetic on an alt too")
 local c3, k3, n3 = TCF.db.coins, keys(), #_chat
 TCF.db.classData.WARRIOR.level = 25
 TCF.db.classData.PRIEST.level = 60

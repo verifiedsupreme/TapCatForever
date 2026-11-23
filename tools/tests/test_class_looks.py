@@ -1,11 +1,11 @@
 # 1.6.0 test feedback: "the cats skins should be PER class". Each class's cat wears its own fur,
-# pattern, skin and tap effect (cosmetic slots were already per class); owned items stay owned by
-# the character and any cat can wear them. Checks:
+# pattern, skin and tap effect (cosmetic slots were already per class); since the next 1.6.0 change
+# the cosmetics are owned per class cat too (tools/tests/test_class_cosmetics.py). Checks:
 #   - an old save (one shared look): after the update every class's cat wears that look
 #   - a new skin on the Mage stays on the Mage; the Warrior keeps its own; back and forth; reload
 #   - fur and tap effect per class, IsEquipped / Equip / Unequip for another class
 #   - the party message and the previews (Shop try on, Gear page, Casino) use the current class's look
-#   - set pieces and the racial slot follow the class too (loadouts), a racial piece goes on every cat
+#   - set pieces and the racial slot follow the class too (loadouts), a racial piece goes on the cat that bought it
 #   - a new character's cats start in their own class fur
 # Run on its own:  python3 tools/tests/test_class_looks.py [seed]
 import os, sys
@@ -33,8 +33,11 @@ def check(seed, load_addon):
       T:SetClass("MAGE")
       for _, id in ipairs({ "skin_frostsaber", "skin_lion", "fur_snow", "tap_puff" }) do T.db.owned[id] = 1 end
       T:Equip(T.ITEMS.skin_frostsaber); T:Equip(T.ITEMS.fur_snow)
-      -- as a 1.5.x save looked: no per-class looks yet
+      -- as a 1.5.x save looked: no per-class looks yet, one collection for the character
       TapCatForever.charData.looks = nil
+      local all = {}
+      for _, cd in pairs(T.db.classData) do for id, n in pairs(cd.owned or {}) do all[id] = n end; cd.owned = nil end
+      TapCatForever.charData.owned = all
     ''')
     old = A.eval("_dbString()")
     B = login(load_addon, "Lookcat", old)
@@ -53,7 +56,7 @@ def check(seed, load_addon):
     ck(E("TapCatForever:GetAppearance('MAGE').skin.id") == "skin_lion", "the Mage's look read while playing the Warrior")
     ck(E("TapCatForever:IsEquipped(TapCatForever.ITEMS.skin_lion, 'MAGE')") and not E("TapCatForever:IsEquipped(TapCatForever.ITEMS.skin_lion)"),
        "IsEquipped per class")
-    # owned stays owned: the Warrior can wear the lion skin too, and take it off again
+    # (1.6.0: every cat of an old save owns what the character owned) the Warrior can wear the lion skin too
     X("TapCatForever:Equip(TapCatForever.ITEMS.skin_lion); TapCatForever:Unequip('skin')")
     ck(E("TapCatForever:GetAppearance().skin == nil") and E("TapCatForever:GetAppearance('MAGE').skin.id") == "skin_lion", "Unequip on the Warrior only")
     X("TapCatForever:Equip(TapCatForever.ITEMS.skin_frostsaber)")
@@ -108,7 +111,7 @@ def check(seed, load_addon):
       local T = TapCatForever
       local set = T.COSMETIC_SETS[1]
       _piece = set and set.items[1]
-      if _piece then T.db.owned[_piece.id] = 1; T:SetClass("MAGE"); T:Equip(_piece) end
+      if _piece then T:SetClass("MAGE"); T.db.owned[_piece.id] = 1; T:Equip(_piece) end
     ''')
     if E("_piece ~= nil"):
         slot = E("_piece.slot")
@@ -122,10 +125,12 @@ def check(seed, load_addon):
       _raceOk = T:BuyRaceAccessory()
     ''')
     if E("_raceOk"):
-        for cls in ("MAGE", "WARRIOR", "ROGUE"):
-            ck(E("TapCatForever:GetAppearance(%r).race ~= nil" % cls), "the racial piece goes on the %s cat" % cls)
-        X("TapCatForever:Unequip('race', 'MAGE')")
-        ck(E("TapCatForever:GetAppearance('MAGE').race == nil") and E("TapCatForever:GetAppearance('WARRIOR').race ~= nil"), "the racial slot per class")
+        # (1.6.0) bought for the cat being played (the Warrior): only it owns and wears it
+        ck(E("TapCatForever:GetAppearance('WARRIOR').race ~= nil"), "the racial piece goes on the Warrior cat")
+        for cls in ("MAGE", "ROGUE"):
+            ck(E("TapCatForever:GetAppearance(%r).race == nil" % cls), "the %s cat doesn't get it" % cls)
+        X("TapCatForever:Unequip('race', 'WARRIOR')")
+        ck(E("TapCatForever:GetAppearance('WARRIOR').race == nil"), "the racial slot per class")
 
     # --- a reload keeps every cat's look
     X('TapCatForever:SetClass("WARRIOR")')

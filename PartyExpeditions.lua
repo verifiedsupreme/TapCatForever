@@ -722,7 +722,10 @@ function TCF:GroupExpClaim()
   -- (the 4th argument: the cat the chest goes to, once chests belong to a class cat; ignored before)
   if extra and random() < extraChance then self:AwardChest(extra, label, true, g.mine and g.mine[1]) end
   if self.RollSkinSource then
-    self:RollSkinSource("expedition", function(x) return x.expedition == "any" end, "Your party brought it home from " .. name, true)
+    -- (1.6.0) a skin goes to a cat that went: the one you are playing if it went, else the first
+    local owner = g.mine and g.mine[1]
+    for _, c in ipairs(g.mine or {}) do if c == self.db.class then owner = c end end
+    self:WithOwner(owner, self.RollSkinSource, "expedition", function(x) return x.expedition == "any" end, "Your party brought it home from " .. name, true)
   end
   self:MarkDirty(); self:RefreshAll()
   return true

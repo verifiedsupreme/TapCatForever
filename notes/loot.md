@@ -45,6 +45,14 @@
 - Cosmetics you had before this update say "Got before this was tracked". Another copy of one later adds "Latest one from: ..." under it.
 - The cosmetics every cat starts with say "Got it from: Starter cosmetic".
 
+## Cosmetics belong to each class's cat (1.6.0)
+- Every class's cat has its own collection: skins, furs, patterns, tap effects, hats, capes, effects, accessories, racial pieces, set pieces and crafted cosmetics. Its look was already its own.
+- After the update every cat owns everything the character owned, with where it came from, so nobody loses anything.
+- New cosmetics go to the cat being played (chests, Adventure drops, real WoW bosses, quests, achievements, the Shop with its skins and racial piece). Crafting, expeditions and class achievements give it to the cat that earned it. Duplicates are salvaged per cat.
+- The Appearance tab, the Shop (owned marks, Heroic Cache skins), the Compendium, try on and "Got it from" show the cat being played.
+- Achievements that count cosmetics count the best cat's collection (decided so switching cats never loses progress and no achievement goes backwards). The racial heritage one counts different pieces on any cat.
+- For code: `classData[class].owned`; `db.owned` stands for the collection of `TCF:OwnerClass()` (the cat a crafting job, a claimed expedition or `TCF:WithOwner` is for, else the cat being played). `TCF:Owned(class)` reads any cat's. `classData[class].itemSources` keeps where each came from; the old per-character records are still read as a fallback.
+
 ## For the merge (not for players)
 - `db.keys` is a stand-in for the current cat's bag: reading or writing `db.keys[key]` works, but `pairs(db.keys)` sees nothing in Lua 5.1. Code or tests that sum every chest use `TCF:ChestCount(class)` or `pairs(TCF:ChestCounts(class))`. On t-party this means two test helpers (checked on a scratch merge of t-loot and t-party: both party tests then pass, and so do all loot tests):
   - tools/tests/test_party_classach.py: `local function keys() local n = 0; for _, cl in ipairs(TCF.CLASSES) do n = n + TCF:ChestCount(cl.key) end; return n end` (every cat's bag, since each cat now holds its own chests).

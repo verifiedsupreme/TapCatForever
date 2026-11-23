@@ -28,7 +28,7 @@ Features
 - Adventure: a faster start, a Help guide, first kills that give more in bigger zones, and bosses you can farm for their real loot. Some rewards come from killing real WoW bosses, like Hogger, and six boss effects unlock from big kills.
 - Adventure fights look better: hunters shoot arrows, bullets and bolts from the weapon in their paw, wands fire bolts in their school's colour, and abilities play the game's real spell effects on the enemies.
 - Professions level like WoW (orange, yellow, green, grey), with a cheap white starter set for each craft and three more spots per gathering profession.
-- Every class's cat has its own Treasure Bag and wears its own skin and fur, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.
+- Every class's cat has its own Treasure Bag, its own look and its own collection of cosmetics, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.
 - Party expeditions: send your cats out together with group members who have the addon, on Normal, Hard or Heroic. Every class's cat also has its own 23 class achievements.
 - The realm leaderboard: players who joined and are in a party, raid or guild together now show up on each other's leaderboard.
 - Multiplayer is still in the works: party death roll, rock paper scissors and the leaderboard may not work yet.
@@ -121,7 +121,7 @@ Features
 - The Compendium lists every skin, cosmetic, effect and piece of gear, what you own, and how to get the rest.
 
 **Account and character**
-- Gear, cosmetics and cat levels belong to each character, and each class's cat has its own Trade Gold and professions. TapCoins, quests and achievements are shared across your account.
+- Gear, cosmetics and cat levels belong to each character, and each class's cat has its own cosmetics, Trade Gold and professions. TapCoins, quests and achievements are shared across your account.
 
 Getting started
 ---------------

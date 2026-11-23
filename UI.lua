@@ -910,7 +910,8 @@ function TCF:CreateWindow()
     for _, b in ipairs(slotBtns) do b.sel:SetShown(b.key == self.slot) end
     local s = TCF.SLOT_BY_KEY[self.slot]
     local cl = TCF.CLASS_BY_KEY[TCF.db.class]
-    slotTitle:SetText(s.name .. (s.look and "  |cff888888(all classes)|r" or ("  |cff888888(" .. cl.name .. ")|r")))
+    -- (1.6.0) everything here belongs to the cat you are playing: its look and its collection
+    slotTitle:SetText(s.name .. "  |cff888888(" .. cl.name .. ")|r")
     local list = self:WardrobeItems()
     local per = COLS * ROWS
     local pagesN = max(1, math.ceil(#list / per))

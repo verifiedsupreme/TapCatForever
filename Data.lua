@@ -806,9 +806,9 @@ TCF.ACHIEVEMENTS = {
   { id = "casino_cats", name = "Three Cats in a Row", stat = "casinoCats",       goal = 1, coins = 100, icon = "Ability_Druid_CatForm" },
 }
 local STAT_TEXT = {
-  taps = "Tap %s times.", level = "Reach level %s.", owned = "Own %s cosmetics.",
-  ownedPct = "Own every cosmetic.", rares = "Own %s Rare (or better) cosmetic.",
-  epics = "Own %s Epic cosmetics.", legends = "Own %s Legendary cosmetics.",
+  taps = "Tap %s times.", level = "Reach level %s.", owned = "Own %s cosmetics on one cat.",
+  ownedPct = "Own every cosmetic on one cat.", rares = "Own %s Rare (or better) cosmetic on one cat.",
+  epics = "Own %s Epic cosmetics on one cat.", legends = "Own %s Legendary cosmetics on one cat.",
   classesPlayed = "Dress your cat as all %s classes.", outfits = "Equip head, chest and main hand on %s class(es).",
   coinsEarned = "Earn %s TapCoins in total.", coinsSpent = "Spend %s TapCoins.",
   chests = "Open %s chests.", hoards = "Open %s Raider's Hoard(s).", dungeonChests = "Open %s Dungeon Chest(s).", drops = "Find %s random loot drops while tapping.",
@@ -816,8 +816,8 @@ local STAT_TEXT = {
   pets = "Pet your cat %s times.", streak = "Log in %s days in a row.",
   advTier = "Clear %s Adventure zones.", bossKills = "Defeat %s Adventure bosses.", questsDone = "Complete %s quests.",
   tradeGold = "Earn %s Trade Gold in Professions.", renown = "Earn %s Renown by selling your business.",
-  skins = "Own %s cat skins.", dropSkins = "Get %s rare cat skin that can't be bought (boss drops, chests, quests and more).",
-  races = "Collect %s different racial heritage pieces across your characters.",
+  skins = "Own %s cat skins on one cat.", dropSkins = "Get %s rare cat skin that can't be bought (boss drops, chests, quests and more).",
+  races = "Collect %s different racial heritage pieces across your cats.",
   gearFound = "Find %s pieces of real gear.", epicGear = "Own %s Epic gear item(s).", legendGear = "Own %s Legendary item.",
   expeditionWins = "Complete %s successful expedition(s).", crafted = "Craft %s item(s) with professions.",
   casinoBlackjacks = "Get a blackjack in the Casino.", casinoCats = "Line up three cats on the Casino slots.",

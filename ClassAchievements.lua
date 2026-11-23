@@ -8,7 +8,7 @@
 -- the character you are playing (levels, gear and Adventure are per character), except the
 -- expedition counts, which are kept for the whole account (db.classProgress[class]).
 --
--- Rewards: a few TapCoins (kept small on purpose) and a chest for that class's cat. The chest is
+-- Rewards: a few TapCoins (kept small on purpose) and a chest for that class's cat. The chest
 -- goes straight into that class cat's own Treasure Bag (TCF:AwardChest with its class); only a class
 -- with no cat on this character keeps its chests waiting (db.classAchPending[class]). Reaching level 60 also
 -- gives that class's Legendary main hand cosmetic (cosmetic only).
@@ -259,9 +259,10 @@ function TCF:CheckClassAchievements(quiet)
         end
         local it = self:ClassAchItem(a, class)
         local extra = ""
-        if it and not self.db.owned[it.id] then
-          self.db.owned[it.id] = 1
-          if self.NoteItemSource then self:NoteItemSource(it.id, cl.name .. " achievement " .. a.name) end
+        local mine = self:Owned(class)   -- (1.6.0) it belongs to that class's cat
+        if it and not mine[it.id] then
+          mine[it.id] = 1
+          if self.NoteItemSource then self:NoteItemSource(it.id, cl.name .. " achievement " .. a.name, nil, nil, class) end
           extra = " and " .. TCF.ItemLink(it) .. " (Cosmetic only)"
         end
         if not quiet then
@@ -279,16 +280,18 @@ function TCF:CheckClassAchievements(quiet)
   return n
 end
 
--- on every character: the level 60 cosmetic of a class that already earned it on another character
+-- at login: the level 60 cosmetic of a class that already earned it goes to that class's cat if
+-- it doesn't have it (a reset, or a save from before it was given)
 local function grantOwned(self)
   local earned = store(self)
   for _, cl in ipairs(TCF.CLASSES) do
     for id in pairs(earned[cl.key] or {}) do
       local a = TCF.CLASS_ACH_BY_ID[id]
       local it = a and self:ClassAchItem(a, cl.key)
-      if it and not self.db.owned[it.id] then
-        self.db.owned[it.id] = 1
-        if self.NoteItemSource then self:NoteItemSource(it.id, cl.name .. " achievement " .. a.name) end
+      local mine = self:Owned(cl.key)
+      if it and not mine[it.id] then
+        mine[it.id] = 1
+        if self.NoteItemSource then self:NoteItemSource(it.id, cl.name .. " achievement " .. a.name, nil, nil, cl.key) end
       end
     end
   end

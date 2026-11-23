@@ -1,9 +1,10 @@
 -- TapCatForever: where every cosmetic came from (skins, effects, tap effects, hats...).
 -- Each time one is granted (TCF:GrantItem, TCF:GrantSkin, the shops, achievements) Core.lua calls
--- TCF:NoteItemSource. Per character, like the cosmetics themselves:
---   charData.itemSources[id] = { first = { source, time }, last = { source, time } }
--- Item tooltips (Appearance tab, Compendium, loot notices) then say "Got it from: Heroic Cache,
--- 3 days ago". Items owned before this was tracked say so.
+-- TCF:NoteItemSource. Per class cat, like the cosmetics themselves (1.6.0):
+--   classData[class].itemSources[id] = { first = { source, time }, last = { source, time } }
+-- Records made before 1.6.0 (per character: charData.itemSources) are still read for a cat that
+-- has none of its own. Item tooltips (Appearance tab, Compendium, loot notices) then say "Got it
+-- from: Heroic Cache, 3 days ago". Items owned before this was tracked say so.
 local ADDON, TCF = ...
 local floor = math.floor
 
@@ -25,32 +26,46 @@ function TCF.ItemSourceName(reason)
   return reason
 end
 
-local function store(self)
+-- the records of a class cat (default: the cat things are given to right now, TCF:OwnerClass)
+local function store(self, class)
+  local db = self.db
+  class = class or (self.OwnerClass and self:OwnerClass()) or (db and db.class)
+  local cd = db and db.classData and class and db.classData[class]
+  if type(cd) ~= "table" then return nil end
+  if type(cd.itemSources) ~= "table" then cd.itemSources = {} end
+  return cd.itemSources
+end
+-- the records kept before 1.6.0: this character's, then the account's (TCF.oldItemSources)
+local function legacy(self, id)
   local c = self.charData
-  if type(c) ~= "table" then return nil end
-  if type(c.itemSources) ~= "table" then c.itemSources = {} end
-  return c.itemSources
+  local rec = type(c) == "table" and type(c.itemSources) == "table" and c.itemSources[id]
+  if type(rec) == "table" and type(rec.first) == "table" then return rec end
+  local acc = self.oldItemSources and self:oldItemSources()
+  rec = type(acc) == "table" and acc[id]
+  if type(rec) == "table" and type(rec.first) == "table" then return rec end
 end
 
 -- Remembers where a cosmetic came from (the first time, and the latest copy). wasOwned: the
--- character already had it (a duplicate); with no record yet, it was owned before this was
--- tracked, so only the latest copy is noted.
-function TCF:NoteItemSource(id, reason, when, wasOwned)
-  local s = id and store(self)
+-- cat already had it (a duplicate); with no record yet, it was owned before this was tracked,
+-- so only the latest copy is noted. class: whose cat (default: TCF:OwnerClass).
+function TCF:NoteItemSource(id, reason, when, wasOwned, class)
+  local s = id and store(self, class)
   if not s then return end
   -- (a real WoW boss or zone name can be a secret value: never keep one)
   if TCF.IsSecret and TCF.IsSecret(reason) then reason = nil end
   local e = { TCF.ItemSourceName(reason), floor(when or time()) }
   local rec = s[id]
   if type(rec) ~= "table" or type(rec.first) ~= "table" then
-    s[id] = { first = wasOwned and { "before", 0 } or e, last = e }
+    local old = wasOwned and legacy(self, id)
+    s[id] = { first = old and { old.first[1], old.first[2] } or (wasOwned and { "before", 0 }) or e, last = e }
   else rec.last = e end
 end
 
-function TCF:ItemSourceRecord(id)
-  local s = store(self)
+function TCF:ItemSourceRecord(id, class)
+  local s = store(self, class or (self.db and self.db.class))
   local rec = s and s[id]
   if type(rec) == "table" and type(rec.first) == "table" then return rec end
+  return legacy(self, id)
 end
 
 -- "just now", "5 minutes ago", "3 hours ago", "yesterday", "3 days ago", "2 months ago"
