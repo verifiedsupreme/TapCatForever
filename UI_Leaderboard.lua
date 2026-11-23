@@ -281,7 +281,7 @@ TCF.UI.Builders.leaderboard = function(page, win)
     win.lbScroll = max(0, min(win.lbScroll or 0, #list - ROWS))
     page.list = list
     local realm = TCF.LeaderboardRealm()
-    page.title:SetText("Realm leaderboard" .. (realm and (" - " .. realm) or ""))
+    page.title:SetText("Realm leaderboard" .. ((realm and realm ~= "Realm") and (" - " .. realm) or ""))   -- "Realm" is the stand-in when the game gives no realm name
     page.count:SetText(string.format("%d %s", #list, #list == 1 and "player" or "players"))
 
     -- sections, or the Leave confirm in their place

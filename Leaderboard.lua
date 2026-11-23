@@ -148,13 +148,24 @@ end
 local function myKey() local f = myFull(); return f and keyOf(f) end
 -- a sender key that is ours: the learned name, or, while that isn't known, the name the game gives us
 -- (good enough for telling our own echoes apart, not for sharing under)
-local function looksMine(sk)
+local function mineForReads()
   local mine = myKey()
-  if mine then return sk == mine end
+  if mine then return mine end
   local n = UnitName and UnitName("player")
-  if not plain(n) or n == "" then return false end
+  if not plain(n) or n == "" then return nil end
   local r = myRealm()
-  return r ~= nil and sk == keyOf(n .. "-" .. r)
+  return r ~= nil and keyOf(n .. "-" .. r) or nil
+end
+local function looksMine(sk) return sk ~= nil and sk == mineForReads() end
+-- (1.6.1.2) WoW: Forever tells an addon only the first word of its own two-word name and hands it the
+-- second as the realm, so an addon before 1.6.1.2 on "Its Caffeinated" calls itself "Its-Caffeinated"
+-- (key "its-caffeinated"). From a sender whose name has two words, that key is their own.
+local function splitAlias(sender)
+  if not plain(sender) then return nil end
+  local n = sender:match("^([^%-]+)") or sender
+  local a, c = n:match("^%s*(%S+)%s+(%S+)%s*$")
+  if not a then return nil end
+  return (a .. "-" .. c):lower()
 end
 
 ---------------------------------------------------------------- the saved board
@@ -786,6 +797,17 @@ local function noteAdd(sk, t)
 end
 
 -- "Name-Realm" of a sender (the game leaves the realm off for some players on your own realm)
+-- a row (and its take-me-off note) saved under a key that belongs to nobody: an older addon's idea
+-- of a two-word player's own name
+local function forgetKey(b, k)
+  if not b or not k then return false end
+  local had = b.e[k] ~= nil or (b.rm and b.rm[k] ~= nil)
+  b.e[k] = nil
+  if b.rm then b.rm[k] = nil end
+  if b.rmn then b.rmn[k] = nil end
+  if had then dirty = true end
+  return had
+end
 local function senderFull(s)
   if validName(s) then return s end
   if plain(s) and not s:find("-", 1, true) then
@@ -824,6 +846,8 @@ function TCF.LeaderboardFromParty(m)
   local b = board(true)
   if not b then return nil, "board" end
   local mine = myKey()
+  local alias = splitAlias(sender)
+  if alias and alias ~= keyOf(full) then forgetKey(b, alias) end
   local res, why = merge(b, e, serverNow(), mine, true)
   if res then dirty = true; DBG.party = DBG.party + 1 end
   return res, why
@@ -905,8 +929,10 @@ function onAddonInner(prefix, text, chan, sender, chanName)
   if chan == "CHANNEL" and type(chanName) == "string" and chanName ~= "" and not chanName:lower():find(CHANNEL:lower(), 1, true) then return drop("channel") end
   local sk = keyOf(sender)
   if not sk then return drop("nokey") end
-  local mine = myKey()
-  if looksMine(sk) then return drop("own") end          -- our own message coming back: costs nothing
+  local mine = mineForReads()
+  if sk == mine then return drop("own") end             -- our own message coming back: costs nothing
+  local alias = splitAlias(sender)                       -- the key an older addon on a two-word name used for itself
+  if alias == sk then alias = nil end
   local t = now()
   if not senderOk(sk, t) then return drop("sender") end  -- one sender can't use up everyone's reading
   if not readBudget(t) then return drop("read") end
@@ -918,11 +944,17 @@ function onAddonInner(prefix, text, chan, sender, chanName)
     if not e then return drop("parse") end
     local k = keyOf(e.n)
     if not k then return drop("name") end
+    if alias and k == alias then   -- their own row under the split name: it is theirs
+      local full = senderFull(sender)
+      if full then e.n, k = full, sk end
+    end
     local direct = k == sk
     if not direct then
       -- a player who took themselves off comes back only by sharing again themselves
       if b.rm[k] then return end
       if not b.e[k] and not addOk(sk, t) then return end
+    elseif alias then
+      forgetKey(b, alias)
     end
     local res = merge(b, e, st, mine, direct)
     if res == "added" and not direct then noteAdd(sk, t) end
@@ -944,6 +976,7 @@ function onAddonInner(prefix, text, chan, sender, chanName)
     if not n then return drop("parse") end
     local k = keyOf(n)
     if not k then return drop("name") end
+    if alias and k == alias then k = sk end
     if k ~= sk and b.rm[k] then return end   -- like L1: only the player's own brings them back
     if mergeExtra(b, k, x, ts, st, mine) then dirty = true end
   elseif kind == "R1;" then
@@ -958,6 +991,7 @@ function onAddonInner(prefix, text, chan, sender, chanName)
     if not n then return drop("parse") end
     local k = keyOf(n)
     if not k then return drop("name") end
+    if alias and k == alias then k, n = sk, senderFull(sender) or n end
     if k == mine then return drop("own") end
     if k ~= sk and not addOk(sk, t) then return end
     if remove(b, k, ts, st, n) then

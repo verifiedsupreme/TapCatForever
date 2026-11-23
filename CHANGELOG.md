@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.1.2
+
+**Realm leaderboard: one row per player**
+- On World of Warcraft: Forever the game tells an addon only the first word of a two-word character name and hands it the second word as the realm, so your own addon called you "Ziggu" on realm "Trip" while your friends' addons saw "Ziggu Trip". The leaderboard now uses the name the game puts on your messages, the one everyone else sees, and no longer takes the second word of your name for the realm. Boards with two rows for the same player ("Its Caffeinated" and "Its-Caffeinated") are tidied: the row under the split name is recognised as that player's and merged, even while they are still on an older version.
+- Your summary only goes out once your addon knows the name the game uses for you (a moment after joining a group), so nothing is shared under a half name.
+- The title no longer shows a stand-in realm name.
+
 ## 1.6.1.1
 
 **Realm leaderboard: names with a space**

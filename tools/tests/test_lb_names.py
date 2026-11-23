@@ -104,6 +104,23 @@ def _run(seed, load_addon, secret):
     ck(res.startswith("added"), "a party member with a two-word name goes on the board: %r" % res)
     e = C.eval('_entry("itscaffeinated-realm")')
     ck(e and e["t"] == 4242 and e["n"] == "Its Caffeinated-Realm", "the party row has the right taps and name")
+    # a friend still on 1.6.1.1 calls themselves by the split name ("Its-Caffeinated"): their own L1, L2 and
+    # a passed-on X1 about that name are theirs, land under their sender key, and the stray row goes
+    D = make("Lone Wolf", "PRIEST")
+    D.execute('TapCatForever.LearnSelf("Lone Wolf")')
+    D.execute('(function() local b = TapCatForever.LeaderboardBoard(true); b.e["its-caffeinated"] = { n = "Its-Caffeinated", c = "HUNTER", l = 26, t = 77487, a = 0, z = 0, v = "1.6.1.1", ts = _srv } end)()')
+    D.execute('_deliver("TapCatFvr", "L1;Its-Caffeinated;HUNTER;26;77515;3;1;1.6.1.1;" .. _srv, "Its Caffeinated", "PARTY", "")')
+    keys = D.eval("_boardKeys()")
+    ck(keys == "itscaffeinated-realm", "the split-name row is theirs and the stray row is gone: %r" % keys)
+    e = D.eval('_entry("itscaffeinated-realm")')
+    ck(e["t"] == 77515 and e["n"] == "Its Caffeinated-Realm" and e["d"] is True, "under the sender's name, as heard from them: %r %r" % (e["n"], e["t"]))
+    D.execute('_deliver("TapCatFvr", "L2;Its-Caffeinated;" .. _srv .. ";0.0.0.26.0.0.0.0.0;5e3;1.1.1.1.1.1.1", "Its Caffeinated", "PARTY", "")')
+    ck(D.eval('(function() local e = _entry("itscaffeinated-realm"); return e.x ~= nil and e.x.lv[4] end)()') == 26, "their L2 lands on the same row")
+    ck("its-caffeinated" not in D.eval("_boardKeys()"), "no stray row after the L2 either")
+    # the party feed for the same friend removes a stray split-name row too
+    D.execute('(function() local b = TapCatForever.LeaderboardBoard(true); b.e["its-caffeinated"] = { n = "Its-Caffeinated", c = "HUNTER", l = 26, t = 1, a = 0, z = 0, v = "?", ts = _srv } end)()')
+    D.eval('TapCatForever.LeaderboardFromParty({ sender = "Its Caffeinated", name = "ItsCaffeinated", joined = true, class = "HUNTER", level = 26, taps = 77600, ach = 3, zones = 1, version = "1_6_1" })')
+    ck(D.eval("_boardKeys()") == "itscaffeinated-realm", "the party feed clears the stray row: %r" % D.eval("_boardKeys()"))
     # ForgetSelf only takes the one exact wrong key, never a friend's row
     C.execute('TapCatForever.LearnSelf("Big Whiskers")')
     C.execute('(function() local b = TapCatForever.LeaderboardBoard(true); b.e["big-whiskers"] = { n = "Big-Whiskers", c = "MAGE", l = 1, t = 1, a = 0, z = 0, v = "?", ts = _srv }; '
