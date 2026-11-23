@@ -211,7 +211,7 @@ def check(seed, load_addon):
       adv.best = math.max(adv.best, T.AdvStageCode(sfk, 12))
       T:CD().level = 19
       local s2 = T:AdvStatusText()
-      ck(s2 == "Shadowfang Keep cleared. Next: Blackfathom Deeps opens at level 22 (your cat is 19). Farming here until then.", "cleared status: " .. s2)
+      ck(s2 == "Next: Blackfathom Deeps at level 22 (you are 19). Farming Shadowfang Keep.", "cleared status: " .. s2)
       ------------------------------------------------ review fixes
       -- every farmable piece has a floor (1 in 5,000 kills) and no chance reads "0.00%"
       local lowest = 1

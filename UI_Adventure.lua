@@ -478,6 +478,35 @@ function TCF:AdvModelDebug()
   end
 end
 
+-- (1.6.0) the newest log lines that fit in h pixels of the log (wrapped lines count): measured
+-- with the font when the game can, else estimated from the length (about 95 characters a line)
+local LOG_LINE_H, LOG_CHARS = 15, 95
+function TCF.UI.AdvLogFit(list, fs, h)
+  local maxLines = math.max(1, math.floor((h + 3) / LOG_LINE_H))
+  local out, used = {}, 0
+  for _, line in ipairs(list) do
+    local plain = tostring(line):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    local n = math.max(1, math.ceil(#plain / LOG_CHARS))
+    if used + n > maxLines then break end
+    out[#out + 1] = line
+    used = used + n
+  end
+  if #out == 0 and list[1] then out[1] = list[1] end
+  local text = table.concat(out, "\n")
+  -- the real font says it still doesn't fit: drop the oldest line until it does
+  if fs and fs.SetText and fs.GetStringHeight then
+    fs:SetText(text)
+    local sh = fs:GetStringHeight()
+    while type(sh) == "number" and sh > h + 1 and #out > 1 do
+      out[#out] = nil
+      text = table.concat(out, "\n")
+      fs:SetText(text)
+      sh = fs:GetStringHeight()
+    end
+  end
+  return text
+end
+
 TCF.UI.Builders.adventure = function(page, win)
   local U = TCF.UI
   local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel
@@ -591,8 +620,16 @@ TCF.UI.Builders.adventure = function(page, win)
   nextStage:SetPoint("TOPRIGHT", -14, -361)
   local prevStage = Button(page, "< Stage", 76, 22, function() TCF:AdvStep(-1); win:Refresh() end)
   prevStage:SetPoint("RIGHT", nextStage, "LEFT", -6, 0)
-  local logText = Text(page, "GameFontHighlightSmall", nil, "LEFT"); logText:SetPoint("TOPLEFT", 18, -390)
+  -- (1.6.0) the fight log and the status line under it each have their own rows and never overlap:
+  -- the status line (UI_AdventureInfo.lua) owns the bottom STATUS_H pixels, the log the space
+  -- between the buttons and it, and shows as many of its newest lines as fit there
+  local LOG_TOP, STATUS_BOTTOM, STATUS_H = 390, 8, 28
+  local LOG_H = 494 - LOG_TOP - STATUS_BOTTOM - STATUS_H - 6   -- 494: the page's height
+  local logText = Text(page, "GameFontHighlightSmall", nil, "LEFT"); logText:SetPoint("TOPLEFT", 18, -LOG_TOP)
   logText:SetWidth(524); logText:SetSpacing(3); logText:SetJustifyV("TOP")
+  logText:SetHeight(LOG_H)
+  if logText.SetMaxLines then logText:SetMaxLines(4) end
+  page.advLogText, page.advLogH, page.advStatusRow = logText, LOG_H, { STATUS_BOTTOM, STATUS_H }
   local help = Text(page, "GameFontDisableSmall", nil, "LEFT"); help:SetPoint("BOTTOMLEFT", 16, 10); help:SetWidth(524)
   help:SetText("Your cat fights with this class's gear, level and learned abilities. Every key you press lands a bonus paw strike. Bosses and zone clears drop chests that can hold the zone's real loot.")
   page.advHelp = help  -- UI_AdventureInfo.lua turns this into the status line
@@ -800,7 +837,7 @@ TCF.UI.Builders.adventure = function(page, win)
       end
     end
     prevTier:SetEnabled(adv.tier > 1)
-    logText:SetText(table.concat(TCF.advLog or { "|cff888888Your cat sets out on an adventure...|r" }, "\n"))
+    logText:SetText(TCF.UI.AdvLogFit(TCF.advLog or { "|cff888888Your cat sets out on an adventure...|r" }, logText, LOG_H))
     local active = adv.active
     startPanel:SetShown(not active and not TCF:IsOnExpedition(TCF.db.class))
     startText:SetText(string.format("Your %s cat is resting.\nPress Start to fight through %s.", TCF.CLASS_BY_KEY[TCF.db.class].name, t.name))

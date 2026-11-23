@@ -362,7 +362,13 @@ function TCF:AdvPackCleared()
       else
         adv.stage = 1
         if nt then
-          self:AdvLog(string.format("|cffaaaaaa%s opens at level %d. Running %s again.|r", nt.name, self:AdvAutoLevel(adv.tier + 1), self:AdvTier(adv.tier).name))
+          -- once per change (a new zone or level to wait for), not after every run of the zone
+          local need = self:AdvAutoLevel(adv.tier + 1)
+          local key = nt.name .. ":" .. need .. ":" .. self.db.class
+          if self.advWaitNote ~= key then
+            self.advWaitNote = key
+            self:AdvLog(string.format("|cffaaaaaa%s opens at level %d. Running %s again until then.|r", nt.name, need, self:AdvTier(adv.tier).name))
+          end
         end
       end
     else
@@ -381,7 +387,8 @@ function TCF:AdvDefeat()
   local run, adv = self.advRun, self:CD().adv
   local m = pickTarget(run)
   local line = string.format("|cffff6060%s was too strong.|r Your cat retreats to heal. |cff999999(Better gear, levels and abilities help.)|r", m and m.name or "The enemy")
-  if not self.advLog or self.advLog[1] ~= line then self:AdvLog(line) end
+  -- the same retreat line again right after it (a hard boss beats the cat a few times) is left out
+  if not self.advLog or (self.advLog[1] ~= line and self.advLog[2] ~= line) then self:AdvLog(line) end
   -- with Auto-advance off the cat retries the same stage (it was told to farm here),
   -- but after 3 losses in a row it drops back to an easier pack instead of losing forever
   run.losses = (run.losses or 0) + 1

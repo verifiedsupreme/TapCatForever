@@ -42,8 +42,12 @@ TCF.UI.Builders.adventure = function(page, win)
 
   ------------------------------------------------ status line (the old help text) and Stop farming
   local status = page.advHelp or Text(page, "GameFontDisableSmall", nil, "LEFT")
-  status:ClearAllPoints(); status:SetPoint("BOTTOMLEFT", 16, 10); status:SetWidth(524)
+  -- its own row at the bottom (UI_Adventure.lua keeps the fight log above it): two lines at most
+  local row = page.advStatusRow or { 8, 28 }
+  status:ClearAllPoints(); status:SetPoint("BOTTOMLEFT", 16, row[1]); status:SetWidth(524); status:SetHeight(row[2])
   if status.SetFontObject then status:SetFontObject("GameFontHighlightSmall") end
+  if status.SetJustifyV then status:SetJustifyV("MIDDLE") end
+  if status.SetMaxLines then status:SetMaxLines(2) end
   page.advStatus = status
   local stopFarm = Button(page, "Stop farming", 96, 20, function()
     TCF:AdvStopFarm(); TCF:AdvLog("Farming stopped."); win:Refresh()

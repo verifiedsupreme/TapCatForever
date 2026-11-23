@@ -461,7 +461,7 @@ function TCF:AdvStatusText()
     return string.format("%s cleared. Auto-advance is off, so your cat stays on this stage. Turn it on, or use > to go to %s.", t.name, nt.name)
   end
   if cd.level < need then
-    return string.format("%s cleared. Next: %s opens at level %d (your cat is %d). Farming here until then.", t.name, nt.name, need, cd.level)
+    return string.format("Next: %s at level %d (you are %d). Farming %s.", nt.name, need, cd.level, t.name)
   end
   return string.format("%s cleared. Your cat moves on to %s after this run.", t.name, nt.name)
 end
