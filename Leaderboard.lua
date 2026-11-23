@@ -22,7 +22,8 @@
 --   * The board is the Leaderboard tab of the main window (UI_Leaderboard.lua): Total taps, Per class
 --     and Professions sections, or the opt-in panel for players who haven't joined.
 --   * (1.6.1) Party members' stats also come in the party message (Party.lua), which gets through where
---     these messages don't: a member who joined goes on the board from it (TCF.LeaderboardFromParty).
+--     these messages don't: a member who joined goes on the board from it (TCF.LeaderboardFromParty),
+--     one who says they are not on it comes off (TCF.LeaderboardLeftFromParty).
 --
 -- Protocol (prefix "TapCatFvr", CHANNEL only, every field checked; older versions ignore it):
 --   L1;<Name-Realm>;<class>;<level>;<taps>;<achievements>;<zones>;<version>;<time>   one player's summary
@@ -790,13 +791,14 @@ local function drop(why) DBG.drop[why] = (DBG.drop[why] or 0) + 1 end
 function TCF.LeaderboardFromParty(m)
   if type(m) ~= "table" then return nil, "member" end
   if not optedIn() then return nil, "optout" end
-  if not m.joined then return nil, "not joined" end
+  if m.joined ~= true then return nil, "not joined" end
   local sender = plain(m.sender) and m.sender or m.name
   local full = senderFull(sender)
   if not full then return nil, "name" end
-  if not plain(m.version) or m.version == "" then return nil, "version" end
+  -- the version may be left out of a long message (Party.lua): shown as "?", like your own row's is
+  local version = (plain(m.version) and m.version ~= "") and m.version or "?"
   local e = { n = full, c = m.class, l = floor(tonumber(m.level) or 0), t = floor(tonumber(m.taps) or -1),
-    a = floor(tonumber(m.ach) or -1), z = min(200, floor(tonumber(m.zones) or -1)), v = m.version, ts = serverNow() }
+    a = floor(tonumber(m.ach) or -1), z = min(200, floor(tonumber(m.zones) or -1)), v = version, ts = serverNow() }
   if not validEntry(e) then return nil, "invalid" end
   local b = board(true)
   if not b then return nil, "board" end
@@ -804,6 +806,38 @@ function TCF.LeaderboardFromParty(m)
   local res, why = merge(b, e, serverNow(), mine, true)
   if res then dirty = true; DBG.party = DBG.party + 1 end
   return res, why
+end
+
+-- (1.6.1) A party member's message says they are not on the leaderboard (l=0). When their row is on
+-- our board, it goes, exactly as their own "take me off" (R1) would take it: that message is the one
+-- that doesn't get through, so the party message stands in for it, and the note is passed on like
+-- any other. A player who never was on the board costs nothing. Returns true when the board changed.
+function TCF.LeaderboardLeftFromParty(m)
+  if type(m) ~= "table" or m.joined ~= false then return false end
+  if not optedIn() then return false end
+  local sender = plain(m.sender) and m.sender or m.name
+  local full = senderFull(sender)
+  if not full then return false end
+  local k = keyOf(full)
+  if not k then return false end
+  local mine = myKey()
+  if mine and k == mine then return false end
+  local b = board(false)
+  if not b or not b.e[k] then return false end
+  local st = serverNow()
+  if remove(b, k, st, st, full) then dirty = true; return true end
+  return false
+end
+
+-- (1.6.1) Your own row never belongs in the saved board: a party message of yours sent before a
+-- /reload comes back before your name is known and may have put it there (Party.lua calls this once
+-- the name is learned).
+function TCF.LeaderboardForgetSelf()
+  local b = board(false)
+  local mine = myKey()
+  if not b or not mine then return false end
+  if b.e[mine] then b.e[mine] = nil; dirty = true; return true end
+  return false
 end
 local onAddonInner
 local function onAddon(prefix, text, chan, sender, chanName)

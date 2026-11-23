@@ -17,7 +17,11 @@
 #     message): the duel still runs through the grace period, then it is called off with "g" and
 #     the stake comes back; the same for rock paper scissors
 #   - offline: a unit whose plain-string name is the friend's with UnitIsConnected false ends the
-#     duel right away; with an unreadable name it doesn't
+#     duel after the grace period (a loading screen reads as offline for a second or two: a blink
+#     changes nothing); with an unreadable name it doesn't
+#   - the roster can only confirm the friend: a stale "missing" flag (one roster read without them,
+#     no roster event after they are back) never ends a duel while UnitName reads their name
+#   - a protected IsInGroup counts as grouped: the duel goes on
 # Run on its own:  python3 tools/tests/test_duel_presence.py [seed]
 import os, sys
 
@@ -207,22 +211,61 @@ def check(seed, load_addon):
     ck(net.coins("Alice") == a0, "rps: the bet came back")
     net.group(["Alice", "Bob"])
 
-    # offline: only a unit whose plain-string name is Bob's and UnitIsConnected == false
+    # offline: only a unit whose plain-string name is Bob's and UnitIsConnected == false, and only
+    # after the grace period (a loading screen reads as offline for a moment)
+    a0 = net.coins("Alice")
     start_dr(net, "Alice", "Bob")
     set_names(A, "_SECRET")
     A.execute("function UnitIsConnected(u) return u ~= 'party1' end")
-    net.pump(2)
+    net.pump(G + 2)
     ck(net.st("Alice", "state") == "rolling", "offline with an unreadable name: not gone")
     set_names(A, NAME_CASES[4][1])
     net.pump(1)
-    ck(net.st("Alice", "result") == "cancel" and net.st("Alice", "reason") == "g", "offline with his readable name: gone right away (%s %s)" % (net.st("Alice", "state"), net.st("Alice", "reason")))
+    ck(net.st("Alice", "state") == "rolling" and A.eval("TapCatForever.DR.RosterSays(TapCatForever.DR.duel) == 'offline'"),
+       "offline with his readable name: the grace period runs first (%s %s)" % (net.st("Alice", "state"), net.st("Alice", "reason")))
+    A.execute("UnitIsConnected = nil")   # back after a second: a loading screen
+    net.pump(G + 1)
+    ck(net.st("Alice", "state") == "rolling", "a moment offline changed nothing (%s %s)" % (net.st("Alice", "state"), net.st("Alice", "reason")))
+    A.execute("function UnitIsConnected(u) return u ~= 'party1' end")
+    net.pump(G - 2)
+    ck(net.st("Alice", "state") == "rolling", "still in the grace period")
+    net.pump(3)
+    ck(net.st("Alice", "result") == "cancel" and net.st("Alice", "reason") == "g" and net.st("Alice", "by") == "opp",
+       "offline for the whole grace period: gone (%s %s)" % (net.st("Alice", "state"), net.st("Alice", "reason")))
+    ck(net.coins("Alice") == a0, "the stake came back")
     A.execute("UnitIsConnected = nil")
     net.ex("Bob", "TapCatForever.DR.CallOff('x', true)"); net.pump(1)
     net.pump(4)
+
+    # the roster can confirm Bob but never deny him: Party.lua has him missing from one roster read
+    # and no roster event follows (he is back, the game said nothing); UnitName("party1") reads his
+    # name, so the duel survives Alice thinking for longer than the grace period on her turn
+    roster_events(net); net.pump(2)
+    A.execute('_keep = _group; _group = {}; _fire("GROUP_ROSTER_UPDATE"); _group = _keep')
+    net.pump(1)
+    ck(A.eval("TapCatForever:PartyMembers()[1].missing ~= nil"), "Party.lua has Bob missing (stale)")
+    start_dr(net, "Alice", "Bob")
+    if net.st("Alice", "turn") != "me":
+        net.forced = [500]; net.ex("Bob", "TapCatForever:DeathRollRoll()"); net.pump(1)
+    ck(net.st("Alice", "turn") == "me", "Alice's turn")
+    net.pump(G + 3)
+    ck(net.st("Alice", "state") == "rolling", "a stale missing flag with his name on the roster: the duel goes on (%s %s)" % (net.st("Alice", "state"), net.st("Alice", "reason")))
+    ck(A.eval("TapCatForever.DR.RosterSays(TapCatForever.DR.duel) == 'here'"), "the roster confirms him")
+    dr_to_end(net, "Alice", "Bob", 100, "death roll with a stale missing flag")
+    roster_events(net); net.pump(1)
+
+    # a protected IsInGroup is "unknown", not "alone": the duel goes on (Party.lua reads it the same way)
+    start_dr(net, "Alice", "Bob")
+    A.execute("_isInGroup = IsInGroup; function IsInGroup() return _SECRET end")
+    net.pump(3)
+    ck(net.st("Alice", "state") == "rolling" and A.eval("TapCatForever.DR.InGroup()"), "a protected IsInGroup keeps the duel (%s %s)" % (net.st("Alice", "state"), net.st("Alice", "reason")))
+    A.execute("IsInGroup = _isInGroup")
+    dr_to_end(net, "Alice", "Bob", 100, "death roll after a protected IsInGroup")
     print("duel presence section (roster names as a protected value, Unknown, Name-Realm, nil and a protected value "
           "without issecretvalue: a death roll and a rock paper scissors game each run to the end; a roster blink and "
           "a message in the grace period keep the duel; a friend really gone is called off with g after the grace "
-          "period in both games; offline only on a readable name): all checks passed")
+          "period in both games; offline only on a readable name and only after the grace period; a readable name "
+          "confirms the friend over a stale missing flag; a protected IsInGroup keeps the duel): all checks passed")
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.join(ROOT, "tools"))

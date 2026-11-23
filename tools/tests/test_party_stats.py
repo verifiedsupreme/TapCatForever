@@ -14,6 +14,15 @@
 #   - a resend goes out once the taps grew by TAPS_STEP and 60 s passed since the last message, not
 #     before, and never while nothing changed; the friend's board follows
 #   - /tcf lbdebug counts the rows fed from the party and why heard messages were dropped
+#   - a friend who leaves the leaderboard says l=0 in their next party message: their row comes off
+#     our board (their own R1 is one of the messages that never arrive) with a note to pass on, and
+#     comes back when they join again; a friend who never joined costs no note
+#   - our own party message from before a /reload (old tag, name not known yet) can put our own row
+#     on the board: it goes the moment the name is learned
+#   - a look of long crafted class cosmetics: the room goes to the slots in their order (none left out
+#     that would have fitted), the taps and the leaderboard flag always go, achievements, zones and the
+#     version only while they fit (five long slots: all five go, the version stays behind, where the
+#     whole tail would have cost a slot), and a row without a version still gets on the board (as "?")
 # Run on its own:  python3 tools/tests/test_party_stats.py [seed]
 import os, sys
 
@@ -152,11 +161,119 @@ def check(seed, load_addon):
     out = " | ".join(A.eval("_printed").values())
     ck("Rows from party messages: %d" % dbg.party in out and "parse 1" in out and "route 1" in out and "!" not in out, "lbdebug prints them: %r" % out)
 
+    # --- Bob leaves the leaderboard: his next party message says l=0 and his row comes off Alice's
+    # board, with a "take me off" note to pass on (his R1 never arrives); joining again brings him back
+    ck("Bob-Forever=777000" in rows(A), "Bob is on Alice's board before he leaves")
+    B.execute("TapCatForever.db.ui.shareDev = false; TapCatForever:DevShareChanged()")
+    start = len(net.log)
+    net.pump(70)
+    left = [m for m in msgs(net, "Bob", "U1", start) if ",l=0," in m]
+    ck(len(left) == 1, "Bob's update says he left: %r" % msgs(net, "Bob", "U1", start))
+    ck(member(A, "Bob").joined is False, "the member record follows")
+    ck("Bob-Forever" not in rows(A) and rows(A).startswith("Alice-Forever*="), "his row came off Alice's board: %s" % rows(A))
+    ck(A.eval("TapCatForever.LeaderboardBoard(false).rm['bob-forever'] ~= nil and TapCatForever.LeaderboardBoard(false).rmn['bob-forever'] == 'Bob-Forever'"),
+       "a take-me-off note to pass on, under his name")
+    A.execute('(function() for _, m in ipairs(TapCatForever:PartyMembers()) do if m.name == "Bob" then TapCatForever:ShowPartyProfile(m) end end end)()')
+    ck("Not on the leaderboard yet" in A.eval("TapCatForeverPartyProfile.info.text"), "the profile says so")
+    # Cara never joined: her l=0 messages leave no note behind
+    ck(A.eval("TapCatForever.LeaderboardBoard(false).rm['cara-forever'] == nil"), "no note for a friend who never joined")
+    ck(A.eval("TapCatForever.LeaderboardLeftFromParty({ joined = false, sender = 'Nobody-Forever', name = 'Nobody' })") is False, "nothing to take off: false")
+    # Bob joins again: his next message says l=1 and he is back with a newer time
+    net.pump(2)
+    B.execute("TapCatForever.db.ui.shareDev = true; TapCatForever:DevShareChanged()")
+    net.pump(70)
+    ck("Bob-Forever=777000" in rows(A), "Bob is back on Alice's board: %s" % rows(A))
+    ck(A.eval("TapCatForever.LeaderboardBoard(false).rm['bob-forever'] == nil"), "the note is gone")
+
+    # --- our own row never stays on the board: a message of ours fed before our name was known
+    D = net.add("Dana", cls="MAGE", level=9)
+    D.execute(DROP_LB)
+    D.execute("TapCatForever.db.ui.shareDev = true; TapCatForever:DevShareChanged()")
+    ck(D.eval("TapCatForever.SelfName() == nil"), "Dana's name is not known yet")
+    r = D.eval("(TapCatForever.LeaderboardFromParty({ joined = true, sender = 'Dana-Forever', name = 'Dana', class = 'MAGE', level = 9, taps = 31337, ach = 0, zones = 0, version = '1' }))")
+    ck(r == "added" and D.eval("TapCatForever.LeaderboardBoard(false).e['dana-forever'] ~= nil"), "her own old message put her row on the board (%r)" % r)
+    D.execute("TapCatForever.LearnSelf('Dana-Forever')")
+    ck(D.eval("TapCatForever.LeaderboardBoard(false).e['dana-forever'] == nil"), "learning the name took it off")
+    ck(D.eval("TapCatForever.LeaderboardForgetSelf()") is False, "nothing more to forget")
+    # hardening: only a plain true joins
+    ck(D.eval("select(2, TapCatForever.LeaderboardFromParty({ joined = _SECRET, sender = 'Zed-Forever', class = 'MAGE', level = 5, taps = 5, ach = 0, zones = 0, version = '1' }))") == "not joined", "a protected flag is not joined")
+    # a row without a version (left out of a long message) still gets on, shown as "?"
+    r = D.eval("(TapCatForever.LeaderboardFromParty({ joined = true, sender = 'Zed-Forever', name = 'Zed', class = 'MAGE', level = 5, taps = 5, ach = 0, zones = 0 }))")
+    ck(r == "added" and D.eval("TapCatForever.LeaderboardBoard(false).e['zed-forever'].v") == "?", "no version: on the board as ? (%r)" % r)
+
     # --- a 1.6.0 reader (the fixture is 1.6.0's Party.lua) still gets every gear slot
     _old_reader(load_addon)
+    _long_look(load_addon)
     print("party stats section (stats in the party message, boards fed from the party with every leaderboard "
           "message dropped, profile lines, a friend not on the board, 1.6.0 reads all slots, 240 bytes with 12 "
-          "slots, resend after 60 s and grown taps, lbdebug reasons): all checks passed")
+          "slots, resend after 60 s and grown taps, lbdebug reasons, a friend who left comes off the board, "
+          "own row forgotten with the name, long cosmetic ids: the room goes to the slots): all checks passed")
+
+def _long_look(load_addon):
+    """the longest cosmetic id of every slot at once (more than any message can carry): the room is
+    used up by slots in their order, the taps, the leaderboard flag and the tag always go, only u=, d=
+    or v= are left out, and 1.6.0's builder (the fixture) sends no more slots than 1.6.1 for the same
+    look apart from what the taps themselves take"""
+    lua = load_addon()
+    r = lua.execute(r'''
+      local T = TapCatForever
+      local best = {}
+      for _, it in ipairs(T.ITEM_LIST) do
+        if type(it.id) == "string" and it.id:find("^[%w_:]+$") then
+          local b = best[it.slot]
+          if not b or #it.id > #b.id then best[it.slot] = it end
+        end
+      end
+      local SLOTS = { "head", "chest", "main", "off", "back", "acc", "effect", "neck", "belt", "ring", "shoulder", "race" }
+      local CODE = { head = "h", chest = "c", main = "m", off = "o", back = "b", acc = "a", effect = "e", neck = "n", belt = "w", ring = "r", shoulder = "s", race = "x" }
+      local look, FILLED = {}, {}
+      for _, s in ipairs(SLOTS) do look[s] = best[s]; if best[s] then FILLED[#FILLED + 1] = s end end
+      look.fur, look.pattern, look.skin = best.fur, best.pattern, best.skin
+      _look = look
+      T.GetAppearance = function(self, class) return look end
+      T.db.taps = 999999999999999
+      T.db.ui.shareDev = true
+      T.db.achievements = T.db.achievements or {}
+      for _, a in ipairs(T.ACHIEVEMENTS) do T.db.achievements[a.id] = true end
+      local payload, lookPart, stats = T:PartyPayloadParts()
+      if #payload + 3 > 240 then return "too long: " .. (#payload + 3) end
+      local sent = {}
+      for c in lookPart:gmatch("[;,](%l)=") do sent[c] = true end
+      -- every slot left out could not have fitted (the room is used up, in slot order)
+      local n, dropped = 0, {}
+      for _, s in ipairs(FILLED) do
+        if sent[CODE[s]] then n = n + 1
+        else
+          local entry = CODE[s] .. "=" .. look[s].id
+          if #payload + 3 + #entry + 1 <= 240 then return "room was left for " .. entry .. ": " .. payload end
+          dropped[#dropped + 1] = CODE[s]
+        end
+      end
+      if not (payload:find(",t=999999999999999,", 1, true) and payload:find(",l=1,", 1, true) and payload:find(",z=%x+$")) then return "taps, flag and tag always go: " .. payload end
+      local kind, class, level, lk, eq, st = T.PartyParse("U1;" .. payload)
+      if not (st and st.taps == 999999999999999 and st.joined == true) then return "the reader gets the taps and the flag" end
+      for _, s in ipairs(FILLED) do
+        if sent[CODE[s]] and not (lk[s] and lk[s].id == look[s].id) then return "the reader gets every cosmetic sent: " .. s end
+      end
+      local out = string.format("%d of %d slots, dropped %s, left out %s%s%s, %d bytes", n, #FILLED, table.concat(dropped, ""),
+        payload:find(",u=", 1, true) and "" or "u ", payload:find(",d=", 1, true) and "" or "d ", payload:find(",v=", 1, true) and "" or "v ", #payload + 3)
+      -- the middle band: five long slots (h, c, m, o, b, about 200 bytes with the head). The whole
+      -- stats tail would push the fifth out; now it goes, and only the version stays behind
+      for _, s in ipairs(FILLED) do if s ~= "head" and s ~= "chest" and s ~= "main" and s ~= "off" and s ~= "back" then look[s] = nil end end
+      local p5, look5 = T:PartyPayloadParts()
+      if #p5 + 3 > 240 then return "five slots: too long: " .. (#p5 + 3) end
+      local n5 = 0
+      for c in look5:gmatch("[;,](%l)=") do n5 = n5 + 1 end
+      if n5 ~= 5 then return "five long slots: not all went out (" .. n5 .. "): " .. p5 end
+      if not (p5:find(",t=999999999999999,", 1, true) and p5:find(",u=", 1, true) and p5:find(",d=", 1, true) and p5:find(",l=1,", 1, true) and not p5:find(",v=", 1, true)) then return "five long slots: taps, achievements, zones and flag go, the version stays behind: " .. p5 end
+      -- with a shorter look everything fits again
+      look.back = nil
+      local p4 = T:PartyPayloadParts()
+      if not (p4:find(",u=", 1, true) and p4:find(",d=", 1, true) and p4:find(",v=", 1, true)) then return "with room, the achievements, zones and version travel: " .. p4 end
+      return out .. string.format("; five long slots: all 5 sent, version left out, %d bytes", #p5 + 3)
+    ''')
+    ck(r.find(" slots, dropped ") > 0, r)
+    print("  long look: %s" % r)
 
 def _old_reader(load_addon):
     lua = load_addon()

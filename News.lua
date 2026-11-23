@@ -119,7 +119,8 @@ local function createPopup(win, P)
   end
   f.note = U.Text(f, "GameFontHighlightSmall", P.note); f.note:SetPoint("TOP", 0, -54 - 2 * (TILE_H + 38) - 2)
   f.note:SetWidth(POP_W - 40)
-  f.more = U.Button(f, "Read the full patch notes", 190, 24, function() f:Hide(); TCF:ShowPatchNotes() end)
+  -- the notes of the version this pop-up is about (a hotfix after it sits beside them)
+  f.more = U.Button(f, "Read the full patch notes", 190, 24, function() f:Hide(); TCF:ShowPatchNotes(f.newsVersion) end)
   f.more:SetPoint("BOTTOMLEFT", 22, 18)
   f.done = U.Button(f, "Close", 100, 24, function() f:Hide() end)
   f.done:SetPoint("BOTTOMRIGHT", -22, 18)
@@ -142,6 +143,7 @@ function TCF:ShowNewsPopup(n)
   local P = n and TCF.NEWS_POPUPS[n.version]
   if not P or not self.window then return end
   self.newsPopup = self.newsPopup or createPopup(self.window, P)
+  self.newsPopup.newsVersion = n.version
   self:FitNewsPopup()
   self.newsPopup:Show()
 end

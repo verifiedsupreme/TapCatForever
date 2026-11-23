@@ -168,10 +168,11 @@ local function isMe(sender)
   return b ~= nil and b == myBase()
 end
 
+-- (1.6.1) a protected answer counts as grouped, like Party.lua's: "unknown" must never end a duel
 local function inGroup()
   if not IsInGroup then return false end
   local ok, g = pcall(IsInGroup)
-  return ok and g and not isSecret(g) and true or false
+  return ok and g and true or false
 end
 DR.Base, DR.IsMe, DR.InGroup = base, isMe, inGroup
 
@@ -205,34 +206,53 @@ local function member(name)
 end
 DR.Member = member
 
--- Is the opponent still in the group? The addon's own knowledge decides, never UnitName: on WoW:
--- Forever the roster's names can come back as protected values, "Unknown" or in another form, so a
--- name that can't be matched means nothing. They are present while Party.lua lists them (it takes a
--- cat off only when a roster it could read in full doesn't have them, twice, 3 seconds apart); once
--- Party.lua has them missing or forgot them, they get OPP_GONE_GRACE more seconds, counted from the
--- last message or roll of theirs, so a roster blink never ends a duel. One roster fact counts right
--- away: a unit whose name was read as a plain string and is theirs says they went offline.
+-- Is the opponent still in the group? The addon's own knowledge decides, never UnitName alone: on
+-- WoW: Forever the roster's names can come back as protected values, "Unknown" or in another form,
+-- so a name that can't be matched means nothing. They are present while Party.lua lists them (it
+-- takes a cat off only when a roster it could read in full doesn't have them, twice, 3 seconds
+-- apart); once Party.lua has them missing or forgot them, they get OPP_GONE_GRACE more seconds,
+-- counted from the last message or roll of theirs, so a roster blink never ends a duel. The roster
+-- can only confirm them: a unit whose name was read as a plain string and is theirs says they are
+-- here right now, whatever Party.lua thinks. It can also say they went offline, but a loading screen
+-- (hearth, portal, zone line) reads as offline for a second or two, so that too waits the grace.
 local OPP_GONE_GRACE = 10
 DR.OPP_GONE_GRACE = OPP_GONE_GRACE
-local function oppOffline(d)
-  if not (UnitName and UnitIsConnected and GetNumGroupMembers) then return false end
+-- what the roster says about the opponent when it can be read: "here", "offline" or nil (nothing
+-- readable is theirs: names protected, "Unknown", nil, another form)
+local function rosterSays(d)
+  if not (UnitName and GetNumGroupMembers) then return nil end
   local okr, raid = pcall(IsInRaid or function() return false end)
   raid = okr and raid == true
   local ok, count = pcall(GetNumGroupMembers)
-  if not ok or isSecret(count) or type(count) ~= "number" then return false end
+  if not ok or isSecret(count) or type(count) ~= "number" then return nil end
   for i = 1, raid and min(40, count) or 4 do
     local unit = (raid and "raid" or "party") .. i
     local okn, n = pcall(UnitName, unit)
     if okn and type(n) == "string" and not isSecret(n) and base(n) == d.oppBase then
-      local okc, c = pcall(UnitIsConnected, unit)
-      return okc and not isSecret(c) and c == false
+      if UnitIsConnected then
+        local okc, c = pcall(UnitIsConnected, unit)
+        if okc and not isSecret(c) and c == false then return "offline" end
+      end
+      return "here"
     end
   end
-  return false
+  return nil
 end
+DR.RosterSays = rosterSays
 local function oppPresent(d)
-  if oppOffline(d) then return false end
   local t = now()
+  local says = rosterSays(d)
+  if says == "here" then
+    d.oppMissingAt, d.oppOfflineAt = nil, nil
+    return true
+  elseif says == "offline" then
+    local since = d.oppOfflineAt or t
+    if (d.oppHeardAt or 0) > since then since = d.oppHeardAt end   -- a message of theirs: the roster is behind
+    d.oppOfflineAt = since
+    if t - since >= OPP_GONE_GRACE then return false end
+  else
+    d.oppOfflineAt = nil
+  end
   local m = member(d.opp)
   local since
   if m and not m.missing then

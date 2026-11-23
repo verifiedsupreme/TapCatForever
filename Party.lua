@@ -10,9 +10,11 @@
 -- An id is a cosmetic id (TCF.ITEMS) or #<item id> for real gear (TCF.GEAR).
 -- (1.6.1) After the slots, the player's stats as more code=value entries, then the session tag:
 --   t=<total taps> u=<achievements> d=<zones cleared> l=<1 on the leaderboard, 0 not> v=<version, 1_6_1>
--- They feed the party profile window and the leaderboard (Leaderboard.lua TCF.LeaderboardFromParty),
--- whose own messages don't get through on every client. Every slot entry comes before them, so 1.6.0,
--- which reads the first MAX_SLOTS entries and skips codes it doesn't know, still sees all the gear.
+-- They feed the party profile window and the leaderboard (Leaderboard.lua TCF.LeaderboardFromParty;
+-- l=0 from a player on the board takes them off, TCF.LeaderboardLeftFromParty), whose own messages
+-- don't get through on every client. Every slot entry comes before them, so 1.6.0, which reads the
+-- first MAX_SLOTS entries and skips codes it doesn't know, still sees all the gear. When a long look
+-- leaves no room, u=, d= and v= are left out of the message (t=, l= and the tag always go).
 local ADDON, TCF = ...
 local floor, min, max = math.floor, math.min, math.max
 
@@ -128,6 +130,8 @@ function TCF.LearnSelf(sender)
     end
   end
   if gone and refreshRow then refreshRow() end
+  -- the same message may have put our own row on the leaderboard (Leaderboard.lua): off with it
+  if TCF.LeaderboardForgetSelf then pcall(TCF.LeaderboardForgetSelf) end
 end
 local function rememberSent(text)
   sentTexts[#sentTexts + 1] = text
@@ -252,10 +256,14 @@ function TCF:PartyPayloadParts(class)
   local cd = self:CD(class)
   local function id(it) return (it and it.id and it.id:find("^[%w_:]+$")) and it.id or "" end
   local head = string.format("%s;%d;%s;%s;%s", class, cd and cd.level or 1, id(look.fur), id(look.pattern), id(look.skin))
-  -- the stats and the tag have their room first: slots are added only while there is room left
-  local stats, tail = statsPart()
-  tail = tail .. ",z=" .. tag()
-  local parts, len = {}, #head + 4 + #tail + 1   -- "U1;" .. head .. ";" .. slots .. "," .. tail
+  -- the taps, the leaderboard flag and the tag have their room first; then the slots while there is
+  -- room left, so a long-named cosmetic never costs a slot that 1.6.0 sent; achievements, zones and
+  -- the version fill what is left (long crafted class cosmetics can push them out of one message)
+  local stats, entries = statsPart()
+  local tagEntry = "z=" .. tag()
+  local len = #head + 4 + #tagEntry + 1   -- "U1;" .. head .. ";" .. entries .. "," .. tag
+  for e in entries:gmatch("[^,]+") do if e:find("^[tl]=") then len = len + #e + 1 end end
+  local parts = {}
   for _, code in ipairs(SLOT_CODES) do
     local v = lookId(look[CODE_SLOT[code]])
     if v then
@@ -264,7 +272,14 @@ function TCF:PartyPayloadParts(class)
     end
   end
   local lookPart = head .. ";" .. table.concat(parts, ",")
-  return lookPart .. (#parts > 0 and "," or "") .. tail, lookPart, stats
+  -- the stats in their usual order (t, u, d, l, v), each of the optional ones only while it fits
+  local tail = {}
+  for e in entries:gmatch("[^,]+") do
+    if e:find("^[tl]=") then tail[#tail + 1] = e
+    elseif len + #e + 1 <= MAX_MSG then tail[#tail + 1] = e; len = len + #e + 1 end
+  end
+  tail[#tail + 1] = tagEntry
+  return lookPart .. (#parts > 0 and "," or "") .. table.concat(tail, ","), lookPart, stats
 end
 -- the message alone (one value, as before 1.6.1)
 function TCF:PartyPayload(class) return (self:PartyPayloadParts(class)) end
@@ -440,7 +455,8 @@ local function onMessage(prefix, text, channel, sender)
   if stats then
     -- (1.6.1) the friend's stats, for the profile window; a friend on the leaderboard goes on ours
     m.taps, m.ach, m.zones, m.joined, m.version = stats.taps, stats.ach, stats.zones, stats.joined, stats.version
-    if m.joined and TCF.LeaderboardFromParty then pcall(TCF.LeaderboardFromParty, m) end
+    if m.joined == true and TCF.LeaderboardFromParty then pcall(TCF.LeaderboardFromParty, m)
+    elseif m.joined == false and TCF.LeaderboardLeftFromParty then pcall(TCF.LeaderboardLeftFromParty, m) end
   end
   -- answer a hello, or anyone we hadn't met; request() merges replies to one per SEND_GAP
   if kind == "H1" or isNew then request("U1") end
