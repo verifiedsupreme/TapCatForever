@@ -48,8 +48,8 @@
 - Examples: Linen Scarf 300 linen, Runestitched Cat 5000 mageweave + 9000 runecloth, Felcloth Wings 16000 felcloth + 48000 runecloth, Lotus Bloom 24000 dreamfoil + 60 Black Lotus.
 - tools/trade_sim.py --speed 2 28 (a Mage that sells; it keeps all its cloth, nothing else spends it): materials for the Linen Scarf on day 0, Silk Wizard Hat day 1, Runestitched Cat day 6, Runecloth Top Hat day 7, Felcloth Wings day 19. Real players also spend cloth on crafting levels and First Aid, so expect later. Herbalism and Fishing cosmetics were checked by hand from the garden and fishing buddy rates (Lotus Bloom and Pinchy's gift: about one to two weeks of a full garden or the best buddy at Azshara).
 
-## A Professions button by the title
-- A round button with your profession's icon now sits next to the Casino and Settings buttons at the top of the window. Click it to open Professions.
+## A Professions button by the title (taken out before release)
+- The round Professions button by the title was removed for 1.6.0 (the Professions tab is enough); TCF.UI.ProfQuickButton is gone.
 
 ## More spots
 - Every gathering profession has three more spots, after the first six. They open up as your business grows and stay open once you have them:
@@ -68,7 +68,7 @@
 - While 1.6.x is installed (TCF.GLITCH_PATCH = "1.6"; it switches itself off in 1.7), working a gathering spot by hand can make that spot glitch for 60 seconds. Every click by hand on the glitched spot then pays an extra 5 seconds of all that profession's spots' income (at least 10 normal clicks) and 3 more of its material.
 - How it starts: the first click by hand at sixteen minutes past the hour on the player's clock (for patch "1.6"), or by luck, 1 in 3000 clicks by hand at any other time.
 - Limits: once a day per WoW character (saved in that character's own data, TCF.charData.profGlitchDay, so alts have their own), only the cat you are playing, only by hand (helpers and the cats you are not playing never glitch). So at most 60 seconds a day: about 20 minutes of the profession's income at 4 clicks a second, about 3 minutes at the starting speed.
-- What the player sees: a purple chat line, "Something is wrong at your Copper Vein spot. It is giving far too much. Better be quick.", the spot's name flickering with a question mark and "Work it by hand: 42s" on its bar, the round Professions button flickering, then "Your Copper Vein spot is back to normal. While it lasted it paid ... Trade Gold and ... Copper Ore." No pop-ups. Both lines show even with chat lines turned off in Settings, because they answer the player's own click; the end line follows the chat setting if the player switched to another cat meanwhile.
+- What the player sees: a purple chat line, "Something is wrong at your Copper Vein spot. It is giving far too much. Better be quick.", the spot's name flickering with a question mark and "Work it by hand: 42s" on its bar, then "Your Copper Vein spot is back to normal. While it lasted it paid ... Trade Gold and ... Copper Ore." No pop-ups. Both lines show even with chat lines turned off in Settings, because they answer the player's own click; the end line follows the chat setting if the player switched to another cat meanwhile.
 - Counted in db.stats.profGlitches (no achievement for it, so it stays a secret). Code: Professions.lua TCF:GlitchClick / TCF:GlitchTick, settings at TCF.GLITCH_*.
 
 ## For the developer: spot numbers and pacing
@@ -80,4 +80,4 @@
 ## For the developer: things the other tracks should know when merging
 - Loot track: Light Chain Gloves, Rough Leather Gloves, Knitted Gloves and Knitted Bracers are now crafted (it.crafted, CraftData.lua), so Gear.lua leaves them out of the loot pools and selling them pays Trade Gold.
 - Any track that adds a craft skin or a Cosmetic only recipe: Professions.lua multiplies every cosmetic recipe's materials once at load (TCF.COSMETIC_MAT_MULT), including get.mats on Data.lua craft skins. Write the base amounts; they are multiplied by rarity afterwards.
-- Window track: the round Professions button hangs off the iconPrev local in UI.lua (after the Casino and Settings icons). Keep that local, or lay out win.profQuick with the other header icons.
+- Window track: the round Professions button is gone (1.6.0); the glitch shows on the spot itself.

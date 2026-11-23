@@ -642,7 +642,15 @@ function TCF:CreateWindow()
                         [TAB_LEADERBOARD] = "leaderboard", [TAB_CASINO] = "casino" }
   local pageRefresh = {}
   win.TAB_GEAR, win.TAB_LEADERBOARD, win.TAB_CASINO, win.TAB_SETTINGS = TAB_GEAR, TAB_LEADERBOARD, TAB_CASINO, TAB_SETTINGS
+  win.TAB_ACH, win.TAB_PROFESSIONS = TAB_ACH, TAB_PROFESSIONS
   win.tabNames = tabNames
+  -- 1.6.0: where each text tab sits in the two rows of five (the tab numbers stay as they were):
+  -- the Casino takes Achievements' place, Achievements is a round icon by the title
+  local TAB_ORDER = { TAB_GEAR, TAB_ADVENTURE, TAB_ABILITIES, TAB_EXPEDITIONS, TAB_PROFESSIONS,
+                      TAB_WARDROBE, TAB_QUESTS, TAB_SHOP, TAB_CASINO, TAB_LEADERBOARD }
+  local TAB_SLOT = {}
+  for k, i in ipairs(TAB_ORDER) do TAB_SLOT[i] = k end
+  win.tabOrder = TAB_ORDER
   local SelectTab -- defined below
   function win:SelectTab(i) SelectTab(i) end
 
@@ -731,10 +739,10 @@ function TCF:CreateWindow()
 
   ------------------------------------------------ right column: two rows of six tabs over the 560 wide panel
   local right = Panel(win, W - 360, H - 126); right:SetPoint("TOPLEFT", left, "TOPRIGHT", 12, -60)
-  -- 1.6.0: ten tabs in two rows of five (4 * 112.5 + 110 = 560); Casino and Settings are the
-  -- two round icon buttons next to the title instead, so every label has room
+  -- 1.6.0: ten tabs in two rows of five (4 * 112.5 + 110 = 560); Achievements and Settings are
+  -- the two round icon buttons next to the title instead, so every label has room
   local TAB_W, TAB_STEP, TAB_ROW = 110, 112.5, 5
-  local ICON_TABS = { [TAB_CASINO] = { icon = "INV_Misc_Coin_02", title = "Casino", tip = "Slots, blackjack, death roll and rock paper scissors." },
+  local ICON_TABS = { [TAB_ACH] = { icon = "Achievement_General", fallback = "INV_Jewelry_Talisman_07", title = "Achievements", tip = "Achievements you earned and the ones still to get." },
                       [TAB_SETTINGS] = { icon = "INV_Misc_Gear_01", title = "Settings", tip = "Cat, display, chat and sound options, help and info." } }
   win.tabButtons, win.tabWidth, win.tabStep = tabs, TAB_W, TAB_STEP
   SelectTab = function(i)
@@ -752,7 +760,7 @@ function TCF:CreateWindow()
       b = CreateFrame("Button", nil, win)
       b:SetSize(26, 26)
       b:SetPoint("LEFT", iconPrev, "RIGHT", iconPrev == ver and 12 or 6, 0)
-      local ic = b:CreateTexture(nil, "ARTWORK"); ic:SetAllPoints(); ic:SetTexture(TCF.Icon(it.icon)); ic:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+      local ic = b:CreateTexture(nil, "ARTWORK"); ic:SetAllPoints(); ic:SetTexture(TCF.Icon(it.icon, it.fallback)); ic:SetTexCoord(0.07, 0.93, 0.07, 0.93)
       b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
       b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetPoint("TOPLEFT", -3, 3); b.sel:SetPoint("BOTTOMRIGHT", 3, -3)
       b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD"); b.sel:Hide()
@@ -763,16 +771,14 @@ function TCF:CreateWindow()
       iconPrev = b
     else
       b = Button(win, n, TAB_W, 24, function() SelectTab(i); TCF:PlaySound("click") end)
-      local col, row = (i - 1) % TAB_ROW, i <= TAB_ROW and 1 or 0
+      local k = TAB_SLOT[i] or i
+      local col, row = (k - 1) % TAB_ROW, k <= TAB_ROW and 1 or 0
       b:SetPoint("BOTTOMLEFT", right, "TOPLEFT", col * TAB_STEP, 4 + row * 27)
     end
     tabs[i] = b
     local p = CreateFrame("Frame", nil, right); p:SetAllPoints(); p:Hide()
     pages[i] = p
   end
-  -- 1.6: a round Professions button after the Casino and Settings icons (its icon is the cat's
-  -- own profession; built in UI_Professions.lua)
-  if TCF.UI.ProfQuickButton then win.profQuick = TCF.UI.ProfQuickButton(win, iconPrev, function() SelectTab(TAB_PROFESSIONS) end) end
   -- every label has to fit its tab ("Achievements" is the longest), clear of the button's rounded
   -- ends (5 px each side): if one doesn't in this client's font, all the tabs use the small font
   -- so they still match

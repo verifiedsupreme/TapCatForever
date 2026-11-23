@@ -10,7 +10,7 @@ Features
 
 What's new in 1.6.0
 • A Casino: Lucky Paws slots, blackjack, death roll in a cosy cartoon tavern and rock paper scissors on a snowy mountaintop, against a house cat or a friend in your party. Bets are 10 to 500 TapCoins (at most a quarter of what you have), and every game against the house keeps a small edge, so it is for fun, not for getting rich.
-• A main window your way: drag the corner grip to make it bigger or smaller, fold the character column away with the cat button, or switch to a compact, phone-shaped layout with big round tab buttons. Casino, Settings and Professions are round buttons by the title.
+• A main window your way: drag the corner grip to make it bigger or smaller, fold the character column away with the cat button, or switch to a compact, phone-shaped layout with big round tab buttons. Achievements and Settings are round buttons by the title, and the Casino has its own tab.
 • Animated cosmetics: flames that flicker, lava that flows, drifting stars, embers, snow and wisps. Every Epic and Legendary skin has its own effect (the Diamond Cat sparkles, the Galaxy Cat has stars inside its fur), and you can turn them off. The finest skins now drop from Kel'Thuzad, Nefarian, Ragnaros and the real General Drakkisath.
 • Eleven animated cosmetic sets, one for Molten Core and one for each later dungeon in Adventure, six pieces each with a new Shoulders slot. Real shoulder gear now shows on your cat too, with 43 drawings, and the racial accessory has its own slot.
 • Adventure: a faster start, a Help guide, first kills that give more in bigger zones, and bosses you can farm for their real loot. Some rewards come from killing real WoW bosses, like Hogger, and six boss effects unlock from big kills.

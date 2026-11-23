@@ -73,50 +73,6 @@ TCF.UI.AddTeachLine = addTeachLine
 -- (Art/v/k_wpn_fishpole_f, main hand, resting paw lifted by 44 units)
 local POLE_TIP_X, POLE_TIP_Y, PAW_LIFT = 470, 108, 44
 
--- 1.6: the round Professions button in the main window's header, next to the Casino (coin) and
--- Settings (cog) icons. It shows the cat's own profession (Mining, Skinning or Tailoring) and opens
--- the Professions tab. A glitched spot (the patch secret) makes it flicker purple.
-function TCF.UI.ProfQuickButton(win, after, open)
-  local b = CreateFrame("Button", nil, win)
-  b:SetSize(26, 26)
-  b:SetPoint("LEFT", after, "RIGHT", 6, 0)
-  b.ic = b:CreateTexture(nil, "ARTWORK"); b.ic:SetAllPoints(); b.ic:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-  b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-  b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetPoint("TOPLEFT", -3, 3); b.sel:SetPoint("BOTTOMRIGHT", 3, -3)
-  b.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); b.sel:SetBlendMode("ADD"); b.sel:Hide()
-  local function update()
-    local f = TCF.db and TCF.FAMILIES[TCF:MainProf()]
-    local icon = f and f.icon or "Trade_Mining"
-    if b.icon ~= icon then b.icon = icon; b.ic:SetTexture(TCF.Icon(icon)) end
-    local onTab = win.tab and win.tabNames and win.tabNames[win.tab] == "Professions"
-    if (b.sel:IsShown() and true or false) ~= (onTab and true or false) then b.sel:SetShown(onTab) end
-    local g = TCF.Glitch and TCF:Glitch()
-    b.ic:SetVertexColor(1, g and (0.5 + 0.5 * math.sin(GetTime() * 10)) or 1, 1)
-  end
-  local acc = 0
-  b:SetScript("OnUpdate", function(_, e) acc = acc + e; if acc > 0.1 then acc = 0; update() end end)
-  b:SetScript("OnShow", update)
-  b:SetScript("OnClick", function() open(); TCF:PlaySound("click"); update() end)
-  TCF.UI.Tip(b, function(tt)
-    local f = TCF.FAMILIES[TCF:MainProf()]
-    tt:AddLine("Professions", 1, 0.82, 0)
-    -- only what this cat has learned (the gathering skill's own name, so cloth cats don't read "Tailoring" twice)
-    local have, later = { f.skillName or f.name }, {}
-    if f.craftName and f.craftName ~= have[1] then have[#have + 1] = f.craftName end
-    for _, p in ipairs(TCF.PROFESSIONS) do
-      if not p.family then
-        local list = TCF:ProfUnlocked(p.key) and have or later
-        list[#list + 1] = p.name
-      end
-    end
-    local function join(t) return #t > 1 and (table.concat(t, ", ", 1, #t - 1) .. " and " .. t[#t]) or (t[1] or "") end
-    tt:AddLine("Your " .. join(have) .. ".", 1, 1, 1, true)
-    if #later > 0 then tt:AddLine("Learned later: " .. join(later) .. ".", 0.7, 0.7, 0.7, true) end
-  end)
-  update()
-  return b
-end
-
 TCF.UI.Builders.professions = function(page, win)
   local U = TCF.UI
   local Text, Button, Tip, Panel = U.Text, U.Button, U.Tip, U.Panel

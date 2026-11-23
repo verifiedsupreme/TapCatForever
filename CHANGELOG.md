@@ -3,7 +3,7 @@
 ## 1.6.0
 
 **Casino**
-- New: the Casino (the round coin button next to the TapCatForever title), with Lucky Paws slots, blackjack, and death roll and rock paper scissors against a house cat or a friend in your party. It fills the whole window under the tabs: pick Slots, Blackjack or Death roll with the buttons at the top (the Death roll view also plays rock paper scissors).
+- New: the Casino (a new tab between Shop and Leaderboard), with Lucky Paws slots, blackjack, and death roll and rock paper scissors against a house cat or a friend in your party. It fills the whole window under the tabs: pick Slots, Blackjack or Death roll with the buttons at the top (the Death roll view also plays rock paper scissors).
 - In the Friend view a short line under the top bar says whether the friend you picked can play: "Ready to play", "Checking their TapCatForever..." or "Their TapCatForever didn't answer (they need the newest version)". Party cats work on older versions too, so you can see a friend's cat while their addon can't take a challenge yet.
 - Challenges between friends now reach the right player even when the game doesn't let addons read your own name: each addon learns the name the game gives you from your own messages.
 - Right after you join a group your addon may not know your name yet: a challenge then says so, and works a few seconds later.
@@ -76,21 +76,21 @@
 - Unlike death roll, it works inside dungeons and raids too: it doesn't use /roll.
 
 **Main window**
-- Casino, Settings and Professions are now round buttons next to the TapCatForever title (a coin, a cog and your profession's icon), so the other ten tabs sit in two roomier rows of five and every name fits.
+- Achievements and Settings are now round buttons next to the TapCatForever title (a trophy and a cog), so the other ten tabs, the Casino among them, sit in two roomier rows of five and every name fits.
 - The window can now be made bigger or smaller: drag the grip in its bottom-right corner. Everything inside grows or shrinks with it, and the top-left corner stays where it is. The size follows how far you drag, so just clicking the grip doesn't change it.
 - The window always fits on your screen: on smaller screens the largest size is a little under 140%. Double-click the grip to go back to normal size.
 - Settings > Cat and display has Window size - and + buttons too (5% a click, from 60% to 140%). The size is remembered.
 
 **Main window: fold away the character column**
-- A new cat button left of the Compendium button folds away the left column (your cat, gear slots, class and stats). The window gets narrower and the tabs slide left. Click it again to bring the column back. Your choice is remembered.
-- In the narrow window the Compendium is a book icon next to the cat button, and the Treasure Bag shows without its label.
+- A new cat button at the top, the one nearest the left column, folds away that column (your cat, gear slots, class and stats). The window gets narrower and the tabs slide left. Click it again to bring the column back. Your choice is remembered.
+- In the narrow window the Compendium is a book icon next to the layout button, and the Treasure Bag shows without its label.
 - The Casino still uses the whole window: on that tab the window grows to the left, so the tabs stay where they are, and it goes back exactly where it was when you leave, even near the edge of the screen.
 - With the column folded away, hovering an item on the Appearance, Shop, Gear or Professions page shows it on a small cat beside the window, so you can still try things on.
 - The Gear page still says to click a slot around your cat to filter: open the column with the cat button to see the slots.
 
 **Main window: compact layout**
-- A new layout button (a little phone, left of the cat button) switches the main window to a compact layout: narrow and tall, about the shape of a phone screen. Click it again (it shows a wide window then) to go back.
-- The tabs become big round buttons in two rows of five, each with its name under it and a tooltip. Quests shows how many are ready to hand in, as before. The Casino, Settings and Professions stay as the round icons by the title.
+- A new layout button (a little phone, between the cat button and the Compendium button) switches the main window to a compact layout: narrow and tall, about the shape of a phone screen. Click it again (it shows a wide window then) to go back.
+- The tabs become big round buttons in two rows of five, each with its name under it and a tooltip. Quests shows how many are ready to hand in, as before. Achievements and Settings stay as the round icons by the title.
 - Every page is shown smaller to fit the narrow window and works the same as before. The Casino is shown smaller still so the whole table fits.
 - The character column has its own view: click the cat button, or the level line at the bottom, to see your cat, gear slots, class and stats. Click the cat button again, or any tab, to go back.
 - A line at the bottom shows your class, level, title, Power and XP. Your TapCoins sit next to the Treasure Bag on the second row, so big numbers have room. The Shop's round button is a chest, so it doesn't look like the Treasure Bag.
@@ -172,7 +172,6 @@
 - Buffs, heals and shields on the cat stay cartoon effects.
 
 **Professions**
-- A round button with your profession's icon now sits next to the Casino and Settings buttons at the top of the window. Click it to open Professions.
 - Skill-ups work like WoW: the first few crafts or clicks on something new always give a skill point. After that it slows down a lot, and once your skill is 50 above it, it teaches you nothing more. Move on to the next spot or recipe to keep learning.
 - Recipes, gathering spots, seeds, bandages, fishing spots and dishes are coloured like in WoW: orange always teaches you, yellow often, green sometimes, pale green rarely, grey no longer. Hover one to see "Still teaches you: often" (or sometimes, rarely, no longer).
 - Gathering spots count too: your first spot teaches up to 50, the second up to 100, and so on.

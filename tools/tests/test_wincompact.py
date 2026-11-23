@@ -29,7 +29,7 @@ def check(seed, load_addon):
         if type(rel) == "number" then rel, rp, x, y = nil, p, rel, rp end
         f._pts[#f._pts + 1] = { p, rel, rp or p, x or 0, y or 0 }
       end
-      ck(lay and _pt(lay, "RIGHT") and _pt(lay, "RIGHT")[2] == win.paneButton, "the layout button sits left of the cat button")
+      ck(lay and _pt(lay, "RIGHT") and _pt(lay, "RIGHT")[2] == P.compBtn and _pt(win.paneButton, "RIGHT")[2] == lay, "the cat button, then the layout button, then the Compendium")
       ck(lay.icon.tex and lay.icon.tex:find("layout_compact", 1, true), "it shows the phone icon")
       lay.scripts.OnClick(lay)
       ck(T.db.ui.winCompact == true and win.layoutMode == "compact", "compact on, and saved")
@@ -47,10 +47,15 @@ def check(seed, load_addon):
       end
       ck(n == 10, "ten round tabs: " .. n)
       for i, b in ipairs(win.tabButtons) do
-        if i == win.TAB_CASINO or i == win.TAB_SETTINGS then ck(b:IsShown(), "the Casino and Settings icons stay in the header")
+        if i == win.TAB_ACH or i == win.TAB_SETTINGS then ck(b:IsShown(), "the Achievements and Settings icons stay in the header")
         else ck(not b:IsShown(), "text tab " .. i .. " hidden") end
       end
       ck(_pt(win.roundTabs[win.TAB_GEAR], "TOP")[5] == 0, "first row on top")
+      ck(win.roundTabs[win.TAB_CASINO] and not win.roundTabs[win.TAB_ACH] and not win.roundTabs[win.TAB_SETTINGS], "the Casino is a round tab, Achievements and Settings are not")
+      do
+        local cp, lp = _pt(win.roundTabs[win.TAB_CASINO], "TOP"), _pt(win.roundTabs[win.TAB_LEADERBOARD], "TOP")
+        ck(cp[5] == lp[5] and cp[4] < lp[4] and lp[4] > C.CW * 0.8, "the Casino sits where Achievements was, before the Leaderboard")
+      end
       -- the pages: scaled to the width, between the tabs and the bottom line
       local s = P.right:GetScale()
       local rp = _pt(P.right, "TOPLEFT")
@@ -62,7 +67,7 @@ def check(seed, load_addon):
       ck(not P.left:IsShown() and win.compactStrip:IsShown(), "no character column, the bottom line shows")
       ck(win.compactStrip.lvl:GetText():find("Level", 1, true) and win.compactStrip.power:GetText():find("Power", 1, true), "the bottom line: " .. tostring(win.compactStrip.lvl:GetText()))
       -- the header: second row
-      ck(_pt(lay, "TOPLEFT") and _pt(win.paneButton, "LEFT")[2] == lay and _pt(P.compBtn, "LEFT")[2] == win.paneButton, "second header row: layout, cat, Compendium")
+      ck(_pt(win.paneButton, "TOPLEFT") and _pt(lay, "LEFT")[2] == win.paneButton and _pt(P.compBtn, "LEFT")[2] == lay, "second header row: cat, layout, Compendium")
       -- (the TapCoins take the bag label's place, so big numbers don't reach the icons by the title)
       ck(P.compBtn:IsShown() and not win.compIcon:IsShown() and not P.bagLabel:IsShown() and _pt(P.bagBtn, "TOPRIGHT"), "the Compendium button and the Treasure Bag on the second row")
       ck(_pt(P.coins, "RIGHT") and _pt(P.coins, "RIGHT")[2] == P.bagBtn and not _pt(P.coins, "TOPRIGHT"), "the TapCoins sit left of the Treasure Bag")
@@ -161,13 +166,11 @@ def check(seed, load_addon):
       lay.scripts.OnClick(lay)
       ck(win.layoutMode == "narrow" and win._w == 592, "and leaving compact goes back to the narrow window")
       ck(near(sx(), x0), "the corner stayed put the whole time")
-      -- the round Professions button (UI_Professions.lua) stays by Casino and Settings in every
-      -- layout; the narrow header's layout button follows it
-      if win.profQuick then
-        local settingsIcon = win.tabButtons[win.TAB_SETTINGS]
-        ck(_pt(win.profQuick, "LEFT") and _pt(win.profQuick, "LEFT")[2] == settingsIcon and win.profQuick:IsShown(), "the Professions button sits after Settings")
-        ck(_pt(lay, "LEFT") and _pt(lay, "LEFT")[2] == win.profQuick, "narrow: the layout button follows the Professions button")
-      end
+      -- 1.6.0: no round Professions button in the header; the narrow header's cat button follows
+      -- Settings, then the layout button
+      ck(win.profQuick == nil, "no Professions button by the title")
+      ck(_pt(win.paneButton, "LEFT") and _pt(win.paneButton, "LEFT")[2] == win.tabButtons[win.TAB_SETTINGS], "narrow: the cat button follows Settings")
+      ck(_pt(lay, "LEFT") and _pt(lay, "LEFT")[2] == win.paneButton, "narrow: the layout button follows the cat button")
       -- an added header button goes after the Compendium button in compact; the try-on cat shows
       local extra = CreateFrame("Button", nil, win)
       win:AddHeaderButton(extra, function(b) b:SetPoint("RIGHT", lay, "LEFT", -6, 0) end)
@@ -240,4 +243,4 @@ def check(seed, load_addon):
     if r:
         raise AssertionError("compact window (remembered): " + r)
     assert lua.eval("_newsPlaced") or lua.eval("TapCatForever:CurrentNews() == nil"), "the news strip checks did not run"
-    print("compact window section (narrow and tall, round tabs, pages scaled to fit, Casino scaled, character view, grip, quest count, back to full and narrow, Professions button in the narrow header, remembered): all checks passed")
+    print("compact window section (narrow and tall, round tabs, pages scaled to fit, Casino scaled, character view, grip, quest count, back to full and narrow, no Professions button, the cat button before the layout button, the Casino where Achievements was, remembered): all checks passed")

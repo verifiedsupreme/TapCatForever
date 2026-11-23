@@ -1,7 +1,7 @@
 # The TapCat Casino
 
 ## Where to find it
-- A new Casino tab sits between Leaderboard and Settings in the TapCatForever window.
+- A new Casino tab sits between Shop and Leaderboard in the TapCatForever window.
 - The Casino fills the whole window under the tabs. Pick Slots, Blackjack or Death roll with the buttons at the top. The Death roll view also plays rock paper scissors.
 - The line at the top shows your bet limits, and your stats for the game you are playing: games played, total bet, paid back, net and your biggest win (hover it for every game).
 

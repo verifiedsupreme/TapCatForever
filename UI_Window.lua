@@ -193,7 +193,7 @@ local TAB_ICONS = {
   Appearance = { "INV_Misc_Cape_02", "The cosmetics you collected. Cosmetic only." },
   Quests = { "INV_Misc_Note_01", "Quests and their rewards." },
   Shop = { "INV_Box_01", "Chests and cosmetics for TapCoins." },   -- a chest: the Treasure Bag next to it is a bag
-  Achievements = { "Achievement_Quests_Completed_08", "Achievements you earned and the ones still to get." },
+  Casino = { "INV_Misc_Coin_02", "Slots, blackjack, death roll and rock paper scissors." },
   Leaderboard = { "INV_Crown_02", "Cats of players on your realm." },
 }
 TCF.WIN_TAB_ICONS = TAB_ICONS
@@ -295,7 +295,9 @@ local function SetupLayout(win)
   local round = {}
   win.roundTabs = round
   local slots = {}
-  for i, n in ipairs(win.tabNames or {}) do if not iconTabs[i] then slots[#slots + 1] = i end end
+  -- in the text tabs' order (UI.lua win.tabOrder: the Casino sits where Achievements was)
+  for _, i in ipairs(win.tabOrder or {}) do if not iconTabs[i] then slots[#slots + 1] = i end end
+  if #slots == 0 then for i in ipairs(win.tabNames or {}) do if not iconTabs[i] then slots[#slots + 1] = i end end end
   local questsTab
   for i, n in ipairs(win.tabNames or {}) do if n == "Quests" then questsTab = i end end
   local perRow = math.ceil(#slots / 2)
@@ -528,16 +530,17 @@ local function SetupLayout(win)
     pane:ClearAllPoints(); compIcon:ClearAllPoints(); lay:ClearAllPoints(); P.compBtn:ClearAllPoints()
     if P.bagBtn then P.bagBtn:ClearAllPoints() end
     if P.coins then P.coins:ClearAllPoints() end
-    -- the round icons by the title: Casino, Settings and the Professions button (UI_Professions.lua,
-    -- anchored right of Settings in every layout); the narrow header's buttons follow the last one
-    local iconRow = self.profQuick or (self.tabButtons and self.TAB_SETTINGS and self.tabButtons[self.TAB_SETTINGS]) or P.ver
+    -- the round icons by the title: Achievements and Settings; the narrow header's buttons follow
+    -- the last one. The cat button always comes first (nearest the character column it folds),
+    -- then the layout button.
+    local iconRow = (self.tabButtons and self.TAB_SETTINGS and self.tabButtons[self.TAB_SETTINGS]) or P.ver
     if compact then
-      -- a second row: [layout][cat][Compendium] on the left, the Treasure Bag on the right
-      lay:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -45)
-      pane:SetPoint("LEFT", lay, "RIGHT", 6, 0)
-      P.compBtn:SetPoint("LEFT", pane, "RIGHT", 8, 0)
+      -- a second row: [cat][layout][Compendium] on the left, the Treasure Bag on the right
+      pane:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -45)
+      lay:SetPoint("LEFT", pane, "RIGHT", 6, 0)
+      P.compBtn:SetPoint("LEFT", lay, "RIGHT", 8, 0)
       -- the TapCoins move down beside the Treasure Bag, so large numbers don't reach the
-      -- Casino and Settings icons by the title
+      -- Achievements and Settings icons by the title
       if P.bagBtn then P.bagBtn:SetPoint("TOPRIGHT", self, "TOPRIGHT", -20, -42) end
       if P.coins then
         if P.bagBtn then P.coins:SetPoint("RIGHT", P.bagBtn, "LEFT", -8, 0)
@@ -546,12 +549,12 @@ local function SetupLayout(win)
     else
       if P.coins then P.coins:SetPoint("TOPRIGHT", self, "TOPRIGHT", -44, -18) end
       if narrow then
-        lay:SetPoint("LEFT", iconRow, "RIGHT", 18, 0)
-        pane:SetPoint("LEFT", lay, "RIGHT", 6, 0)
-        compIcon:SetPoint("LEFT", pane, "RIGHT", 6, 0)
+        pane:SetPoint("LEFT", iconRow, "RIGHT", 18, 0)
+        lay:SetPoint("LEFT", pane, "RIGHT", 6, 0)
+        compIcon:SetPoint("LEFT", lay, "RIGHT", 6, 0)
       else
-        pane:SetPoint("RIGHT", P.compBtn, "LEFT", -6, 0)
-        lay:SetPoint("RIGHT", pane, "LEFT", -6, 0)
+        lay:SetPoint("RIGHT", P.compBtn, "LEFT", -6, 0)
+        pane:SetPoint("RIGHT", lay, "LEFT", -6, 0)
       end
       P.compBtn:SetPoint("TOP", self, "TOP", 0, -15)
       if P.bagBtn and P.coins then P.bagBtn:SetPoint("RIGHT", P.coins, "LEFT", -18, 0) end

@@ -46,7 +46,16 @@ def check(seed, load_addon):
       local rp = _pt(P.right, "TOPLEFT")
       ck(rp and rp[2] == win and rp[4] == 344 and rp[5] == -106, "the right column sits right of the pane")
       local pb = win.paneButton
-      ck(pb and _pt(pb, "RIGHT") and _pt(pb, "RIGHT")[2] == P.compBtn, "the pane button sits left of the Compendium button")
+      do
+        -- 1.6.0: the Casino is a text tab where Achievements was (second row, fourth), Achievements the round icon by the title
+        local cp, ap = _pt(win.tabButtons[win.TAB_CASINO], "BOTTOMLEFT"), _pt(win.tabButtons[win.TAB_ACH], "LEFT")
+        ck(cp and cp[2] == P.right and math.abs(cp[4] - 3 * win.tabStep) < 1e-6 and cp[5] == 4, "the Casino tab sits in the second row, fourth")
+        ck(ap and ap[2] == P.ver, "the Achievements icon sits right after the title's version")
+        ck(win.parts.iconTabs[win.TAB_ACH] and not win.parts.iconTabs[win.TAB_CASINO], "Achievements is an icon, the Casino a text tab")
+      end
+      local lb = win.layoutButton
+      ck(lb and _pt(lb, "RIGHT") and _pt(lb, "RIGHT")[2] == P.compBtn, "the layout button sits left of the Compendium button")
+      ck(pb and _pt(pb, "RIGHT") and _pt(pb, "RIGHT")[2] == lb, "the pane button sits left of the layout button, nearest the character column")
       win:SelectTab(win.TAB_GEAR)
       local x0 = sx()
       -- fold it away
@@ -58,7 +67,8 @@ def check(seed, load_addon):
       ck(rp[4] == 16 and rp[5] == -106, "the right column slides left")
       ck(math.abs(sx() - x0) < 1e-6, "the top-left corner stays put")
       ck(not P.compBtn:IsShown() and win.compIcon:IsShown() and not P.bagLabel:IsShown(), "the narrow header: Compendium icon, no bag label")
-      ck(_pt(win.compIcon, "LEFT")[2] == pb, "the Compendium icon is right of the pane button")
+      ck(_pt(pb, "LEFT")[2] == win.tabButtons[win.TAB_SETTINGS] and _pt(win.layoutButton, "LEFT")[2] == pb, "narrow: the pane button first after the icons, then the layout button")
+      ck(_pt(win.compIcon, "LEFT")[2] == win.layoutButton, "the Compendium icon is right of the layout button")
       ck(win.compIcon.scripts.OnClick ~= nil, "the Compendium icon works")
       win.compIcon.scripts.OnClick(win.compIcon); ck(T.compendium and T.compendium:IsShown(), "the Compendium icon opens it")
       win.compIcon.scripts.OnClick(win.compIcon); ck(not T.compendium:IsShown(), "and closes it")

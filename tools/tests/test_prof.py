@@ -252,12 +252,11 @@ check(texts():find("1-6 of 9", 1, true), "scrolled back to the first spots")
 ps.lifetime = math.max(ps.lifetime, 1e15)
 T:PrestigeTrade()
 check(ps.ops[fam][9].n == 0 and not ps.ops[fam][9].mgr and T:SpotUnlocked(fam, 9), "selling resets spot 9, it stays open")
--- the round Professions button in the header
-check(T.window.profQuick and T.window.profQuick:IsShown(), "a Professions icon button by the title")
+-- 1.6.0: no round Professions button in the header any more; the Professions tab opens it
+check(T.window.profQuick == nil and T.UI.ProfQuickButton == nil, "no Professions button by the title")
 T.window:SelectTab(1)
-T.window.profQuick:GetScript("OnClick")(T.window.profQuick)
-check(T.window.tab == 5, "it opens the Professions tab")
--- review fixes: the button's tooltip names the cloth cat's gathering skill once, and only what it has learned
+T.window.tabButtons[5].scripts.OnClick(T.window.tabButtons[5])
+check(T.window.tab == 5, "the Professions tab opens it")
 local function tipOf(owner)
   local lines = {}
   GameTooltip.AddLine = function(_, t) lines[#lines + 1] = tostring(t) end
@@ -265,9 +264,7 @@ local function tipOf(owner)
   GameTooltip.AddLine = nil
   return table.concat(lines, "\n")
 end
-local tip = tipOf(T.window.profQuick)
-check(not tip:find("Tailoring, Tailoring", 1, true) and tip:find("Your Cloth Scavenging, Tailoring", 1, true), "header tooltip: " .. tip)
-check(tip:find("Learned later:", 1, true), "header tooltip lists the professions not learned yet apart: " .. tip)
+local tip
 -- the later spots say their material has no recipe yet; the early ones don't
 check(T.MatUsedInRecipe("linen") and not T.MatUsedInRecipe("wartorn"), "linen is used in recipes, Wartorn Cloth Scrap not yet")
 T.window.profView = "main"; T.window.spotScroll = 3; T.window:Refresh()
