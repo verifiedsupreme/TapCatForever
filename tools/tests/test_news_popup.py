@@ -60,6 +60,14 @@ def check(seed, load_addon):
       ckl(not p:IsShown(), "Close closes it")
       win:Hide(); win:Show(); T:CheckNews()
       ckl(not p:IsShown(), "it doesn't come back")
+      -- its own solid fill, the window dimmed behind it, and closing the window closes it
+      T:ShowNewsPopup(n)
+      ckl(p.fill ~= nil, "a solid fill of its own")
+      ckl(p.veil and p.veil:IsShown() and p.veil._parent == win, "the window is dimmed behind it")
+      win.newsWatch.scripts.OnHide(win.newsWatch)
+      ckl(not p:IsShown(), "closing the window closes it")
+      if p.scripts.OnHide then p.scripts.OnHide(p) end
+      ckl(not p.veil:IsShown(), "and the dimming")
       -- Read the full patch notes
       T:ShowNewsPopup(n)
       ckl(p:IsShown(), "shown again by hand for the next check")
@@ -92,6 +100,9 @@ def check(seed, load_addon):
         from PIL import Image
         im = Image.open(path)
         ck(im.size == (256, 128), "%s is 256x128: %r" % (rel, im.size))
+        # written like every other picture in Art: 32-bit RLE, top-left origin (WoW reads these)
+        with open(path, "rb") as fh: hdr = fh.read(18)
+        ck(hdr[2] == 10 and hdr[16] == 32 and hdr[17] == 0x28, "%s is a 32-bit top-left RLE TGA: type %d, %d bits, descriptor %#x" % (rel, hdr[2], hdr[16], hdr[17]))
     ck(r.note == NOTE, "the multiplayer line: %s" % r.note)
     ck(r.more == "Read the full patch notes" and r.done == "Close", "the buttons: %s, %s" % (r.more, r.done))
     ck(not r.bang, "no exclamation marks")

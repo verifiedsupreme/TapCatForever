@@ -31,7 +31,7 @@
 - The What's new strip over the window takes the width of the narrow and compact windows, and grows taller for its text. If the taller strip no longer fits above the window, it goes below it.
 
 ## Tabs (1.6.0)
-- The Casino is a text tab where Achievements was (second row, between Shop and Leaderboard); Achievements is the round trophy icon by the title, next to Settings. No round Professions button any more: the Professions tab opens it.
+- The Casino is a text tab where Achievements was (second row, between Shop and Leaderboard); Achievements is the round achievement emblem by the title, next to Settings. No round Professions button any more: the Professions tab opens it.
 - Header order: the cat (character column) button first, nearest the column it folds, then the layout (phone) button, then the Compendium, in all three layouts.
 
 ## For merging (not for players)
@@ -44,3 +44,7 @@
 - The first time the window opens on 1.6.0 (once per account, db.newsSeen), a small box over the middle of the window shows six pictures with a few words each (Cat Casino, Resize your window, Animated dungeon sets, Professions level like WoW, Farm your favourite bosses, Party expeditions), the line "Multiplayer is still in the works: party death roll, rock paper scissors and the leaderboard may not work yet.", "Read the full patch notes" and Close. It is part of the window (never over the screen cat), and only shows when the player opens the window.
 - Brand-new players skip it (they get the welcome tour). Later versions with a highlight keep the slim strip.
 - For the developer: News.lua TCF.NEWS_POPUPS keys a version to its pop-up; pictures are Art/news/*.tga (256x128, 24-bit RLE) from tools/make_news_art.py (crops in tools/news_src, --review DIR crops the screenshots again).
+
+## Review fixes (1.6.0)
+- What's new pop-up: a nearly solid fill of its own inside the dialog border (the dialog backdrop alone let the page show through), a dark veil over the rest of the window while it is up, and it closes when the window closes (newsWatch OnHide).
+- The news tiles are written with make_art.write_tga: 32-bit RLE, top-left origin, like every other picture in Art (PIL's TGA writer chose 24-bit and a bottom-left origin for some). test_news_popup.py checks the header.

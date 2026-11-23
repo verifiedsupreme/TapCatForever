@@ -130,6 +130,9 @@ def check(seed, load_addon):
     steps = [(10, 10), (99, 10), (100, 25), (249, 25), (250, 50), (999, 50), (1000, 100), (2499, 100), (2500, 250), (5000, 500), (10000, 1000), (250000, 25000)]
     for b, s in steps:
         ck(ev("T.CasinoBetStep(%d)" % b) == s, "step at %d is %d (%r)" % (b, s, ev("T.CasinoBetStep(%d)" % b)))
+    # big bets fit the 100 px bet box: a short form from 100,000 up
+    for n, txt in ((4500, ev("T.Commas(4500)")), (99990, ev("T.Commas(99990)")), (125500, "125.5K"), (250000, "250K"), (4500000, "4.5M"), (1250000, "1.25M"), (3000000000, "3B")):
+        ck(ev("T.CasinoShortBet(%d)" % n) == txt, "bet box shows %d as %s (%r)" % (n, txt, ev("T.CasinoShortBet(%d)" % n)))
     ex("C.slots = nil; C.total = nil; C = T:CasinoData()")
 
     # ---- bet and pay bookkeeping (stakes and winnings stay out of TapCoins earned and spent)

@@ -8,6 +8,9 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 - Your cats are now shared by all your characters: each class has one cat for your whole account. Any character plays the account's cat of its class (or the one you pick), with its level, XP, gear and bags, Treasure Bag, professions, look and cosmetics, Adventure progress and farming, abilities and expeditions.
 - The first time you log in on 1.6, the cats of all your characters are put together, so nothing is lost. For each class the cat with the highest level (then the most XP) keeps its level, XP, worn gear, look and place in Adventure.
 - The other cats of that class add their bag items (with the gear they wore), unopened chests, cosmetics, materials, Adventure kills and abilities. Professions keep the business with the most Trade Gold earned, the best skill in each profession and the best Renown.
+- Unopened chests were kept per character before 1.6. Every character's chests, also those of characters you no longer play, go to the cat that character was playing, at that cat's level.
+- Trade Gold earned by the businesses that weren't kept still counts toward the Trade Gold achievements and the leaderboard (not toward unlocking professions).
+- Expeditions under way on all your characters keep going. If there are more than two, the Expeditions page shows the ones back first and says how many more are under way. A second party expedition waits until the first is claimed, and its cats count as away until then.
 - One chat line says so, once. A copy of every character's old cats is kept in your saved data.
 - A character that logs in later with cats of its own (for example one you played on an older version) is put together the same way.
 - A new character starts on the account's cat of its class.
@@ -27,6 +30,7 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 - A bet is at least 10 TapCoins and at most half your TapCoins (rounded down to the bet step). There is no top bet. You need at least 20 TapCoins to play.
 - The - and + buttons take bigger steps on big bets (100 from 1,000, 250 from 2,500, 500 from 5,000, and so on).
 - In a duel with a friend, each of you can bet at most half your own TapCoins, and exactly the bet you both agreed moves between you.
+- Big bets show in short in the bet box, for example 125.5K or 4.5M.
 - Use the - and + buttons or the quick 10, 50, 100 and Max buttons to choose your bet. All the games share the same bet, and it is kept for next time.
 - Every game against the house keeps a small house edge, so over time the Casino takes a few TapCoins out of the game. Duels with friends are even: no table fee. It is for fun, not for getting rich. There are no free spins.
 - Casino bets and wins don't count toward the TapCoins earned and spent achievements.
@@ -90,8 +94,8 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 - Unlike death roll, it works inside dungeons and raids too: it doesn't use /roll.
 
 **Main window**
-- The first time you open the window on 1.6, a small What's new box over the window shows the new things in pictures. Read the full patch notes from it, or close it. It shows once.
-- Achievements and Settings are now round buttons next to the TapCatForever title (a trophy and a cog), so the other ten tabs, the Casino among them, sit in two roomier rows of five and every name fits.
+- The first time you open the window on 1.6, a small What's new box over the window shows the new things in pictures. Read the full patch notes from it, or close it. The rest of the window is dimmed behind it, and closing the window closes it too. It shows once.
+- Achievements and Settings are now round buttons next to the TapCatForever title (an achievement emblem and a cog), so the other ten tabs, the Casino among them, sit in two roomier rows of five and every name fits.
 - The window can now be made bigger or smaller: drag the grip in its bottom-right corner. Everything inside grows or shrinks with it, and the top-left corner stays where it is. The size follows how far you drag, so just clicking the grip doesn't change it.
 - The window always fits on your screen: on smaller screens the largest size is a little under 140%. Double-click the grip to go back to normal size.
 - Settings > Cat and display has Window size - and + buttons too (5% a click, from 60% to 140%). The size is remembered.
@@ -124,7 +128,7 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 - The fight log and that line each have their own rows at the bottom of the page, so they never draw over each other. The log shows as many of its newest lines as fit.
 - "Wailing Caverns opens at level 15. Running Ragefire Chasm again until then." is logged once, not after every run of the zone.
 - Hover the zone name to see what is left to earn there: bosses still to beat for the first time and what they give, the zone clear bonus, the chance a boss kill drops a chest right now (for example "Cat Treat Pouch from boss kills: 12% a kill right now"; it grows the longer your cat fights), and which bosses can drop loot again.
-- Enemies are no longer cut off by an invisible box: each one is drawn in a space that covers the whole fight scene, and is sized with room for its attacks and its fall when it dies. Big bosses and wide creatures fit too, in every window size and layout.
+- Enemies are no longer cut off by an invisible box: each one is drawn in a space that covers the whole fight scene, and is sized and placed so its attacks and its fall when it dies stay inside the fight scene's frame. The enemies stand a little further left to make room. Big bosses and wide creatures fit too, in every window size and layout.
 - Area spells (Arcane Explosion, Thunder Clap, Consecration and the others) now also go off against a single enemy, such as a boss, when no single-target spell is ready, so every class deals a little more damage to bosses. Arcane Explosion rings out from your cat before it hits every enemy.
 
 **Adventure: enemies above your cat's level**
@@ -132,7 +136,7 @@ Multiplayer is still in the works: party death roll, rock paper scissors and the
 - For each level past that, your cat deals about 6% less damage (never under 5% of it) and takes about 6% more, and it misses more: 7% at 4 levels above and 2% more for each level after that, up to 60%. A miss shows "Miss" over the enemy.
 - Enemies below your cat give it a little more damage: 1% a level, at most 5%.
 - An enemy's level is the zone's lowest level for its first packs, up to 2 or 3 levels more for its last boss. Raids count as level 60.
-- When the enemies are 5 or more levels above your cat, a line along the top of the fight says so, for example "Enemies here are 29 levels above your cat: it hits much less and takes far more damage."
+- When the enemies are 5 or more levels above your cat, a line in the top-left corner of the fight, above your cat, says so, for example "Enemies here are 29 levels above your cat: it hits much less and takes far more damage."
 - Auto-advance's zones (2 levels early) stay winnable, and normal progression is about the same as before. A level 31 cat in Molten Core now loses within seconds. Travelling by hand still has no level limit.
 
 **Adventure: first kills give more in bigger zones**

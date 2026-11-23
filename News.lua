@@ -88,6 +88,18 @@ local function createPopup(win, P)
   if f.SetBackdrop then f:SetBackdrop(U.BACKDROP_DIALOG) end
   if f.SetBackdropBorderColor then f:SetBackdropBorderColor(1, 0.82, 0.2, 1) end
   f:EnableMouse(true) -- clicks on it don't reach the page under it
+  -- its own nearly solid fill (the dialog backdrop alone lets the page behind show through)
+  f.fill = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+  f.fill:SetPoint("TOPLEFT", 11, -12); f.fill:SetPoint("BOTTOMRIGHT", -12, 11)
+  f.fill:SetColorTexture(0.06, 0.05, 0.09, 0.97)
+  -- and the rest of the window dimmed behind it while it is up
+  local veil = CreateFrame("Frame", nil, win)
+  veil:SetPoint("TOPLEFT", win, "TOPLEFT", 4, -4); veil:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -4, 4)
+  veil.tex = veil:CreateTexture(nil, "BACKGROUND"); veil.tex:SetAllPoints(); veil.tex:SetColorTexture(0, 0, 0, 0.55)
+  veil:Hide()
+  f.veil = veil
+  f:SetScript("OnShow", function() veil:Show() end)
+  f:SetScript("OnHide", function() veil:Hide() end)
   local close = CreateFrame("Button", nil, f, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", -4, -4)
   close:SetScript("OnClick", function() f:Hide() end)
   f.title = U.Text(f, "GameFontNormalHuge", P.title); f.title:SetPoint("TOP", 0, -18)
@@ -123,6 +135,7 @@ function TCF:FitNewsPopup()
   local compact = win.IsCompact and win:IsCompact()
   if f.SetScale then f:SetScale(compact and 1 or 1.2) end
   if f.SetFrameLevel and win.GetFrameLevel then pcall(f.SetFrameLevel, f, (win:GetFrameLevel() or 1) + 120) end
+  if f.veil and f.veil.SetFrameLevel and win.GetFrameLevel then pcall(f.veil.SetFrameLevel, f.veil, (win:GetFrameLevel() or 1) + 119) end
 end
 
 function TCF:ShowNewsPopup(n)
@@ -182,6 +195,8 @@ do
     if win and not win.newsWatch then
       win.newsWatch = CreateFrame("Frame", nil, win)
       win.newsWatch:SetScript("OnShow", function() TCF:CheckNews() end)
+      -- the pop-up is shown once: closing the window (Esc, its X) closes it too
+      win.newsWatch:SetScript("OnHide", function() if TCF.newsPopup then TCF.newsPopup:Hide() end end)
     end
     return r
   end

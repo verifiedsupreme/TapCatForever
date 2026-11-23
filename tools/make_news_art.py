@@ -176,7 +176,10 @@ def save_tga(im, name):
     d = ImageDraw.Draw(im)
     d.rectangle((0, 0, W - 1, H - 1), outline=(10, 8, 14))
     p = os.path.join(OUT, name + ".tga")
-    im.save(p, compression="tga_rle")
+    # the same 32-bit RLE, top-left-origin TGA as all the other art (PIL's own TGA writer picks
+    # 24-bit and a bottom-left or top-left origin depending on the source picture)
+    from make_art import write_tga
+    write_tga(im.convert("RGBA"), p)
     return p, im
 
 

@@ -10,6 +10,11 @@
 #   - a brand-new character plays the account's cats; an older save joining later is merged too
 #   - per character still: which cat it plays, the Daily Wares, real dungeon limits and the run,
 #     real boss kill counts, the professions glitch day
+# The save here is made by hand: chests already on the cats (classData[class].chests) and only one
+# or two cats per character, so the classes can be told apart. Real 1.5.x saves keep each
+# character's chests in chars[name].keys and all nine cats on every character (so after the merge
+# every class cat owns every character's cosmetics): that is tools/tests/test_account_real_save.py,
+# with a save the 1.5.3.6 release wrote.
 # Run on its own:  python3 tools/tests/test_account_cats.py [seed]
 import os, sys
 
@@ -113,7 +118,7 @@ def check(seed, load_addon):
        "chests added up with their level stamps: %r %r" % (E("T:ChestsOf('pouch', 'MAGE')"), E("T:ChestsOf('strong', 'MAGE')")))
     ck(E("T:Owned('MAGE').skin_lion") == 2 and E("T:Owned('MAGE').skin_frostsaber") == 1 and E("T:Owned('MAGE').skin_diamond") == 1,
        "cosmetics of every character's Mage")
-    ck(E("T:Owned('HUNTER').skin_diamond") == 1 and E("T:Owned('HUNTER').skin_frostsaber == nil"), "the Hunter has Cid's cosmetics only")
+    ck(E("T:Owned('HUNTER').skin_diamond") == 1 and E("T:Owned('HUNTER').skin_frostsaber == nil"), "the Hunter has Cid's cosmetics only (Cid is the only character here with a Hunter)")
     ck(E("M.adv.kills") == 150 and E("M.adv.bossKills") == 15 and E("M.adv.best") == 503 and E("M.adv.tier") == 5
        and E("M.adv.cleared[301] and M.adv.cleared[501]") and E("M.abilities.fireball and M.abilities.frostbolt"),
        "Adventure: Ann's place, kills added, first kills and abilities kept")

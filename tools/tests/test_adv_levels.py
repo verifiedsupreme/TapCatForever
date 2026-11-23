@@ -95,6 +95,21 @@ def check(seed, load_addon):
         ck(L.eval("_page.advGapBar:IsShown()") and txt == "Enemies here are 29 levels above your cat: it hits much less and takes far more damage.",
            "the line in Molten Core: %r" % txt)
         ck("!" not in txt, "plain text")
+        # the line's box (top-left of the fight panel) stays clear of every enemy's name and health
+        # bar (130 px wide, centred on its slot, above its top) and of the models' heads at rest
+        clash = L.eval(r'''(function()
+          local L = TapCatForever.UI.AdvFitLab
+          local bx2, by1 = 4 + L.GAP_W, L.PANEL_H - 4 - L.GAP_H
+          for _, lay in ipairs({ { 1, 1, true }, { 1, 1, false }, { 2, 1 }, { 2, 2 }, { 3, 1 }, { 3, 2 }, { 3, 3 } }) do
+            local g = L.slotGeometry(lay[1], lay[2], lay[3] and true or false)
+            local top = L.SLOT_Y + g.h + 8 + 2 + 26   -- bar 8 px over the slot, then a name of up to 2 lines
+            if g.cx - 65 < bx2 and top > by1 then return string.format("pack %d slot %d: name to %d under the line from %d", lay[1], lay[2], top, by1) end
+            local head = g.gy + (lay[3] and L.FIT.BOSS_PX * 1.15 or L.FIT.TRASH_PX * 1.15)
+            if head > by1 then return string.format("pack %d slot %d: a model's head at %d", lay[1], lay[2], head) end
+          end
+          return nil
+        end)()''')
+        ck(clash is None, "the line covers an enemy: %s" % clash)
         L.execute('''
           local T = TapCatForever
           local cd = T:CD()

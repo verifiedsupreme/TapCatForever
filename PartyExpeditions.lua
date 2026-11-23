@@ -164,8 +164,13 @@ function TCF:GroupExp() return store(self).group end
 -- the cats you sent (or are about to send) on a party expedition can't go anywhere else
 function TCF:GroupExpBusy(class)
   if not self.db then return nil end
-  local g = store(self).group
+  local st = store(self)
+  local g = st.group
   if g then for _, c in ipairs(g.mine or {}) do if c == class then return g end end end
+  -- (1.6.0) a party expedition another character had under way waits its turn: its cats are busy too
+  for _, q in ipairs(type(st.groupQueue) == "table" and st.groupQueue or {}) do
+    if type(q) == "table" then for _, c in ipairs(q.mine or {}) do if c == class then return q end end end
+  end
   local inv = GX.inv
   if inv and inv.state == "accepted" then for _, c in ipairs(inv.cats or {}) do if c == class then return inv end end end
   local out = GX.out

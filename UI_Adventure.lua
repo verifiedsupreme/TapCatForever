@@ -70,7 +70,7 @@ local CLASSIC_ROOM = 1.5 -- the old PlayerModel's frame is this much bigger than
 -- cut off by its own scene: big bosses, wide models, animations and the shake all stay inside it.
 local function slotGeometry(n, i, boss)
   local w, h = boss and 170 or 110, boss and 200 or 140
-  local baseX = boss and -50 or (-12 - (n - i) * 112)
+  local baseX = boss and -70 or (-30 - (n - i) * 106)
   local cx, gy = PANEL_W + baseX - w / 2, SLOT_Y + FIT.GROUND
   return {
     w = w, h = h, baseX = baseX, cx = cx, gy = gy,
@@ -288,14 +288,21 @@ end
 
 -- width: stay inside the scene frame, left of the panel's right edge and right of the cat;
 -- a model too wide for its side slides the other way (over its neighbours is fine) or shrinks
+-- The room on the right is for the model's animations too (it faces the cat, so a death fall or
+-- a rearing back goes right): the whole animation room stays left of the panel's visible edge.
 local function widthFit(f, G, s)
   local S = G.W / 2 - FIT.EDGE
   local Rr, Ll = max(10, min(S, f.roomRight or S)), max(10, min(S, f.roomLeft or S))
   local halfW = (G.ymax - G.ymin) / 2 * s * G.k * G.persp
-  local maxHalf = (Rr + Ll) / 2
-  if halfW > maxHalf then s = s * maxHalf / halfW; halfW = maxHalf end
+  local side = animEnvelope(G.h * s * G.k * G.persp, halfW)
+  -- at rest right of the cat, animations left of the panel's edge: halfW + side must fit in Ll + Rr
+  if halfW + side > Ll + Rr then
+    local q = (Ll + Rr) / (halfW + side)
+    s, halfW, side = s * q, halfW * q, side * q
+  end
   G.Ll, G.Rr = Ll, Rr
-  return s, max(0, halfW - Ll) - max(0, halfW - Rr)
+  -- the slide nearest the middle that keeps both
+  return s, max(halfW - Ll, min(Rr - side, 0))
 end
 
 -- the camera for scale s: the model's middle at the slot's centre (+ shift), its lowest point on
@@ -368,10 +375,14 @@ local function verifyFit(f)
   local L0, R0 = max(1, cu - left), max(1, right - cu)
   local topLimit = min(H / 2 + (H / 2 - FIT.EDGE) / (1 + FIT.ANIM_TOP), H / 2 + f.slotH - FIT.GROUND - FIT.HEADROOM / 2,
     H / 2 + (f.roomTop or math.huge) / (1 + FIT.ANIM_TOP))
-  local q = min(1, (topLimit - H / 2) / max(1, top - H / 2), (G.Ll + G.Rr) / (L0 + R0))
+  -- the animation room to the right of the aim point: from the model's middle, as animEnvelope says
+  local side = animEnvelope(max(1, top - H / 2), (L0 + R0) / 2)
+  local Rext = (R0 - L0) / 2 + side
+  local q = min(1, (topLimit - H / 2) / max(1, top - H / 2), (G.Ll + G.Rr) / max(1, L0 + Rext))
   q = max(0.3, q)
-  -- the slide nearest the middle that keeps both sides inside (right of the cat, left of the panel's edge)
-  local shift = max(q * L0 - G.Ll, min(G.Rr - q * R0, 0))
+  -- the slide nearest the middle that keeps both sides inside (right of the cat at rest, animations
+  -- left of the panel's edge)
+  local shift = max(q * L0 - G.Ll, min(G.Rr - q * Rext, 0))
   if q >= 0.999 and math.abs(shift - p.shift) < 0.5 then return end
   if q < 0.999 then G.shrunk = q end
   f.fitP = pose(G, s * q, shift)
@@ -555,6 +566,7 @@ end
 -- for the tests: the fit's parts (tools/tests/test_adv_fit.py)
 TCF.UI.AdvFitLab = {
   FIT = FIT, PANEL_W = PANEL_W, PANEL_H = PANEL_H, SLOT_Y = SLOT_Y, slotGeometry = slotGeometry, animEnvelope = animEnvelope,
+  GAP_W = 296, GAP_H = 34, -- the level-gap line's box in the fight panel's top-left corner (from 4, 4)
   sceneLoad = function(f, id) return sceneLoad(f, id) end, sceneStep = function(f, e) return sceneStep(f, e) end,
   clearCache = function() for k in pairs(FIT_CACHE) do FIT_CACHE[k] = nil end end,
 }
@@ -653,12 +665,15 @@ TCF.UI.Builders.adventure = function(page, win)
     fs.active, fs.age, fs.x, fs.y = true, 0, x + random(-12, 12), y
   end
 
-  -- (1.6.0) enemies 5 or more levels above the cat: one plain line along the top of the fight
+  -- (1.6.0) enemies 5 or more levels above the cat: one plain line in the fight's top-left corner,
+  -- over the cat's side (above its bar), clear of the enemies' names and health bars and of the
+  -- log and status line under the panel
+  local GAP_W, GAP_H = 296, 34
   local gapBar = CreateFrame("Frame", nil, scene)
-  gapBar:SetPoint("TOPLEFT", 4, -4); gapBar:SetPoint("TOPRIGHT", -4, -4); gapBar:SetHeight(22)
+  gapBar:SetPoint("TOPLEFT", 4, -4); gapBar:SetSize(GAP_W, GAP_H)
   if gapBar.SetFrameLevel then gapBar:SetFrameLevel((scene:GetFrameLevel() or 1) + 25) end
   local gapBg = gapBar:CreateTexture(nil, "BACKGROUND"); gapBg:SetAllPoints(); gapBg:SetColorTexture(0, 0, 0, 0.55)
-  local gapText = Text(gapBar, "GameFontNormalSmall"); gapText:SetPoint("CENTER", 0, 0); gapText:SetWidth(516)
+  local gapText = Text(gapBar, "GameFontNormalSmall"); gapText:SetPoint("CENTER", 0, 0); gapText:SetWidth(GAP_W - 10)
   gapText:SetTextColor(1, 0.45, 0.3)
   gapBar:Hide()
   page.advGapBar, page.advGapText = gapBar, gapText
@@ -990,7 +1005,7 @@ TCF.UI.Builders.adventure = function(page, win)
         f.bar.text:SetText(short(max(0, m.hp)))
         f.shake = max(0, f.shake - e)
         f:ClearAllPoints()
-        f:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", f.baseX + (f.shake > 0 and random(-4, 4) or 0), 8)
+        f:SetPoint("BOTTOMRIGHT", scene, "BOTTOMRIGHT", f.baseX + (f.shake > 0 and random(-4, 4) or 0), SLOT_Y)
         if f.fade > 0 then
           f.fade = max(0, f.fade - e); f:SetAlpha(min(1, f.fade * 1.5))
           if f.fade == 0 then f.gone = true end -- faded out: AoE effects skip it now

@@ -418,8 +418,8 @@ local function moveFamily(src, dst, fam, keep)
 end
 
 -- the cat of family fam this character played most (level, then XP, then ever played)
-local function familyClass(self, fam)
-  local db = self.db
+local function familyClass(self, fam, db)
+  db = db or self.db
   local played = db.stats and db.stats.classesPlayed or {}
   local best, bestScore
   for _, cl in ipairs(TCF.FAMILIES[fam].classes) do
@@ -436,6 +436,7 @@ end
 local function mergeTrade(src, dst)
   for _, fam in ipairs(FAM_KEYS) do moveFamily(src, dst, fam) end
   dst.gold, dst.lifetime = dst.gold + src.gold, dst.lifetime + src.lifetime
+  if src.lifetimeMerged then dst.lifetimeMerged = (tonumber(dst.lifetimeMerged) or 0) + (tonumber(src.lifetimeMerged) or 0) end
   dst.renown = max(dst.renown, src.renown); dst.renownEver = max(dst.renownEver, src.renownEver)
   dst.prestiges = max(dst.prestiges, src.prestiges)
   for k, v in pairs(src.announced or {}) do if v then dst.announced = dst.announced or {}; dst.announced[k] = true end end
@@ -460,8 +461,10 @@ local function mergeTrade(src, dst)
   end
 end
 
-local function splitShared(self)
-  local db = self.db
+-- db: TCF.db, or (AccountCats.lua, an older character merged in) a stand-in with that
+-- character's trade, class and cats (classData) and the account's stats
+local function splitShared(self, db)
+  db = db or self.db
   local old = db.trade
   db.trade = nil
   db.tradeSplit = true   -- a record that this character's trade was split
@@ -491,7 +494,7 @@ local function splitShared(self)
   end
   for _, fam in ipairs(FAM_KEYS) do
     if fam ~= curFam and familyProgress(old, fam) then
-      local cl = familyClass(self, fam)
+      local cl = familyClass(self, fam, db)
       local cd = cl and db.classData[cl]
       if cd then
         local isNew = type(cd.trade) ~= "table"
@@ -505,6 +508,10 @@ local function splitShared(self)
   if type(cd.trade) ~= "table" then cd.trade = old
   else mergeTrade(old, repair(cd.trade, cur)) end
 end
+
+-- (AccountCats.lua) a pre-1.5.1 character's one trade, split between its own cats the way it
+-- would have been at its next login: ctx = { trade, class, classData, stats }
+function TCF:SplitOldTrade(ctx) splitShared(self, ctx) end
 
 local scratch = {}   -- a class with no class data (never happens in a real save): not saved
 local function S(self, class)
@@ -555,7 +562,8 @@ function TCF:TradeTotals()
   local life, renown = 0, 0
   for _, cl in ipairs(tradeClasses(self)) do
     local s = S(self, cl)
-    life = life + s.lifetime
+    -- (with the Trade Gold of the businesses merged into this one when the cats became shared)
+    life = life + s.lifetime + (tonumber(s.lifetimeMerged) or 0)
     renown = max(renown, s.renown)
   end
   return life, renown

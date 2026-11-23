@@ -11,6 +11,9 @@ TCF.UI.Builders.expeditions = function(page, win)
   local soloPage = CreateFrame("Frame", nil, page); soloPage:SetAllPoints()
   local root = page
   page = soloPage
+  -- (1.6.0) trips your other characters had under way when the cats became shared all keep going;
+  -- the two rows show the ones back first, this says how many more there are
+  local more = Text(page, "GameFontDisableSmall", nil, "LEFT"); more:SetPoint("LEFT", title, "RIGHT", 12, -1)
   local sub = Text(page, "GameFontDisableSmall", "Send three of your class cats away. They return with TapCoins, XP and chests, even while you're offline.", "LEFT")
   sub:SetPoint("TOPLEFT", 16, -30); sub:SetWidth(530)
 
@@ -117,9 +120,19 @@ TCF.UI.Builders.expeditions = function(page, win)
   local function refresh()
     local st = TCF.db.expeditions or { active = {} }
     local now = time()
+    -- the trips back first (so one that can be claimed always has a row)
+    local order = {}
+    for i in ipairs(st.active) do order[i] = i end
+    table.sort(order, function(a, b)
+      local fa, fb = st.active[a].finish or 0, st.active[b].finish or 0
+      if fa ~= fb then return fa < fb end
+      return a < b
+    end)
+    local hidden = #st.active - #act
+    more:SetText(hidden > 0 and string.format("%d more under way, shown when a row is free", hidden) or "")
     for i, r in ipairs(act) do
-      local ex = st.active[i]
-      r.index = ex and i
+      local ex = order[i] and st.active[order[i]]
+      r.index = ex and order[i]
       local show = ex ~= nil
       r.icon:SetShown(show); r.name:SetShown(show); r.bar:SetShown(show); r.chance:SetShown(show); r.claim:SetShown(show)
       for _, t in ipairs(r.party) do t:SetShown(show) end

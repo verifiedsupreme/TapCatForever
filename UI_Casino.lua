@@ -105,6 +105,15 @@ end
 -- The bet is TCF.db.casino.bet, clamped to TCF:CasinoLimits(). f:SetLocked(true) while a round runs.
 local function stepFor(bet) return TCF.CasinoBetStep(bet) end
 
+-- a bet short enough for the bet box: 4,500 / 125.5K / 4.5M (the bet box is 100 px wide)
+function TCF.CasinoShortBet(n)
+  local function trim(x) return (x:gsub("%.?0+$", "")) end
+  if n >= 1e9 then return trim(string.format("%.2f", n / 1e9)) .. "B" end
+  if n >= 1e6 then return trim(string.format("%.2f", n / 1e6)) .. "M" end
+  if n >= 1e5 then return trim(string.format("%.1f", n / 1e3)) .. "K" end
+  return TCF.Commas(n)
+end
+
 function TCF.UI.CasinoBetChooser(parent, onChange)
   local U = TCF.UI
   local f = CreateFrame("Frame", nil, parent); f:SetSize(232, 54)
@@ -120,6 +129,7 @@ function TCF.UI.CasinoBetChooser(parent, onChange)
   end)
   minus:SetPoint("TOPLEFT", 34, 0)
   local val = U.Text(f, "GameFontHighlightLarge"); val:SetPoint("LEFT", minus, "RIGHT", 4, 0); val:SetWidth(100)
+  if val.SetWordWrap then val:SetWordWrap(false) end
   local plus = U.Button(f, "+", 28, 24, function()
     local b = TCF:CasinoData().bet or 10; local s = stepFor(b); set(floor(b / s) * s + s)
   end)
@@ -142,7 +152,7 @@ function TCF.UI.CasinoBetChooser(parent, onChange)
     local ok = hi >= lo and not self.locked
     if hi >= lo then c.bet = TCF:CasinoClampBet(c.bet or lo) end
     local bet = c.bet or lo
-    val:SetText(hi >= lo and U.coinStr(bet, 16) or "|cff888888-|r")
+    val:SetText(hi >= lo and ("|T" .. TCF.ART_PATH .. "ui_coin:16:16|t " .. TCF.CasinoShortBet(bet)) or "|cff888888-|r")
     local function en(b, v) if v then b:Enable() else b:Disable() end end
     en(minus, ok and bet > lo); en(plus, ok and bet < hi)
     for _, b in ipairs(quick) do en(b, ok and (b.q == "Max" or b.q <= hi)) end

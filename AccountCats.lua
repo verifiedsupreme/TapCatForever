@@ -18,7 +18,10 @@
 -- counts and first kills, the furthest stage reached and every ability learned. Professions: the
 -- business with the most Trade Gold earned is kept, every skill takes the highest, Renown the
 -- highest, materials are added up and unlocks, milestones and upgrades kept by any stay kept.
--- Expeditions under way all keep going. A copy of each character's old cats stays in
+-- Expeditions under way all keep going. Unopened chests, which 1.5.3 kept per character
+-- (chars[name].keys), go to the cat that character was playing first, stamped with its level, so
+-- an alt that never logs in again loses none (also the pre-1.3.1 gear pool and the pre-1.5.1
+-- trade: foldCharThings). A copy of each character's old cats stays in
 -- TapCatForeverDB.preAccountBackup[name].
 local ADDON, TCF = ...
 local floor, min, max = math.floor, math.min, math.max
@@ -171,7 +174,12 @@ local function mergeClass(cands)
   if bestTrade then
     cd.trade = bestTrade
     for _, t in ipairs(trades) do
-      if t ~= bestTrade then mergeTrade(bestTrade, t) end
+      if t ~= bestTrade then
+        mergeTrade(bestTrade, t)
+        -- the Trade Gold the other businesses earned still counts toward account totals (achievements,
+        -- the leaderboard; TCF:TradeTotals), never toward this cat's profession unlocks
+        bestTrade.lifetimeMerged = num(bestTrade.lifetimeMerged) + num(t.lifetime) + num(t.lifetimeMerged)
+      end
     end
   end
   return cd, base.loadout, base.look
@@ -188,6 +196,63 @@ local function mergeExpeditions(dst, src)
     else local q = tbl(dst, "groupQueue"); q[#q + 1] = src.group end
   end
   for _, g in ipairs(type(src.groupQueue) == "table" and src.groupQueue or {}) do local q = tbl(dst, "groupQueue"); q[#q + 1] = g end
+end
+
+-- Things 1.5.3 and older kept per character that belong to its cats, folded into that character's
+-- own cats (copies) before they are merged, the way its next login would have done it:
+-- unopened chests (keys: one bag per character, every 1.5.x save) go to the cat it was playing,
+-- stamped with that cat's level; the pre-1.3.1 gear pool (gear) to the cats wearing it, the rest
+-- to the cat it was playing; the pre-1.5.1 one trade (trade) is split between its cats
+-- (Professions.lua). A stand-in (a table with a metatable) is never one of these.
+local function plain(t) return type(t) == "table" and getmetatable(t) == nil end
+local function foldCharThings(self, sv, ch, mine)
+  local cur = ch.class
+  if not mine[cur] then
+    -- (a character whose played cat is missing: its highest cat)
+    cur = nil
+    for cls, c in pairs(mine) do
+      if not cur or num(c.level) > num(mine[cur].level) or (num(c.level) == num(mine[cur].level) and cls < cur) then cur = cls end
+    end
+  end
+  local target = cur and mine[cur]
+  if not target then return end
+  local keys = rawget(ch, "keys")
+  if plain(keys) then
+    local lv = min(TCF.MAX_LEVEL or 60, max(1, floor(num(target.level))))
+    for k, v in pairs(keys) do
+      local n = floor(num(v))
+      if TCF.CHEST_BY_KEY and TCF.CHEST_BY_KEY[k] and n > 0 then
+        local t = tbl(tbl(target, "chests"), k)
+        t[lv] = num(t[lv]) + n
+      end
+    end
+    ch.keys = nil
+  end
+  local pool = rawget(ch, "gear")
+  -- (1.3.1 and later leave an empty table here: nothing to do)
+  if plain(pool) and next(pool) == nil then ch.gear = nil
+  elseif plain(pool) then
+    pool = copy(pool)
+    for _, c in pairs(mine) do
+      local bag = tbl(c, "bag")
+      local worn = {}
+      for _, id in pairs(type(c.gear) == "table" and c.gear or {}) do worn[id] = (worn[id] or 0) + 1 end
+      for id, w in pairs(worn) do
+        local take = min(w, max(0, num(pool[id])))
+        if take > 0 then pool[id] = num(pool[id]) - take end
+        bag[id] = max(num(bag[id]), 0) + take
+        -- (the old shared bag let several cats wear one copy: each wearer keeps one)
+        if num(bag[id]) < w then bag[id] = w end
+      end
+    end
+    addCounts(tbl(target, "bag"), pool)
+    ch.gear = nil
+  end
+  if plain(rawget(ch, "trade")) and self.SplitOldTrade then
+    local ctx = { trade = ch.trade, class = cur, classData = mine, stats = rawget(sv, "stats") }
+    local ok = pcall(self.SplitOldTrade, self, ctx)
+    if ok then ch.trade = nil; ch.tradeSplit = true end
+  end
 end
 
 -- the look a character's cat of class cls wore (1.5.x saves: one look for every cat)
@@ -234,10 +299,13 @@ function TCF:MergeAccountCats(sv)
     -- a copy of the old cats, untouched (a character merged twice keeps both copies)
     local b = { time = time and time() or 0, class = ch.class }
     for _, k in ipairs(TCF.CHAR_CAT_KEYS) do b[k] = copy(rawget(ch, k)) end
+    -- (and the older per-character chests, gear pool and trade, folded in below)
+    for _, k in ipairs({ "keys", "gear", "trade" }) do if plain(rawget(ch, k)) then b[k] = copy(rawget(ch, k)) end end
     local bkey, n = key, 1
     while backup[bkey] ~= nil do n = n + 1; bkey = key .. " (" .. n .. ")" end
     backup[bkey] = b
     local charOwned = rawget(ch, "owned")
+    local mine = {}
     for cls, cd in pairs(ch.classData) do
       if TCF.CLASS_BY_KEY[cls] and type(cd) == "table" then
         local c = copy(cd)
@@ -250,8 +318,10 @@ function TCF:MergeAccountCats(sv)
         end
         local lo = type(ch.loadouts) == "table" and ch.loadouts[cls]
         table.insert(cands[cls], { cd = c, loadout = copy(lo), look = lookOf(ch, cls), key = key })
+        mine[cls] = c
       end
     end
+    foldCharThings(self, sv, ch, mine)
     mergeExpeditions(cats.expeditions, copy(rawget(ch, "expeditions")))
     mergeSources(oldSources, rawget(ch, "itemSources"))
     for _, k in ipairs(TCF.CHAR_CAT_KEYS) do ch[k] = nil end

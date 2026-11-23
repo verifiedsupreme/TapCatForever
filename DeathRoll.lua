@@ -374,7 +374,7 @@ function TCF:DeathRollSoloStart(bet, range)
   if not bet or not validBet(bet) then
     local lo, hi = DR.Limits()
     if hi < lo then return false, string.format("You need at least %d TapCoins to play.", lo * 2) end
-    return false, string.format("Bets go from %d to %d TapCoins right now.", lo, hi)
+    return false, string.format("Bets go from %s to %s TapCoins right now.", TCF.Commas(lo), TCF.Commas(hi))
   end
   local ok = self.CasinoBet and self:CasinoBet(bet, GAME) or (not self.CasinoBet and self:SpendCoins(bet))
   if not ok then return false, "That bet can't be placed right now." end
@@ -641,7 +641,7 @@ function TCF:DeathRollChallenge(name, bet, range)
   if not validRange(range) then return false, "Pick a roll range." end
   if not bet or not validBet(bet) then
     local lo, hi = DR.Limits()
-    return false, string.format("Bets go from %d to %d TapCoins right now.", lo, max(lo, hi))
+    return false, string.format("Bets go from %s to %s TapCoins right now.", TCF.Commas(lo), TCF.Commas(max(lo, hi)))
   end
   local d = { id = newId(), role = "out", opp = m.name, oppBase = base(m.name), bet = bet, range = range,
               cur = range, state = "asking", expires = now() + DR.INVITE_TIME, rolls = {}, n = 0 }

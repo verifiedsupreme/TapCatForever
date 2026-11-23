@@ -312,7 +312,7 @@ ev:SetScript("OnEvent", function()
   -- existing saves: credit for everything the cats already did, with one line instead of many
   local n = self:CheckClassAchievements(true)
   if n > 0 then
-    self:Print(string.format("Your cats earned %d class achievement%s for what they have already done. See them in the Achievements tab (This class). Their chests are in each cat's Treasure Bag.",
+    self:Print(string.format("Your cats earned %d class achievement%s for what they have already done. See them with the Achievements button by the title (This class). Their chests are in each cat's Treasure Bag.",
       n, n == 1 and "" or "s"))
   end
 end)

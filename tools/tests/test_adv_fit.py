@@ -6,7 +6,7 @@
 # ModelScene with a level perspective camera, for every Adventure creature display with bounds
 # data, in every slot of every pack size, at several window scales (full, compact, small, big),
 # and checks the fitted model plus its animation room stays inside its scene, and inside the
-# fight panel's visible edge at rest.
+# fight panel's visible edge, animation room included (the panel clips).
 # Run on its own:  python3 tools/tests/test_adv_fit.py [seed]
 import os, sys
 
@@ -123,6 +123,13 @@ def check(seed, load_addon):
               if not (el >= 0 and er <= W and eb >= 0 and et <= H) then
                 fail(string.format("%s: model and animations %.0f..%.0f x %.0f..%.0f outside its scene %dx%d", where, el, er, eb, et, W, H))
               end
+              -- 1b. and inside the fight panel's visible edge (its border is 4 px; the panel clips),
+              -- with room for the 4 px shake on the right (1.5 px for the fit's rounding)
+              local pl, pr, pt = g.cx + (el - W / 2), g.cx + (er - W / 2), g.gy + (et - H / 2)
+              if pl < 4 - 0.5 or pr > L.PANEL_W - 4 - FIT.EDGE + 1.5 or pt > L.PANEL_H - 4 + 0.5 then
+                fail(string.format("%s: model and animations %.0f..%.0f, top %.0f, cross the fight panel's edge", where, pl, pr, pt))
+              end
+              out.maxShift = math.max(out.maxShift or 0, math.abs(f.fitDX or 0))
               -- 2. at rest inside the fight panel (right of the cat, left of the panel's edge), feet on
               -- the ground, and with its room above it under the panel's top
               local px1, px2 = g.cx + (u1 - W / 2), g.cx + (u2 - W / 2)
@@ -133,7 +140,7 @@ def check(seed, load_addon):
               if ptop > L.PANEL_H + 0.5 then fail(string.format("%s: animation room reaches %.1f, over the panel's top", where, ptop)) end
               if math.abs(pfeet - g.gy) > 1.5 then fail(string.format("%s: feet at %.1f, ground at %.1f", where, pfeet, g.gy)) end
               -- the tightest fit: how close the animation room comes to the scene's edge
-              local slack = math.min(el, W - er, et <= H and H - et or -1)
+              local slack = math.min(pl - 4, L.PANEL_W - 4 - pr, L.PANEL_H - 4 - pt)
               if out.worst == 0 or slack < out.worst then out.worst, out.worstWhy = slack, where end
               -- not shrunk to nothing
               if h < 20 then fail(string.format("%s: only %.0f px tall", where, h)) end
@@ -149,8 +156,8 @@ def check(seed, load_addon):
     ck(not fails, "; ".join(fails))
     ck(r.fits == r.ids * 7 * 4, "every display fitted in every layout: %d of %d" % (r.fits, r.ids * 7 * 4))
     print("adventure fit section (%d creature displays x 7 slots x 4 window sizes: every enemy's scene covers the fight panel, the model "
-          "and its animation room stay inside its scene, at least %.0f px from its edge; at rest inside the panel, feet on the ground): all checks passed"
-          % (r.ids, r.worst))
+          "and its animation room stay inside its scene and inside the fight panel's edge, at least %.0f px from it (largest slide %.0f px); at rest inside the panel, feet on the ground): all checks passed"
+          % (r.ids, r.worst, r.maxShift or 0))
 
 if __name__ == "__main__":
     HERE = os.path.dirname(os.path.abspath(__file__))

@@ -82,3 +82,8 @@
 - If a pick doesn't match what was locked in, or doesn't arrive within 30 seconds, the game is called off and no TapCoins move. The game says why.
 - Each pick has 60 seconds. A reload or leaving the group before the result calls the game off, and no TapCoins move.
 - Unlike death roll, it works inside dungeons and raids too: it doesn't use /roll.
+
+## Review fixes (1.6.0)
+- The bet box shows big bets in short (TCF.CasinoShortBet: 99,990, 125.5K, 4.5M, 3B) and never wraps.
+- "Bets go from 10 to 4,500 TapCoins right now." uses commas.
+- Design note for the user: without a top bet, one 100x slots line on a half-your-TapCoins bet multiplies a player's TapCoins by about 50, and two friends can pass half their TapCoins to each other in one duel. The house edge still drains TapCoins on average.
