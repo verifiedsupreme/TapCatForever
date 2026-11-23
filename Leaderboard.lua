@@ -21,6 +21,8 @@
 --     character can't flood the board. Nothing is signed, so a summary can still be made up.
 --   * The board is the Leaderboard tab of the main window (UI_Leaderboard.lua): Total taps, Per class
 --     and Professions sections, or the opt-in panel for players who haven't joined.
+--   * (1.6.1) Party members' stats also come in the party message (Party.lua), which gets through where
+--     these messages don't: a member who joined goes on the board from it (TCF.LeaderboardFromParty).
 --
 -- Protocol (prefix "TapCatFvr", CHANNEL only, every field checked; older versions ignore it):
 --   L1;<Name-Realm>;<class>;<level>;<taps>;<achievements>;<zones>;<version>;<time>   one player's summary
@@ -416,6 +418,7 @@ local function countAchievements()
   for _, a in ipairs(TCF.ACHIEVEMENTS or {}) do if got[a.id] then n = n + 1 end end
   return n
 end
+TCF.LeaderboardAchievements = countAchievements   -- (1.6.1) the party message carries the same number
 
 function TCF:LeaderboardOwnEntry()
   local db = self.db
@@ -772,9 +775,36 @@ end
 
 -- the hidden channel, and (1.5.3.2) your party, raid, instance group and guild
 local ROUTE_OK = { CHANNEL = true, PARTY = true, RAID = true, INSTANCE_CHAT = true, GUILD = true }
--- what /tcf lbdebug shows (1.5.3.6): messages heard and kept, and the last one heard
-local DBG = { heard = 0, kept = 0, sent = 0, failed = 0 }
+-- what /tcf lbdebug shows (1.5.3.6): messages heard and kept, and the last one heard; (1.6.1) why heard
+-- messages were dropped (drop.<reason> counts) and how many rows the party messages fed (party)
+local DBG = { heard = 0, kept = 0, sent = 0, failed = 0, party = 0, drop = {} }
 TCF.LeaderboardDebug = DBG
+local DROP_ORDER = { "optout", "hidden", "route", "channel", "nokey", "own", "sender", "read", "board", "parse", "name" }
+local function drop(why) DBG.drop[why] = (DBG.drop[why] or 0) + 1 end
+
+-- (1.6.1) A party member's stats came in their party message (Party.lua: m.class, m.level, m.taps,
+-- m.ach, m.zones, m.joined, m.version, m.sender). When we share and they have joined, they go on
+-- the board exactly as their own L1 would: same name rules, same checks, heard from them. The
+-- leaderboard's own messages don't get through on every client; the party messages do.
+-- Returns "added" or "updated", or nil and why not.
+function TCF.LeaderboardFromParty(m)
+  if type(m) ~= "table" then return nil, "member" end
+  if not optedIn() then return nil, "optout" end
+  if not m.joined then return nil, "not joined" end
+  local sender = plain(m.sender) and m.sender or m.name
+  local full = senderFull(sender)
+  if not full then return nil, "name" end
+  if not plain(m.version) or m.version == "" then return nil, "version" end
+  local e = { n = full, c = m.class, l = floor(tonumber(m.level) or 0), t = floor(tonumber(m.taps) or -1),
+    a = floor(tonumber(m.ach) or -1), z = min(200, floor(tonumber(m.zones) or -1)), v = m.version, ts = serverNow() }
+  if not validEntry(e) then return nil, "invalid" end
+  local b = board(true)
+  if not b then return nil, "board" end
+  local mine = myKey()
+  local res, why = merge(b, e, serverNow(), mine, true)
+  if res then dirty = true; DBG.party = DBG.party + 1 end
+  return res, why
+end
 local onAddonInner
 local function onAddon(prefix, text, chan, sender, chanName)
   if not isSecret(prefix) and prefix == PREFIX and plain(text) then
@@ -795,28 +825,29 @@ local function onAddon(prefix, text, chan, sender, chanName)
   return onAddonInner(prefix, text, chan, sender, chanName)
 end
 function onAddonInner(prefix, text, chan, sender, chanName)
-  if not optedIn() then return end                       -- opted out: nothing is read
-  if isSecret(prefix) or prefix ~= PREFIX then return end
-  if not plain(text) or not plain(chan) or not plain(sender) or not ROUTE_OK[chan] then return end
+  if isSecret(prefix) or prefix ~= PREFIX or not plain(text) then return end
   local kind = text:sub(1, 3)
   if kind ~= "L1;" and kind ~= "L2;" and kind ~= "R1;" and kind ~= "X1;" then return end
-  if isSecret(chanName) then return end
-  if chan == "CHANNEL" and type(chanName) == "string" and chanName ~= "" and not chanName:lower():find(CHANNEL:lower(), 1, true) then return end
+  -- (1.6.1) from here on every way out is counted, for /tcf lbdebug
+  if not optedIn() then return drop("optout") end        -- opted out: nothing is read
+  if not plain(chan) or not plain(sender) or isSecret(chanName) then return drop("hidden") end
+  if not ROUTE_OK[chan] then return drop("route") end
+  if chan == "CHANNEL" and type(chanName) == "string" and chanName ~= "" and not chanName:lower():find(CHANNEL:lower(), 1, true) then return drop("channel") end
   local sk = keyOf(sender)
-  if not sk then return end
+  if not sk then return drop("nokey") end
   local mine = myKey()
-  if sk == mine then return end                          -- our own message coming back: costs nothing
+  if sk == mine then return drop("own") end              -- our own message coming back: costs nothing
   local t = now()
-  if not senderOk(sk, t) then return end                 -- one sender can't use up everyone's reading
-  if not readBudget(t) then return end
+  if not senderOk(sk, t) then return drop("sender") end  -- one sender can't use up everyone's reading
+  if not readBudget(t) then return drop("read") end
   local b = board(true)
-  if not b then return end
+  if not b then return drop("board") end
   local st = serverNow()
   if kind == "L1;" then
     local e = parseEntry(text)
-    if not e then return end
+    if not e then return drop("parse") end
     local k = keyOf(e.n)
-    if not k then return end
+    if not k then return drop("name") end
     local direct = k == sk
     if not direct then
       -- a player who took themselves off comes back only by sharing again themselves
@@ -840,23 +871,24 @@ function onAddonInner(prefix, text, chan, sender, chanName)
   elseif kind == "L2;" then
     -- the extra fields of a player already on the board
     local n, ts, x = parseExtra(text)
-    if not n then return end
+    if not n then return drop("parse") end
     local k = keyOf(n)
-    if not k then return end
+    if not k then return drop("name") end
     if k ~= sk and b.rm[k] then return end   -- like L1: only the player's own brings them back
     if mergeExtra(b, k, x, ts, st, mine) then dirty = true end
   elseif kind == "R1;" then
     -- the player's own "take me off"
     local ts = parseRemove(text)
-    if not ts then return end
+    if not ts then return drop("parse") end
     if remove(b, sk, ts, st, senderFull(sender)) then dirty = true end
     if b.rm[sk] == ts then heardAt[sk] = t end           -- everyone online has heard it
   else
     -- a "take me off" passed on by someone else
     local n, ts = parseRemoval(text)
-    if not n then return end
+    if not n then return drop("parse") end
     local k = keyOf(n)
-    if not k or k == mine then return end
+    if not k then return drop("name") end
+    if k == mine then return drop("own") end
     if k ~= sk and not addOk(sk, t) then return end
     if remove(b, k, ts, st, n) then
       dirty = true
@@ -1058,6 +1090,10 @@ function TCF:LeaderboardDebugPrint()
   self:Print(string.format("Sending to: %s. Players saved: %d. Heard %d leaderboard messages, kept %d. Last from %s on %s (%s).",
     #rs > 0 and table.concat(rs, ", ") or "nowhere (no party, raid, guild or channel)", n, DBG.heard, DBG.kept,
     show(DBG.lastFrom), show(DBG.lastChan), show(DBG.lastKind)), true)
+  -- (1.6.1) rows fed by party messages, and why heard messages were dropped
+  local ds = {}
+  for _, why in ipairs(DROP_ORDER) do if (DBG.drop[why] or 0) > 0 then ds[#ds + 1] = why .. " " .. DBG.drop[why] end end
+  self:Print(string.format("Rows from party messages: %d. Dropped: %s.", DBG.party, #ds > 0 and table.concat(ds, ", ") or "none"), true)
 end
 
 ---------------------------------------------------------------- events
