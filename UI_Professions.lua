@@ -349,6 +349,7 @@ TCF.UI.Builders.professions = function(page, win)
   -- 1.6 Hand speed: its own upgrade, kept when the business is sold
   local speedBtn = Button(spotView, "", 180, 24, function() if TCF:UpgradeSpeed(FAM()) then TCF:PlaySound("buy") end; win:Refresh() end)
   speedBtn:SetPoint("LEFT", toolBtn, "RIGHT", 6, 0)
+  speedBtn:Hide(); speedBtn.Show = function() end   -- Hand speed taken out in 1.6 testing
   Tip(speedBtn, function(tt)
     local fam, f = FAM(), FT()
     local lvl = TCF:SpeedLevel(fam)
@@ -370,7 +371,7 @@ TCF.UI.Builders.professions = function(page, win)
     tt:AddLine("Upgrade your " .. f.toolNoun:lower(), 1, 0.82, 0)
     tt:AddLine(string.format("%s -> Lv %d: each click is worth 15%% more of a %s's cycle, on every %s.", TCF:ToolName(fam), TCF:ToolLevel(fam) + 1,
       f.spotNoun, f.spotNoun), 1, 1, 1, true)
-    tt:AddLine(string.format("Every 15 levels also adds another roll for %s. Click cooldown: %.2fs (shortens a little each level, down to 0.75s; Hand speed shortens it more).", f.matNoun,
+    tt:AddLine(string.format("Every 15 levels also adds another roll for %s. Click cooldown: %.2fs (shortens a little each level, down to 0.75s).", f.matNoun,
       TCF:ToolCooldown(fam)), 0.7, 0.7, 0.7, true)
   end)
 

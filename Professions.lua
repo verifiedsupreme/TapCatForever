@@ -773,10 +773,10 @@ function TCF:ToolLevel(prof) return S(self).tools[famOf(self, prof)] or 0 end
 function TCF:ToolMult(prof, lvl) return TCF.PICK_BOOST ^ (lvl or self:ToolLevel(prof)) end
 function TCF:ToolCost(prof, lvl) lvl = lvl or self:ToolLevel(prof); return floor(TCF.PICK_COST * TCF.PICK_COST_GROWTH ^ lvl) end
 -- one click per cooldown (shared by every spot of the family); tool upgrades shorten it a little,
--- down to 0.75s, and Hand speed (1.6) shortens that again, step by step, down to 0.25s
-function TCF:ToolCooldown(prof, lvl, speedLvl)
-  local base = max(0.75, 1.5 * 0.985 ^ (lvl or self:ToolLevel(prof)))
-  return max(TCF.SPEED_FLOOR, base * self:SpeedMult(speedLvl or self:SpeedLevel(prof)))
+-- down to 0.75s. (A separate Hand speed upgrade was tried during 1.6 testing and taken out: the
+-- user wants the click to speed up only slowly with the tool. Its functions stay, unused.)
+function TCF:ToolCooldown(prof, lvl)
+  return max(0.75, 1.5 * 0.985 ^ (lvl or self:ToolLevel(prof)))
 end
 
 -- Hand speed (1.6): a separate upgrade per family, bought with Trade Gold and kept when you sell

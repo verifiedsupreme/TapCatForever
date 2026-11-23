@@ -247,7 +247,7 @@ local function isMe(sender)
 end
 
 local function myName()
-  local n = UnitName and UnitName("player")
+  local n = TCF.SelfName and TCF.SelfName() or (UnitName and UnitName("player"))
   if type(n) ~= "string" or isSecret(n) then return "?" end
   return shortName(n)
 end

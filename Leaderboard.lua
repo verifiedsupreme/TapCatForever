@@ -111,8 +111,13 @@ local function myRealm()
 end
 
 local function myFull()
-  local n = UnitName and UnitName("player")
+  -- (1.6.0) your name as the game sends it with your messages when UnitName can't be read
+  local n = TCF.SelfName and TCF.SelfName() or (UnitName and UnitName("player"))
   local r = myRealm()
+  local ss = TCF.SelfSender
+  if plain(ss) and ss:find("-", 1, true) and validName((ss:gsub("%s", ""))) and not (plain(UnitName and UnitName("player"))) then
+    return (ss:gsub("%s", ""))
+  end
   if not plain(n) or not r then return nil end
   local full = n .. "-" .. r
   return validName(full) and full or nil
@@ -404,7 +409,7 @@ function TCF:LeaderboardOwnEntry()
   local full = myFull()
   if not full then
     -- 1.5.3.3: your own row always shows, even when the realm name can't be read
-    local n = UnitName and UnitName("player")
+    local n = TCF.SelfName and TCF.SelfName() or (UnitName and UnitName("player"))
     if not plain(n) or n == "" then n = "You" end
     full = n .. "-" .. (myRealm() or "Realm")
   end

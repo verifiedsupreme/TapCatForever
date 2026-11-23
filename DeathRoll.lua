@@ -145,6 +145,7 @@ local function base(name)
 end
 
 local function myBase()
+  if TCF.SelfBase then return TCF.SelfBase end   -- learned from our own messages (Party.lua)
   local n = UnitName and UnitName("player")
   if type(n) ~= "string" or isSecret(n) then return nil end
   return base(n)
@@ -512,6 +513,44 @@ local function busy()
 end
 
 -- challenge a party member (name from TCF:PartyMembers) for bet TapCoins, rolls from range
+-- Who in the group can play casino games with you (they run a version with the casino): a "D0"
+-- hello goes out when you join a group or open the Death roll view, and every TapCatForever with
+-- the casino answers it. Party cats work on older versions too, so a friend's cat can show up while
+-- their addon can't take a challenge; then the Casino says so instead of waiting for nothing.
+local capable, helloAt, asked = {}, -1e9, {}
+-- our hellos carry a random id: when one comes back to us, the sender is us (TCF.LearnSelf)
+local helloId = string.format("%06x", math.random(0, 0xFFFFFF))
+local HELLO_GAP = 10
+local function sayHello(force)
+  if not inGroup() then return end
+  local t = now()
+  if not force and t - helloAt < HELLO_GAP then return end
+  helloAt = t
+  send("D0", helloId, "hi")
+end
+DR.SayHello = sayHello
+-- true: their addon answered; false: asked a while ago and no answer (older version); nil: not known yet
+function TCF:CasinoCanPlay(name)
+  local b = base(name)
+  if not b then return nil end
+  if capable[b] then return true end
+  if asked[b] and now() - asked[b] > 6 then return false end
+  return nil
+end
+-- checks a friend before a challenge: true when they can play, else false and the reason
+function DR.CheckFriend(name)
+  local can = TCF:CasinoCanPlay(name)
+  if can then return true end
+  local b = base(name)
+  local shown = (type(name) == "string" and name:match("^([^%-]+)")) or "Your friend"
+  if can == false then
+    return false, shown .. "'s TapCatForever didn't answer. They need version 1.6.0 or newer for casino games with friends (party cats work on older versions, which is why you can see their cat)."
+  end
+  if b and not asked[b] then asked[b] = now() end
+  sayHello(true)
+  return false, "Checking " .. shown .. "'s TapCatForever. Try again in a few seconds."
+end
+
 function TCF:DeathRollChallenge(name, bet, range)
   if not self.db then return false end
   bet, range = tonumber(bet), tonumber(range) or DR.DEFAULT_RANGE
@@ -523,6 +562,8 @@ function TCF:DeathRollChallenge(name, bet, range)
   if chatHidden() then return false, NO_DUEL_HERE end
   local m = member(name)
   if not m or isMe(m.name) then return false, "Pick a friend in your group who has TapCatForever." end
+  local okFriend, why = DR.CheckFriend(m.name)
+  if not okFriend then return false, why end
   if not validRange(range) then return false, "Pick a roll range." end
   if not bet or not validBet(bet) then
     local lo, hi = DR.Limits()
@@ -701,11 +742,26 @@ local function onAddon(prefix, text, channel, sender)
   if isSecret(prefix) or prefix ~= PREFIX then return end
   if isSecret(text) or type(text) ~= "string" or text:sub(1, 1) ~= "D" or #text > 200 then return end
   if isSecret(channel) or (channel ~= "PARTY" and channel ~= "RAID" and channel ~= "INSTANCE_CHAT") then return end
-  if isSecret(sender) or type(sender) ~= "string" or sender == "" or isMe(sender) then return end
+  if isSecret(sender) or type(sender) ~= "string" or sender == "" then return end
   local kind, ver, id, a, b, c = text:match("^(D%d);(%d+);(%x%x%x%x%x%x);([^;]*);?([^;]*);?([^;]*)$")
   if not kind or ver ~= VER then return end
+  if kind == "D0" and a == "hi" and id == helloId then
+    if TCF.LearnSelf then TCF.LearnSelf(sender) end   -- our own hello came back
+    return
+  end
+  if isMe(sender) then return end
   local ok, s = allow(sender)
   if not ok then return end
+  local sb = base(sender)
+  if sb then capable[sb] = now(); asked[sb] = nil end
+  if kind == "D0" then
+    -- a hello: answer it (not more than once every few seconds), an answer needs nothing more
+    if a == "hi" and (not s.helloAnswered or now() - s.helloAnswered > 5) then
+      s.helloAnswered = now()
+      send("D0", "000000", "ok")
+    end
+    return
+  end
   local d = DR.duel
   if kind == "D1" then
     if a ~= "" and b ~= "" and c ~= "" then onChallenge(sender, id, a, b, c, s) end
@@ -868,7 +924,10 @@ ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   if not restored then restored = true; restore() end
   if event == "CHAT_MSG_ADDON" then onAddon(a1, a2, a3, a4)
   elseif event == "CHAT_MSG_SYSTEM" then onSystem(a1)
+  elseif event == "PLAYER_ENTERING_WORLD" then
+    sayHello(false)
   elseif event == "GROUP_ROSTER_UPDATE" then
+    sayHello(false)
     -- leaving the group calls off a duel before the 1; after it (state "done") the duel settles
     -- by what this side saw, so a quick /leave can't undo a loss
     local d = DR.duel

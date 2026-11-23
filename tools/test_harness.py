@@ -1114,6 +1114,9 @@ TEST = r'''
     _fire("GROUP_ROSTER_UPDATE"); check(#_sent == 0, "no hello while alone")
     _group = { party1 = { "Alice", nil }, party2 = { "Bob", "Other Realm" } }
     _fire("GROUP_ROSTER_UPDATE")
+    -- (1.6.0: the casino's "D0" hello goes out too; these checks look at party cat messages only)
+    local function partyOnly() local o = {}; for _, m in ipairs(_sent) do if type(m[2]) == "string" and m[2]:match("^[HU]1;") then o[#o + 1] = m end end; return o end
+    _sent = partyOnly()
     check(#_sent == 1 and _sent[1][1] == _prefix and _sent[1][2]:match("^H1;MAGE;%d+;") and _sent[1][3] == "PARTY" and #_sent[1][2] <= 240, "hello on joining")
     local function msg(text, sender, ch, prefix) _fire("CHAT_MSG_ADDON", prefix or _prefix, text, ch or "PARTY", sender) end
     TCF:SetClass("WARRIOR"); local aliceText = "H1;" .. TCF:PartyPayload("WARRIOR"); TCF:SetClass("MAGE")
@@ -1122,6 +1125,7 @@ TEST = r'''
     local row = TapCatForeverPartyCats
     check(row and row:IsShown() and row.cells[1]:IsShown() and not row.cells[2]:IsShown(), "one small cat shown")
     for k = 1, 22 do _update(0.5) end
+    _sent = partyOnly()
     check(#_sent == 2 and _sent[2][2]:match("^U1;"), "hello answered after the 10 s gap")
     msg("U1;ROGUE;12;fur_snow;;;h=nonexistent_hat", "Bob-OtherRealm")
     check(TCF:PartyCount() == 2 and near(TCF:PartyTapMult(), 1.3) and row.cells[2]:IsShown(), "second friend: +30%")

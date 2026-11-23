@@ -70,7 +70,7 @@ local function nameKey(full)
 end
 
 local function myKey()
-  local n = UnitName and UnitName("player")
+  local n = TCF.SelfName and TCF.SelfName() or (UnitName and UnitName("player"))
   if type(n) ~= "string" or isSecret(n) then return nil end
   return nameKey(n)
 end
@@ -78,8 +78,35 @@ end
 -- true when a message's sender is you. Your own party messages come back to you, and the sender
 -- can arrive as "Name-Realm" while Ambiguate keeps the realm on some clients, so compare the name
 -- and (when there is one) the realm with yours, ignoring spaces, hyphens, apostrophes and case.
+-- (1.6.0) The game may not tell an addon your own name in a usable way (it can come back as a
+-- protected value), so your own name is also learned from your own party messages: they come back
+-- to you, and the one that matches exactly what you just sent is yours. TCF.SelfSender holds the
+-- sender name the game uses for you, TCF.SelfBase its name part in lower case.
+local sentTexts = {}   -- the last few exact texts we sent
+local selfTag = string.format("%05x", math.random(0, 0xFFFFF))   -- this session's tag (code "z")
+function TCF.LearnSelf(sender)
+  if type(sender) ~= "string" or isSecret(sender) or sender == "" then return end
+  TCF.SelfSender = sender
+  TCF.SelfBase = (sender:match("^([^%-]+)") or sender):gsub("%s", ""):lower()
+end
+local function rememberSent(text)
+  sentTexts[#sentTexts + 1] = text
+  if #sentTexts > 6 then table.remove(sentTexts, 1) end
+end
+local function isOwnEcho(text)
+  for _, t in ipairs(sentTexts) do if t == text then return true end end
+  return false
+end
+function TCF.SelfName()
+  local n = UnitName and UnitName("player")
+  if type(n) == "string" and not isSecret(n) and n ~= "" then return n end
+  return TCF.SelfSender and (TCF.SelfSender:match("^([^%-]+)") or TCF.SelfSender) or nil
+end
+
 local function isMe(sender)
   if type(sender) ~= "string" or isSecret(sender) or sender == "" then return false end
+  if TCF.SelfSender and sender == TCF.SelfSender then return true end
+  if TCF.SelfBase and (sender:match("^([^%-]+)") or sender):gsub("%s", ""):lower() == TCF.SelfBase then return true end
   local me = UnitName and UnitName("player")
   if type(me) ~= "string" or isSecret(me) or me == "" then return false end
   local n, r = sender:match("^([^%-]+)%-?(.*)$")
@@ -152,6 +179,7 @@ function TCF:PartyPayload(class)
       if len + #entry + 1 <= MAX_MSG then parts[#parts + 1] = entry; len = len + #entry + 1 end
     end
   end
+  parts[#parts + 1] = "z=" .. selfTag
   return head .. ";" .. table.concat(parts, ",")
 end
 
@@ -213,7 +241,9 @@ local function send(kind)
   if not payload then return true end
   local api = C_ChatInfo and C_ChatInfo.SendAddonMessage
   if not api then return true end
-  local ok, res = pcall(api, PREFIX, kind .. ";" .. payload, chatType())
+  local text = kind .. ";" .. payload
+  rememberSent(text)
+  local ok, res = pcall(api, PREFIX, text, chatType())
   -- 12.x returns a result code (0 = sent); older clients return nothing or a boolean
   local sent = ok and (res == nil or res == true or res == 0 or
     (Enum and Enum.SendAddonMessageResult and res == Enum.SendAddonMessageResult.Success))
@@ -283,6 +313,8 @@ local function onMessage(prefix, text, channel, sender)
   if isSecret(prefix) or prefix ~= PREFIX then return end
   if isSecret(channel) or (channel ~= "PARTY" and channel ~= "RAID" and channel ~= "INSTANCE_CHAT") then return end
   if isSecret(sender) or isSecret(text) then return end
+  -- our own message coming back: learn the name the game gives us, never show our own cat
+  if isOwnEcho(text) then TCF.LearnSelf(sender); return end
   local name = nameKey(sender)
   if not name or name == myKey() or isMe(sender) then return end   -- never your own cat
   local kind, class, level, look, eq = parse(text)

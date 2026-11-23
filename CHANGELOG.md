@@ -179,13 +179,6 @@
 - While your crafting skill is under 75 the set is shown first on the Crafting page, with "Starter set 3/7 made" at the top. Pieces you made, have in your bag or wear count.
 - All the higher crafted gear is still there.
 
-**Professions: hand speed**
-- A new upgrade on the gathering page, next to your tool: Hand speed. Each level makes your clicks by hand come faster, on every spot of your profession.
-- It goes from one click every 1.5 seconds (0.75 with a well upgraded tool) down to 0.25 seconds: 4 clicks a second at level 15 with a well upgraded tool.
-- Your tool starts again when you sell the business, so right after a sale level 15 gives 2 clicks a second until the tool is upgraded again.
-- The first levels are cheap. Each level costs a lot more than the last, and the last ones take many business sales to afford.
-- Hand speed is kept when you sell the business, like your skills. The page shows how many clicks a second you make now and with the next level.
-
 **Professions: more spots**
 - Every gathering profession has three more spots, after the first six. They open up as your business grows and stay open once you have them:
 - Mining: Dark Iron Deposit (Blackrock Depths) at Renown 100, Elementium Vein (Blackwing Lair) at Renown 500 and Mining 250, Obsidian Chunk (Ahn'Qiraj) at 1Qa Trade Gold earned in total and Mining 300.

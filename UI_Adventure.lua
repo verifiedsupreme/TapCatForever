@@ -49,6 +49,11 @@ local MODEL_OVERRIDE = {
   [384] = { 2.02, 1.74, 1.68, 0.00, 1.15, cam = 2.1 },  -- Hogger (the same gnoll model)
   [540] = { 1.71, 1.35, 1.32, -0.04, 1.30, cam = 2.1 }, -- Slark (murloc)
 }
+-- models that measure small but draw much bigger (a worm measured while burrowed rears up out of
+-- the ground): their fitted size is multiplied by this
+local FIT_SHRINK = {
+  [11010] = 0.45, -- Earthborer (Ragefire Chasm): too big for the scene in 1.6 testing
+}
 local DEFAULT_BOX = { x1 = -0.75, x2 = 0.75, y1 = -0.6, y2 = 0.6, z1 = 0, z2 = FIT.TYPICAL_H }
 local FIT_CACHE = {} -- layout key -> finished fit, so reopening the page doesn't re-measure
 local BAD_MODEL = {} -- display IDs this client has no model for (skipped from then on)
@@ -292,6 +297,7 @@ local function fitActor(f, box, src, ratio)
   -- the front of a deep model is nearer the camera and looks a little bigger
   G.persp = FIT.CAM_DIST / max(FIT.CAM_DIST * 0.5, FIT.CAM_DIST - (G.xmax - G.xmin) / 2 * s)
   s = s / G.persp
+  s = s * (FIT_SHRINK[f.fitId] or 1)
   local shift
   s, shift = widthFit(f, G, s)
   f.fitG, f.fitP = G, pose(G, s, shift)

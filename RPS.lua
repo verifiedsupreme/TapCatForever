@@ -276,6 +276,11 @@ end
 
 -- challenge a party member (name from TCF:PartyMembers) for bet TapCoins
 function TCF:RPSChallenge(name, bet)
+  -- (1.6.0) same check as death roll: their addon must have the casino
+  if TCF.DR and TCF.DR.CheckFriend and type(name) == "string" then
+    local ok, why = TCF.DR.CheckFriend(name)
+    if not ok then return false, why end
+  end
   if not self.db then return false end
   bet = tonumber(bet)
   if busy() then return false, "You already have a game of rock paper scissors going." end

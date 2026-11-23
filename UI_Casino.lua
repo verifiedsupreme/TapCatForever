@@ -894,7 +894,7 @@ TCF.UI.Builders.casino = function(page, win)
   cv.sign = sign   -- the window's compact layout moves and scales the sign with the table (UI_Window.lua)
   local plate = tex(sign, "sign", 300, 56, "ARTWORK"); plate:SetPoint("CENTER", 0, -1); plate:SetTexCoord(0, 1, 0.1, 1)
   local sTitle = U.Text(sign, "GameFontNormalLarge", "TapCat Casino"); sTitle:SetPoint("CENTER", 0, 5); sTitle:SetTextColor(1, 0.85, 0.3)
-  local sSub = U.Text(sign, "GameFontHighlightSmall", "Just for fun: the house wins a little over time"); sSub:SetPoint("TOP", sTitle, "BOTTOM", 0, -2)
+  local sSub = U.Text(sign, "GameFontHighlightSmall", "Just for fun"); sSub:SetPoint("TOP", sTitle, "BOTTOM", 0, -2)
   sSub:SetTextColor(0.85, 0.8, 0.95)
   local signBulbs = {}
   for i = 0, 9 do
