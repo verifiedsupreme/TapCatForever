@@ -16,8 +16,10 @@ Fixes for the multiplayer problems players reported in 1.6.0. Multiplayer is sti
 **Realm leaderboard**
 - The leaderboard fills in from the players in your party or raid: a friend who has joined the leaderboard shows up on yours (and you on theirs) as soon as you see their cat in the party row. Players who have not joined stay off the board, and a friend who leaves the leaderboard comes off yours the same way.
 - Your own row never stays in the saved board under your name when one of your own party messages comes back before the addon knows your name (after a /reload).
-- The What's new box's Read the full patch notes button opens the notes of the version the box is about; the 1.6.1 notes sit beside them.
 - /tcf lbdebug now also says how many rows came from party messages and why messages were dropped. Send it to the developer if players still don't show up.
+
+**Other**
+- The What's new box's Read the full patch notes button opens the notes of the version the box is about; the 1.6.1 notes sit beside them.
 
 ## 1.6.0
 
