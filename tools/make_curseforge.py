@@ -33,7 +33,7 @@ FEATURES = [
         "Adventure: a faster start, a Help guide, first kills that give more in bigger zones, and bosses you can farm for their real loot. Some rewards come from killing real WoW bosses, like Hogger, and six boss effects unlock from big kills.",
         "Adventure fights look better: hunters shoot arrows, bullets and bolts from the weapon in their paw, wands fire bolts in their school's colour, and abilities play the game's real spell effects on the enemies.",
         "Professions level like WoW (orange, yellow, green, grey), with a cheap white starter set for each craft and three more spots per gathering profession.",
-        "Every class's cat has its own Treasure Bag, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.",
+        "Every class's cat has its own Treasure Bag and wears its own skin and fur, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.",
         "Party expeditions: send your cats out together with group members who have the addon, on Normal, Hard or Heroic. Every class's cat also has its own 23 class achievements.",
         "The realm leaderboard is still under construction: we're working on getting players to show up on each other's leaderboard. Your own row and the opt-in work as before.",
     ]),

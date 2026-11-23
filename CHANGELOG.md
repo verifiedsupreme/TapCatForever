@@ -4,6 +4,8 @@
 
 **Casino**
 - New: the Casino (the round coin button next to the TapCatForever title), with Lucky Paws slots, blackjack, and death roll and rock paper scissors against a house cat or a friend in your party. It fills the whole window under the tabs: pick Slots, Blackjack or Death roll with the buttons at the top (the Death roll view also plays rock paper scissors).
+- In the Friend view a short line under the top bar says whether the friend you picked can play: "Ready to play", "Checking their TapCatForever..." or "Their TapCatForever didn't answer (they need 1.6.0)". Party cats work on older versions too, so you can see a friend's cat while their addon can't take a challenge yet.
+- Challenges between friends now reach the right player even when the game doesn't let addons read your own name: each addon learns the name the game gives you from your own messages.
 - The line at the top shows your bet limits, and your stats for the game you are playing: games played, total bet, paid back, net and your biggest win (hover it for every game).
 
 **Casino: bets**
@@ -100,8 +102,11 @@
 - A new cat that presses about 2 keys a second now reaches Westfall after about 18 minutes of Adventure (it was about 32) and level 10 after about 31 minutes.
 - A Help button next to Bosses and loot opens "How Adventure works": two short pages, one on fights, stages, zones and Auto-advance, one on every reward. It also opens by itself the first time you visit the Adventure tab.
 - With Auto-advance on, a loss sends your cat back to the last trash pack; with it off, your cat drops back to an easier pack after 3 losses in a row.
-- The line under the fight now says what your cat is doing and what it waits for, for example "Shadowfang Keep cleared. Next: Blackfathom Deeps opens at level 22 (your cat is 19). Farming here until then."
-- Hover the zone name to see what is left to earn there: bosses still to beat for the first time and what they give, the zone clear bonus, how long until the next fighting-time chest, and which bosses can drop loot again.
+- The line under the fight now says what your cat is doing and what it waits for, for example "Next: Wailing Caverns at level 15 (you are 14). Farming Ragefire Chasm."
+- The fight log and that line each have their own rows at the bottom of the page, so they never draw over each other. The log shows as many of its newest lines as fit.
+- "Wailing Caverns opens at level 15. Running Ragefire Chasm again until then." is logged once, not after every run of the zone.
+- Hover the zone name to see what is left to earn there: bosses still to beat for the first time and what they give, the zone clear bonus, the chance a boss kill drops a chest right now (for example "Cat Treat Pouch from boss kills: 12% a kill right now"; it grows the longer your cat fights), and which bosses can drop loot again.
+- Area spells (Arcane Explosion, Thunder Clap, Consecration and the others) now also go off against a single enemy, such as a boss, when no single-target spell is ready. Arcane Explosion rings out from your cat before it hits every enemy.
 
 **Adventure: first kills give more in bigger zones**
 - The first time your cat beats a boss, the reward now grows with the zone:
@@ -114,14 +119,15 @@
 - First-kill gear is always something your cat's class can use, and never Legendary.
 
 **Adventure: farm a boss for its loot**
-- Bosses can now drop their real loot again after the first kill. The chance is small: a piece usually takes between 1 in 350 and 1 in 3,000 kills, about 2 to 15 hours of farming one boss. Even the rarest piece is at least 1 in 5,000 kills (about a day of farming).
+- Bosses can now drop their real loot again after the first kill. The chance is small: usually 0.03% to 0.3% a kill for a piece, and never under 0.02%.
 - Bosses and loot (next to Help) lists each boss in the zone, its first-kill reward, and the pieces it can drop for your cat with the chance per kill.
 - Press Farm on a piece (or Farm this boss): your cat stays on that boss and fights it again and again. Auto-advance turns off while you farm and comes back when you stop.
-- The line under the fight shows "Farming Edwin VanCleef for Cruel Barb (about 0.2% per kill), kills so far: 12."
+- The line under the fight shows "Farming Edwin VanCleef for Cruel Barb (0.2% a kill), kills so far: 12."
+- Every chance is shown as a percent a kill ("0.4% a kill", or "under 0.1% a kill" for the rarest), never as a time to wait.
 - You can farm a boss you have reached but not beaten yet. Its first kill counts, and if the first-kill reward is the piece you want, farming stops there.
 - When the piece drops, farming stops with one chat line. Stop farming, moving to another stage or zone, or turning Auto-advance on also stops it at once.
 - Fighting-time chests keep their own timers while you farm.
-- Gear tooltips in the Compendium say how often a boss drops the piece for your cat on later kills, and what that boss's first kill gives. The Treasure Bag's list of where chests come from now mentions first kills.
+- Gear tooltips in the Compendium give the chance a boss drops the piece for your cat on later kills (for example "0.2% a kill"), and what that boss's first kill gives. The Treasure Bag's list of where chests come from now mentions first kills.
 
 **Adventure: rewards for real WoW bosses**
 - Some rewards now come from killing certain bosses in real World of Warcraft with TapCatForever on. Tooltips and the Compendium say "In WoW: kill <boss> in <place>" for these, and how many times you have killed that boss on this character.
@@ -244,6 +250,9 @@
 - Party expeditions have their own slot: your two solo expedition slots stay free. A cat on a party expedition can't go on a solo one (or into Adventure) until it is back.
 - One invite at a time. Party members need the newest TapCatForever to join. Members on an older version don't hold the invite up.
 
+**Party cats**
+- Your own cat no longer shows up in the small row of party cats: the addon now learns the name the game gives you from your own messages, also when it can't read your name directly. Only your friends' cats sit there.
+
 **Achievements**
 - The Achievements tab has two views: Account (the achievements you know, shared by every character) and This class.
 - In This class, every class's cat has its own 23 achievements: levels 10 to 60, Elwynn Forest and Westfall, Adventure dungeons and raids cleared, every ability learned, a full Rare set and a full Epic set worn, crafting skill 150 and 300, five crafted pieces worn at once, expeditions finished and party expeditions finished.
@@ -257,6 +266,8 @@
 - Three Cats in a Row: line up three cats on the slots (100 TapCoins).
 
 **Cosmetics and art**
+- Each class's cat now wears its own skin, fur, pattern and tap effect, like its other cosmetics. Switch class and that cat puts on its own look. Everything you own stays yours and any cat can wear it. After the update every cat starts with the look you were wearing; a new character's cats start in their own class fur.
+- Party members, the Casino, the Shop's try on and the Gear page show the look of the cat you are playing.
 - Cosmetics can now move on your cat: flickering flames, lava that flows, glows that breathe, stars drifting inside a helm or through the fur, rising embers, falling snow and leaves, bubbles, sparkles and ghostly wisps.
 - Effects only play on the cartoon cat and stop while the cat is hidden. Small cats (the party row) show only the light parts, and they come back when you make the cat bigger.
 - Don't want them? Untick "Animated cosmetics" at the top of the Appearance tab for still pictures. You keep everything either way.
@@ -307,7 +318,8 @@
 - Tap quests ask for a lot more: the daily Paws of Fury is now 4,000, 8,000 or 12,000 taps, and the weekly Tireless Tapper is 100,000 taps (it gives a little more too). New quests use the new numbers from the next daily and weekly reset.
 
 **Realm leaderboard**
-- The leaderboard is still under construction. We're working on getting players to show up on each other's leaderboard, and the tab says so for now. Your own row and the opt-in work as before.
+- The leaderboard is still under construction, and the tab says so for now. Your own row and the opt-in work as before.
+- Players in your party, raid or guild who joined now show up on each other's board: your summary goes out under the name the game gives you, and never under a stand-in name while that name isn't known yet.
 
 ## 1.5.3.6
 
