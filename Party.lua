@@ -8,19 +8,30 @@
 --   U1;...same fields...                                                    update or answer
 -- Slot codes: h head, c chest, m main, o off, b back, a acc, e effect, n neck, w belt, r ring.
 -- An id is a cosmetic id (TCF.ITEMS) or #<item id> for real gear (TCF.GEAR).
+-- (1.6.1) After the slots, the player's stats as more code=value entries, then the session tag:
+--   t=<total taps> u=<achievements> d=<zones cleared> l=<1 on the leaderboard, 0 not> v=<version, 1_6_1>
+-- They feed the party profile window and the leaderboard (Leaderboard.lua TCF.LeaderboardFromParty),
+-- whose own messages don't get through on every client. Every slot entry comes before them, so 1.6.0,
+-- which reads the first MAX_SLOTS entries and skips codes it doesn't know, still sees all the gear.
 local ADDON, TCF = ...
 local floor, min, max = math.floor, math.min, math.max
 
 local PREFIX = "TapCatFvr"
 local MAX_MSG = 240          -- bytes we send at most (addon messages allow 255)
 local SEND_GAP = 10          -- seconds between our own messages
+local STATS_GAP = 60         -- an update only because the taps grew: at most this often
+local TAPS_STEP = 20         -- and only once they grew by this much
 local MAX_KNOWN = 40
 local MAX_SLOTS = 12         -- slot entries read from one message
+local MAX_ENTRIES = 24       -- entries read from one message in all (slots, stats, the tag; 1.6.0 read 12)
 local MINI, MINI_GAP, MAX_SHOWN = 40, 2, 4
 
 local SLOT_CODES = { "h", "c", "m", "o", "b", "a", "e", "n", "w", "r", "s", "x" }  -- send order (most visible first)
 local CODE_SLOT = { h = "head", c = "chest", m = "main", o = "off", b = "back", a = "acc", e = "effect",
   n = "neck", w = "belt", r = "ring", s = "shoulder", x = "race" }  -- 1.6: s (shoulders), x (racial accessory); older versions skip codes they don't know
+-- (1.6.1) the stats entries: code -> member field (z, the session tag, is read by isOwnEcho only)
+local STAT_CODES = { t = "taps", u = "ach", d = "zones", l = "joined", v = "version" }
+local MAX_TAPS = 999999999999999   -- 15 digits, what the leaderboard takes
 -- look slot -> gear slot, so a friend's real gear is drawn the same way Gear.lua draws yours
 local GEAR_SLOT = { head = "HEAD", chest = "CHEST", back = "BACK", main = "MAINHAND", off = "OFFHAND",
   neck = "NECK", belt = "WAIST", ring = "FINGER1", shoulder = "SHOULDER" }
@@ -30,7 +41,8 @@ local refreshRow  -- defined below
 local fakes = {}             -- test-mode party cats (TCF:PartyTestInject)
 local seq = 0
 local lastSent, pendingKind, pendingAt, retryOnRegen = -1e9, nil, nil, false
-local lastPayload = nil
+local lastPayload = nil      -- what we last sent: the whole payload, its look part and its stats
+local lastLook, lastStats = nil, nil
 local wasGrouped = false
 local row                    -- the mini cat row (created on first use)
 
@@ -211,8 +223,28 @@ local function lookId(it)
   if it.id:find("^[%w_:]+$") then return it.id end
 end
 
--- your own cat, as one short message (without the H1/U1 kind)
-function TCF:PartyPayload(class)
+-- (1.6.1) your stats as they travel: the table (what the friend's addon stores) and the entries
+local function statsPart()
+  local db = TCF.db
+  local taps = tonumber(db.taps) or 0
+  if taps ~= taps or taps < 0 then taps = 0 end
+  local okA, ach = pcall(function() return TCF.LeaderboardAchievements and TCF.LeaderboardAchievements() or 0 end)
+  local okZ, zones = pcall(function() return TCF.DevZonesCleared and TCF.DevZonesCleared() or 0 end)
+  local version = tostring(TCF.version or "0"):gsub("%.", "_"):gsub("[^%w_]", ""):sub(1, 16)
+  local s = {
+    taps = min(MAX_TAPS, floor(taps)),
+    ach = max(0, min(9999, floor(okA and tonumber(ach) or 0))),
+    zones = max(0, min(999, floor(okZ and tonumber(zones) or 0))),
+    joined = (db.ui and db.ui.shareDev) and true or false,
+    version = version ~= "" and version or "0",
+  }
+  local entries = string.format("t=%.0f,u=%d,d=%d,l=%d,v=%s", s.taps, s.ach, s.zones, s.joined and 1 or 0, s.version)
+  return s, entries
+end
+
+-- your own cat, as one short message (without the H1/U1 kind), the look part alone (everything but
+-- the stats and the tag: a change to it is worth an update at once) and the stats table
+function TCF:PartyPayloadParts(class)
   local db = self.db
   if not db then return nil end
   class = class or db.class
@@ -220,7 +252,10 @@ function TCF:PartyPayload(class)
   local cd = self:CD(class)
   local function id(it) return (it and it.id and it.id:find("^[%w_:]+$")) and it.id or "" end
   local head = string.format("%s;%d;%s;%s;%s", class, cd and cd.level or 1, id(look.fur), id(look.pattern), id(look.skin))
-  local parts, len = {}, #head + 4
+  -- the stats and the tag have their room first: slots are added only while there is room left
+  local stats, tail = statsPart()
+  tail = tail .. ",z=" .. tag()
+  local parts, len = {}, #head + 4 + #tail + 1   -- "U1;" .. head .. ";" .. slots .. "," .. tail
   for _, code in ipairs(SLOT_CODES) do
     local v = lookId(look[CODE_SLOT[code]])
     if v then
@@ -228,9 +263,11 @@ function TCF:PartyPayload(class)
       if len + #entry + 1 <= MAX_MSG then parts[#parts + 1] = entry; len = len + #entry + 1 end
     end
   end
-  parts[#parts + 1] = "z=" .. tag()
-  return head .. ";" .. table.concat(parts, ",")
+  local lookPart = head .. ";" .. table.concat(parts, ",")
+  return lookPart .. (#parts > 0 and "," or "") .. tail, lookPart, stats
 end
+-- the message alone (one value, as before 1.6.1)
+function TCF:PartyPayload(class) return (self:PartyPayloadParts(class)) end
 
 -- a look table (as TCF:GetAppearance returns) from a friend's message; nil if malformed
 local function parse(text)
@@ -245,12 +282,23 @@ local function parse(text)
     local it = id ~= "" and items[id]
     return (it and it.slot == slot) and it or nil
   end
-  local eq, cosmetics, n = {}, {}, 0
+  local eq, cosmetics, n, ns, stats = {}, {}, 0, 0, nil
   for code, v in slots:gmatch("(%l)=([^,]+)") do
     n = n + 1
-    if n > MAX_SLOTS then break end
+    if n > MAX_ENTRIES then break end
     local slot = CODE_SLOT[code]
-    if slot then
+    if STAT_CODES[code] then
+      -- (1.6.1) the player's stats; anything odd in one of them is left out, the rest still counts
+      stats = stats or {}
+      if code == "v" then
+        if #v <= 16 and v:find("^[%w_]+$") then stats.version = (v:gsub("_", ".")) end
+      elseif code == "l" then
+        if v == "0" or v == "1" then stats.joined = v == "1" end
+      elseif v:find("^%d+$") and #v <= (code == "t" and 15 or 4) then
+        stats[STAT_CODES[code]] = tonumber(v)
+      end
+    elseif slot and ns < MAX_SLOTS then   -- at most MAX_SLOTS slot entries; the stats behind them still count
+      ns = ns + 1
       local gid = v:match("^#(%d+)$")
       if gid then
         gid = tonumber(gid)
@@ -279,14 +327,21 @@ local function parse(text)
   look.fur = cos(fur, "fur") or items.fur_ginger
   look.pattern = cos(pat, "pattern")
   look.skin = cos(skin, "skin")
-  return kind .. "1", class, floor(level), look, eq
+  return kind .. "1", class, floor(level), look, eq, stats
 end
 TCF.PartyParse = parse
 
 ---------------------------------------------------------------- sending
+-- (1.6.1) worth an update of its own: the taps grew by TAPS_STEP, or anything else in the stats changed
+local function statsChanged(old, new)
+  if type(old) ~= "table" or type(new) ~= "table" then return false end
+  if new.ach ~= old.ach or new.zones ~= old.zones or new.joined ~= old.joined or new.version ~= old.version then return true end
+  return math.abs((new.taps or 0) - (old.taps or 0)) >= TAPS_STEP
+end
+
 local function send(kind)
   if not inGroup() then return true end
-  local payload = TCF:PartyPayload()
+  local payload, lookPart, stats = TCF:PartyPayloadParts()
   if not payload then return true end
   local api = C_ChatInfo and C_ChatInfo.SendAddonMessage
   if not api then return true end
@@ -297,7 +352,7 @@ local function send(kind)
   local sent = ok and (res == nil or res == true or res == 0 or
     (Enum and Enum.SendAddonMessageResult and res == Enum.SendAddonMessageResult.Success))
   if sent then
-    lastSent, lastPayload = now(), payload
+    lastSent, lastPayload, lastLook, lastStats = now(), payload, lookPart, stats
     return true
   end
   -- blocked (combat inside an instance) or throttled: try again later; known cats stay shown
@@ -364,7 +419,7 @@ local function onMessage(prefix, text, channel, sender)
   if isOwnEcho(text) then TCF.LearnSelf(sender); return end
   local name = nameKey(sender)
   if not name or name == myKey() or isMe(sender) then return end   -- never your own cat
-  local kind, class, level, look, eq = parse(text)
+  local kind, class, level, look, eq, stats = parse(text)
   if not kind then return end
   local m = known[name]
   if not m then
@@ -377,10 +432,16 @@ local function onMessage(prefix, text, channel, sender)
     order[#order + 1] = name
   end
   local isNew = not m.look
-  m.class, m.level, m.look, m.text, m.eq = class, level, look, text, eq
+  -- m.text is the look alone (stats and tag taken off): the row redraws a cat only when its look changed
+  m.class, m.level, m.look, m.text, m.eq = class, level, look, (text:gsub("[;,][tudlvz]=[^,]*", "")), eq
   m.sender = sender   -- the name exactly as the game sends it (challenges name you this way)
   m.missing = nil
   m.heardAt = now()   -- a duel keeps them present a while after their last message (DeathRoll.lua)
+  if stats then
+    -- (1.6.1) the friend's stats, for the profile window; a friend on the leaderboard goes on ours
+    m.taps, m.ach, m.zones, m.joined, m.version = stats.taps, stats.ach, stats.zones, stats.joined, stats.version
+    if m.joined and TCF.LeaderboardFromParty then pcall(TCF.LeaderboardFromParty, m) end
+  end
   -- answer a hello, or anyone we hadn't met; request() merges replies to one per SEND_GAP
   if kind == "H1" or isNew then request("U1") end
   refreshRow()
@@ -536,7 +597,7 @@ function TCF:ShowPartyProfile(m)
   local U = TCF.UI
   if not profile then
     local f = CreateFrame("Frame", "TapCatForeverPartyProfile", UIParent, U and U.BT)
-    f:SetSize(360, 420); f:SetPoint("CENTER", 0, 60)
+    f:SetSize(360, 460); f:SetPoint("CENTER", 0, 60)
     f:SetFrameStrata("DIALOG"); f:SetToplevel(true)
     f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
@@ -552,7 +613,7 @@ function TCF:ShowPartyProfile(m)
     for i, key in ipairs(PROFILE_SLOTS) do
       local b = U.GearButton(f, 30)
       local col, row = (i - 1) % 5, math.floor((i - 1) / 5)
-      b:SetPoint("TOPLEFT", 18 + col * 66, -226 - row * 40)
+      b:SetPoint("TOPLEFT", 18 + col * 66, -266 - row * 40)
       b.key = key
       b:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -587,7 +648,13 @@ function TCF:ShowPartyProfile(m)
     if it then n = n + 1; power = power + (it.ilvl or 0) end
   end
   local look = m.look or {}
-  local lines = { string.format("Gear worn: %d pieces", n) }
+  local lines = {}
+  -- (1.6.1) the stats that came with their party message (a friend on 1.6.0 sends none)
+  if type(m.taps) == "number" then lines[#lines + 1] = "Total taps: " .. TCF.Commas(m.taps) end
+  if type(m.ach) == "number" then lines[#lines + 1] = string.format("Achievements: %d", m.ach) end
+  if type(m.zones) == "number" then lines[#lines + 1] = string.format("Zones cleared: %d", m.zones) end
+  if m.joined ~= nil then lines[#lines + 1] = m.joined and "On the leaderboard" or "Not on the leaderboard yet" end
+  lines[#lines + 1] = string.format("Gear worn: %d pieces", n)
   if n > 0 then lines[#lines + 1] = string.format("Average item level: %d", math.floor(power / n + 0.5)) end
   if look.skin then lines[#lines + 1] = "Skin: " .. look.skin.name end
   if look.fur and not look.skin then lines[#lines + 1] = "Fur: " .. look.fur.name end
@@ -677,8 +744,9 @@ ev:SetScript("OnUpdate", function(_, elapsed)
   if lookAcc >= 2 then
     lookAcc = 0
     if lastPayload and inGroup() and not pendingAt then
-      local p = TCF:PartyPayload()
-      if p and p ~= lastPayload then request("U1") end
+      local p, lookPart, stats = TCF:PartyPayloadParts()
+      if p and lookPart ~= lastLook then request("U1")
+      elseif p and statsChanged(lastStats, stats) and now() - lastSent >= STATS_GAP then request("U1") end
     end
     if not row and TCF.hud and (next(known) or #fakes > 0) then refreshRow() end  -- heard before the HUD existed
     if row and row:IsShown() then
