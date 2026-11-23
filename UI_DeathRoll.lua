@@ -280,6 +280,11 @@ function TCF.UI.CasinoDeathRoll(container, win)
   if v.friend.SetWordWrap then v.friend:SetWordWrap(false) end
   v.next = U.Button(bar, ">", 24, 22, function() v.friendIdx = (v.friendIdx or 1) + 1; v:Refresh(true); TCF:PlaySound("click") end)
   v.next:SetPoint("LEFT", v.friend, "RIGHT", 4, 0)
+  -- (1.6.0) whether the picked friend's addon can play: a short line just under the bar on the right
+  v.friendState = U.Text(scene, "GameFontHighlightSmall", nil, "RIGHT")
+  v.friendState:SetPoint("TOPRIGHT", scene, "TOPRIGHT", -12, -68)
+  v.friendState:SetWidth(max(120, floor((cw - HOW_W) / 2) - 20))
+  v.friendState:SetShadowOffset(1, -1)
   -- bet: the same chooser as the other Casino games (- / + and 10 / 50 / 100 / Max), the same bet
   if TCF.UI.CasinoBetChooser then
     v.chooser = TCF.UI.CasinoBetChooser(bar, function() v:Refresh() end)
@@ -524,6 +529,16 @@ function Scene:Refresh(full)
     end
     self.prev:SetEnabled(#friends > 1 and not locked); self.next:SetEnabled(#friends > 1 and not locked)
   end
+  -- the picked friend: can their addon play (DeathRoll.lua asks it with a hello)
+  local stateText = ""
+  if friendMode and fm and not fm.fake and DR.FriendStatus and not (kind == "duel" and g.state ~= "over") then
+    local text, st = DR.FriendStatus(fm.name)
+    if st == "checking" and DR.AskFriend then DR.AskFriend(fm.name) end
+    local col = st == "ready" and "|cff60ff60" or st == "old" and "|cffff9070" or "|cffd0d0d0"
+    stateText = col .. text .. "|r"
+  end
+  self.friendState:SetText(stateText)
+  self.friendState:SetShown(stateText ~= "")
   if self.chooser then
     self.chooser:SetLocked(locked and true or false)
     if locked and g and g.bet then self.chooser.val:SetText(TCF.UI.coinStr(g.bet, 16)) end
@@ -543,7 +558,7 @@ function Scene:Refresh(full)
     local look = TCF:GetAppearance(TCF.db.class)
     setLook(L, look, lookKey(look))
   end
-  local me = UnitName and UnitName("player")
+  local me = TCF.SelfName and TCF.SelfName()
   L.name:SetText((type(me) == "string" and not TCF.IsSecret(me)) and shortName(me) or "You")
   local rightName, rightLook, rightKey
   if kind == "solo" then

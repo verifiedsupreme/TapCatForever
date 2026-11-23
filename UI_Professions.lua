@@ -472,8 +472,7 @@ TCF.UI.Builders.professions = function(page, win)
     for i = 1, #s.ops[fam] do if s.ops[fam][i].n > 0 then owned = true; break end end
     if not owned then spotHint:SetText(spotView.clickHint or "")
     else
-      local nextTxt = scost and string.format(" (%.1f with the next Hand speed level)", TCF:ClicksPerSecond(fam, nil, slvl + 1)) or ""
-      spotHint:SetText(string.format("By hand: %.1f clicks a second%s. Hand speed is kept when you sell the business.", TCF:ClicksPerSecond(fam), nextTxt))
+      spotHint:SetText(string.format("By hand: %.1f clicks a second. A better %s makes each click a little faster.", TCF:ClicksPerSecond(fam), f.toolNoun:lower()))
     end
     local lvl = TCF:ToolLevel(fam)
     local gskill = TCF:ProfSkill(fam)
@@ -1324,7 +1323,7 @@ TCF.UI.Builders.professions = function(page, win)
       "|cffffd100Renown|r is permanent: each point adds +2%% to this cat's Trade Gold, so it earns faster.\n\n" ..
       "Current Renown: |cffffffff%d|r (highest ever %d)\nTrade Gold earned in total: |cffffffff%s|r\nRenown you'd gain by selling now: |cff20ff20%d|r  (+%d TapCoins)\n\n" ..
       "New professions unlock at Trade Gold earned in total (selling never lowers it): %s\n\nSelling resets this cat's Trade Gold, %s, %s, garden plots, %s, helpers and upgrades. " ..
-      "You keep skills, Hand speed, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
+      "You keep skills, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
       PER_CLASS, className(), s.renown, s.renownEver, TCF.GoldStr(s.lifetime, 12), gain, min(1000, gain * 3), table.concat(unlocks, ", "),
       FT().spotsTitle:lower(), FT().toolNoun:lower(), FT().hirePlural:lower()))
     renBtn:SetEnabled(gain >= 5)

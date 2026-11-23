@@ -136,45 +136,22 @@ check(starterRows >= 7, "the first rows are the starter set: " .. starterRows)
 
 
 SPEED = r'''
+-- Hand speed was tried during 1.6 testing and taken out: the click only gets a little faster with the tool
 local T = TapCatForever
 T:SetClass("MAGE")
 local ps = T:ProfState()
 local fam = T:MainProf()
-check(T:SpeedLevel(fam) == 0 and math.abs(T:ToolCooldown(fam, 0) - 1.5) < 1e-9, "no hand speed at first: 1.5s")
-check(math.abs(T:ToolCooldown(fam, 60, 0) - 0.75) < 1e-9, "tool alone stops at 0.75s")
-check(math.abs(T:ToolCooldown(fam, 60, T.SPEED_MAX) - 0.25) < 1e-6, "hand speed max with a good tool: 0.25s")
-check(math.abs(T:ClicksPerSecond(fam, 60, T.SPEED_MAX) - 4) < 1e-6, "4 clicks a second at most")
-local prev, prevRatio = 0, 0
-for l = 0, T.SPEED_MAX - 1 do
-  local c = T:SpeedCost(fam, l)
-  check(c and c > prev, "hand speed costs rise: " .. l)
-  if l >= 2 then check(c / prev >= prevRatio * 0.97, "and rise faster and faster: " .. l) end
-  if l >= 1 then prevRatio = c / prev end
-  prev = c
-  local a, b = T:ToolCooldown(fam, 0, l), T:ToolCooldown(fam, 0, l + 1)
-  check(b < a, "every level is faster")
-end
-check(T:SpeedCost(fam, 0) <= 1e5 and T:SpeedCost(fam, T.SPEED_MAX - 1) >= 1e16, "first level cheap, last one a long-term goal")
-check(T:SpeedCost(fam, T.SPEED_MAX) == nil, "nothing past the top")
--- buying: spends Trade Gold, one level per buy, per family
-ps.gold = 0
-check(not T:UpgradeSpeed(fam), "no gold, no hand speed")
-ps.gold = T:SpeedCost(fam) + 5
-check(T:UpgradeSpeed(fam) and T:SpeedLevel(fam) == 1 and math.abs(ps.gold - 5) < 1e-6, "bought level 1")
-check(T:SpeedLevel("mining") == 0, "other families keep their own")
--- clicks by hand follow the shorter cooldown
+check(math.abs(T:ToolCooldown(fam, 0) - 1.5) < 1e-9, "a new tool: 1.5s a click")
+check(math.abs(T:ToolCooldown(fam, 60) - 0.75) < 1e-9, "the tool stops at 0.75s")
+check(T:ToolCooldown(fam, 20) < T:ToolCooldown(fam, 10), "every tool level a little faster")
+-- an old save that bought Hand speed levels clicks like everyone else
 ps.tools[fam] = 60
 ps.speed[fam] = T.SPEED_MAX
 T.toolNext = {}
 local clicks = 0
 for k = 1, 2000 do _clock = _clock + 0.01; if T:GatherClick(fam, 1) then clicks = clicks + 1 end end
-check(clicks >= 74 and clicks <= 81, "20 seconds at 0.25s: about 80 clicks, got " .. clicks)
--- selling the business keeps it (the tool resets)
-ps.lifetime = math.max(ps.lifetime, 1e12)
-check(T:PrestigeTrade(), "sell the business")
-check(T:SpeedLevel(fam) == T.SPEED_MAX and T:ToolLevel(fam) == 0, "hand speed kept, tool reset")
-check(math.abs(T:ToolCooldown(fam) - 0.5) < 1e-6, "fresh tool with max hand speed: 0.5s")
--- the page: Hand speed button and the clicks-a-second line
+check(clicks >= 25 and clicks <= 28, "20 seconds at 0.75s: about 27 clicks, got " .. clicks)
+-- the page: no Hand speed button or text, the clicks a second line names the tool
 ps.speed[fam] = 3
 ps.ops[fam][1].n = 1
 T:CreateWindow(); T.window:Show(); T.window:SelectTab(5)
@@ -182,10 +159,10 @@ T.window.profView = "main"; T.window:Refresh()
 local btn, line = false, false
 for _, f in ipairs(_frames) do
   local t = f.GetText and f:GetText()
-  if type(t) == "string" and t:find("Hand speed 4", 1, true) then btn = true end
-  if type(t) == "string" and t:find("clicks a second", 1, true) and t:find("kept when you sell", 1, true) then line = true end
+  if type(t) == "string" and f.shown and t:find("Hand speed", 1, true) then btn = true end
+  if type(t) == "string" and t:find("clicks a second", 1, true) and t:find("a little faster", 1, true) then line = true end
 end
-check(btn and line, "spots page shows the Hand speed button and clicks a second")
+check(not btn and line, "spots page: no Hand speed, clicks a second with the tool")
 ps.speed[fam] = nil
 '''
 
@@ -303,10 +280,10 @@ if row9 then
 end
 ps.ops[fam][1].n = math.max(1, ps.ops[fam][1].n)
 T.window.spotScroll = 0; T.window:Refresh()
--- the hand speed line reads as clicks a second, not as a level number
+-- the click line reads as clicks a second, not as a level number
 local hint
 for _, f in ipairs(_frames) do local t = f.GetText and f:GetText(); if type(t) == "string" and t:find("By hand:", 1, true) and f.shown then hint = t end end
-check(hint and hint:find("with the next Hand speed level)", 1, true), "hand speed hint: " .. tostring(hint))
+check(hint and hint:find("clicks a second", 1, true) and not hint:find("Hand speed", 1, true), "click hint: " .. tostring(hint))
 '''
 
 GLITCH = r'''
@@ -418,7 +395,7 @@ def run(lua, code, name):
 SECTIONS = [
     (CURVE, "professions skill-up curve", "orange 100%, yellow 50%, green 20%/5%, grey 0, every list reaches 300, colours"),
     (STARTER, "professions starter sets", "a white piece for every armour slot per craft, cheap, wearable, progress, shown first"),
-    (SPEED, "professions hand speed", "separate upgrade per family, steep costs, 1.5s to 0.25s, kept when selling, page"),
+    (SPEED, "professions click speed", "Hand speed taken out: 1.5s to 0.75s with the tool only, old saves too, page"),
     (COSMETIC, "professions cosmetic costs", "Cosmetic only recipes cost 3x-40x by rarity, rare inputs and gear recipes unchanged"),
     (SPOTS, "professions later spots", "spots 7-9 open with Renown, skill and Trade Gold earned, buy, helpers, scroll, reset on sale, header button"),
     (GLITCH, "professions patch secret", "a glitched spot: only in 1.6, by hand, once a day, sixteen past the hour, quiet lines"),

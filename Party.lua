@@ -83,11 +83,25 @@ end
 -- to you, and the one that matches exactly what you just sent is yours. TCF.SelfSender holds the
 -- sender name the game uses for you, TCF.SelfBase its name part in lower case.
 local sentTexts = {}   -- the last few exact texts we sent
-local selfTag = string.format("%05x", math.random(0, 0xFFFFF))   -- this session's tag (code "z")
+-- this session's tag (code "z" in every party message) and the probe ids: made on first use, so
+-- each session (and each client in the tests) has its own
+local selfTag
+local function tag()
+  if not selfTag then selfTag = string.format("%05x", math.random(0, 0xFFFFF)) end
+  return selfTag
+end
+local function baseOf(name)
+  if type(name) ~= "string" or isSecret(name) or name == "" then return nil end
+  local b = name:match("^([^%-]+)") or name
+  b = b:gsub("%s", ""):lower()
+  return b ~= "" and b or nil
+end
+-- sender: the name the game put on one of our own messages
 function TCF.LearnSelf(sender)
-  if type(sender) ~= "string" or isSecret(sender) or sender == "" then return end
+  local b = baseOf(sender)
+  if not b or #sender > 80 then return end
   TCF.SelfSender = sender
-  TCF.SelfBase = (sender:match("^([^%-]+)") or sender):gsub("%s", ""):lower()
+  TCF.SelfBase = b
 end
 local function rememberSent(text)
   sentTexts[#sentTexts + 1] = text
@@ -95,18 +109,39 @@ local function rememberSent(text)
 end
 local function isOwnEcho(text)
   for _, t in ipairs(sentTexts) do if t == text then return true end end
-  return false
+  -- the tag is only ours (a friend with the same look and level sends the same text otherwise)
+  local z = text:match("[;,]z=(%x+)$")
+  return z ~= nil and z == selfTag
 end
+-- your name: what UnitName says when it can be read, else the name the game puts on your messages
+-- (without the realm); nil while neither is known
 function TCF.SelfName()
   local n = UnitName and UnitName("player")
   if type(n) == "string" and not isSecret(n) and n ~= "" then return n end
   return TCF.SelfSender and (TCF.SelfSender:match("^([^%-]+)") or TCF.SelfSender) or nil
 end
 
+-- A probe for learning your own name where no party message goes (the leaderboard's guild and
+-- channel routes): "N1;<id>" comes back to you with the name the game uses for you. Every
+-- version ignores it (Party.lua reads only H1 and U1, the others their own letters).
+local probeId
+function TCF.SelfProbe(chan, target)
+  if TCF.SelfSender then return false end
+  probeId = probeId or string.format("%06x", math.random(0, 0xFFFFFF))
+  local api = C_ChatInfo and C_ChatInfo.SendAddonMessage
+  if not api then return false end
+  local ok = pcall(api, PREFIX, "N1;" .. probeId, chan, target)
+  return ok
+end
+local function onProbe(prefix, text, sender)
+  if not probeId or isSecret(prefix) or prefix ~= PREFIX or isSecret(text) or isSecret(sender) then return end
+  if type(text) == "string" and text == "N1;" .. probeId then TCF.LearnSelf(sender) end
+end
+
 local function isMe(sender)
   if type(sender) ~= "string" or isSecret(sender) or sender == "" then return false end
   if TCF.SelfSender and sender == TCF.SelfSender then return true end
-  if TCF.SelfBase and (sender:match("^([^%-]+)") or sender):gsub("%s", ""):lower() == TCF.SelfBase then return true end
+  if TCF.SelfBase and baseOf(sender) == TCF.SelfBase then return true end
   local me = UnitName and UnitName("player")
   if type(me) ~= "string" or isSecret(me) or me == "" then return false end
   local n, r = sender:match("^([^%-]+)%-?(.*)$")
@@ -179,7 +214,7 @@ function TCF:PartyPayload(class)
       if len + #entry + 1 <= MAX_MSG then parts[#parts + 1] = entry; len = len + #entry + 1 end
     end
   end
-  parts[#parts + 1] = "z=" .. selfTag
+  parts[#parts + 1] = "z=" .. tag()
   return head .. ";" .. table.concat(parts, ",")
 end
 
@@ -331,6 +366,7 @@ local function onMessage(prefix, text, channel, sender)
   end
   local isNew = not m.look
   m.class, m.level, m.look, m.text, m.eq = class, level, look, text, eq
+  m.sender = sender   -- the name exactly as the game sends it (challenges name you this way)
   m.missing = nil
   -- answer a hello, or anyone we hadn't met; request() merges replies to one per SEND_GAP
   if kind == "H1" or isNew then request("U1") end
@@ -600,6 +636,7 @@ if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.Re
 ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   if not TCF.db then return end
   if event == "CHAT_MSG_ADDON" then
+    onProbe(a1, a2, a4)
     onMessage(a1, a2, a3, a4)
   elseif event == "GROUP_ROSTER_UPDATE" or event == "UNIT_CONNECTION" then
     onRoster()

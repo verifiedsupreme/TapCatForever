@@ -79,7 +79,7 @@ def check(seed, load_addon):
       ck(payload:find("x=race_orc", 1, true) and payload:find("a=acc_shades", 1, true), "payload carries shades and racial piece: " .. payload)
       _group = { party1 = { "Alice", nil } }
       _fire("GROUP_ROSTER_UPDATE")
-      _fire("CHAT_MSG_ADDON", "TapCatFvr", "U1;" .. payload, "PARTY", "Alice-Forever")
+      _fire("CHAT_MSG_ADDON", "TapCatFvr", "U1;" .. payload:gsub("z=%x+$", "z=abcde"), "PARTY", "Alice-Forever")   -- Alice has her own session tag
       local m = T:PartyMembers()[1]
       ck(m and m.look.race and m.look.race.id == "race_orc" and m.look.acc and m.look.acc.id == "acc_shades", "a friend sees both")
       _fire("CHAT_MSG_ADDON", "TapCatFvr", "U1;MAGE;20;;;;a=race_troll", "PARTY", "Alice-Forever")
@@ -101,7 +101,7 @@ def check(seed, load_addon):
       ck(cat.vt.shoulder_a:IsShown() or cat.vt.shoulder_f:IsShown(), "the cat draws the pauldrons")
       payload = T:PartyPayload()
       ck(payload:find("s=#" .. sh.id, 1, true), "payload carries the shoulders")
-      _fire("CHAT_MSG_ADDON", "TapCatFvr", "U1;" .. payload, "PARTY", "Alice-Forever")
+      _fire("CHAT_MSG_ADDON", "TapCatFvr", "U1;" .. payload:gsub("z=%x+$", "z=abcde"), "PARTY", "Alice-Forever")   -- Alice has her own session tag
       m = T:PartyMembers()[1]
       ck(m and m.look.shoulder and m.look.shoulder.gear, "a friend sees the shoulders")
       _group = nil; _fire("GROUP_ROSTER_UPDATE")

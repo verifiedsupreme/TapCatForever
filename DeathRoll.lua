@@ -18,7 +18,10 @@
 -- so they never make or take TapCoins overall).
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel, every field checked; v = 1):
---   D1;v;id;target;bet;range     challenge (target = the challenged player's name)
+--   D0;v;id;hi / D0;v;000000;ok  hello (1.6.0): every version with the casino answers "ok"; our own
+--                                hello coming back (its random id) tells us the name the game uses for us
+--   D1;v;id;target;bet;range     challenge (target = the challenged player's name, as the game sends
+--                                it with their messages: "Name-Realm")
 --   D2;v;id;answer;first         y accept (first: c challenger or t target rolls first),
 --                                n decline, b busy, c can't bet that much
 --   D3;v;id;reason               called off: x withdrawn, t timeout, s hidden roll text, r reload,
@@ -144,8 +147,10 @@ local function base(name)
   return b and b:gsub("%s", ""):lower() or nil
 end
 
+-- your name in lower case without the realm: learned from your own messages (Party.lua), as the
+-- game may not let an addon read UnitName("player"); nil while it isn't known
 local function myBase()
-  if TCF.SelfBase then return TCF.SelfBase end   -- learned from our own messages (Party.lua)
+  if TCF.SelfBase then return TCF.SelfBase end
   local n = UnitName and UnitName("player")
   if type(n) ~= "string" or isSecret(n) then return nil end
   return base(n)
@@ -224,6 +229,12 @@ local function member(name)
   end
 end
 DR.Member = member
+-- the name to put in a challenge: the sender name the game gave their messages
+function DR.TargetName(m)
+  local s = m and m.sender
+  if type(s) == "string" and not isSecret(s) and s ~= "" and #s <= 64 and not s:find("[;|]") then return s end
+  return m and m.name
+end
 
 ---------------------------------------------------------------- the /roll line
 -- RANDOM_ROLL_RESULT ("%s rolls %d (%d-%d)" in English) turned into a pattern; positional forms
@@ -518,24 +529,41 @@ end
 -- the casino answers it. Party cats work on older versions too, so a friend's cat can show up while
 -- their addon can't take a challenge; then the Casino says so instead of waiting for nothing.
 local capable, helloAt, asked = {}, -1e9, {}
--- our hellos carry a random id: when one comes back to us, the sender is us (TCF.LearnSelf)
-local helloId = string.format("%06x", math.random(0, 0xFFFFFF))
-local HELLO_GAP = 10
+-- our hellos carry a random id (made on first use): when one comes back to us, the sender is us
+-- (TCF.LearnSelf), which is how this side learns the name the game uses for you
+local helloId
+local HELLO_GAP, ASK_WAIT, ASK_AGAIN = 10, 6, 30
 local function sayHello(force)
   if not inGroup() then return end
   local t = now()
   if not force and t - helloAt < HELLO_GAP then return end
   helloAt = t
+  helloId = helloId or newId()
   send("D0", helloId, "hi")
 end
 DR.SayHello = sayHello
+-- ask a friend's addon (a hello) unless it already answered or we asked a moment ago
+function DR.AskFriend(name)
+  local b = base(name)
+  if not b or capable[b] then return end
+  if asked[b] and now() - asked[b] < ASK_AGAIN then return end
+  asked[b] = now()
+  sayHello(true)
+end
 -- true: their addon answered; false: asked a while ago and no answer (older version); nil: not known yet
 function TCF:CasinoCanPlay(name)
   local b = base(name)
   if not b then return nil end
   if capable[b] then return true end
-  if asked[b] and now() - asked[b] > 6 then return false end
+  if asked[b] and now() - asked[b] > ASK_WAIT then return false end
   return nil
+end
+-- a short line about a friend for the Casino's friend view
+function DR.FriendStatus(name)
+  local can = TCF:CasinoCanPlay(name)
+  if can then return "Ready to play", "ready" end
+  if can == false then return "Their TapCatForever didn't answer (they need 1.6.0)", "old" end
+  return "Checking their TapCatForever...", "checking"
 end
 -- checks a friend before a challenge: true when they can play, else false and the reason
 function DR.CheckFriend(name)
@@ -544,10 +572,10 @@ function DR.CheckFriend(name)
   local b = base(name)
   local shown = (type(name) == "string" and name:match("^([^%-]+)")) or "Your friend"
   if can == false then
+    DR.AskFriend(name)   -- ask again now and then: they may have updated or come back
     return false, shown .. "'s TapCatForever didn't answer. They need version 1.6.0 or newer for casino games with friends (party cats work on older versions, which is why you can see their cat)."
   end
-  if b and not asked[b] then asked[b] = now() end
-  sayHello(true)
+  DR.AskFriend(name)
   return false, "Checking " .. shown .. "'s TapCatForever. Try again in a few seconds."
 end
 
@@ -573,7 +601,9 @@ function TCF:DeathRollChallenge(name, bet, range)
               cur = range, state = "asking", expires = now() + DR.INVITE_TIME, rolls = {}, n = 0 }
   DR.duel = d
   saveDuel(d)   -- a /reload while waiting withdraws the challenge (restore tells them)
-  send("D1", d.id, m.name, bet, range)
+  -- their name exactly as the game gave it with their messages: their addon matches it against the
+  -- name it learned from its own messages
+  send("D1", d.id, DR.TargetName(m), bet, range)
   notify("state", "duel")
   return true
 end
@@ -745,7 +775,7 @@ local function onAddon(prefix, text, channel, sender)
   if isSecret(sender) or type(sender) ~= "string" or sender == "" then return end
   local kind, ver, id, a, b, c = text:match("^(D%d);(%d+);(%x%x%x%x%x%x);([^;]*);?([^;]*);?([^;]*)$")
   if not kind or ver ~= VER then return end
-  if kind == "D0" and a == "hi" and id == helloId then
+  if kind == "D0" and a == "hi" and helloId and id == helloId then
     if TCF.LearnSelf then TCF.LearnSelf(sender) end   -- our own hello came back
     return
   end
@@ -807,7 +837,14 @@ local function onSystem(text)
   local name, v, lo, hi = DR.ParseRoll(text)
   if not name then return end
   local b = base(name)
-  local who = (b == myBase()) and "me" or (b == d.oppBase and "opp") or nil
+  local mb = myBase()
+  local who = (mb and b == mb) and "me" or (b == d.oppBase and "opp") or nil
+  -- your own name can't be read yet: a roll of exactly this range right after you pressed Roll,
+  -- from someone who isn't your opponent, is yours (and teaches this side your name)
+  if not who and not mb and d.turn == "me" and d.rolledAt and now() - d.rolledAt < 10 and lo == 1 and hi == d.cur then
+    who = "me"
+    if TCF.LearnSelf then TCF.LearnSelf(name) end
+  end
   if not who or who ~= d.turn then return end          -- not this player's turn: not part of the duel
   if lo ~= 1 or hi ~= d.cur or v < 1 or v > hi then return end   -- a different /roll
   d.rolls[#d.rolls + 1] = { who = who, v = v, hi = hi }

@@ -1120,6 +1120,8 @@ TEST = r'''
     check(#_sent == 1 and _sent[1][1] == _prefix and _sent[1][2]:match("^H1;MAGE;%d+;") and _sent[1][3] == "PARTY" and #_sent[1][2] <= 240, "hello on joining")
     local function msg(text, sender, ch, prefix) _fire("CHAT_MSG_ADDON", prefix or _prefix, text, ch or "PARTY", sender) end
     TCF:SetClass("WARRIOR"); local aliceText = "H1;" .. TCF:PartyPayload("WARRIOR"); TCF:SetClass("MAGE")
+    -- (1.6.0) Alice's addon has its own session tag ("z=", ours marks our own messages)
+    aliceText = aliceText:gsub("z=%x+$", "z=abcde")
     msg(aliceText, "Alice-Forever")
     check(TCF:PartyCount() == 1 and near(TCF:PartyTapMult(), 1.2), "fake hello counted: +20%")
     local row = TapCatForeverPartyCats

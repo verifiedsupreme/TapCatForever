@@ -21,7 +21,7 @@
 -- moves nothing, and a lost message or a tampered addon can only take TapCoins out, never put them in.
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel, every field checked; v = 1):
---   R1;v;id;target;bet          challenge
+--   R1;v;id;target;bet          challenge (target as in death roll's D1: "Name-Realm" as the game sends it)
 --   R2;v;id;answer              y accept, n decline, b busy, c can't bet that much
 --   R3;v;id;reason              called off (see R.REASONS)
 --   R4;v;id;round;hash          my pick is locked in (hash: 8 hex digits)
@@ -276,11 +276,6 @@ end
 
 -- challenge a party member (name from TCF:PartyMembers) for bet TapCoins
 function TCF:RPSChallenge(name, bet)
-  -- (1.6.0) same check as death roll: their addon must have the casino
-  if TCF.DR and TCF.DR.CheckFriend and type(name) == "string" then
-    local ok, why = TCF.DR.CheckFriend(name)
-    if not ok then return false, why end
-  end
   if not self.db then return false end
   bet = tonumber(bet)
   if busy() then return false, "You already have a game of rock paper scissors going." end
@@ -290,6 +285,11 @@ function TCF:RPSChallenge(name, bet)
   if lockdown() then return false, "The game is blocking addon messages right now. Try again in a moment." end
   local m = DR.Member(name)
   if not m or isMe(m.name) then return false, "Pick a friend in your group who has TapCatForever." end
+  -- (1.6.0) same check as death roll: their addon must have the casino
+  if DR.CheckFriend then
+    local okFriend, why = DR.CheckFriend(m.name)
+    if not okFriend then return false, why end
+  end
   if not bet or not DR.ValidBet(bet) then
     local lo, hi = DR.Limits()
     return false, string.format("Bets go from %d to %d TapCoins right now.", lo, max(lo, hi))
@@ -298,7 +298,7 @@ function TCF:RPSChallenge(name, bet)
               expires = now() + R.INVITE_TIME, round = 1, rounds = {} }
   R.duel = d
   saveDuel(d)
-  send("R1", d.id, m.name, bet)
+  send("R1", d.id, DR.TargetName and DR.TargetName(m) or m.name, bet)
   notify("state", "duel")
   return true
 end

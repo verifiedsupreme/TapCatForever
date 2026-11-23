@@ -246,8 +246,11 @@ local function isMe(sender)
   return base(sender) ~= nil and base(sender) == base(n)
 end
 
+-- your name without the realm, as friends see it in the party row: UnitName when it can be read,
+-- else the name learned from your own party messages (Party.lua); "?" while neither is known
 local function myName()
-  local n = TCF.SelfName and TCF.SelfName() or (UnitName and UnitName("player"))
+  local n = TCF.SelfName and TCF.SelfName()
+  if type(n) ~= "string" or isSecret(n) then n = UnitName and UnitName("player") end
   if type(n) ~= "string" or isSecret(n) then return "?" end
   return shortName(n)
 end
@@ -349,6 +352,9 @@ function TCF:GroupExpInvite(placeKey, len, diff, cats)
   if not TCF.GroupExpPlace(placeKey) or not GX.LENGTHS[len] or not GX.DIFFS[diff] then return false, "Choose a place, a length and a difficulty." end
   if not inGroup() then return false, "You need to be in a party or raid." end
   if #addonFriends() == 0 then return false, "Nobody else in your group has TapCatForever." end
+  -- (1.6.0) the start lists every player by name: yours is learned from your own party messages
+  -- when the game doesn't let addons read it, which takes a moment after joining a group
+  if myName() == "?" then return false, "Your addon is still getting your name from the group. Try again in a few seconds." end
   local why = busy(self)
   if why then return false, why end
   local list, err = validCats(self, cats or self:GroupExpDefaultCats())

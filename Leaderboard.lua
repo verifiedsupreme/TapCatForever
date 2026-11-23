@@ -110,14 +110,19 @@ local function myRealm()
   return r
 end
 
+-- your "Name-Realm" as it travels, or nil while it isn't known. (1.6.0) The game may not let addons
+-- read your own name (UnitName("player") can be a protected value), and may write your realm
+-- differently from what GetRealmName says: the name the game puts on your own messages (learned
+-- in Party.lua) is the one other players' addons see, so it wins when it has a realm.
 local function myFull()
-  -- (1.6.0) your name as the game sends it with your messages when UnitName can't be read
-  local n = TCF.SelfName and TCF.SelfName() or (UnitName and UnitName("player"))
-  local r = myRealm()
   local ss = TCF.SelfSender
-  if plain(ss) and ss:find("-", 1, true) and validName((ss:gsub("%s", ""))) and not (plain(UnitName and UnitName("player"))) then
-    return (ss:gsub("%s", ""))
+  if plain(ss) and ss:find("-", 1, true) then
+    local full = ss:gsub("%s", "")
+    if validName(full) then return full end
   end
+  local n = TCF.SelfName and TCF.SelfName()
+  if not plain(n) then n = UnitName and UnitName("player") end
+  local r = myRealm()
   if not plain(n) or not r then return nil end
   local full = n .. "-" .. r
   return validName(full) and full or nil
@@ -407,11 +412,13 @@ function TCF:LeaderboardOwnEntry()
   local db = self.db
   if not db or not TCF.CLASS_BY_KEY[db.class] then return nil end
   local full = myFull()
+  local guess = false
   if not full then
-    -- 1.5.3.3: your own row always shows, even when the realm name can't be read
-    local n = TCF.SelfName and TCF.SelfName() or (UnitName and UnitName("player"))
+    -- 1.5.3.3: your own row always shows, even when the realm name can't be read. (1.6.0) Such a
+    -- stand-in name is never shared: other players would get a made-up player.
+    local n = TCF.SelfName and TCF.SelfName()
     if not plain(n) or n == "" then n = "You" end
-    full = n .. "-" .. (myRealm() or "Realm")
+    full, guess = n .. "-" .. (myRealm() or "Realm"), true
   end
   local cd = self:CD()
   local okS, s = pcall(function() return self.DevSummary and self:DevSummary() end)
@@ -420,7 +427,7 @@ function TCF:LeaderboardOwnEntry()
   if not v:find("^[%w%.%-]+$") then v = "?" end
   local ts = serverNow()
   return { n = full, c = db.class, l = max(1, min(200, floor(cd and cd.level or 1))), t = max(0, floor(db.taps or 0)),
-    a = countAchievements(), z = min(200, TCF.DevZonesCleared and TCF.DevZonesCleared() or 0), v = v, ts = ts,
+    a = countAchievements(), z = min(200, TCF.DevZonesCleared and TCF.DevZonesCleared() or 0), v = v, ts = ts, guess = guess or nil,
     x = (function() local ok, x = pcall(self.LeaderboardOwnExtra, self); return ok and x or nil end)(), xts = ts }
 end
 
@@ -665,9 +672,24 @@ local function snapshot(e)
 end
 
 -- our own summary, then (unless noRelay) a few entries the others online haven't heard lately
+-- (1.6.0) your name isn't known yet: a probe on our routes teaches it (it comes back with the name
+-- the game uses for you, Party.lua), a few times at most
+local probeAt, probes = -1e9, 0
+local function probeSelf(t)
+  if TCF.SelfSender or not TCF.SelfProbe or probes >= 5 or t - probeAt < 30 then return end
+  probeAt, probes = t, probes + 1
+  for _, r in ipairs(routes()) do TCF.SelfProbe(r[1], r[2]) end
+end
+
 local function sendOwn(t, noRelay)
   local e = TCF:LeaderboardOwnEntry()
   if not e then return false end
+  if e.guess then
+    -- not shared under a stand-in name: try again once the name is known
+    probeSelf(t)
+    ownAt = t + 10
+    return false
+  end
   enqueue(entryText(e), true, nil, extraText(e))
   lastOwnAt, lastOwn = t, snapshot(e)
   ownAt = t + OWN_GAP + random() * OWN_JITTER
@@ -1126,6 +1148,7 @@ TCF.LeaderboardTest = {
     helloAt, helloSince, lastHello, lastRemoveAt, lastOwnSentAt, lastSweep = nil, nil, -1e9, -1e9, -1e9, -1e9
     lastRelayAt = -1e9
     signupPending = false
+    probeAt, probes = -1e9, 0
   end,
   setOwnAt = function(t) ownAt = t end,
   event = function(...) onEvent(ev, ...) end,

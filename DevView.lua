@@ -112,7 +112,9 @@ TCF.DevMyRealm = myRealm
 
 local function myName()
   local n = UnitName and UnitName("player")
-  if not plain(n) then return nil end
+  -- (1.6.0) when the game won't let addons read it: the name learned from your own messages
+  if not plain(n) or n == "" then n = TCF.SelfName and TCF.SelfName() end
+  if not plain(n) or n == "" then return nil end
   return n
 end
 

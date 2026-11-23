@@ -203,6 +203,9 @@ class Net:
         return lua
     def group(self, names, raid=False):
         self.raid = raid
+        # anyone not in the new group has left it (so they don't answer hellos on the old channel)
+        for n in self.c:
+            if n not in names and self.grouped(n): self.ungroup(n)
         for n in names:
             others = [o for o in names if o != n]
             units = ", ".join('%s%d = { "%s", "Forever" }' % ("raid" if raid else "party", i + 1, o) for i, o in enumerate(others))
@@ -637,7 +640,7 @@ def _duels(seed, load_addon, rnd):
     ra = net.st("Alice", "result")
     ck(settled(net.coins("Alice") - a0, net.coins("Bob") - b0, 60, ra), "German roll text")
     net.sys = saved_sys
-    msgs = len([1 for l in net.log if l[1][:1] == "D"])
+    msgs = len([1 for l in net.log if l[1][:1] == "D" and l[1][:3] != "D0;"])   # hellos (D0) not counted
     print("death roll duel section (%d clients, %d duel messages: challenge, accept, decline, timeouts, withdraw, turn order, "
           "stray rolls, settle once, not enough TapCoins, busy, spoofed and odd messages, raid, reload, mismatch, "
           "lost messages, left the group, refused sends, German, a turn that runs out loses, no coins made after the 1 "
