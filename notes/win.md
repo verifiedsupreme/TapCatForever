@@ -39,3 +39,8 @@
 - Window size is stored in `db.ui.winScale` (full and narrow) and `db.ui.winScaleCompact` (compact).
 - Tab numbers did not change (SelectTab(9) is still Achievements, 11 the Casino): UI.lua `win.tabOrder` gives where each text tab sits, `win.TAB_ACH` the icon tab.
 - Window size sits in Settings > Cat and display, CB Row 6: a track that wants that spot must move it.
+
+## What's new pop-up (1.6.0)
+- The first time the window opens on 1.6.0 (once per account, db.newsSeen), a small box over the middle of the window shows six pictures with a few words each (Cat Casino, Resize your window, Animated dungeon sets, Professions level like WoW, Farm your favourite bosses, Party expeditions), the line "Multiplayer is still in the works: party death roll, rock paper scissors and the leaderboard may not work yet.", "Read the full patch notes" and Close. It is part of the window (never over the screen cat), and only shows when the player opens the window.
+- Brand-new players skip it (they get the welcome tour). Later versions with a highlight keep the slim strip.
+- For the developer: News.lua TCF.NEWS_POPUPS keys a version to its pop-up; pictures are Art/news/*.tga (256x128, 24-bit RLE) from tools/make_news_art.py (crops in tools/news_src, --review DIR crops the screenshots again).

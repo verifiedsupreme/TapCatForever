@@ -36,6 +36,7 @@ FEATURES = [
         "Every class's cat has its own Treasure Bag and wears its own skin and fur, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.",
         "Party expeditions: send your cats out together with group members who have the addon, on Normal, Hard or Heroic. Every class's cat also has its own 23 class achievements.",
         "The realm leaderboard: players who joined and are in a party, raid or guild together now show up on each other's leaderboard.",
+        "Multiplayer is still in the works: party death roll, rock paper scissors and the leaderboard may not work yet.",
     ]),
     ("New in 1.5.3", [
         "A realm leaderboard tab, opt-in and off by default: see the cats of other players on your realm who joined, by total taps, per class and by professions. It all stays inside the game, and the first time you join you get a Heroic Cache. Open the Leaderboard tab, or type /tcf top.",

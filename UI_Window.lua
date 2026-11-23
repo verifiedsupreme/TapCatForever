@@ -627,6 +627,7 @@ end
 -- windows it takes the window's width instead, and grows taller for its wrapped text.
 local NEWS_W, NEWS_H, NEWS_SIDE = 760, 46, 192   -- NEWS_SIDE: the icon, the gaps, Read more and close
 function TCF:FitNewsStrip()
+  if self.FitNewsPopup then self:FitNewsPopup() end -- the 1.6 What's new pop-up (News.lua): centred, sized for the layout
   local strip, win = self.newsStrip, self.window
   if not strip or not win then return end
   local w = min(NEWS_W, win.layoutW or NEWS_W)

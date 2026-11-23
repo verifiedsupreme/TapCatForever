@@ -1630,6 +1630,8 @@ TEST = r'''
       for _, n in ipairs(TCF.NEWS) do if n.highlight then hl = n; break end end
       TCF.version = TCF.NEWS[1].version
       check(hl and TCF:CurrentNews() == hl, "current version has news")
+      -- (1.6.0's news is a pop-up, tools/tests/test_news_popup.py; the strip is for later versions)
+      local pops = TCF.NEWS_POPUPS; TCF.NEWS_POPUPS = {}
       TCF.db.newsSeen, TCF.db.newsShows = nil, nil
       if not TCF.window then TCF:CreateWindow() end
       TCF.window:Hide(); TCF.window:Show(); TCF:CheckNews()
@@ -1650,6 +1652,7 @@ TEST = r'''
       check(TapCatForeverPatchNotes:IsShown(), "/tcf news opens the notes")
       TapCatForeverPatchNotes:Hide()
       TCF.version = realVersion
+      TCF.NEWS_POPUPS = pops
     end
     -- 11. chests (1.5.1): real legendaries, the raid-only Raider's Hoard, blue in the pouch at every level
     do

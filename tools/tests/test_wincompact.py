@@ -211,6 +211,7 @@ def check(seed, load_addon):
       ck(win.compactStrip.lvl:GetText():find(T.CLASS_BY_KEY[T.db.class].name, 1, true), "the bottom line names the class")
       -- the What's new strip takes the compact window's width, and the full width again after
       T.version = T.NEWS[1].version
+      T.NEWS_POPUPS = {} -- (1.6.0's news is a pop-up; the strip is for later versions)
       T.db.newsSeen, T.db.newsShows = nil, nil
       win:Hide(); win:Show(); T:CheckNews()
       local strip = T.newsStrip

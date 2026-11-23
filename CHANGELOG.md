@@ -2,6 +2,8 @@
 
 ## 1.6.0
 
+Multiplayer is still in the works: party death roll, rock paper scissors and the leaderboard may not work yet.
+
 **Casino**
 - New: the Casino (a new tab between Shop and Leaderboard), with Lucky Paws slots, blackjack, and death roll and rock paper scissors against a house cat or a friend in your party. It fills the whole window under the tabs: pick Slots, Blackjack or Death roll with the buttons at the top (the Death roll view also plays rock paper scissors).
 - In the Friend view a short line under the top bar says whether the friend you picked can play: "Ready to play", "Checking their TapCatForever..." or "Their TapCatForever didn't answer (they need the newest version)". Party cats work on older versions too, so you can see a friend's cat while their addon can't take a challenge yet.
@@ -76,6 +78,7 @@
 - Unlike death roll, it works inside dungeons and raids too: it doesn't use /roll.
 
 **Main window**
+- The first time you open the window on 1.6, a small What's new box over the window shows the new things in pictures. Read the full patch notes from it, or close it. It shows once.
 - Achievements and Settings are now round buttons next to the TapCatForever title (a trophy and a cog), so the other ten tabs, the Casino among them, sit in two roomier rows of five and every name fits.
 - The window can now be made bigger or smaller: drag the grip in its bottom-right corner. Everything inside grows or shrinks with it, and the top-left corner stays where it is. The size follows how far you drag, so just clicking the grip doesn't change it.
 - The window always fits on your screen: on smaller screens the largest size is a little under 140%. Double-click the grip to go back to normal size.
@@ -323,7 +326,7 @@
 **Realm leaderboard**
 - Players in your party, raid or guild who joined now show up on each other's board: your summary goes out under the name the game gives you, and never under a stand-in name while that name isn't known yet.
 - Rows named "You" (or "Unknown") that older versions shared when they couldn't read a player's name are taken off every board.
-- The "still under construction" note is gone from the Leaderboard tab.
+- A short note on the Leaderboard tab says it is still being worked on: other players may not show up for you yet.
 
 ## 1.5.3.6
 

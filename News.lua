@@ -5,9 +5,24 @@
 -- yourself, and it goes away once you close it, read the notes, or have seen it 3 times.
 -- New players don't get it (they get the welcome tour instead). The full notes for every
 -- version are in Settings > Patch notes, or /tcf news.
+-- 1.6.0 has a pop-up instead of the strip (TCF.NEWS_POPUPS): a small box over the middle of the
+-- window with six pictures of what is new, one line on multiplayer, "Read the full patch notes"
+-- and Close. It shows once per account, the first time the window opens.
 local ADDON, TCF = ...
 
 local STRIP_SHOWS = 3
+
+-- versions whose What's new is a pop-up with pictures (Art/news, tools/make_news_art.py)
+TCF.NEWS_POPUPS = {
+  ["1.6.0"] = {
+    title = "What's new in 1.6",
+    tiles = {
+      { "casino", "Cat Casino" }, { "window", "Resize your window" }, { "sets", "Animated dungeon sets" },
+      { "professions", "Professions level like WoW" }, { "farm", "Farm your favourite bosses" }, { "party", "Party expeditions" },
+    },
+    note = "Multiplayer is still in the works: party death roll, rock paper scissors and the leaderboard may not work yet.",
+  },
+}
 
 local function majorOf(v) return (tostring(v or ""):match("^(%d+%.%d+)")) end
 
@@ -64,6 +79,60 @@ local function createStrip(win)
   return f
 end
 
+---------------------------------------------------------------- the pop-up over the window
+local POP_W, POP_H, TILE_W, TILE_H, GAP = 404, 334, 120, 60, 8
+local function createPopup(win, P)
+  local U = TCF.UI
+  local f = CreateFrame("Frame", "TapCatForeverWhatsNew", win, U.BT)
+  f:SetSize(POP_W, POP_H)
+  if f.SetBackdrop then f:SetBackdrop(U.BACKDROP_DIALOG) end
+  if f.SetBackdropBorderColor then f:SetBackdropBorderColor(1, 0.82, 0.2, 1) end
+  f:EnableMouse(true) -- clicks on it don't reach the page under it
+  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", -4, -4)
+  close:SetScript("OnClick", function() f:Hide() end)
+  f.title = U.Text(f, "GameFontNormalHuge", P.title); f.title:SetPoint("TOP", 0, -18)
+  -- six pictures in two rows of three, each with its few words under it
+  f.tiles = {}
+  local x0 = (POP_W - 3 * TILE_W - 2 * GAP) / 2
+  for i, t in ipairs(P.tiles) do
+    local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
+    local tile = CreateFrame("Frame", nil, f)
+    tile:SetSize(TILE_W, TILE_H + 30)
+    tile:SetPoint("TOPLEFT", x0 + col * (TILE_W + GAP), -54 - row * (TILE_H + 38))
+    tile.pic = tile:CreateTexture(nil, "ARTWORK"); tile.pic:SetSize(TILE_W, TILE_H); tile.pic:SetPoint("TOP")
+    tile.pic:SetTexture(TCF.ART_PATH .. "news\\" .. t[1])
+    tile.label = U.Text(tile, "GameFontNormalSmall", t[2]); tile.label:SetPoint("TOP", tile.pic, "BOTTOM", 0, -3)
+    tile.label:SetWidth(TILE_W + GAP - 2)
+    f.tiles[i] = tile
+  end
+  f.note = U.Text(f, "GameFontHighlightSmall", P.note); f.note:SetPoint("TOP", 0, -54 - 2 * (TILE_H + 38) - 2)
+  f.note:SetWidth(POP_W - 40)
+  f.more = U.Button(f, "Read the full patch notes", 190, 24, function() f:Hide(); TCF:ShowPatchNotes() end)
+  f.more:SetPoint("BOTTOMLEFT", 22, 18)
+  f.done = U.Button(f, "Close", 100, 24, function() f:Hide() end)
+  f.done:SetPoint("BOTTOMRIGHT", -22, 18)
+  f:Hide()
+  return f
+end
+
+-- centred on the window, over everything on it; a little bigger in the wide windows
+function TCF:FitNewsPopup()
+  local f, win = self.newsPopup, self.window
+  if not f or not win then return end
+  f:ClearAllPoints(); f:SetPoint("CENTER", win, "CENTER", 0, 0)
+  local compact = win.IsCompact and win:IsCompact()
+  if f.SetScale then f:SetScale(compact and 1 or 1.2) end
+  if f.SetFrameLevel and win.GetFrameLevel then pcall(f.SetFrameLevel, f, (win:GetFrameLevel() or 1) + 120) end
+end
+
+function TCF:ShowNewsPopup(n)
+  local P = n and TCF.NEWS_POPUPS[n.version]
+  if not P or not self.window then return end
+  self.newsPopup = self.newsPopup or createPopup(self.window, P)
+  self:FitNewsPopup()
+  self.newsPopup:Show()
+end
+
 -- called whenever the main window opens
 function TCF:CheckNews()
   local win = self.window
@@ -72,6 +141,13 @@ function TCF:CheckNews()
     return
   end
   local n = self:CurrentNews()
+  if TCF.NEWS_POPUPS[n.version] then
+    -- a pop-up update: shown this once (per account), never the strip
+    if self.newsStrip then self.newsStrip:Hide() end
+    self.db.newsSeen = seenId(n); self.db.newsShows = nil
+    self:ShowNewsPopup(n)
+    return
+  end
   self.newsStrip = self.newsStrip or createStrip(win)
   -- above the window when there's room, otherwise below it, otherwise just inside its top edge
   local strip = self.newsStrip
