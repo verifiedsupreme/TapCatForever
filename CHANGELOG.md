@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.1.1
+
+**Realm leaderboard: names with a space**
+- World of Warcraft: Forever lets a character name have a space in it ("Ziggu Trip"). The leaderboard refused every message from such a player, so friends never showed up on each other's boards even though their cats and taps showed in the party row. Names with a space now count everywhere on the leaderboard, and a row saved under a wrong name for your own character is cleaned up.
+- When the game gives no realm name, the leaderboard no longer takes the second word of your name for the realm.
+
 ## 1.6.1
 
 Fixes for the multiplayer problems players reported in 1.6.0. Multiplayer is still in the works, and we would like to hear whether the death roll works for you now (/tcf feedback).

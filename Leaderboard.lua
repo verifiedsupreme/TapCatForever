@@ -94,12 +94,14 @@ local function optedIn() return TCF.db and TCF.db.ui and TCF.db.ui.shareDev and 
 local function fresh(ts, st) return st == 0 or ts >= st - EXPIRE end
 
 ---------------------------------------------------------------- names
--- "Name-Realm" as it travels: a name of letters, a realm without spaces or hyphens
+-- "Name-Realm" as it travels: a name of letters (1.6.1.1: WoW: Forever allows a single space inside
+-- a name, "Ziggu Trip"), a realm without spaces or hyphens
 local function validName(s)
   if not plain(s) or #s > 80 then return false end
   local n, r = s:match("^([^%-]+)%-([^%-]+)$")
   if not n or #n < 2 or #n > 48 or #r > 48 then return false end
-  return n:find("^[%a\128-\255]+$") ~= nil and r:find("^[^%s%c;|:,]+$") ~= nil
+  if n:find("^%s") or n:find("%s$") or n:find("%s%s") then return false end
+  return n:find("^[%a\128-\255 ]+$") ~= nil and r:find("^[^%s%c;|:,]+$") ~= nil
 end
 TCF.LeaderboardValidName = validName
 
@@ -836,8 +838,23 @@ function TCF.LeaderboardForgetSelf()
   local b = board(false)
   local mine = myKey()
   if not b or not mine then return false end
-  if b.e[mine] then b.e[mine] = nil; dirty = true; return true end
-  return false
+  local gone = false
+  if b.e[mine] then b.e[mine] = nil; gone = true end
+  -- (1.6.1.1) before this version a two-word name ("Ziggu Trip") was saved as a row of its own under a
+  -- wrong key ("ziggu-trip": the second word taken for the realm): rows whose whole key spells your
+  -- own name are yours and go too
+  local own = TCF.SelfBase or (function()
+    local n = TCF.SelfName and TCF.SelfName()
+    return plain(n) and (n:gsub("%s", "")):lower() or nil
+  end)()
+  if own and #own >= 2 then
+    for k in pairs(b.e) do
+      if k ~= mine and (k:gsub("[%-%s]", "")) == own then b.e[k] = nil; gone = true end
+    end
+    if b.rm then for k in pairs(b.rm) do if (k:gsub("[%-%s]", "")) == own then b.rm[k] = nil end end end
+  end
+  if gone then dirty = true end
+  return gone
 end
 local onAddonInner
 local function onAddon(prefix, text, chan, sender, chanName)
@@ -1140,6 +1157,7 @@ local function onEvent(_, event, a1, a2, a3, a4, _, _, _, a8)
     wrapSlash()
     if not TCF.db then return end
     board(false)   -- tidies the saved board (old players drop off)
+    if myKey() then TCF.LeaderboardForgetSelf() end   -- (1.6.1.1) rows saved under a wrong key for your own name
     -- "take me off" still to send for characters on this account: old ones are no longer needed
     local rmList, st = TCF.db.ui.lbRemove, serverNow()
     if type(rmList) == "table" then

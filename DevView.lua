@@ -59,12 +59,28 @@ local function keyHash(s)
   return x
 end
 
--- "Name" from "Name" or "Name-Realm"; nil for anything odd
+-- "Name" from "Name" or "Name-Realm"; nil for anything odd. (1.6.1.1) WoW: Forever lets a character
+-- name have a space in it ("Ziggu Trip"), so single spaces inside the name are allowed; keys drop them.
 local function shortName(full)
   if not plain(full) or full == "" or #full > 64 then return nil end
   local n = full:match("^([^%-]+)")
-  if not n or n == "" or n:find("[%s;|]") then return nil end
+  if not n or n == "" or n:find("[%c;|]") or n:find("^%s") or n:find("%s$") or n:find("%s%s") then return nil end
   return n
+end
+TCF.DevShortName = shortName
+
+-- the realm that UnitFullName("player") reports is only trusted when it isn't the second word of a
+-- two-word name (Forever's UnitFullName splits "Ziggu Trip" into "Ziggu" and "Trip")
+local function realmFromUnitFullName()
+  local ok, n, r = pcall(function() if UnitFullName then return UnitFullName("player") end end)
+  if not ok or not plain(r) or r == "" then return nil end
+  local own = TCF.SelfName and TCF.SelfName()
+  if plain(own) and own:find("%s") then
+    local joined = plain(n) and (n .. " " .. r) or nil
+    if joined and joined:lower() == own:lower() then return nil end
+    if own:lower():find("%s" .. r:lower():gsub("%W", "%%%0") .. "$") then return nil end
+  end
+  return r
 end
 
 local function myRealm()
@@ -77,10 +93,7 @@ local function myRealm()
     local ok, v = pcall(function() return GetRealmName and GetRealmName() end)
     r = ok and v or nil
   end
-  if not plain(r) or r == "" then
-    local ok, _, v = pcall(function() if UnitFullName then return UnitFullName("player") end end)
-    r = ok and v or nil
-  end
+  if not plain(r) or r == "" then r = realmFromUnitFullName() end
   -- 1.5.3.6: the realm name can't be read on some clients. Everyone in your party, raid or guild
   -- is on your realm, so a stand-in name keeps names and the leaderboard working there.
   if not plain(r) or r == "" then return "Realm" end
@@ -97,14 +110,14 @@ local function fullKey(full)
   if not realm then return nil end
   realm = realm:gsub("[%s%-']", "")
   if realm == "" or #realm > 64 then return nil end
-  return (n .. "-" .. realm):lower()
+  return (n:gsub("%s", "") .. "-" .. realm):lower()
 end
 
 local function isDevName(full)
   local k = fullKey(full)
   if k and DEV_HASH[keyHash(k)] then return true end
   local n = shortName(full)
-  return n and DEV_NAME_HASH[keyHash(n:lower())] or false
+  return n and DEV_NAME_HASH[keyHash((n:gsub("%s", "")):lower())] or false
 end
 TCF.DevIsDeveloperName = isDevName
 TCF.DevFullKey = fullKey
