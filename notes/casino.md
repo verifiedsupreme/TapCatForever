@@ -6,8 +6,11 @@
 - The line at the top shows your bet limits, and your stats for the game you are playing: games played, total bet, paid back, net and your biggest win (hover it for every game).
 
 ## Bets
-- A bet is at least 10 TapCoins and at most a quarter of your TapCoins, up to 500.
-- You need at least 40 TapCoins to play.
+- A bet is at least 10 TapCoins and at most half your TapCoins (rounded down to the bet step). There is no top bet.
+- You need at least 20 TapCoins to play.
+- The - and + buttons take bigger steps on big bets (100 from 1,000, 250 from 2,500, 500 from 5,000, and so on).
+- In a duel with a friend, each of you can bet at most half your own TapCoins, and exactly the bet you both agreed moves between you.
+- For the developer: Casino.lua TCF:CasinoLimits (TCF.CASINO_MAX_SHARE = 0.5, TCF.CasinoBetStep), TCF.CASINO_MAX_BET is gone; TCF:CasinoSettleDuel caps the change at the agreed stake; DeathRoll.lua DR.MSG_BET_MAX only turns away absurd numbers in messages.
 - Use the - and + buttons or the quick 10, 50, 100 and Max buttons to choose your bet. All the games share the same bet, and it is kept for next time.
 - Every game against the house keeps a small house edge, so over time the Casino takes a few TapCoins out of the game. Duels with friends are even: no table fee. It is for fun, not for getting rich. There are no free spins.
 - Casino bets and wins don't count toward the TapCoins earned and spent achievements.

@@ -19,7 +19,21 @@ TCF.CASINO_GAMES = {
   { key = "deathroll", name = "Death roll" },
   { key = "rps", name = "Rock paper scissors" },
 }
-TCF.CASINO_MIN_BET, TCF.CASINO_MAX_BET = 10, 500
+-- 1.6.0: no fixed top bet. A bet is at least 10 TapCoins and at most half your TapCoins (rounded
+-- down to the bet step), so you need at least 20 to play.
+TCF.CASINO_MIN_BET, TCF.CASINO_MAX_SHARE = 10, 0.5
+TCF.CASINO_MIN_COINS = TCF.CASINO_MIN_BET * 2
+
+-- The - and + buttons' step at a bet: 10 under 100, 25 under 250, 50 under 1,000, then 1, 2.5 and 5
+-- in each power of ten (100 from 1,000, 250 from 2,500, 500 from 5,000, 1,000 from 10,000 ...)
+function TCF.CasinoBetStep(bet)
+  bet = tonumber(bet) or 0
+  if bet < 100 then return 10 elseif bet < 250 then return 25 elseif bet < 1000 then return 50 end
+  local p = 1000
+  while p * 10 <= bet do p = p * 10 end
+  local r = bet / p
+  return p / 10 * (r < 2.5 and 1 or r < 5 and 2.5 or 5)
+end
 
 local function num(v)
   if TCF.IsSecret(v) then return nil end
@@ -49,11 +63,13 @@ function TCF:CasinoData()
   return c
 end
 
--- Bet limits: at least 10, at most the lower of 500 and a quarter of your TapCoins.
--- max < min means you can't play right now (fewer than 40 TapCoins).
+-- Bet limits: at least 10, at most half your TapCoins rounded down to the bet step (no fixed top).
+-- max < min means you can't play right now (fewer than 20 TapCoins).
 function TCF:CasinoLimits()
   local coins = num(self.db and self.db.coins) or 0
-  return TCF.CASINO_MIN_BET, min(TCF.CASINO_MAX_BET, floor(coins / 4))
+  local half = floor(max(0, coins) * TCF.CASINO_MAX_SHARE)
+  local step = TCF.CasinoBetStep(half)
+  return TCF.CASINO_MIN_BET, floor(half / step) * step
 end
 
 -- Clamp a bet to the limits (nil when you can't play)
@@ -144,22 +160,23 @@ function TCF:CasinoCollect(game)
 end
 
 -- Party death roll and rock paper scissors: moves TapCoins between you and another player. delta > 0
--- credits you, < 0 debits you (never below zero), at most the top bet either way. stake: the bet of
--- the duel (for the stats: it counts as bet, and a win counts stake + delta as paid back, so the net
--- is right). game: "deathroll" (the default) or "rps", for the stats. Logged in TCF.db.casino.duels
+-- credits you, < 0 debits you (never below zero). stake: the bet both sides agreed (each checked it
+-- against their own limits and held it); delta is never more than it either way. Without a stake,
+-- the stake is the amount moved. Also for the stats: it counts as bet, and a win counts stake + delta
+-- as paid back, so the net is right. game: "deathroll" (the default) or "rps", for the stats. Logged in TCF.db.casino.duels
 -- (the last 20). Returns the change really made.
 function TCF:CasinoSettleDuel(delta, opponent, stake, game)
   delta = num(delta)
   if not delta then return 0 end
   delta = floor(delta + 0.5)
-  delta = max(-TCF.CASINO_MAX_BET, min(TCF.CASINO_MAX_BET, delta))
+  stake = num(stake)
+  stake = stake and max(0, floor(stake)) or math.abs(delta)
+  delta = max(-stake, min(stake, delta))
   local c = self:CasinoData()
   local coins = num(self.db.coins) or 0
   if delta < 0 then delta = -min(-delta, coins) end
   if delta == 0 then return 0 end
   self.db.coins = coins + delta
-  stake = num(stake)
-  stake = stake and max(0, min(TCF.CASINO_MAX_BET, floor(stake))) or (delta < 0 and -delta or 0)
   if game ~= "rps" then game = "deathroll" end
   local s = c[game]
   s.duels = (s.duels or 0) + 1

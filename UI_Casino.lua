@@ -103,7 +103,7 @@ end
 ---------------------------------------------------------------- bet chooser (shared by the games)
 -- TCF.UI.CasinoBetChooser(parent, onChange): - and + buttons, the bet, and quick 10 / 50 / 100 / Max.
 -- The bet is TCF.db.casino.bet, clamped to TCF:CasinoLimits(). f:SetLocked(true) while a round runs.
-local function stepFor(bet) return bet < 100 and 10 or bet < 250 and 25 or 50 end
+local function stepFor(bet) return TCF.CasinoBetStep(bet) end
 
 function TCF.UI.CasinoBetChooser(parent, onChange)
   local U = TCF.UI
@@ -362,7 +362,7 @@ local function SlotsView(box, cv)
     local c = TCF:CasinoData()
     local lo, hi = TCF:CasinoLimits()
     if hi < lo then
-      result:SetText("|cffff7070You need at least 40 TapCoins to play.|r"); return
+      result:SetText("|cffff7070You need at least " .. TCF.CASINO_MIN_COINS .. " TapCoins to play.|r"); return
     end
     local res = TCF:SlotsSpin(TCF:CasinoClampBet(c.bet or lo))
     if not res then result:SetText("|cffff7070That bet can't be taken right now.|r"); return end
@@ -782,7 +782,7 @@ local function BlackjackView(box, cv)
     if self:Busy() or TCF:BJInPlay() then return end
     local c = TCF:CasinoData()
     local lo, hi = TCF:CasinoLimits()
-    if hi < lo then result:SetText("You need at least 40 TapCoins to play."); result:SetTextColor(1, 0.55, 0.5); return end
+    if hi < lo then result:SetText("You need at least " .. TCF.CASINO_MIN_COINS .. " TapCoins to play."); result:SetTextColor(1, 0.55, 0.5); return end
     -- the last hand's win is paid before the next deal
     TCF:CasinoCollect("blackjack")
     banner:Hide(); result:Show(); rules:Show()
@@ -924,7 +924,7 @@ TCF.UI.Builders.casino = function(page, win)
     end
     tt:AddLine("All games", 1, 1, 1)
     tt:AddLine(TCF:CasinoStatsLine(nil), 0.8, 0.8, 0.8, true)
-    tt:AddLine("Bets are at least 10 TapCoins and at most a quarter of your TapCoins, up to 500.", 0.7, 0.7, 0.7, true)
+    tt:AddLine("Bets are at least 10 TapCoins and at most half your TapCoins.", 0.7, 0.7, 0.7, true)
   end)
 
   local function Area()
@@ -974,9 +974,9 @@ TCF.UI.Builders.casino = function(page, win)
   function cv:Refresh(light)
     local lo, hi = TCF:CasinoLimits()
     if hi >= lo then
-      limits:SetText(string.format("Bets: %s to %s TapCoins |cff999999(at most a quarter of your TapCoins, up to %d)|r", lo, TCF.Commas(hi), TCF.CASINO_MAX_BET))
+      limits:SetText(string.format("Bets: %s to %s TapCoins |cff999999(at most half your TapCoins)|r", lo, TCF.Commas(hi)))
     else
-      limits:SetText("|cffff8080You need at least 40 TapCoins to play: a bet is at most a quarter of your TapCoins.|r")
+      limits:SetText("|cffff8080You need at least " .. TCF.CASINO_MIN_COINS .. " TapCoins to play: a bet is at most half your TapCoins.|r")
     end
     -- the Death roll view also plays rock paper scissors: the stats of the game on screen
     local key = self.view

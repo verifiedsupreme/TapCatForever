@@ -46,13 +46,13 @@ def _hash(load_addon, rnd):
 def _house(seed, load_addon, rnd):
     lua = TD._client(load_addon, "Solocat", seed)
     ev = lua.eval
-    lua.execute("%s.db.coins = 39" % T)
+    lua.execute("%s.db.coins = 19" % T)
     ok, err = lua.execute('return %s:RPSSoloPlay("rock", 10)' % T)
-    ck(not ok and "40" in err, "fewer than 40 TapCoins: no game (%r)" % err)
+    ck(not ok and "20" in err, "fewer than 20 TapCoins: no game (%r)" % err)
     lua.execute("%s.db.coins = 1000" % T)
-    for bad in (5, 9, 251, 10.5):
+    for bad in (5, 9, 501, 10.5):
         ok, err = lua.execute('return %s:RPSSoloPlay("rock", %s)' % (T, bad))
-        ck(not ok and ev("%s.db.coins" % T) == 1000, "bet %s refused (limits 10 to 250)" % bad)
+        ck(not ok and ev("%s.db.coins" % T) == 1000, "bet %s refused (limits 10 to 500)" % bad)
     ck(not lua.eval('(%s:RPSSoloPlay("lizard", 100))' % T) and ev("%s.db.coins" % T) == 1000, "an unknown sign is refused")
     lua.execute('''
       function _playRps(n, bet)
@@ -317,7 +317,7 @@ def _duels(seed, load_addon, rnd):
         net.ex("Bob", "TapCatForever:DeathRollSoloRoll()"); net.pump(1.5)
 
     # --- not enough TapCoins
-    net.ex("Bob", "TapCatForever.db.coins = 300")
+    net.ex("Bob", "TapCatForever.db.coins = 150")    # can bet up to 70
     net.pump(4); net.ex("Alice", 'TapCatForever:RPSChallenge("Bob", 100)'); net.pump(1)
     ck(g("Alice", "result") == "toohigh" and g("Bob", "result") == "toohigh", "bet above Bob's limit refused")
     net.ex("Bob", "TapCatForever.db.coins = 2000")

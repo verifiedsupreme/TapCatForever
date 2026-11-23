@@ -659,7 +659,7 @@ function Scene:Refresh(full)
     status = "Take turns rolling. Each roll goes from 1 to the last number. Whoever rolls a 1 loses."
     btn, btnOn = "Start", hi >= lo
   end
-  if hi < lo and not kind then status = string.format("You need at least %s to play.", coins(lo * 4)) end
+  if hi < lo and not kind then status = string.format("You need at least %s to play.", coins(lo * 2)) end
   if self.msg then status = "|cffff8080" .. self.msg .. "|r" end
   if DR.refunded and DR.refunded > 0 then
     status = string.format("Your game with a friend was called off by the reload. Your %s bet came back.", coins(DR.refunded))

@@ -330,7 +330,7 @@ function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
     status = string.format("Pick rock, paper or scissors to play for %s. The house cat picks at random.", coins(self.bet or lo))
     picks, picksOn = true, hi >= lo
   end
-  if hi < lo and not kind then status = string.format("You need at least %s to play.", coins(lo * 4)) end
+  if hi < lo and not kind then status = string.format("You need at least %s to play.", coins(lo * 2)) end
   if self.msg then status = "|cffff8080" .. self.msg .. "|r" end
   if DR.refunded and DR.refunded > 0 then
     status = string.format("Your game with a friend was called off by the reload. Your %s bet came back.", coins(DR.refunded))

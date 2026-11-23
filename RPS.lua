@@ -135,7 +135,7 @@ function TCF:RPSSoloPlay(sign, bet)
     bet = tonumber(bet)
     if not bet or not DR.ValidBet(bet) then
       local lo, hi = DR.Limits()
-      if hi < lo then return false, string.format("You need at least %d TapCoins to play.", lo * 4) end
+      if hi < lo then return false, string.format("You need at least %d TapCoins to play.", lo * 2) end
       return false, string.format("Bets go from %d to %d TapCoins right now.", lo, hi)
     end
     local ok = self.CasinoBet and self:CasinoBet(bet, GAME) or (not self.CasinoBet and self:SpendCoins(bet))
@@ -366,7 +366,7 @@ function TCF:RPSDuel() return R.duel end
 local function onChallenge(sender, id, target, bet, s)
   if not isMe(target) then return end
   bet = tonumber(bet)
-  if not bet or bet ~= floor(bet) or bet < 1 or bet > 100000 then return end
+  if not bet or bet ~= floor(bet) or bet < 1 or bet > (DR.MSG_BET_MAX or 1e15) then return end
   local t = now()
   if s.lastRps and t - s.lastRps < CHALLENGE_GAP then return end
   s.lastRps = t

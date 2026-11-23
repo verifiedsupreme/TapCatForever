@@ -70,13 +70,17 @@ local function isSecret(v) return TCF.IsSecret and TCF.IsSecret(v) end
 local function now() return GetTime and GetTime() or 0 end
 
 ---------------------------------------------------------------- money (Casino.lua, see the contract)
+-- a challenge's bet is checked against each player's own limits (half their TapCoins); this only
+-- turns away numbers no one could hold
+DR.MSG_BET_MAX = 1e15
+
 function DR.Limits()
   if TCF.CasinoLimits then
     local lo, hi = TCF:CasinoLimits()
     if type(lo) == "number" and type(hi) == "number" then return lo, hi end
   end
   local coins = TCF.db and TCF.db.coins or 0
-  return 10, min(500, floor(coins / 4))
+  return 10, floor(coins / 20) * 10
 end
 
 local function validBet(bet)
@@ -369,7 +373,7 @@ function TCF:DeathRollSoloStart(bet, range)
   if not validRange(range) then return false, "Pick a roll range." end
   if not bet or not validBet(bet) then
     local lo, hi = DR.Limits()
-    if hi < lo then return false, string.format("You need at least %d TapCoins to play.", lo * 4) end
+    if hi < lo then return false, string.format("You need at least %d TapCoins to play.", lo * 2) end
     return false, string.format("Bets go from %d to %d TapCoins right now.", lo, hi)
   end
   local ok = self.CasinoBet and self:CasinoBet(bet, GAME) or (not self.CasinoBet and self:SpendCoins(bet))
@@ -733,7 +737,7 @@ local function fromOpp(d, sender) return d and base(sender) == d.oppBase end
 local function onChallenge(sender, id, target, bet, range, s)
   if not isMe(target) then return end
   bet, range = tonumber(bet), tonumber(range)
-  if not bet or bet ~= floor(bet) or bet < 1 or bet > 100000 or not validRange(range) then return end
+  if not bet or bet ~= floor(bet) or bet < 1 or bet > DR.MSG_BET_MAX or not validRange(range) then return end
   local t = now()
   if s.lastChallenge and t - s.lastChallenge < CHALLENGE_GAP then return end
   s.lastChallenge = t

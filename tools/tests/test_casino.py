@@ -113,19 +113,28 @@ def check(seed, load_addon):
 
     # ---- limits
     ex("T = TapCatForever; C = T:CasinoData()")
-    ex("T.db.coins = 39")
+    # 1.6.0: at least 10, at most half your TapCoins rounded down to the bet step, no fixed top
+    ex("T.db.coins = 19")
     lo, hi = ex("return T:CasinoLimits()")
-    ck(lo == 10 and hi == 9, "39 coins: can't play (%s, %s)" % (lo, hi))
-    ck(not ev("T:CasinoBet(10, 'slots')") and ev("T.db.coins") == 39, "39 coins: no bet taken")
-    ex("T.db.coins = 1000")
-    ck(ex("return T:CasinoLimits()") == (10, 250), "1000 coins: 10 to 250")
+    ck(lo == 10 and hi < 10, "19 coins: can't play (%s, %s)" % (lo, hi))
+    ck(not ev("T:CasinoBet(10, 'slots')") and ev("T.db.coins") == 19, "19 coins: no bet taken")
+    for coins, top in ((20, 10), (39, 10), (40, 20), (999, 450), (1000, 500), (1234, 600), (3333, 1600), (5000, 2500),
+                       (12345, 6000), (100000, 50000), (2500000, 1200000), (7777777, 3750000)):
+        ex("T.db.coins = %d" % coins)
+        ck(ex("return T:CasinoLimits()") == (10, top), "%d coins: 10 to %d (%r)" % (coins, top, ex("return T:CasinoLimits()")))
+        ck(top <= coins // 2 and top % ev("T.CasinoBetStep(%d)" % top) == 0, "%d: half or less, on the step" % coins)
     ex("T.db.coins = 100000")
-    ck(ex("return T:CasinoLimits()") == (10, 500), "100000 coins: 10 to 500")
-    ck(ev("T:CasinoClampBet(9999)") == 500 and ev("T:CasinoClampBet(1)") == 10, "bets clamp to the limits")
+    ck(ev("T:CasinoClampBet(99999)") == 50000 and ev("T:CasinoClampBet(1)") == 10, "bets clamp to the limits")
+    ck(ev("T:CasinoBet(50000, 'slots')") and ev("T.db.coins") == 50000, "half of 100000 can be bet")
+    ck(ev("T.CASINO_MAX_BET") is None, "no fixed top bet")
+    steps = [(10, 10), (99, 10), (100, 25), (249, 25), (250, 50), (999, 50), (1000, 100), (2499, 100), (2500, 250), (5000, 500), (10000, 1000), (250000, 25000)]
+    for b, s in steps:
+        ck(ev("T.CasinoBetStep(%d)" % b) == s, "step at %d is %d (%r)" % (b, s, ev("T.CasinoBetStep(%d)" % b)))
+    ex("C.slots = nil; C.total = nil; C = T:CasinoData()")
 
     # ---- bet and pay bookkeeping (stakes and winnings stay out of TapCoins earned and spent)
     ex("T.db.coins = 1000; _e, _s = T.db.coinsEarned, T.db.coinsSpent")
-    ck(not ev("T:CasinoBet(251, 'slots')"), "over the limit: refused")
+    ck(not ev("T:CasinoBet(501, 'slots')"), "over the limit (half of 1000): refused")
     ck(not ev("T:CasinoBet(9, 'slots')"), "under the limit: refused")
     ck(not ev("T:CasinoBet(10.5, 'slots')"), "not a whole number: refused")
     ck(not ev("T:CasinoBet(10, 'roulette')"), "unknown game: refused")
@@ -159,9 +168,14 @@ def check(seed, load_addon):
     ck(ev("T:CasinoSettleDuel(-60, 'Bob-Forever')") == -60 and ev("T.db.coins") == 40, "duel loss debits")
     ck(ev("T:CasinoSettleDuel(-60, 'Bob-Forever')") == -40 and ev("T.db.coins") == 0, "never below zero")
     ck(ev("T:CasinoSettleDuel(120, _SECRET)") == 120 and ev("T.db.coins") == 120, "duel win credits")
-    ck(ev("T:CasinoSettleDuel(99999, 'Bob')") == 500, "at most the top bet")
+    ck(ev("T:CasinoSettleDuel(99999, 'Bob', 300)") == 300 and ev("T.db.coins") == 420, "at most the bet both sides agreed")
+    ck(ev("T:CasinoSettleDuel(-99999, 'Bob', 300)") == -300 and ev("T.db.coins") == 120, "a loss at most the bet too")
+    ex("T.db.coins = 120")
     ck(ev("T:CasinoSettleDuel(_SECRET, 'Bob')") == 0, "secret delta ignored")
-    ck(ev("#C.duels") == 4 and ev("C.duels[3].opp") == "another player", "duels logged")
+    ck(ev("#C.duels") == 5 and ev("C.duels[3].opp") == "another player", "duels logged")
+    ex("T.db.coins = 10000000")
+    ck(ev("T:CasinoSettleDuel(2000000, 'Bob', 2000000)") == 2000000 and ev("T.db.coins") == 12000000, "big agreed bets settle in full (no 500 cap)")
+    ck(ev("T:CasinoSettleDuel(-2000000, 'Bob', 2000000)") == -2000000 and ev("T.db.coins") == 10000000, "and lose in full")
     # duel stats with the stake (duels are even): a win of 100 on a bet of 100 counts as bet 100, paid back 200
     ex("C.deathroll = nil; C.total = nil; C = T:CasinoData(); T.db.coins = 1000")
     ex("T:CasinoSettleDuel(100, 'Bob', 100)")
@@ -365,7 +379,7 @@ def check(seed, load_addon):
         for view in ("slots", "blackjack", "deathroll", "slots"):
             ex("T.casinoView:SetView('%s')" % view)
             ck(ev("T.casinoView.view") == view, "sub-view " + view)
-        ex("T.casinoView:SetBet(9999)"); ck(ev("C.bet") == 500, "bet chooser clamps to the max")
+        ex("T.casinoView:SetBet(9999)"); ck(ev("C.bet") == 1000, "bet chooser clamps to the max (half of 2000)")
         ex("T.casinoView:SetBet(3)"); ck(ev("C.bet") == 10, "bet chooser clamps to the min")
         ex("T.casinoView:StepBet(1)"); ck(ev("C.bet") > 10, "plus button")
         ex("T.casinoView:SetBet(50)")
@@ -433,9 +447,12 @@ def check(seed, load_addon):
         ck(ev("T.casinoView.bj.result:GetText()") == "A fresh shoe.", "a fresh shoe: %r" % ev("T.casinoView.bj.result:GetText()"))
         ex("for k = 1, 30 do _update(0.05) end; T.casinoView.bj:Action('stand'); for k = 1, 60 do _update(0.05) end")
         # too few TapCoins: the page says so
-        ex("T.db.coins = 20; T.casinoView:Refresh()")
-        ck("40 TapCoins" in (ev("T.casinoView.limits:GetText()") or ""), "fewer than 40 coins: told why")
-        ex("T.casinoView.slots:Spin()"); ck(ev("T.db.coins") == 20, "no spin without the coins")
+        ex("T.db.coins = 19; T.casinoView:Refresh()")
+        ck("20 TapCoins" in (ev("T.casinoView.limits:GetText()") or "") and "half" in ev("T.casinoView.limits:GetText()"), "fewer than 20 coins: told why")
+        ex("T.casinoView.slots:Spin()"); ck(ev("T.db.coins") == 19, "no spin without the coins")
+        ex("T.db.coins = 5000; T.casinoView:Refresh()")
+        lim = ev("T.casinoView.limits:GetText()") or ""
+        ck(("10 to 2,500" in lim or "10 to 2500" in lim) and "half" in lim and "500)" not in lim and "quarter" not in lim, "the limits line: %r" % lim)
         # the death roll view is a plain container of about 870 x 452
         ck(ev("T.casinoView.deathroll ~= nil"), "death roll container")
     # every casino texture exists

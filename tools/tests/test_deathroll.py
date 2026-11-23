@@ -79,13 +79,13 @@ def _solo(seed, load_addon, rnd):
     lua = _client(load_addon, "Solocat", seed)
     T = "TapCatForever"
     ev = lua.eval
-    lua.execute("%s.db.coins = 39" % T)
+    lua.execute("%s.db.coins = 19" % T)
     ok, err = lua.execute("return %s:DeathRollSoloStart(10, 1000)" % T)
-    ck(not ok and "40" in err, "fewer than 40 TapCoins: no game (%r)" % err)
+    ck(not ok and "20" in err, "fewer than 20 TapCoins: no game (%r)" % err)
     lua.execute("%s.db.coins = 1000" % T)
-    for bad in (5, 9, 251, 10.5):
+    for bad in (5, 9, 501, 10.5):
         ok, err = lua.execute("return %s:DeathRollSoloStart(%s, 1000)" % (T, bad))
-        ck(not ok and ev("%s.db.coins" % T) == 1000, "bet %s refused (limits 10 to 250)" % bad)
+        ck(not ok and ev("%s.db.coins" % T) == 1000, "bet %s refused (limits 10 to 500)" % bad)
     ok, err = lua.execute("return %s:DeathRollSoloStart(100, 777)" % T)
     ck(not ok, "odd range refused")
     # many games at 100 each (fast: the timer is driven directly)
@@ -385,7 +385,7 @@ def _duels(seed, load_addon, rnd):
     ck(net.coins("Alice") == a0 and net.coins("Bob") == b0, "secret text: no coins moved")
 
     # --- not enough TapCoins
-    net.ex("Bob", "TapCatForever.db.coins = 300")      # can bet up to 75
+    net.ex("Bob", "TapCatForever.db.coins = 150")      # can bet up to 70 (half, on the step)
     net.pump(4); net.ex("Alice", 'TapCatForever:DeathRollChallenge("Bob", 100, 1000)'); net.pump(1)
     ck(net.st("Alice", "result") == "toohigh" and net.st("Bob", "result") == "toohigh", "bet above Bob's limit refused")
     ck(not net.c["Bob"].eval('(TapCatForever:DeathRollChallenge("Alice", 100, 1000))'), "can't challenge above your own limit")
@@ -456,6 +456,18 @@ def _duels(seed, load_addon, rnd):
     net.group(["Alice", "Bob"])
     net.c["Cara"].execute('_group = nil; _fire("GROUP_ROSTER_UPDATE")')
     del net.c["Cara"]
+
+    # --- 1.6.0: no fixed top bet: a duel at half of Bob's TapCoins settles in full
+    keepA, keepB = net.coins("Alice"), net.coins("Bob")
+    net.ex("Alice", "TapCatForever.db.coins = 20000"); net.ex("Bob", "TapCatForever.db.coins = 12000")
+    start("Alice", "Bob", 6000, 1000)
+    _play_to_end(net, "Alice", "Bob", [999, 500, 2, 1])
+    ra = net.st("Alice", "result")
+    ck(settled(net.coins("Alice") - 20000, net.coins("Bob") - 12000, 6000, ra), "a 6,000 TapCoin duel settles in full (%d %d)" % (net.coins("Alice"), net.coins("Bob")))
+    net.ex("Alice", "TapCatForever.db.coins = 100000"); net.ex("Bob", "TapCatForever.db.coins = 10000")
+    net.pump(4); net.ex("Alice", 'TapCatForever:DeathRollChallenge("Bob", 5500, 1000)'); net.pump(1)
+    ck(net.st("Alice", "result") == "toohigh" and net.st("Bob", "result") == "toohigh", "over half of Bob's TapCoins: refused (%s)" % net.st("Alice", "result"))
+    net.ex("Alice", "TapCatForever.db.coins = %d" % keepA); net.ex("Bob", "TapCatForever.db.coins = %d" % keepB)
 
     # --- /reload mid-duel: called off, both stakes back
     a0, b0 = net.coins("Alice"), net.coins("Bob")
@@ -642,7 +654,7 @@ def _duels(seed, load_addon, rnd):
     net.sys = saved_sys
     msgs = len([1 for l in net.log if l[1][:1] == "D" and l[1][:3] != "D0;"])   # hellos (D0) not counted
     print("death roll duel section (%d clients, %d duel messages: challenge, accept, decline, timeouts, withdraw, turn order, "
-          "stray rolls, settle once, not enough TapCoins, busy, spoofed and odd messages, raid, reload, mismatch, "
+          "stray rolls, settle once, not enough TapCoins, a 6,000 duel (no top bet), busy, spoofed and odd messages, raid, reload, mismatch, "
           "lost messages, left the group, refused sends, German, a turn that runs out loses, no coins made after the 1 "
           "(leaving the group, refused sends), an early first roll, a reload while asking, no duels in instances): all checks passed" % (3, msgs))
 

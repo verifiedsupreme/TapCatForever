@@ -9,7 +9,7 @@ It never touches your gameplay. It just watches your key presses and makes them 
 Features
 
 What's new in 1.6.0
-• A Casino: Lucky Paws slots, blackjack, death roll in a cosy cartoon tavern and rock paper scissors on a snowy mountaintop, against a house cat or a friend in your party. Bets are 10 to 500 TapCoins (at most a quarter of what you have), and every game against the house keeps a small edge, so it is for fun, not for getting rich.
+• A Casino: Lucky Paws slots, blackjack, death roll in a cosy cartoon tavern and rock paper scissors on a snowy mountaintop, against a house cat or a friend in your party. Bets are 10 TapCoins up to half of what you have, and every game against the house keeps a small edge, so it is for fun, not for getting rich.
 • A main window your way: drag the corner grip to make it bigger or smaller, fold the character column away with the cat button, or switch to a compact, phone-shaped layout with big round tab buttons. Achievements and Settings are round buttons by the title, and the Casino has its own tab.
 • Animated cosmetics: flames that flicker, lava that flows, drifting stars, embers, snow and wisps. Every Epic and Legendary skin has its own effect (the Diamond Cat sparkles, the Galaxy Cat has stars inside its fur), and you can turn them off. The finest skins now drop from Kel'Thuzad, Nefarian, Ragnaros and the real General Drakkisath.
 • Eleven animated cosmetic sets, one for Molten Core and one for each later dungeon in Adventure, six pieces each with a new Shoulders slot. Real shoulder gear now shows on your cat too, with 43 drawings, and the racial accessory has its own slot.
@@ -83,7 +83,7 @@ Casino
 • Blackjack with six decks: blackjack pays 3 to 2, double on any first two cards, split a pair once, and the dealer stands on every 17. A hand you leave waits for you, even after a reload.
 • Death roll in a cosy cartoon tavern: two cats take turns rolling 1 to the last number rolled, and whoever rolls a 1 loses. Play the house cat (a different fun name and look each game) or challenge a friend in your party or raid with real /roll rolls. The loser flops over with X eyes and a little ghost floats up, then it pops back up, fine.
 • Rock paper scissors on a snowy mountaintop: both cats shake a paw three times and show a fist paw, an open paw or two toes up. Against the house cat a tie plays again for free and a win pays 1.9 times your bet. With a friend in your party, both picks are locked in before either is shown, and the winner gets the whole bet.
-• Bets are at least 10 TapCoins and at most a quarter of your TapCoins, up to 500, shared between all the games. The Casino keeps a small edge on every game and there are no free spins, so TapCoins stay precious. The stats line shows games played, total bet, paid back, net and your biggest win.
+• Bets are at least 10 TapCoins and at most half your TapCoins (no top bet), shared between all the games. The Casino keeps a small edge on every game and there are no free spins, so TapCoins stay precious. The stats line shows games played, total bet, paid back, net and your biggest win.
 • Everything happens inside the window: nothing shows over your cat during play, except a small Accept or Decline box when a friend challenges you to a death roll or rock paper scissors.
 
 A window your way
