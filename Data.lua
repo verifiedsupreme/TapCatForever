@@ -721,8 +721,12 @@ TCF.CHESTS = {
     weights = { 62, 28, 9, 1, 0 },  coins = { tiny = { 2, 5 }, big = { 40, 80 } }, desc = "Mostly Uncommon. Sometimes Rare, rarely Epic." },
   { key = "strong", name = "Adventurer's Strongbox", plural = "Adventurer's Strongboxes", cost = 450,  icon = "INV_Box_02",
     weights = { 0, 55, 33, 10, 2 }, coins = { tiny = { 3, 8 }, big = { 80, 150 } }, desc = "Uncommon or better, with some Epics." },
-  { key = "heroic", name = "Heroic Cache",           plural = "Heroic Caches",            cost = 1400, icon = "INV_Box_04",
-    weights = { 0, 0, 58, 34, 8 },  legendary = 0.002, coins = { tiny = { 5, 15 }, big = { 150, 300 } }, desc = "Rare or Epic. A tiny chance of a real Legendary." },
+  { key = "heroic", name = "Heroic Cache",           plural = "Heroic Caches",            cost = 1600, icon = "INV_Box_04",
+    weights = { 0, 0, 54, 38, 8 },  legendary = 0.002, coins = { tiny = { 5, 15 }, big = { 150, 300 } },
+    desc = "Rare or Epic gear for your level. At level 60, a tiny chance of a real Legendary.",
+    -- what its opening reel shows besides the prize (ChestReel.lua): big prizes (chase, locked
+    -- below the level they need), shop skins, Epic or better cosmetics, Epic and Rare gear
+    reel = { chase = 4, skin = 2, cosmetic = 4, epic = 17, rare = 16 } },
   -- dungeon-only: never sold (no cost), always gear (gearOnly): boss loot from the Adventure
   -- dungeons the cat has reached, close to its level (dungeonLoot). Mostly Rare, some Uncommon,
   -- a little Epic, never a Legendary. Comes from finishing dungeons (Adventure and real WoW)
