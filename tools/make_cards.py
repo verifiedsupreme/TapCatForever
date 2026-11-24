@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pictures beside the features on the CurseForge page (media/card_*.png, 420x260): small
+"""Pictures beside the features on the CurseForge page (media/art_*.png, 420x260): small
 illustrations made from the addon's own art (the cartoon cat in different looks, the zone
 backgrounds, the casino symbols, tap effects) and WoW icons, so they don't repeat the gallery
 screenshots (media/promo_*.png, tools/make_promo.py).
@@ -339,9 +339,9 @@ def card_window():
     return im
 
 
-CARDS = [("card_cat", card_cat), ("card_adventure", card_adventure), ("card_sets", card_sets), ("card_business", card_business),
-         ("card_garden", card_garden), ("card_potions", card_potions), ("card_casino", card_casino),
-         ("card_friends", card_friends), ("card_window", card_window)]
+CARDS = [("art_cat", card_cat), ("art_adventure", card_adventure), ("art_sets", card_sets), ("art_business", card_business),
+         ("art_garden", card_garden), ("art_potions", card_potions), ("art_casino", card_casino),
+         ("art_friends", card_friends), ("art_window", card_window)]
 
 if __name__ == "__main__":
     only = os.environ.get("ONLY")
