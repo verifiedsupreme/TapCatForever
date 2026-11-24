@@ -243,16 +243,17 @@ function TCF:GearUsable(it, class)
   return true
 end
 
--- How much each class values each stat, and the weapons it actually wants.
+-- How much each class values each stat, and the weapons it actually wants (loot that suits a class).
+-- (1.6.5) casters count Stamina less: a Stamina-only piece doesn't suit a Mage, Warlock or Priest
 local STAT_WEIGHTS = {
   WARRIOR = { str = 1, agi = 0.8, sta = 0.6, ap = 0.5, critr = 0.8, hitr = 0.8, crit = 1, hit = 1, def = 0.5 },
   PALADIN = { str = 1, sta = 0.6, int = 0.5, agi = 0.4, sp = 0.3, heal = 0.3, critr = 0.6, crit = 1, hit = 1, hitr = 0.6, def = 0.4 },
   HUNTER  = { agi = 1, ap = 0.5, rap = 0.5, int = 0.3, sta = 0.5, critr = 0.8, hitr = 0.8, crit = 1, hit = 1 },
   ROGUE   = { agi = 1, str = 0.6, ap = 0.5, sta = 0.4, critr = 0.8, hitr = 0.8, crit = 1, hit = 1 },
-  PRIEST  = { int = 1, spi = 0.8, sp = 1, heal = 0.8, sta = 0.4, mp5 = 1 },
+  PRIEST  = { int = 1, spi = 0.8, sp = 1, heal = 0.8, sta = 0.3, mp5 = 1 },
   SHAMAN  = { int = 0.8, str = 0.7, agi = 0.4, sp = 0.8, heal = 0.5, sta = 0.4, mp5 = 0.8, crit = 0.8 },
-  MAGE    = { int = 1, sp = 1, sta = 0.5, spi = 0.5, hit = 1, crit = 1 },
-  WARLOCK = { int = 1, sp = 1, sta = 0.6, spi = 0.5, hit = 1, crit = 1 },
+  MAGE    = { int = 1, sp = 1, sta = 0.3, spi = 0.4, hit = 1, crit = 1, mp5 = 0.6 },
+  WARLOCK = { int = 1, sp = 1, sta = 0.4, spi = 0.4, hit = 1, crit = 1, mp5 = 0.6 },
   DRUID   = { int = 0.8, agi = 0.7, str = 0.6, sp = 0.7, heal = 0.6, spi = 0.6, sta = 0.4, mp5 = 0.6 },
 }
 local PREFERRED_WEAPONS = {
@@ -971,6 +972,12 @@ local function attackStyle(rule, eq, overrideItem, overrideSlot, wRanged, ranged
   return "melee"
 end
 
+-- (1.6.5) the stat values of the WoW-like model (tools: scratch eqbest.py measured them)
+local SPELL_INT, SPELL_SPI, SPELL_MP5 = 0.13, 0.1, 0.3
+-- Power keeps about the size it had before 1.6.5 at every level (expeditions compare it with fixed numbers)
+local POWER_HP, POWER_SCALE, POWER_SCALE_L = 8, 1.09, 0.001
+TCF.GEAR_MODEL = { SPELL_INT = SPELL_INT, SPELL_SPI = SPELL_SPI, SPELL_MP5 = SPELL_MP5, POWER_HP = POWER_HP, POWER_SCALE = POWER_SCALE }
+
 function TCF:CombatStats(class, overrideItem, overrideSlot)
   class = class or self.db.class
   local L = min(60, self:CD(class).level)
@@ -1004,6 +1011,7 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
   -- set bonuses of the item sets worn (ItemSets.lua), on top of the pieces' own stats; ItemSets.lua
   -- also puts the pieces counted per set in the result's "sets" field
   if TCF.SetBonusTotals then TCF.SetBonusTotals(wornIds, t) end
+  local gearInt, gearSpi = t.int, t.spi   -- (1.6.5) what the gear itself gives
   for _, k in ipairs({ "str", "agi", "sta", "int", "spi" }) do t[k] = t[k] + floor(20 + L * g[k]) end
 
   local hp = 40 + L * 14 + max(0, t.sta - 20) * 10
@@ -1021,8 +1029,10 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
     local rap = t.agi * 2 + L * 2 + t.ap + t.rap
     ranged = ((wRanged and wRanged.dps or 1 + L * 0.3) + rap / 14) * 1.4
   end
-  -- spells (wands add a little)
-  local spell = 6 + L * 1.4 + (t.sp + t.heal * 0.25) * 0.35 + t.int * 0.05
+  -- spells (wands add a little). (1.6.5) Like WoW: Intellect is a caster's mana pool and spell crit, so
+  -- it counts for damage over a fight; Spirit and mana regeneration keep the spells coming
+  -- (the extra counts only what gear gives, so a cat without gear fights as before)
+  local spell = 6 + L * 1.4 + (t.sp + t.heal * 0.25) * 0.35 + t.int * 0.05 + gearInt * SPELL_INT + gearSpi * SPELL_SPI + t.mp5 * SPELL_MP5
   if wRanged and wRanged.dps and (class == "MAGE" or class == "WARLOCK" or class == "PRIEST") then spell = spell + wRanged.dps * 0.3 end
   local attack, shot, school = attackStyle(rule, eq, overrideItem, overrideSlot, wRanged, ranged, melee, spell)
 
@@ -1046,7 +1056,10 @@ function TCF:CombatStats(class, overrideItem, overrideSlot)
     level = L, dps = dps, hp = hp, armor = armor, crit = crit, hit = hit,
     str = t.str, agi = t.agi, sta = t.sta, int = t.int, spi = t.spi, ap = ap, sp = t.sp, def = t.def,
     ilvl = nItems > 0 and floor(ilvlSum / nItems + 0.5) or 0, items = nItems,
-    power = floor(dps * 10 + hp / 4 + armor / 10), -- one number for expeditions and comparisons
+    -- one number for expeditions, Equip best and every gear comparison. (1.6.5) It counts crits (the
+    -- auto attack's crit doubles it) and Health less than before, so each class's own stats lead its
+    -- choices, like WoW: Spell Power and Intellect for casters, Strength or Agility for fighters
+    power = floor((dps * (1 + crit / 100) * 10 + hp / POWER_HP + armor / 10) * (POWER_SCALE - L * POWER_SCALE_L)),
     attack = attack, shot = shot, school = school,
   }
 end

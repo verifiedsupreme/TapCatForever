@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.5
+
+**Gear that fits your class, like WoW**
+- Equip best, the green and red Power numbers on the Gear page, gear tooltips and the loot box now judge gear by what each class really needs. Mages, Warlocks and Priests go for Spell Power and Intellect (Priests also Spirit), Warriors and Paladins for Strength, Hunters and Rogues for Agility, and Shamans and Druids for what they fight with, spells or weapons. Stamina still helps every cat, but no longer wins over a class's main stats.
+- Intellect, Spirit and mana regeneration on a caster's gear now add to its spell damage, and Power counts critical hits.
+- Gear that drops for you now and then matches your class's stats a little better too: Stamina-only pieces no longer count as caster gear.
+- Adventure enemies have 6% more health, so the stronger, better-chosen gear keeps zones as long as before, and Power is sized as before, so expeditions are as hard as they were.
+
 ## 1.6.4
 
 **Death roll with a friend: no more /reload**

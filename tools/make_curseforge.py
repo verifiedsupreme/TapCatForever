@@ -25,7 +25,11 @@ PERSONAL = ("This is my first addon, and I'm so glad you're here. I update it of
 INTRO2 = "It never touches your gameplay. It just watches your key presses and makes them a little more fun."
 
 FEATURES = [
-    ("What's new in 1.6.3", [
+    ("What's new in 1.6.5", [
+        "Equip best and every gear comparison now pick gear the way WoW players do for each class: Spell Power and Intellect for casters, Strength for Warriors and Paladins, Agility for Hunters and Rogues, instead of piling on Stamina.",
+        "Death rolls with a friend settle the moment the 1 is rolled, and a friend's stalled turn can be called off, so a duel never needs a /reload.",
+    ]),
+    ("New in 1.6.3", [
         "Shift-click any item (gear, cosmetics, skins, Shop offers, recipes, the Compendium) to try it on your cat. It stays on while you look around, so you can try several pieces together, and nothing is equipped or bought.",
     ]),
     ("New in 1.6.2", [

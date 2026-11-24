@@ -12,7 +12,7 @@ TCF.ADV = {
   -- enemy scaling, tuned with tools/balance.py (expected gear at each level)
   -- typical gear gives ~level^1.12 DPS and ~40 HP per level, so a trash enemy
   -- lasts ~5 s and a dungeon boss ~25 s; raids keep scaling past level 60.
-  K = { hp = 5.5, hpExp = 1.12, dps = 0.9, dpsExp = 1.0, raidHp = 1.085, raidDps = 1.065 },
+  K = { hp = 5.83, hpExp = 1.12, dps = 0.9, dpsExp = 1.0, raidHp = 1.085, raidDps = 1.065 },   -- 1.6.5: hp +6% (gear picked for each class's own stats hits harder)
   BOSS = { hp = 5, dps = 2.4 },
   RAIDBOSS = { hp = 6, dps = 2.0 },
   -- Chests are paced by time spent fighting, not by kill count, so fast farming
