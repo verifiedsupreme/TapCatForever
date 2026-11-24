@@ -525,7 +525,9 @@ TCF.UI.Builders.professions = function(page, win)
       vis(r.sel, idle)
       local nextMs
       for _, ms in ipairs(TCF.MILESTONES) do if st.n < ms then nextMs = ms; break end end
-      r.info:SetText(string.format("|cffcccccc%s %s|r   %s", TCF.FormatBig(s.mats[o[2]] or 0), o[3],
+      -- (1.7.0) the exact count below 10 million, so every click shows
+      local have = floor(s.mats[o[2]] or 0)
+      r.info:SetText(string.format("|cffcccccc%s %s|r   %s", have < 1e7 and TCF.Commas(have) or TCF.FormatBig(have), o[3],
         nextMs and string.format("Next speed boost at %d", nextMs) or "Max speed"))
       local canPick = i == 1 or st.n > 0
       r.pick:SetEnabled(canPick); r.pick.tex:SetDesaturated(not canPick)

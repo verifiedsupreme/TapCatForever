@@ -7,6 +7,7 @@
 - Glints: now and then a spot's tool sparkles. Click it by hand in time for 5 times the reward and a combo; every glint in a row makes rare finds likelier.
 - Spot events while you watch your spots: a stash to grab with 10 quick clicks, a rich spot that pays 3 times as much for 30 seconds, or a patrol to hide from (don't click, and your helpers work twice as fast for a minute).
 - Your helpers have names and traits now, and bring more goods as they level up, all the way to level 20.
+- The gathering spots show your materials exactly (701,620 Linen Cloth instead of 701.62K) up to 10 million, so every click shows.
 
 **Professions 2.0: deeper layers (the new Guild page)**
 - Specializations at 225, like Classic: Mooncloth, Shadoweave or Spellfire Tailoring, Armorsmith or Weaponsmith, Dragonscale or Tribal Leatherworking. Each has its own perk and daily craft (Primal Mooncloth, Shadowcloth, Spellcloth, Enchanted Thorium, Arcanite, Cured Rugged Hide, Enchanted Leather).
