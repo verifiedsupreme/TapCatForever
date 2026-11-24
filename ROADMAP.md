@@ -11,11 +11,16 @@ What we're building next for your cat, what comes after that, and ideas we're st
 ### Companion Cats
 ![Companion Cats](media/roadmap_companions.png)
 
-Real WoW cat models as companions for every cat, not only Hunters. WoW has a lot of them: house cats, sabers, lynxes, the Felsaber, the Spectral Tiger and more. These are the game's own 3D models, not drawings.
-- A new companion slot on the character panel.
-- Buy companions with TapCoins: the cheapest from 5,000, the rarest (fel and glowing cats) up to 100,000.
-- Some can only be earned by beating big dungeons and raids in Adventure.
-- A very expensive upgrade (around 250,000 TapCoins) lets your companion walk beside your cat on screen, on the other side from the party row.
+Real WoW cat models as companions for every cat, not only Hunters. WoW has a lot of them: house cats, kittens and cubs, lynxes, sabers, tigers, lions, panthers, the Felsaber, the Spectral Tiger and more (over 50 to collect). These are the game's own 3D models, not drawings.
+- A new companion slot on the character panel, with your companion's model beside your cat.
+- They're hard to get. House cats start at 50,000 TapCoins, kittens and cubs cost 100,000 to 150,000, and the big cats go up to 500,000. The glowing, fel and spectral cats cost up to 1,000,000.
+- Some can only be earned by clearing big dungeons and raids in Adventure, from the Deadmines to Naxxramas (Mr. Bigglesworth).
+- Companions you own work for all your cats, and each class's cat chooses its own.
+- **Companion Stroll** is the biggest buy in the game at 1,000,000 TapCoins. Your companion walks back and forth beside your cat on screen, opposite the party cats, at their size. You can turn it off any time.
+- It has a life of its own:
+  - It wanders, sits down and sometimes curls up for a nap.
+  - It gets curious when you're on a long tapping streak and comes a few steps closer to watch.
+  - When you pet your cat, it comes right over, sits and keeps its eyes on your cat, and hops when your cat purrs.
 
 ### A Snazzier Shop and Heroic Cache
 ![Heroic Cache](media/roadmap_shop.png)

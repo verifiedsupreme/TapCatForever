@@ -73,8 +73,8 @@ def card_companions():
     shadow(im, 400, CH - 34, 300)
     paste(im, ImageOps.mirror(wow_model(67575, 250)), 400, CH - 30)
     # cats you can buy (real WoW models) and their prices
-    for i, (disp, price, ring) in enumerate(((5554, "5,000", (30, 255, 0)), (6080, "25,000", (0, 112, 221)),
-                                             (21973, "100,000", (163, 53, 238)))):
+    for i, (disp, price, ring) in enumerate(((5554, "50,000", (30, 255, 0)), (6080, "200,000", (0, 112, 221)),
+                                             (21973, "1,000,000", (163, 53, 238)))):
         y = 88 + i * 124
         d = ImageDraw.Draw(im)
         d.rounded_rectangle([CW - 330, y - 6, CW - 214, y + 110], 20, fill=(16, 12, 20, 220), outline=ring, width=4)
