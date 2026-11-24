@@ -80,6 +80,7 @@ LootToast.lua
 Party.lua
 PartyExpeditions.lua
 UI_Companions.lua
+TestTools.lua
 DevView.lua
 Leaderboard.lua
 Casino.lua

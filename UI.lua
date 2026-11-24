@@ -1521,6 +1521,9 @@ function TCF:CreateWindow()
     testBox:SetSize(528, 60); testBox:SetPoint("TOPLEFT", st, "TOPLEFT", 16, -INFO_Y)
     win.settingsInfo.testBox = testBox
     local tt = Text(testBox, "GameFontNormalSmall", "|cffff6060Test mode|r  |cffaaaaaa(/tcf testmode to hide)|r", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
+    -- (1.8.0) saved states, open or close anything, quick setters (TestTools.lua)
+    local toolsBtn = Button(testBox, "Test tools...", 110, 16, function() TCF:ToggleTestTools() end)
+    toolsBtn:SetPoint("TOPRIGHT", testBox, "TOPRIGHT", 0, 2)
     local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
                      { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" },
                      { "+1,000 taps", "taps" }, { "All companions", "companions" } }
