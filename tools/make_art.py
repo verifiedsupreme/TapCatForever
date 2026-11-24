@@ -1189,12 +1189,12 @@ def ui_bits():
             if (u * u + v * v - 1) ** 3 - u * u * v ** 3 <= 0: h.add((x, y))
     a.paint(h, color=(255, 90, 130)); a.paint({p for p in h if p[1] < 26 and p[0] < 28 and p[0] > 18 and p[1] > 18}, color=(255, 190, 210))
     save("ui_heart", a)
-    # TapCoin: gold coin with paw print
+    # TapCoin: an orange coin with a paw print (1.7.0: orange, so it doesn't look like Trade Gold)
     a = Layer()
-    a.paint(E(32, 32, 28, 28), color=(240, 180, 40)); a.paint(E(32, 32, 23, 23), color=(255, 214, 80))
+    a.paint(E(32, 32, 28, 28), color=(236, 110, 28)); a.paint(E(32, 32, 23, 23), color=(255, 152, 52))
     pawp = E(32, 38, 8, 6.5)
     for bx, by in ((-8, -6), (-3, -11), (3, -11), (8, -6)): pawp |= E(32 + bx, 38 + by, 3, 3.6)
-    a.paint(pawp, color=(196, 130, 20))
+    a.paint(pawp, color=(176, 66, 16))
     save("ui_coin", a)
 
 # ================================================================ main

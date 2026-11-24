@@ -16,6 +16,14 @@
 - Renown shop: selling your business also gives Renown points. Spend them on perks that stay forever: Sharp Tools, Keen Eye, Glint Seeker, Busy Hands, Guild Ties, Rested Hands and Steady Hands. Cats that already have Renown start with points.
 - Titles: click your cat's title in the window to show one you earned.
 
+**Profession Bag**
+- A new Bag button on the Professions page shows every material your cat has, by tab (Gathered, Rare, Daily, Herbs, Fish & Food, Bandages). Hover one to see what it's used for, and shift-click to sell a whole stack for Trade Gold.
+- Bags hold stacks of a set size: a Linen Bag holds 20,000 of each. Every kind always fits, and anything past the size is sold for Trade Gold right away, so nothing is wasted. Piles you already have stay as they are.
+- Buy bigger bags with TapCoins, all the way from the Wool Bag to the Bottomless Bag (no limit at all). Bags count for all your cats.
+
+**TapCoins**
+- The TapCoin is orange now, so it doesn't look like Trade Gold.
+
 **Legendary profession sets**
 - SETS_LINE
 - Each set takes a long time on purpose: skill 300, your specialization, a high guild rank, many daily materials and rare finds. Owning a whole set gives its title.

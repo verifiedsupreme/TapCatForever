@@ -52,6 +52,7 @@ Alchemy.lua
 Workshop.lua
 ProfDepth.lua
 ProfSets.lua
+Bag.lua
 Purr.lua
 Quests.lua
 Dungeons.lua

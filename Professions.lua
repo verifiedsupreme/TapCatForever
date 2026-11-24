@@ -1113,6 +1113,8 @@ function TCF:ProfAdvance(dt, offline)
   for _, mod in ipairs(TCF.PROF_MODULES) do
     if self:ProfUnlocked(mod.key) then mod.advance(self, dt, offline) end
   end
+  -- (1.7.0) the Profession Bag: goods past the bag's stack size are sold (Bag.lua)
+  if self.MatBagTrim then self:MatBagTrim() end
   -- last is how far this cat has been counted: a fraction of a second ahead of time() while you
   -- play (time() is whole seconds), so a catch-up never counts the same moment twice
   local now = time()

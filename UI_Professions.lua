@@ -1798,9 +1798,121 @@ TCF.UI.Builders.professions = function(page, win)
     end
     guide:Show()
   end
+
+  ------------------------------------------------ (1.7.0) the Profession Bag (Bag.lua): every material, by tab
+  local bagFrame = CreateFrame("Frame", nil, page, U.BT)
+  bagFrame:SetPoint("TOPLEFT", 10, -74); bagFrame:SetPoint("BOTTOMRIGHT", -10, 10)
+  if bagFrame.SetFrameLevel and page.GetFrameLevel and page:GetFrameLevel() then bagFrame:SetFrameLevel(page:GetFrameLevel() + 25) end
+  if bagFrame.SetBackdrop then bagFrame:SetBackdrop(U.BACKDROP_DIALOG) end
+  bagFrame.bg = bagFrame:CreateTexture(nil, "BACKGROUND"); bagFrame.bg:SetPoint("TOPLEFT", 6, -6); bagFrame.bg:SetPoint("BOTTOMRIGHT", -6, 6)
+  bagFrame.bg:SetColorTexture(0.06, 0.05, 0.09, 0.98)
+  bagFrame:EnableMouse(true)
+  bagFrame:Hide()
+  bagFrame.title = Text(bagFrame, "GameFontNormalLarge", nil, "LEFT"); bagFrame.title:SetPoint("TOPLEFT", 20, -16); bagFrame.title:SetWidth(330)
+  bagFrame.sub = Text(bagFrame, "GameFontHighlightSmall", nil, "LEFT"); bagFrame.sub:SetPoint("TOPLEFT", 20, -40); bagFrame.sub:SetWidth(500)
+  local bagClose = Button(bagFrame, "Close", 70, 22, function() bagFrame:Hide() end); bagClose:SetPoint("TOPRIGHT", -14, -14)
+  local bagUp = Button(bagFrame, "", 200, 22, function()
+    local ok, why = TCF:BuyMatBag()
+    if not ok and why then TCF:Print(why, true) end
+    win:Refresh()
+  end)
+  bagUp:SetPoint("RIGHT", bagClose, "LEFT", -6, 0)
+  Tip(bagUp, function(tt)
+    local nxt = TCF.MAT_BAGS[TCF:MatBagLevel() + 1]
+    if not nxt then tt:AddLine("The biggest bag", 1, 0.82, 0); return end
+    tt:AddLine(nxt.name, 1, 0.82, 0)
+    tt:AddLine(string.format("Stacks hold %s. Costs %s TapCoins (for all your cats).", nxt.cap == math.huge and "any amount" or TCF.Commas(nxt.cap), TCF.Commas(nxt.coins)), 1, 1, 1, true)
+  end)
+  win.bagTab = win.bagTab or "gathered"
+  local bagTabs = {}
+  for k, tb in ipairs(TCF.BAG_TABS) do
+    local b = Button(bagFrame, tb.name, 82, 20, function() win.bagTab = tb.key; win.bagScroll = 0; win:Refresh() end)
+    b:SetPoint("TOPLEFT", 16 + (k - 1) * 84, -66)
+    b.key = tb.key
+    bagTabs[k] = b
+  end
+  local BAG_COLS, BAG_ROWS = 10, 5
+  local cells = {}
+  for k = 1, BAG_COLS * BAG_ROWS do
+    local c = IconButton(bagFrame, 40)
+    c:SetPoint("TOPLEFT", 22 + ((k - 1) % BAG_COLS) * 50, -96 - floor((k - 1) / BAG_COLS) * 50)
+    if c.RegisterForClicks then c:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+    c:SetScript("OnClick", function()
+      if c.key and IsShiftKeyDown and IsShiftKeyDown() then TCF:SellMatStack(c.key); win:Refresh() end
+    end)
+    Tip(c, function(tt)
+      local key = c.key
+      if not key then return end
+      local m = TCF.MAT_BY_KEY[key]
+      local s = TCF:ProfState()
+      local n = floor(s.mats[key] or 0)
+      tt:AddLine(m and m.name or key, 1, 0.82, 0)
+      local cap = TCF:MatCapFor(key)
+      tt:AddLine(string.format("%s%s", TCF.Commas(n), cap == math.huge and "" or (" / " .. TCF.Commas(cap))), 1, 1, 1)
+      local uses = TCF:MatUses(key)
+      if #uses == 0 then tt:AddLine("Not used by anything yet: sell it if you like.", 0.7, 0.7, 0.7, true)
+      else
+        local shown = {}
+        for i = 1, min(5, #uses) do shown[i] = uses[i] end
+        tt:AddLine("Used in: " .. table.concat(shown, ", ") .. (#uses > 5 and string.format(" and %d more", #uses - 5) or ""), 0.4, 1, 0.4, true)
+      end
+      if (m and m.value or 0) > 0 then tt:AddLine(string.format("Sells for %s each. Shift-click to sell the whole stack.", TCF.GoldStr(m.value)), 0.8, 0.8, 0.8, true) end
+    end)
+    cells[k] = c
+  end
+  local bagPage = Text(bagFrame, "GameFontHighlightSmall", nil, "CENTER"); bagPage:SetPoint("BOTTOM", 0, 44)
+  local bagPrev = Button(bagFrame, "<", 26, 20, function() win.bagScroll = max(0, (win.bagScroll or 0) - 1); win:Refresh() end)
+  bagPrev:SetPoint("RIGHT", bagPage, "LEFT", -8, 0)
+  local bagNext = Button(bagFrame, ">", 26, 20, function() win.bagScroll = (win.bagScroll or 0) + 1; win:Refresh() end)
+  bagNext:SetPoint("LEFT", bagPage, "RIGHT", 8, 0)
+  local bagNote = Text(bagFrame, "GameFontDisableSmall", nil, "LEFT"); bagNote:SetPoint("BOTTOMLEFT", 20, 18); bagNote:SetWidth(500)
+  local function refreshBag()
+    if not bagFrame:IsShown() then return end
+    local s = TCF:ProfState()
+    local bag = TCF:MatBag()
+    bagFrame.title:SetText(string.format("%s's bag  |cffffffff%s|r", className(), bag.name))
+    bagFrame.sub:SetText(string.format("Every kind of material always fits. Stacks hold %s; more than that is sold for Trade Gold right away.",
+      bag.cap == math.huge and "any amount" or TCF.Commas(bag.cap)))
+    local nxt = TCF.MAT_BAGS[TCF:MatBagLevel() + 1]
+    if nxt then bagUp:SetText(string.format("%s  %s", nxt.name, TCF.Commas(nxt.coins))); bagUp:SetEnabled((TCF.db.coins or 0) >= nxt.coins)
+    else bagUp:SetText("|cff20ff20Biggest bag|r"); bagUp:SetEnabled(false) end
+    fitText(bagUp)
+    for _, b in ipairs(bagTabs) do if b.key == win.bagTab then b:LockHighlight() else b:UnlockHighlight() end; fitText(b) end
+    local list = TCF:BagList(win.bagTab)
+    local per = BAG_COLS * BAG_ROWS
+    local pages = math.max(1, math.ceil(#list / per))
+    win.bagScroll = min(max(0, win.bagScroll or 0), pages - 1)
+    for k, c in ipairs(cells) do
+      local key = list[win.bagScroll * per + k]
+      c.key = key
+      vis(c, key)
+      if key then
+        local m = TCF.MAT_BY_KEY[key]
+        c.tex:SetTexture(TCF.Icon(m and m.icon or "INV_Misc_QuestionMark"))
+        -- short counts that fit under a 40px icon: 950, 12K, 3.4M
+        local n = floor(s.mats[key] or 0)
+        c.count:SetText(n < 1000 and tostring(n) or (n < 1e6 and (floor(n / 1000) .. "K") or (n < 1e9 and string.format("%.1fM", n / 1e6) or TCF.FormatBig(n))))
+      end
+    end
+    vis(bagPage, pages > 1); vis(bagPrev, pages > 1); vis(bagNext, pages > 1)
+    bagPage:SetText(string.format("%d / %d", win.bagScroll + 1, pages))
+    if #list == 0 then bagNote:SetText("Nothing here yet.")
+    else
+      bagNote:SetText(string.format("Hover a material to see what it's for. Shift-click sells a stack.%s",
+        (s.bagSold or 0) > 0 and string.format("  Extra sold so far: %s.", TCF.GoldStr(s.bagSold)) or ""))
+    end
+  end
+  win.profBag = bagFrame
+
   -- a small Help button right after the profession's name (the header has no room for more)
   local helpBtn = Button(page, "Help", 54, 20, function() showGuide(win.profSel or TCF:MainProf()) end)
   helpBtn:SetPoint("LEFT", profName, "RIGHT", 8, 0)
+  local bagBtn = Button(page, "Bag", 48, 20, function() bagFrame:SetShown(not bagFrame:IsShown()); TCF:PlaySound("click"); win:Refresh() end)
+  bagBtn:SetPoint("LEFT", helpBtn, "RIGHT", 4, 0)
+  Tip(bagBtn, function(tt)
+    tt:AddLine("Profession Bag", 1, 0.82, 0)
+    tt:AddLine("Every material this cat has, what it's for, and selling leftovers. Bigger bags (TapCoins) hold bigger stacks.", 1, 1, 1, true)
+  end)
   Tip(helpBtn, function(tt)
     tt:AddLine("How it works", 1, 0.82, 0)
     tt:AddLine("What this profession does and how it gets you gear and cosmetics.", 1, 1, 1, true)
@@ -1809,6 +1921,7 @@ TCF.UI.Builders.professions = function(page, win)
 
   local shownKey
   refresh = function()
+    refreshBag()
     local s = TCF:ProfState()
     local prof = currentProf()
     local fam = TCF.FAMILIES[prof]
