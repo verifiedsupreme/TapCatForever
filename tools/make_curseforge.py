@@ -32,7 +32,7 @@ CARDS = [
     ("card_cat.png", "A cat that taps with you",
      "Every key you press, every click and every spell you cast, your cat taps its paws along. Left paw on A, right paw on D. "
      "It pulls faces, bursts hearts and stars from its paws, and quietly earns XP and TapCoins while you play the real game."),
-    (None, "Nine cats, one adventure",
+    ("card_adventure.png", "Nine cats, one adventure",
      "One cat for every class, each levelling from 1 to 60 with its own real WoW gear and abilities. Send it through Elwynn Forest, "
      "the Deadmines, Molten Core and all the way to Naxxramas: real bosses, real loot tables, bosses you can farm, all while you play."),
     ("card_sets.png", "Dress it up",
