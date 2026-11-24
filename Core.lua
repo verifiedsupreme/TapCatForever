@@ -639,6 +639,13 @@ function TCF:TapsLastSecond(now)
   return n
 end
 
+-- the taps other players see (leaderboard, party): the lifetime taps without test-mode ones
+function TCF:SharedTaps()
+  local db = self.db
+  if not db then return 0 end
+  return max(0, (tonumber(db.taps) or 0) - (tonumber(db.testTaps) or 0))
+end
+
 function TCF:Tap(side)
   local db = self.db
   if not db then return end
@@ -1866,7 +1873,11 @@ function TCF:TestCheat(kind)
   local db = self.db
   if not db.ui.testMode then return end
   if kind == "coins" then self:AddCoins(5000)
-  elseif kind == "taps" then db.taps = (db.taps or 0) + 1000   -- (1.6.7) lifetime taps, for the leaderboard and achievements
+  elseif kind == "taps" then
+    -- (1.6.7) lifetime taps for testing: counted here (achievements, the tap total), but never sent
+    -- to other players (leaderboard, party): TCF:SharedTaps leaves them out
+    db.taps = (db.taps or 0) + 1000
+    db.testTaps = (db.testTaps or 0) + 1000
   elseif kind == "gold" then local s = self:ProfState(); s.gold = s.gold + 1e7; s.lifetime = s.lifetime + 1e7
   elseif kind == "renown" then
     -- professions unlock with the Trade Gold a cat has earned in total

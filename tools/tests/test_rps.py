@@ -27,9 +27,10 @@ def fnv1a(s):
 
 def check(seed, load_addon):
     rnd = random.Random(seed)
-    _hash(load_addon, rnd)
-    _house(seed, load_addon, rnd)
-    _duels(seed, load_addon, rnd)
+    if not os.environ.get("ONLY_BEST"): _hash(load_addon, rnd)
+    if not os.environ.get("ONLY_BEST"): _house(seed, load_addon, rnd)
+    if not os.environ.get("ONLY_BEST"): _duels(seed, load_addon, rnd)
+    _best(seed, load_addon, rnd)
     _scene(seed, load_addon)
 
 # ---------------------------------------------------------------------------- the hash
@@ -404,6 +405,109 @@ def _duels(seed, load_addon, rnd):
           "no agreement, pick timeouts, decline, withdraw, invite timeout, busy with a death roll, not enough TapCoins, reload, left the group, "
           "spoofed and odd messages, raid): all checks passed" % msgs)
 
+# ---------------------------------------------------------------------------- 1.6.7: best of 3 and 5
+def _best(seed, load_addon, rnd):
+    # the house cat: the game runs until one side has won 2 (or 3) rounds; one bet, one payout
+    lua = TD._client(load_addon, "Bestcat", seed)
+    out = lua.execute(r"""
+      local T = TapCatForever
+      local signs = { "rock", "paper", "scissors" }
+      local res = { bad = {}, games = 0, wins = 0, points = 0 }
+      for _, bo in ipairs({ 3, 5 }) do
+        local need = (bo + 1) / 2
+        for i = 1, 1500 do
+          T.db.coins = 100000
+          assert(T:RPSSoloPlay(signs[math.random(3)], 100, bo))
+          local g = T:RPSSolo()
+          if g.bo ~= bo then res.bad[#res.bad + 1] = "bo " .. tostring(g.bo) end
+          while select(2, T:RPSSolo()) do
+            if T.db.coins ~= 100000 - 100 then res.bad[#res.bad + 1] = "coins moved mid-game" end
+            assert(T:RPSSoloPlay(signs[math.random(3)], 999999, 1))   -- mid-game: bet and best-of are ignored
+          end
+          g = T:RPSSolo()
+          res.games = res.games + 1
+          local top = math.max(g.wins.me, g.wins.opp)
+          if top ~= need or math.min(g.wins.me, g.wins.opp) >= need then res.bad[#res.bad + 1] = "score " .. g.wins.me .. "-" .. g.wins.opp end
+          if (g.result == "win") ~= (g.wins.me == need) then res.bad[#res.bad + 1] = "winner" end
+          local want = 100000 - 100 + (g.result == "win" and 190 or 0)
+          if T.db.coins ~= want then res.bad[#res.bad + 1] = "paid " .. T.db.coins end
+          if g.result == "win" then res.wins = res.wins + 1 end
+          res.points = res.points + g.wins.me + g.wins.opp
+        end
+      end
+      -- a best-of that doesn't exist plays best of 1
+      T.db.coins = 1000
+      assert(T:RPSSoloPlay("rock", 100, 2))
+      res.bo2 = T:RPSSolo().bo
+      return res""")
+    bad = list(out.bad.values())
+    ck(not bad, "house best of 3 and 5: %r" % bad[:5])
+    p = out.wins / out.games
+    ck(abs(p - 0.5) < 4 * (0.25 / out.games) ** 0.5, "still half the games won (%.3f)" % p)
+    ck(out.bo2 == 1, "best of 2 isn't a thing: best of 1")
+
+    # with a friend
+    net = RNet(load_addon, seed + 7, rnd)
+    A, B = net.add("Alice"), net.add("Bob")
+    net.group(["Alice", "Bob"])
+    g, coins = net.g, net.coins
+    net.pump(4)
+    # (the test clients report version 1.1.0 to each other: say they are on this version)
+    for n in ("Alice", "Bob"):
+        net.ex(n, "for _, m in ipairs(TapCatForever:PartyMembers()) do m.version = '1.6.7' end")
+    a0, b0 = coins("Alice"), coins("Bob")
+    n0 = len(net.log)
+    r = net.ex("Alice", 'return TapCatForever:RPSChallenge("Bob", 100, 3)')
+    ck(r is True or (isinstance(r, tuple) and r[0]), "best of 3 challenge (%r)" % (r,)); net.pump(1)
+    r1 = [m for (n, m, ch) in net.log[n0:] if m.startswith("R1;")]
+    ck(len(r1) == 1 and r1[0].endswith(";100;3"), "the challenge carries best of 3: %r" % r1)
+    ck(g("Bob", "bo") == 3 and g("Bob", "state") == "invited", "Bob sees best of 3")
+    ck(net.ex("Bob", "return TapCatForever:RPSAnswer(true)"), "accept"); net.pump(1)
+    def throw(pa, pb):
+        net.ex("Alice", "TapCatForever:RPSPick(%r)" % pa); net.ex("Bob", "TapCatForever:RPSPick(%r)" % pb); net.pump(2)
+    def score(n): return net.ex(n, "local w = TapCatForever.RPS.duel.wins; return w.me .. '-' .. w.opp")
+    throw("paper", "rock")
+    ck(g("Alice", "state") == "picking" and g("Bob", "state") == "picking" and g("Alice", "round") == 2, "a round won: the game goes on")
+    ck(score("Alice") == "1-0" and score("Bob") == "0-1", "both count the round (%s %s)" % (score("Alice"), score("Bob")))
+    ck(coins("Alice") == a0 - 100 and coins("Bob") == b0 - 100, "no coins move mid-game")
+    throw("rock", "paper")
+    ck(score("Alice") == "1-1" and g("Alice", "state") == "picking", "1-1")
+    throw("rock", "rock")
+    ck(score("Alice") == "1-1" and g("Alice", "round") == 4, "a tie doesn't count")
+    throw("scissors", "paper")
+    ck(g("Alice", "result") == "win" and g("Bob", "result") == "lose", "2-1: Alice takes the game")
+    ck((coins("Alice") - a0, coins("Bob") - b0) == (100, -100), "the bet once, even (%d %d)" % (coins("Alice") - a0, coins("Bob") - b0))
+    net.pump(40)
+    ck((coins("Alice") - a0, coins("Bob") - b0) == (100, -100), "settled once")
+    # best of 5 the other way round
+    a0, b0 = coins("Alice"), coins("Bob")
+    net.pump(4)
+    ck(net.ex("Bob", 'return TapCatForever:RPSChallenge("Alice", 50, 5)'), "best of 5"); net.pump(1)
+    ck(g("Alice", "bo") == 5, "Alice sees best of 5")
+    net.ex("Alice", "TapCatForever:RPSAnswer(true)"); net.pump(1)
+    for i in range(3):
+        throw("rock", "paper")
+        if i < 2: ck(g("Alice", "state") == "picking", "best of 5 goes on after %d" % (i + 1))
+    ck(g("Bob", "result") == "win" and (coins("Alice") - a0, coins("Bob") - b0) == (-50, 50), "3-0: Bob takes best of 5")
+    # best of 1 still sends the old message (older versions take it)
+    net.pump(4)
+    n0 = len(net.log)
+    net.ex("Alice", 'TapCatForever:RPSChallenge("Bob", 20, 1)'); net.pump(1)
+    r1 = [m for (n, m, ch) in net.log[n0:] if m.startswith("R1;")]
+    ck(len(r1) == 1 and r1[0].endswith(";20"), "best of 1: the old challenge message: %r" % r1)
+    net.ex("Bob", "TapCatForever:RPSAnswer(false)"); net.pump(1)
+    # a friend on an older version: best of 3 is refused with the reason, best of 1 still works
+    net.pump(10)
+    net.ex("Alice", "for _, m in ipairs(TapCatForever:PartyMembers()) do if m.name:find('Bob') then m.version = '1.6.6' end end")
+    ok, err = net.ex("Alice", 'return TapCatForever:RPSChallenge("Bob", 20, 3)')
+    ck(not ok and "1.6.7" in err and "Bob" in err, "an older friend: best of 3 refused (%r)" % err)
+    ck(net.ex("Alice", 'return TapCatForever:RPSChallenge("Bob", 20, 1)'), "best of 1 with the older friend")
+    net.pump(1); net.ex("Bob", "TapCatForever:RPSAnswer(false)"); net.pump(1)
+    ck(net.c["Alice"].eval("TapCatForever.RPS.VersionAtLeast('1.6.10', '1.6.7')") is True and
+       net.c["Alice"].eval("TapCatForever.RPS.VersionAtLeast('1.6.6.2', '1.6.7')") is False, "version compare")
+    print("rock paper scissors best of 3 and 5 section (house: %d games, the score ends at 2 or 3 wins, one bet and one payout; friends: "
+          "the challenge carries it, both count the rounds, ties don't count, settles once; best of 1 keeps the old message; an older friend is told why): all checks passed" % out.games)
+
 # ---------------------------------------------------------------------------- scene
 def _scene(seed, load_addon):
     lua = TD._client(load_addon, "Scenecat", seed)
@@ -470,9 +574,22 @@ def _scene(seed, load_addon):
         duel({ state = "over", role = "out", result = "cancel", reason = k, by = "opp" })
         duel({ state = "over", role = "out", result = "cancel", reason = k, by = "me" })
       end
+      -- 1.6.7: best of 3 and 5 texts
+      duel({ state = "invited", role = "in", bo = 3, wins = { me = 0, opp = 0 } }); out[#out + 1] = v.inv.text:GetText()
+      duel({ state = "picking", role = "out", bo = 3, round = 2, wins = { me = 1, opp = 0 }, rounds = { { me = "paper", opp = "rock", res = "win" } } })
+      out[#out + 1] = v.rpsInfo:GetText() .. " / " .. v.rpsInfo2:GetText()
+      duel({ state = "over", role = "out", result = "win", bo = 3, wins = { me = 2, opp = 1 }, me = "rock", opp_ = "scissors" })
+      duel({ state = "picking", role = "out", bo = 5, round = 3, wins = { me = 1, opp = 1 }, rounds = { { me = "rock", opp = "paper", res = "lose" } } })
+      out[#out + 1] = v.rpsInfo:GetText() .. " / " .. v.rpsInfo2:GetText()
       R.duel = nil
       v:SetMode("friend"); snap()
       v:SetMode("house"); snap()
+      local bb = v.bestBtn
+      bb:GetScript("OnClick")(bb); snap(); out[#out + 1] = bb:GetText() .. " / " .. v.rpsInfo2:GetText()
+      _bestAfterClick = v.bestOf .. "," .. tostring(T.db.deathRoll.rpsBest)
+      bb:GetScript("OnClick")(bb); bb:GetScript("OnClick")(bb)
+      _bestCycle = v.bestOf
+      bb:GetScript("OnClick")(bb)
       out[#out + 1] = v.how.body:GetText()
       v:SetMode("friend"); snap(); out[#out + 1] = v.how.body:GetText()
       v:SetGame("dr"); snap()
@@ -488,6 +605,12 @@ def _scene(seed, load_addon):
     ck(not any("ArgentDawn" in t for t in texts), "names without their realm")
     ck(any("The house cat picks at random" in t for t in texts) and any("Each picks rock, paper or scissors in secret" in t for t in texts), "How to play for both opponents")
     ck(texts[-1] == "tavern", "back to the tavern for the death roll")
+    ck(any("rock paper scissors, best of 3 for" in t for t in texts), "the invite says best of 3")
+    ck(any(t == "Best of 3 / You 1 - 0 Bob" for t in texts) and any(t == "Best of 5 / You 1 - 1 Bob" for t in texts), "the score in the top bar")
+    ck(any("You take that round (You 1 - 0 Bob)" in t for t in texts) and any("Bob takes that round (You 1 - 1 Bob)" in t for t in texts), "who took the last round")
+    ck(any(t == "Best of 3 / First to 2 wins" for t in texts), "the best-of button")
+    ck(any("Rock beats scissors. Best of 3: 2 - 1." in t for t in texts), "the final score after a longer game")
+    ck(lua.eval("_bestAfterClick") == "3,3" and lua.eval("_bestCycle") == 1, "the button goes 1, 3, 5, 1 and is remembered")
     # every texture exists, and the paw signs are used
     art = os.path.join(ROOT, "Art")
     used = [p for p in lua.eval("(function() local t = {} for p in pairs(_textures) do t[#t + 1] = p end return t end)()").values()]

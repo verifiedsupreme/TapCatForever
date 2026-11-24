@@ -234,7 +234,7 @@ end
 -- (1.6.1) your stats as they travel: the table (what the friend's addon stores) and the entries
 local function statsPart()
   local db = TCF.db
-  local taps = tonumber(db.taps) or 0
+  local taps = TCF.SharedTaps and TCF:SharedTaps() or (tonumber(db.taps) or 0)
   if taps ~= taps or taps < 0 then taps = 0 end
   local okA, ach = pcall(function() return TCF.LeaderboardAchievements and TCF.LeaderboardAchievements() or 0 end)
   local okZ, zones = pcall(function() return TCF.DevZonesCleared and TCF.DevZonesCleared() or 0 end)

@@ -1110,8 +1110,8 @@ TCF.UI.Builders.professions = function(page, win)
       local rec = r.recipe
       if not rec then return end
       local n = TCF:CraftCount(rec)
-      tt:AddLine("Craft all", 1, 0.82, 0)
-      if n > 0 then tt:AddLine(string.format("Makes %d with the materials you have (up to %d at once).", n, TCF.CRAFT_ALL_MAX), 1, 1, 1, true)
+      tt:AddLine(n > 1 and string.format("Craft %d", n) or "Craft many", 1, 0.82, 0)
+      if n > 0 then tt:AddLine(string.format("Makes %d with the materials you have (at most %d with one click).", n, TCF.CRAFT_ALL_MAX), 1, 1, 1, true)
       else tt:AddLine("You don't have enough materials yet.", 1, 0.3, 0.3, true) end
     end)
     Tip(r.craft, function(tt)
@@ -1257,7 +1257,10 @@ TCF.UI.Builders.professions = function(page, win)
         if why then r.need:SetText("|cffff5050" .. why .. "|r  |cff888888Uses " .. table.concat(plain, ", ") .. "|r")
         else r.need:SetText(table.concat(parts, ",  ")) end
         r.craft:SetEnabled(TCF:CanCraft(rec))
-        r.all:SetEnabled(TCF:CraftCount(rec) > 1)
+        -- (1.6.7) the button says how many it makes ("x12", "x50"), so "All" never means 50
+        local nAll = TCF:CraftCount(rec)
+        r.all:SetText(nAll > 1 and ("x" .. nAll) or "x0")
+        r.all:SetEnabled(nAll > 1)
       end
     end
     if #craftList == 0 then craftPage:SetText("|cff888888No recipes yet.|r")

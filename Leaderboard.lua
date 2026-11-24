@@ -489,7 +489,7 @@ function TCF:LeaderboardOwnEntry()
   local v = s and s.version or "?"
   if not v:find("^[%w%.%-]+$") then v = "?" end
   local ts = serverNow()
-  return { n = full, c = db.class, l = max(1, min(200, floor(cd and cd.level or 1))), t = max(0, floor(db.taps or 0)),
+  return { n = full, c = db.class, l = max(1, min(200, floor(cd and cd.level or 1))), t = max(0, floor(TCF:SharedTaps())),
     a = countAchievements(), z = min(200, TCF.DevZonesCleared and TCF.DevZonesCleared() or 0), v = v, ts = ts, guess = guess or nil,
     x = (function() local ok, x = pcall(self.LeaderboardOwnExtra, self); return ok and x or nil end)(), xts = ts }
 end

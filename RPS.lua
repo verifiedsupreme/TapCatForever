@@ -9,7 +9,7 @@
 -- multiple of 10, because of the rounding), the same as the death roll. tools/tests/test_rps.py
 -- measures it.
 --
--- Against a party member who has the addon (best of 1, a tie plays again): commit, then reveal, so
+-- Against a party member who has the addon (best of 1, 3 or 5; a tie plays again): commit, then reveal, so
 -- neither addon can see the other's pick first. Each side picks, then sends only a hash of its pick
 -- and a random secret (R4). Once both hashes are in, each side sends its pick and secret (R5), and
 -- each checks that the other's pick and secret give the hash it was sent. A reveal that doesn't
@@ -21,7 +21,8 @@
 -- moves nothing, and a lost message or a tampered addon can only take TapCoins out, never put them in.
 --
 -- Protocol (prefix "TapCatFvr", party/raid/instance channel, every field checked; v = 1):
---   R1;v;id;target;bet          challenge (target as in death roll's D1: "Name-Realm" as the game sends it)
+--   R1;v;id;target;bet[;bo]     challenge (target as in death roll's D1: "Name-Realm" as the game sends it;
+--                                bo 3 or 5 since 1.6.7, left out for best of 1 so older versions take it)
 --   R2;v;id;answer              y accept, n decline, b busy, c can't bet that much
 --   R3;v;id;reason              called off (see R.REASONS)
 --   R4;v;id;round;hash          my pick is locked in (hash: 8 hex digits)
@@ -59,6 +60,25 @@ local function send(kind, ...) return DR.Send(kind, ...) end
 local base, isMe, inGroup = DR.Base, DR.IsMe, DR.InGroup
 
 function R.Payout(bet) return floor(bet * R.PAY_NUM / R.PAY_DEN + 0.5) end
+-- (1.6.7) best of 1, 3 or 5: the first to win 1, 2 or 3 rounds takes the game (ties don't count)
+R.BEST = { 1, 3, 5 }
+function R.ValidBest(n) n = tonumber(n); return n == 1 or n == 3 or n == 5 end
+function R.Need(bo) return ((tonumber(bo) or 1) + 1) / 2 end
+-- best of 3 and 5 with a friend need their addon to know them (1.6.7); nil when their version isn't known
+local function versionAtLeast(v, want)
+  if type(v) ~= "string" then return nil end
+  local a, b = {}, {}
+  for n in v:gmatch("%d+") do a[#a + 1] = tonumber(n) end
+  for n in want:gmatch("%d+") do b[#b + 1] = tonumber(n) end
+  if #a == 0 then return nil end
+  for i = 1, max(#a, #b) do
+    local x, y = a[i] or 0, b[i] or 0
+    if x ~= y then return x > y end
+  end
+  return true
+end
+R.VersionAtLeast = versionAtLeast
+R.BEST_SINCE = "1.6.7"
 -- who wins: "win" (a beats b), "lose" or "tie"
 function R.Outcome(a, b)
   if a == b then return "tie" end
@@ -125,7 +145,7 @@ end
 
 -- pick a sign against the house cat. Starts a game for bet (the bet is placed) unless one is
 -- waiting after a tie (then it is free). Returns true, or false and a message.
-function TCF:RPSSoloPlay(sign, bet)
+function TCF:RPSSoloPlay(sign, bet, bo)
   if not self.db or not CODE[sign] then return false end
   local g = solo
   if not g then
@@ -140,7 +160,8 @@ function TCF:RPSSoloPlay(sign, bet)
     end
     local ok = self.CasinoBet and self:CasinoBet(bet, GAME) or (not self.CasinoBet and self:SpendCoins(bet))
     if not ok then return false, "That bet can't be placed right now." end
-    g = { bet = bet, house = DR.PickHouse(), round = 1, rounds = {} }
+    bo = R.ValidBest(bo) and tonumber(bo) or 1
+    g = { bet = bet, house = DR.PickHouse(), round = 1, rounds = {}, bo = bo, wins = { me = 0, opp = 0 } }
     solo, lastSolo = g, nil
   end
   local house = R.SIGNS[random(3)]
@@ -152,6 +173,16 @@ function TCF:RPSSoloPlay(sign, bet)
     g.round = g.round + 1
     soloSave()
     notify("reveal", "solo", sign, house, "tie")
+    return true
+  end
+  -- best of 3 or 5: a round won, the game goes on until one side has enough
+  g.wins = g.wins or { me = 0, opp = 0 }
+  local side = res == "win" and "me" or "opp"
+  g.wins[side] = g.wins[side] + 1
+  if g.wins[side] < R.Need(g.bo) then
+    g.round = g.round + 1
+    soloSave()
+    notify("reveal", "solo", sign, house, res, "point")
     return true
   end
   g.over, g.result = true, res
@@ -275,7 +306,7 @@ local function startRound(d, round)
 end
 
 -- challenge a party member (name from TCF:PartyMembers) for bet TapCoins
-function TCF:RPSChallenge(name, bet)
+function TCF:RPSChallenge(name, bet, bo)
   if not self.db then return false end
   bet = tonumber(bet)
   if busy() then return false, "You already have a game of rock paper scissors going." end
@@ -294,11 +325,18 @@ function TCF:RPSChallenge(name, bet)
     local lo, hi = DR.Limits()
     return false, string.format("Bets go from %s to %s TapCoins right now.", TCF.Commas(lo), TCF.Commas(max(lo, hi)))
   end
+  bo = R.ValidBest(bo) and tonumber(bo) or 1
+  if bo > 1 and versionAtLeast(m.version, R.BEST_SINCE) == false then
+    local shown = (type(m.name) == "string" and m.name:match("^([^%-]+)")) or "Your friend"
+    return false, string.format("%s needs TapCatForever %s or newer for best of %d. Best of 1 works now.", shown, R.BEST_SINCE, bo)
+  end
   local d = { id = newId(), role = "out", opp = m.name, oppBase = base(m.name), bet = bet, state = "asking",
-              expires = now() + R.INVITE_TIME, round = 1, rounds = {} }
+              expires = now() + R.INVITE_TIME, round = 1, rounds = {}, bo = bo, wins = { me = 0, opp = 0 } }
   R.duel = d
   saveDuel(d)
-  send("R1", d.id, DR.TargetName and DR.TargetName(m) or m.name, bet)
+  -- best of 1 keeps the old message, so every version with the game can take it
+  if bo > 1 then send("R1", d.id, DR.TargetName and DR.TargetName(m) or m.name, bet, bo)
+  else send("R1", d.id, DR.TargetName and DR.TargetName(m) or m.name, bet) end
   notify("state", "duel")
   return true
 end
@@ -363,8 +401,9 @@ end
 function TCF:RPSDuel() return R.duel end
 
 ---------------------------------------------------------------- incoming addon messages
-local function onChallenge(sender, id, target, bet, s)
+local function onChallenge(sender, id, target, bet, s, bo)
   if not isMe(target) then return end
+  bo = tonumber(bo) or 1
   bet = tonumber(bet)
   if not bet or bet ~= floor(bet) or bet < 1 or bet > (DR.MSG_BET_MAX or 1e15) then return end
   local t = now()
@@ -384,12 +423,12 @@ local function onChallenge(sender, id, target, bet, s)
   if not DR.ValidBet(bet) then
     send("R2", id, "c")
     R.duel = { id = id, role = "in", opp = m.name, oppBase = base(m.name), bet = bet, state = "over", result = "toohigh",
-               round = 1, rounds = {}, endedAt = t }
+               round = 1, rounds = {}, endedAt = t, bo = bo, wins = { me = 0, opp = 0 } }
     notify("end", "duel", "toohigh")
     return
   end
   R.duel = { id = id, role = "in", opp = m.name, oppBase = base(m.name), bet = bet, state = "invited",
-             expires = t + R.INVITE_TIME, round = 1, rounds = {} }
+             expires = t + R.INVITE_TIME, round = 1, rounds = {}, bo = bo, wins = { me = 0, opp = 0 } }
   if TCF.PlaySound then TCF:PlaySound("click") end
   notify("invite", "duel")
 end
@@ -449,6 +488,18 @@ local function onReveal(d, round, code, secret)
       return
     end
     d.prev = { round = round, code = CODE[d.myPick], secret = d.mySecret }
+    -- best of 3 or 5: a round won, and the game goes on until one side has enough (both addons
+    -- checked both picks, so both count the same)
+    d.wins = d.wins or { me = 0, opp = 0 }
+    local side = res == "win" and "me" or "opp"
+    d.wins[side] = d.wins[side] + 1
+    if d.wins[side] < R.Need(d.bo) then
+      notify("reveal", "duel", d.myPick, sign, res, "point")
+      if round >= MAX_ROUNDS then callOff("e", true); return end
+      startRound(d, round + 1)
+      saveDuel(d)
+      return
+    end
     -- a result: say who lost, then wait for the other side to agree (see settleIfAgreed)
     d.loser, d.state, d.doneAt = res == "lose" and "me" or "opp", "done", now()
     d.seenAt = now()
@@ -502,7 +553,7 @@ local function onAddon(prefix, text, channel, sender)
   local ok, s = DR.Allow(sender)
   if not ok then return end
   if kind == "R1" then
-    if a ~= "" and b ~= "" and c == "" then onChallenge(sender, id, a, b, s) end
+    if a ~= "" and b ~= "" and (c == "" or c == "3" or c == "5") then onChallenge(sender, id, a, b, s, c) end
     return
   end
   local d = R.duel

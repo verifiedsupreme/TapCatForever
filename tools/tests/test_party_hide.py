@@ -32,6 +32,7 @@ def check(seed, load_addon):
       T.db.ui.testMode = true
       T:TestCheat("taps")
       ck(T.db.taps == t0 + 1000, "test mode: +1,000 taps")
+      ck(T:SharedTaps() == t0 and T:LeaderboardOwnEntry().t == t0, "test taps stay yours: other players (leaderboard, party) don't get them")
       T.db.ui.testMode = false
       T:TestCheat("taps")
       ck(T.db.taps == t0 + 1000, "only in test mode")

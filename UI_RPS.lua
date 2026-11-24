@@ -3,6 +3,8 @@
 -- each cat holds up its paw, both shake it three times ("rock, paper, scissors") and then show
 -- their sign (a fist paw, an open paw, or two toes up), drawn in the cat's own fur colour. The
 -- winner hops in confetti and the loser flops over, like the death roll; a tie plays again.
+-- (1.6.7) Best of 1, 3 or 5: the button in the top bar picks it before a game; a round won in a longer
+-- game gets a small cheer and the score, the hop and flop wait for the last one.
 local ADDON, TCF = ...
 local floor, min, max, sin, pi, abs = math.floor, math.min, math.max, math.sin, math.pi, math.abs
 local DR = TCF.DR
@@ -78,10 +80,28 @@ function Scene:BuildRPS()
     b:Hide()
     v.picks[sign] = b
   end
-  -- in the top bar, where the death roll's range buttons are
+  -- in the top bar, where the death roll's range buttons are: best of 1, 3 or 5 (a click goes to
+  -- the next), or the game's score while one runs
+  local st = DR.Store and DR.Store()
+  v.bestOf = (st and R.ValidBest(st.rpsBest)) and st.rpsBest or 1
+  v.bestBtn = U.Button(v.bar, "Best of 1", 96, 22, function()
+    TCF:PlaySound("click")
+    local nxt = { [1] = 3, [3] = 5, [5] = 1 }
+    v.bestOf = nxt[v.bestOf] or 1
+    local s2 = DR.Store and DR.Store()
+    if s2 then s2.rpsBest = v.bestOf end
+    v.msg = nil
+    v:Refresh(true)
+  end)
+  v.bestBtn:SetPoint("TOPRIGHT", v.bar, "TOPRIGHT", -12, -6)
+  U.Tip(v.bestBtn, function(tt)
+    tt:AddLine("Best of 1, 3 or 5", 1, 0.82, 0)
+    tt:AddLine("Click to change. In best of 3 the first to win 2 rounds takes the game, in best of 5 the first to win 3. Ties don't count.", 1, 1, 1, true)
+    tt:AddLine("The bet is the same for the whole game.", 0.8, 0.8, 0.8, true)
+  end)
   v.rpsInfo = U.Text(v.bar, "GameFontNormal", "Best of 1", "RIGHT"); v.rpsInfo:SetPoint("TOPRIGHT", v.bar, "TOPRIGHT", -12, -10)
-  v.rpsInfo2 = U.Text(v.bar, "GameFontHighlightSmall", "A tie plays again", "RIGHT"); v.rpsInfo2:SetPoint("TOPRIGHT", v.rpsInfo, "BOTTOMRIGHT", 0, -4)
-  v.rpsInfo:Hide(); v.rpsInfo2:Hide()
+  v.rpsInfo2 = U.Text(v.bar, "GameFontHighlightSmall", "A tie plays again", "RIGHT"); v.rpsInfo2:SetPoint("TOPRIGHT", v.bar, "TOPRIGHT", -12, -32)
+  v.rpsInfo:Hide(); v.rpsInfo2:Hide(); v.bestBtn:Hide()
   v.rps = {}
 end
 
@@ -89,6 +109,7 @@ function Scene:ShowRPSParts(on)
   if not self.picks then return end
   self.rpsInfo:SetShown(on); self.rpsInfo2:SetShown(on)
   if not on then
+    self.bestBtn:Hide()
     for _, b in pairs(self.picks) do b:Hide() end
     self.L.sign:Hide(); self.R.sign:Hide()
   end
@@ -108,12 +129,12 @@ function Scene:HowToRPS()
     return { "1. Both players bet the same amount.",
              "2. Each picks rock, paper or scissors in secret.",
              "3. Rock beats scissors, scissors beat paper, paper beats rock.",
-             "4. A tie plays again. The winner gets the bet." }
+             "4. A tie plays again. Best of 3 or 5: first to 2 or 3 round wins. The winner gets the bet." }
   end
   return { "1. Choose your bet and pick rock, paper or scissors.",
            "2. The house cat picks at random.",
            "3. Rock beats scissors, scissors beat paper, paper beats rock.",
-           "4. A tie plays again for free. Win and you get 1.9 times your bet back." }
+           "4. A tie plays again for free. Best of 3 or 5: first to 2 or 3 round wins. Win and you get 1.9 times your bet back." }
 end
 
 function Scene:Pick(sign)
@@ -126,7 +147,7 @@ function Scene:Pick(sign)
   else
     local _, running = TCF:RPSSolo()
     if not running then self:ResetAnims() end
-    ok, err = TCF:RPSSoloPlay(sign, self.bet)   -- the bet only counts when no game is waiting after a tie
+    ok, err = TCF:RPSSoloPlay(sign, self.bet, self.bestOf)   -- bet and best-of only count when no game is running
   end
   if err then self.msg = err end
   self:Refresh(true)
@@ -143,7 +164,7 @@ function Scene:ActionRPS()
   elseif self.mode == "friend" then
     local f = self:Friends()
     local m = f[self:FriendIndex(#f)]
-    if m then ok, err = TCF:RPSChallenge(m.name, self.bet) end
+    if m then ok, err = TCF:RPSChallenge(m.name, self.bet, self.bestOf) end
     if ok then self:ResetAnims() end
   end
   if err then self.msg = err end
@@ -175,10 +196,10 @@ function Scene:StartShake()
 end
 
 -- the picks are known: show them when the shake ends (starts the shake if it isn't running)
-function Scene:OnReveal(me, opp, res, game)
+function Scene:OnReveal(me, opp, res, game, point)
   local a = self.rps
   if not a.shakeT or a.revealT then a.shakeT, a.revealT = nil, nil; self:StartShake() end
-  a.pending = { me = me, opp = opp, res = res }
+  a.pending = { me = me, opp = opp, res = res, point = point == "point" }
   a.game = game
 end
 
@@ -209,6 +230,14 @@ function Scene:AnimateRPS(t, e)
       if pd.res == "tie" then
         self.rpsLast = { cap = string.format("Both picked %s", pd.me), num = "Tie", r = 1, g = 1, b = 1, game = a.game }
         self.L.cat:SetFaceFor("focus", 1); self.R.cat:SetFaceFor("focus", 1)
+      elseif pd.point then
+        -- a round of a longer game: a small cheer, the game goes on
+        local win = pd.res == "win"
+        local w, l = win and pd.me or pd.opp, win and pd.opp or pd.me
+        self.rpsLast = { cap = beats(w, l), num = win and "Your round" or "Their round", r = win and 0.4 or 1, g = win and 1 or 0.6, b = win and 0.4 or 0.3, game = a.game }
+        local ws, ls = win and self.L or self.R, win and self.R or self.L
+        ws.cat:SetFaceFor("happy", 1); ls.cat:SetFaceFor("focus", 1)
+        if win then TCF:PlaySound("buy") end
       else
         local win = pd.res == "win"
         local w, l = win and pd.me or pd.opp, win and pd.opp or pd.me
@@ -247,6 +276,11 @@ function R.Animating()
 end
 
 ---------------------------------------------------------------- texts and buttons
+-- " Best of 3: 2 - 1." after a longer game, "" after best of 1
+local function finalScore(g)
+  if (g.bo or 1) <= 1 or not g.wins then return "" end
+  return string.format(" Best of %d: %d - %d.", g.bo, g.wins.me or 0, g.wins.opp or 0)
+end
 function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
   local a = self.rps
   local t = now()
@@ -256,7 +290,21 @@ function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
   self.inv:Hide()
   local last = g and g.rounds and g.rounds[#g.rounds]
   self.rpsRound = g and g.round or 1
-  local cap, num = "Rock paper scissors", friendMode and "Best of 1" or "Pick one"
+  local cap, num = "Rock paper scissors", friendMode and ("Best of " .. (self.bestOf or 1)) or "Pick one"
+  -- the score of a longer game ("You 1 - 0 Bob"), or the best-of button before one starts
+  local running = (kind == "solo" and not g.over) or (kind == "duel" and g.state ~= "over")
+  local bo = running and (g.bo or 1) or (self.bestOf or 1)
+  local wins = g and g.wins
+  local scoreText
+  if running and bo > 1 and wins then
+    local oname = kind == "solo" and safeName(g.house.name) or shortName(g.opp)
+    scoreText = string.format("You %d - %d %s", wins.me or 0, wins.opp or 0, oname)
+  end
+  self.bestBtn:SetShown(not running)
+  self.bestBtn:SetText("Best of " .. (self.bestOf or 1))
+  self.rpsInfo:SetShown(running)
+  self.rpsInfo:SetText("Best of " .. bo)
+  self.rpsInfo2:SetText(scoreText or (bo > 1 and string.format("First to %d wins", R.Need(bo)) or "A tie plays again"))
   local cr, cg, cb = 1, 0.86, 0.35
   if kind == "solo" then
     picks, picksOn = true, hi >= lo or not g.over
@@ -264,13 +312,21 @@ function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
       status = "Rock, paper, scissors..."
       picksOn = false
     elseif not g.over then
-      status = last and string.format("Tie: you both picked %s. Pick again, it's free.", last.me) or "Pick rock, paper or scissors."
+      if last and last.res == "tie" then
+        status = string.format("Tie: you both picked %s. Pick again, it's free.", last.me)
+      elseif last and last.res == "win" then
+        status = string.format("You take that round (%s). Pick for the next one.", scoreText or "")
+      elseif last then
+        status = string.format("%s takes that round (%s). Pick for the next one.", safeName(g.house.name), scoreText or "")
+      else
+        status = "Pick rock, paper or scissors."
+      end
       cap, num = string.format("Round %d", g.round), "Pick one"
     elseif g.result == "win" then
-      status = string.format("|cff40ff40You win %s|r (%s back). %s. Pick again to play another round.",
-        coins((g.paid or 0) - g.bet), coins(g.paid or 0), beats(g.me, g.opp))
+      status = string.format("|cff40ff40You win %s|r (%s back). %s.%s Pick again to play another round.",
+        coins((g.paid or 0) - g.bet), coins(g.paid or 0), beats(g.me, g.opp), finalScore(g))
     else
-      status = string.format("%s wins this time. %s. Pick again to play another round.", safeName(g.house.name), beats(g.opp, g.me))
+      status = string.format("%s wins this time. %s.%s Pick again to play another round.", safeName(g.house.name), beats(g.opp, g.me), finalScore(g))
     end
   elseif kind == "duel" then
     local opp = shortName(g.opp)
@@ -281,8 +337,8 @@ function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
       status = string.format("Waiting for %s to answer (%d s).", opp, max(0, floor(g.expires - t)))
       btn = "Withdraw"
     elseif g.state == "invited" then
-      self.inv.text:SetText(string.format("%s challenges you to rock paper scissors for %s each (%d s).",
-        opp, coins(g.bet), max(0, floor(g.expires - t))))
+      self.inv.text:SetText(string.format("%s challenges you to rock paper scissors%s for %s each (%d s).",
+        opp, (g.bo or 1) > 1 and (", best of " .. g.bo) or "", coins(g.bet), max(0, floor(g.expires - t))))
       self.inv:Show()
     elseif g.state == "picking" then
       picks = true
@@ -291,7 +347,11 @@ function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
         status = string.format("You picked %s. Waiting for %s to pick (%d s).", g.myPick, opp, left)
         num = "Locked in"
       else
-        local tie = last and last.res == "tie" and string.format("Tie: you both picked %s. ", last.me) or ""
+        local tie = ""
+        if last and last.res == "tie" then tie = string.format("Tie: you both picked %s. ", last.me)
+        elseif last and scoreText then
+          tie = last.res == "win" and string.format("You take that round (%s). ", scoreText) or string.format("%s takes that round (%s). ", opp, scoreText)
+        end
         status = string.format("%sPick rock, paper or scissors (%d s left).", tie, left)
         num, picksOn = "Pick one", true
       end
@@ -302,8 +362,8 @@ function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
       status = string.format("Waiting for %s's addon to agree on the result...", opp)
     else
       local r = g.result
-      if r == "win" then status = string.format("|cff40ff40You win %s|r. %s.", coins(g.bet), beats(g.me, g.opp_))
-      elseif r == "lose" then status = string.format("%s wins. %s, and you lose %s.", opp, beats(g.opp_, g.me), coins(g.bet))
+      if r == "win" then status = string.format("|cff40ff40You win %s|r. %s.%s", coins(g.bet), beats(g.me, g.opp_), finalScore(g))
+      elseif r == "lose" then status = string.format("%s wins. %s, and you lose %s.%s", opp, beats(g.opp_, g.me), coins(g.bet), finalScore(g))
       elseif r == "declined" then status = g.by == "me" and "You declined." or string.format("%s declined.", opp)
       elseif r == "busy" then status = string.format("%s is busy with another game right now.", opp)
       elseif r == "toohigh" then status = g.role == "out" and string.format("%s can't bet that much right now.", opp)
@@ -323,11 +383,13 @@ function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
       status = "Nobody in your group has TapCatForever yet. Group up with a friend who has it to challenge them."
       btn, btnOn = "Challenge", false
     else
-      status = string.format("Challenge %s: you both bet %s. The winner gets %s.", shortName(fm.name), coins(self.bet), coins(self.bet))
+      status = string.format("Challenge %s%s: you both bet %s. The winner gets %s.", shortName(fm.name),
+        (self.bestOf or 1) > 1 and (" to best of " .. self.bestOf) or "", coins(self.bet), coins(self.bet))
       btn, btnOn = "Challenge " .. shortName(fm.name), hi >= lo
     end
   else
-    status = string.format("Pick rock, paper or scissors to play for %s. The house cat picks at random.", coins(self.bet or lo))
+    status = string.format("Pick rock, paper or scissors to play %sfor %s. The house cat picks at random.",
+      (self.bestOf or 1) > 1 and ("best of " .. self.bestOf .. " ") or "", coins(self.bet or lo))
     picks, picksOn = true, hi >= lo
   end
   if hi < lo and not kind then status = string.format("You need at least %s to play.", coins(lo * 2)) end
@@ -375,14 +437,14 @@ function Scene:RefreshRPS(kind, g, fm, friends, lo, hi)
 end
 
 ---------------------------------------------------------------- events from RPS.lua
-R.OnChange = function(ev, kind, a, b, c)
+R.OnChange = function(ev, kind, a, b, c, dd)
   UIX.updatePrompt()
   for _, v in ipairs(UIX.views) do
     local showing = v:ShowingRPS()
     local visible = v.scene:IsVisible() and v.game == "rps"
     local _, g = v:ShowingRPS()
     if ev == "reveal" and showing == kind and visible then
-      v:OnReveal(a, b, c, g)
+      v:OnReveal(a, b, c, g, dd)
     elseif ev == "locked" and kind == "duel" and visible then
       v:StartShake()
     elseif ev == "state" or ev == "invite" then

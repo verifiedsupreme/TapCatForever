@@ -6,6 +6,14 @@
 - Full-colour ones this time: Fireballs, Crackling Lightning, Poison Drips, Frost Shards, Shadow Wisps, Holy Light, Arcane Runes, Fel Fire and Blood Drops, plus Yarn Balls, Fishies, Toy Mice, Catnip, Butterflies, Little Ghosts, Moons, Crowns and Gems.
 - Like the others, they come from Happy Purrs with your cat: Yarn Balls on a second day, Fireballs on the 10th, Crackling Lightning after 10 days in a row, all the way to Gems for a whole year. The Compendium shows what each one needs, and days you already have count.
 
+**Rock paper scissors: best of 3 and best of 5**
+- A new button in the top bar picks best of 1, 3 or 5, against the house cat or a friend. In best of 3 the first to win 2 rounds takes the game, in best of 5 the first to win 3. Ties still play again and don't count.
+- The score shows in the top bar while the game runs, and each round won gets a small cheer. The bet is the same for the whole game: one bet, one payout.
+- Your friend needs this version for best of 3 or 5 (the game tells you if they don't have it yet). Best of 1 works with every version.
+
+**Crafting**
+- The button next to Craft now says how many it makes ("x12", "x50") instead of "All", since one click makes at most 50.
+
 **Settings**
 - New Show party cats box: turn it off to hide the row of party members' cats beside yours. It only hides the picture: your taps still count more with friends, and death roll, rock paper scissors and party expeditions still work.
 
