@@ -11,7 +11,7 @@ What we're building next for your cat, what comes after that, and ideas we're st
 ### Companion Cats
 ![Companion Cats](media/roadmap_companions.png)
 
-Real WoW cats as companions for every cat, not only Hunters.
+Real WoW cat models as companions for every cat, not only Hunters. WoW has a lot of them: house cats, sabers, lynxes, the Felsaber, the Spectral Tiger and more. These are the game's own 3D models, not drawings.
 - A new companion slot on the character panel.
 - Buy companions with TapCoins: the cheapest from 5,000, the rarest (fel and glowing cats) up to 100,000.
 - Some can only be earned by beating big dungeons and raids in Adventure.

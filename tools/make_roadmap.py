@@ -49,26 +49,39 @@ def tint(im, color, amount=0.55):
 
 
 # ------------------------------------------------------------------------------ the cards
+def wow_model(display, height):
+    """a render of a real WoW creature model (Wowhead's model viewer thumbnail for that display id),
+    transparent, cropped and scaled to height: the cats the addon shows with SetDisplayInfo"""
+    import urllib.request
+    os.makedirs(mc.ICONS, exist_ok=True)
+    p = os.path.join(mc.ICONS, "model_%d.webp" % display)
+    if not os.path.exists(p):
+        url = "https://wow.zamimg.com/modelviewer/live/webthumbs/npc/%d/%d.webp" % (display % 256, display)
+        open(p, "wb").write(urllib.request.urlopen(url, timeout=20).read())
+    im = Image.open(p).convert("RGBA")
+    im = im.crop(im.getbbox())
+    return im.resize((round(im.width * height / im.height), height), Image.LANCZOS)
+
+
 def card_companions():
     im = zone("elwynn")
-    shade = Image.new("RGBA", im.size, (10, 6, 20, 120)); im.alpha_composite(shade)
-    glow(im, (CW * 0.55, CH * 0.1, CW * 1.05, CH * 1.1), (80, 255, 90), 70, 0.45)
-    # your cat, and a companion cat beside it (a smaller cat with a fel glow)
-    shadow(im, 230, CH - 34, 230)
-    paste(im, cat_image({"fur": "fur_ginger"}, 320), 230, CH - 30)
-    comp = tint(ImageOps.mirror(cat_image({"fur": "fur_midnight"}, 200)), (60, 230, 70), 0.35)
-    shadow(im, 470, CH - 34, 150)
-    paste(im, comp, 470, CH - 30)
-    for x, y in ((420, 230), (520, 260), (470, 190)):
-        im.alpha_composite(sprite("sparkle", 34, (140, 255, 140)), (x, y))
-    # price tags for the cats you can buy
-    for i, (n, price, ring) in enumerate((("Ability_Hunter_Pet_Cat", "5,000", (30, 255, 0)),
-                                          ("Ability_Mount_JungleTiger", "25,000", (0, 112, 221)),
-                                          ("Ability_Druid_CatForm", "100,000", (163, 53, 238)))):
-        y = 96 + i * 118
-        icon_tile(im, n, CW - 300, y, 76, ring=ring)
-        tag(im, price, (CW - 210, y + 14), size=28)
+    shade = Image.new("RGBA", im.size, (10, 6, 20, 140)); im.alpha_composite(shade)
+    glow(im, (CW * 0.28, CH * 0.25, CW * 0.72, CH * 1.05), (80, 255, 90), 70, 0.5)
+    # your cat, and its companion: a real WoW Felsaber
+    shadow(im, 150, CH - 34, 200)
+    paste(im, cat_image({"fur": "fur_ginger"}, 260), 150, CH - 30)
+    shadow(im, 400, CH - 34, 300)
+    paste(im, ImageOps.mirror(wow_model(67575, 250)), 400, CH - 30)
+    # cats you can buy (real WoW models) and their prices
+    for i, (disp, price, ring) in enumerate(((5554, "5,000", (30, 255, 0)), (6080, "25,000", (0, 112, 221)),
+                                             (21973, "100,000", (163, 53, 238)))):
+        y = 88 + i * 124
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle([CW - 330, y - 6, CW - 214, y + 110], 20, fill=(16, 12, 20, 220), outline=ring, width=4)
+        paste(im, wow_model(disp, 96), CW - 272, y + 102)
+        tag(im, price, (CW - 200, y + 30), size=28)
     label(im, "Companion Cats", (40, 30), 46)
+    tag(im, "Real WoW cat models", (40, 96), size=26)
     coming(im, "Next")
     return im
 
