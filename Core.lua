@@ -2036,6 +2036,7 @@ SlashCmdList.TAPCATFOREVER = function(msg)
   elseif cmd == "scale" and tonumber(arg) then
     ui.scale = max(0.3, min(3, tonumber(arg))); TCF.hud:ApplySettings()
   elseif cmd == "bag" then TCF:ToggleBag()
+  elseif cmd == "tools" and TCF:TestModeOn() then TCF:ToggleTestTools()
   elseif cmd == "welcome" then TCF:ShowWelcome()
   elseif cmd == "testmode" then
     -- on any other character it can only be turned off (a save from before 1.7.0 may have it on)

@@ -900,7 +900,8 @@ do
     local WORDS = { compendium = true, comp = true, book = true, collection = true }
     -- commands Core.lua handles; anything else (help, typos) gets the usage line with compendium in it
     local KNOWN = { [""] = true, open = true, config = true, show = true, hide = true, toggle = true, lock = true,
-      unlock = true, reset = true, scale = true, bag = true, welcome = true, testmode = true, stats = true }
+      unlock = true, reset = true, scale = true, bag = true, welcome = true, testmode = true, stats = true,
+      tools = true }
     SlashCmdList.TAPCATFOREVER = function(msg, ...)
       local cmd, arg = (msg or ""):lower():match("^(%S*)%s*(.-)$")
       if WORDS[cmd] then TCF:ToggleCompendium() return end

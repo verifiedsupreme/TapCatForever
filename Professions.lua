@@ -217,6 +217,9 @@ local function unlockedIn(s, p)
   -- sale closes them again until the cat earns it back (faster, with its Renown). Before 1.7.0 it was
   -- all the Trade Gold ever earned; a save from then starts with that as this run's.
   if p.family or (p.gold or 0) <= 0 then return true end
+  -- (1.8.0) test tools (TestTools.lua): forced open or closed, test mode only
+  local forced = TCF.TestForced and TCF:TestForced("prof:" .. p.key)
+  if forced ~= nil then return forced end
   -- a cat learned it before 1.7.0 and hasn't sold since: kept until that first sale
   if not s.soldSince170 and type(s.announced) == "table" and s.announced[p.key] then return true end
   return (s.runEarned or s.lifetime or 0) >= (p.gold or 0)
@@ -716,6 +719,9 @@ function TCF:SpotCount() return min(#OPS, TCF.PROF_SPOTS_CAP or #OPS) end
 -- Is spot i open for this cat? Returns ok, and a plain reason when it is not.
 function TCF:SpotUnlocked(prof, i)
   if not OPS[i] or i > self:SpotCount() then return false, "Not available." end
+  -- (1.8.0) test tools: every spot open, or only the first
+  local forced = self.TestForced and self:TestForced("spots")
+  if forced == true then return true elseif forced == false then return i == 1, i > 1 and "Closed by the test tools." or nil end
   local u = TCF.SPOT_UNLOCKS[i]
   if not u then return true end
   local s = S(self)

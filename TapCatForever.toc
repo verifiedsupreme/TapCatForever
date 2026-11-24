@@ -78,6 +78,7 @@ ItemSources.lua
 LootToast.lua
 Party.lua
 PartyExpeditions.lua
+TestTools.lua
 DevView.lua
 Leaderboard.lua
 Casino.lua
