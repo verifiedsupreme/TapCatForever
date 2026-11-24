@@ -1996,6 +1996,15 @@ function TCF:TestCheat(kind)
     local s = self:ProfState(); s.lifetime = math.max(s.lifetime, 2e12)
     self:Print("All professions unlocked.", true)
     self:CheckProfUnlocks()
+  elseif kind == "companions" then
+    -- (1.8.0) every companion cat and Companion Stroll, for trying them out
+    if self.CompanionState then
+      local s = self:CompanionState()
+      for _, c in ipairs(TCF.COMPANIONS) do s.owned[c.key] = s.owned[c.key] or time() end
+      s.walk, s.walkShown = true, true
+      if not self:CD().companion then self:CD().companion = TCF.COMPANIONS[1].key end
+      self:Print("Test: every companion cat and Companion Stroll unlocked.", true)
+    end
   elseif kind == "chests" then for _, ch in ipairs(TCF.CHESTS) do db.keys[ch.key] = (db.keys[ch.key] or 0) + 5 end
   elseif kind == "levels" then
     local cd = self:CD()

@@ -1523,7 +1523,7 @@ function TCF:CreateWindow()
     local tt = Text(testBox, "GameFontNormalSmall", "|cffff6060Test mode|r  |cffaaaaaa(/tcf testmode to hide)|r", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
     local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
                      { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" },
-                     { "+1,000 taps", "taps" } }
+                     { "+1,000 taps", "taps" }, { "All companions", "companions" } }
     -- four per row on the button grid
     for i, c in ipairs(cheats) do
       local b = Button(testBox, c[1], COL_W, 22, function() TCF:TestCheat(c[2]) end)
