@@ -6,144 +6,55 @@ A cartoon cat taps along with every key you press. Level a cat for each class to
 
 ## Description
 
-![TapCatForever](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/logo.png)
+![TapCatForever](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/logo_small.png)
 
-TapCatForever
-=============
+### A little cartoon cat lives on your screen and taps its paws every time you press a key.
 
-This is my first addon, and I'm so glad you're here. I update it often, so keep it up to date for the newest features and fixes. If you have an idea or find a bug, I'd love to hear it: type /tcf feedback in game or use the link at the bottom of this page.
+Every keystroke you already make in World of Warcraft earns your cat XP and TapCoins, and behind it is a whole collection game: real WoW gear, class abilities, an idle Adventure through Azeroth's dungeons and raids, class professions that craft real gear, loot chests and hundreds of things to collect. It never touches your gameplay. It just watches your key presses and makes them a little more fun.
 
-**A little cartoon cat lives on your screen and taps its paws every time you press a key.** Every keystroke you already make in World of Warcraft earns your cat XP and TapCoins, and behind it is a whole collection game: real WoW gear, class abilities, an idle Adventure through Azeroth's dungeons and raids, class professions that craft real gear, loot chests and hundreds of things to collect.
+*This is my first addon, and I'm so glad you're here. I update it often, so keep it up to date for the newest features and fixes. If you have an idea or find a bug, I'd love to hear it: type /tcf feedback in game or use the link at the bottom of this page.*
 
-It never touches your gameplay. It just watches your key presses and makes them a little more fun.
+---
 
-Features
---------
+## What your cat gets up to
 
-**What's new in 1.6.5**
-- Equip best and every gear comparison now pick gear the way WoW players do for each class: Spell Power and Intellect for casters, Strength for Warriors and Paladins, Agility for Hunters and Rogues, instead of piling on Stamina.
-- Death rolls with a friend settle the moment the 1 is rolled, and a friend's stalled turn can be called off, so a duel never needs a /reload.
+| | |
+|:---:|:---|
+| ![A cat that taps with you](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_cats.png) | **A cat that taps with you**<br>Every key you press, every click and every spell you cast, your cat taps its paws along. Left paw on A, right paw on D. It pulls faces, bursts hearts and stars from its paws, and quietly earns XP and TapCoins while you play the real game. |
+| ![Nine cats, one adventure](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_farm.png) | **Nine cats, one adventure**<br>One cat for every class, each levelling from 1 to 60 with its own real WoW gear and abilities. Send it through Elwynn Forest, the Deadmines, Molten Core and all the way to Naxxramas: real bosses, real loot tables, bosses you can farm, all while you play. |
+| ![Dress it up](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_sets.png) | **Dress it up**<br>Hundreds of hats, capes, skins and tap effects, eleven animated dungeon sets with flames, frost and stars, and real gear that shows on your cat. Shift-click anything to try it on first. The rarest skins drop from Ragnaros, Nefarian and Kel'Thuzad. |
+| ![Run a business](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_professions.png) | **Run a business**<br>Mining, skinning or tailoring for your class, with spots, helpers and upgrades that work even while you're offline. Craft real gear, unlock herbalism, first aid, fishing and cooking, and sell up for Renown to grow even faster. |
+| ![The cat casino](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_casino.png) | **The cat casino**<br>Lucky Paws slots, blackjack, a death roll in a cosy tavern and rock paper scissors on a snowy mountaintop. Play the house cat, or challenge a friend in your party for TapCoins. |
+| ![Better with friends](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_party.png) | **Better with friends**<br>Group up with friends who have the addon: their cats sit beside yours, your taps count up to 50% more, you can send your cats on party expeditions together, check out each other's cats and climb the realm leaderboard. |
+| ![Your window, your way](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_window.png) | **Your window, your way**<br>A big window with your cat and its gear, fold the character panel away, or switch to a phone-sized view with big round buttons. Quests, achievements, chests with a loot reel, and a Compendium of every item and how to get it. |
 
-**New in 1.6.3**
-- Shift-click any item (gear, cosmetics, skins, Shop offers, recipes, the Compendium) to try it on your cat. It stays on while you look around, so you can try several pieces together, and nothing is equipped or bought.
+---
 
-**New in 1.6.2**
-- Multiplayer works: death roll and rock paper scissors with a friend in your party play through to the end, a friend's profile (click their cat in the party row) shows their total taps, achievements and zones, and the realm leaderboard fills in from the players in your party who joined it, with one row per player, two-word character names included.
-- A bigger phone view: every page is drawn larger, so text is easier to read and buttons are easier to hit. A new Tabs button folds the round page buttons into one menu, so the pages get more room.
-- The header row (character, phone view, Compendium, Achievements, Settings) stays in the same place when you fold the character column away or open it again.
-- Professions: the x3 upgrades and Renown now multiply the ore, leather and cloth your spots gather as well as their Trade Gold, and the Buy and Hire buttons are bigger and easier to click.
-- The Gear page's note about where gear comes from no longer runs across the window when your bag is empty.
+## What's new in 1.6
 
-**New in 1.6.0**
-- A Casino: Lucky Paws slots, blackjack, death roll in a cosy cartoon tavern and rock paper scissors on a snowy mountaintop, against a house cat or a friend in your party. Bets are 10 TapCoins up to half of what you have, and every game against the house keeps a small edge, so it is for fun, not for getting rich.
-- A main window your way: drag the corner grip to make it bigger or smaller, fold the character column away with the cat button, or switch to a compact, phone-shaped layout with big round tab buttons. Achievements and Settings are round buttons in the header, and the Casino has its own tab.
-- Animated cosmetics: flames that flicker, lava that flows, drifting stars, embers, snow and wisps. Every Epic and Legendary skin has its own effect (the Diamond Cat sparkles, the Galaxy Cat has stars inside its fur), and you can turn them off. The finest skins now drop from Kel'Thuzad, Nefarian, Ragnaros and the real General Drakkisath.
-- Eleven animated cosmetic sets, one for Molten Core and one for each later dungeon in Adventure, six pieces each with a new Shoulders slot. Real shoulder gear now shows on your cat too, with 43 drawings, and the racial accessory has its own slot.
-- Adventure: a faster start, a Help guide, first kills that give more in bigger zones, enemies far above your cat's level that hit back like in WoW, and bosses you can farm for their real loot. Some rewards come from killing real WoW bosses, like Hogger, and six boss effects unlock from big kills.
-- Adventure fights look better: hunters shoot arrows, bullets and bolts from the weapon in their paw, wands fire bolts in their school's colour, and abilities play the game's real spell effects on the enemies.
-- Professions level like WoW (orange, yellow, green, grey), with a cheap white starter set for each craft and three more spots per gathering profession.
-- Every class's cat has its own Treasure Bag, its own look and its own collection of cosmetics, and chests are stamped with the level of the cat that earned them. 171 real Classic item sets with set bonuses, and cosmetics remember where you got them.
-- Party expeditions: send your cats out together with group members who have the addon, on Normal, Hard or Heroic. Every class's cat also has its own 23 class achievements.
-- Your cats are shared by all your characters: each class has one cat for your whole account, with its level, gear, professions, cosmetics and Adventure. The first login on 1.6 puts your characters' cats together, so nothing is lost.
-- Death roll and rock paper scissors against a friend in your party, and a realm leaderboard that shows the players in your party, raid or guild who joined it.
+- Gear that fits your class: Equip best now picks Spell Power and Intellect for casters, Strength for Warriors and Paladins and Agility for Hunters and Rogues, like WoW.
+- Shift-click any item to try it on your cat before you wear or buy it.
+- Multiplayer works: death roll and rock paper scissors with a friend, party cat profiles with their taps, and a realm leaderboard that fills in from your party.
+- A bigger phone view with a fold-away tab menu, a tidier header, and profession buttons that are easy to hit.
+- Your x3 profession upgrades and Renown now multiply the ore, leather and cloth you gather too.
+- The cat Casino, animated cosmetic sets, a resizable window, and your cats shared by every character on your account.
 
-**New in 1.5.3**
-- A realm leaderboard tab, opt-in and off by default: see the cats of other players on your realm who joined, by total taps, per class and by professions. It all stays inside the game, and the first time you join you get a Heroic Cache. Open the Leaderboard tab, or type /tcf top.
-- Cat levels now stop at 60, like Classic. Early levels come faster: about 2 hours a day gets a new cat to level 10 in about an hour, and to 60 in a few months. Existing cats keep their share of the current level.
-- New Dungeon Chest, full of dungeon boss gear near your cat's level, mostly blue. The first clear of each dungeon in Adventure gives one, repeat clears now and then give one, and real WoW dungeons give one (up to 2 a day).
-- Herbalism, First Aid, Fishing and Cooking unlock as each cat earns Trade Gold, and the Professions page shows how far along it is.
-- Chests now and then hold a few TapCoins on top of their contents.
-- Every class starts with a weapon of its own, and capes now hang down both sides of your cat.
-- An Equip best button on the Gear page, and an All button that crafts a recipe as many times as your materials allow (up to 50).
-- Burning Crusade items, greens and blues with no stats, and leftover test items no longer drop.
-- A Text distance slider and a tidier Settings page, and Adventure enemies sized to fit the fight scene.
-- The same option, off by default, also shares your cat's class, level, zones cleared, TapCoins and addon version with the developer when asked.
+Full patch notes are in the game: Settings > Patch notes, or type `/tcf news`.
 
-**Also new in 1.5**
-- Professions by class, each crafting real Classic gear with stats, and every class's cat has its own Trade Gold and Renown.
-- Real legendaries, the Raider's Hoard from raids, and lots more gear: plain whites, "of the Monkey" style greens and small finds from regular Adventure enemies.
-- Party cats with a tap bonus, a fishing dock, 33 new cat skins and the Compendium.
+### Earlier highlights
 
-**A cat that taps with you**
-- Left paw on A, left arrow and left-click; right paw on D, right arrow and right-click; every other key alternates.
-- Happy, focused and sparkly faces, and Tap Effects (hearts, stars, fire sparks, rainbow stars and more) that burst from its paw on every tap.
-- Drag it anywhere, resize it, fade it, or hide everything but the cat.
+- **1.5**: Class professions that craft real gear, real legendaries, party cats with a tap bonus, a fishing dock, 33 new skins, the Compendium, party expeditions and the realm leaderboard.
+- **1.4**: Every zone filled with its real Classic creatures and bosses, death animations and floating damage numbers.
+- **1.3**: Hand-drawn Adventure backgrounds for all 28 zones, the chest opening reel and spell effects in fights.
+- **1.2**: The cartoon cat, a drawing for every visible item, real WoW gear with real stats, Adventure through Azeroth, expeditions, professions and cat skins.
 
-**A cat for every class**
-- Each class has its own cat that levels from 1 to 60, with its own gear, abilities, professions, Trade Gold and progress.
-- Your cat wears the real WoW items you equip, drawn in the cartoon style: about 4,800 different helms, chests, capes, belts, necklaces, rings, weapons, shields and off-hands have their own drawing.
-- Every class starts with its own weapon (a bow for hunters, a dagger for rogues, a staff for mages) and learns class abilities with TapCoins, from Heroic Strike to Pyroblast.
-- Hover any piece of gear to see what your cat wears in that slot right beside it, with the Power change.
-- Thousands of real Classic items for every class, from plain whites and "of the Bear" greens to raid epics and legendaries. Sell junk clears out anything worse than what you wear.
+---
 
-**Adventure**
-- An idle fight through 28 real zones, dungeons and raids, from Elwynn Forest and the Deadmines to Molten Core and Naxxramas, each with its own hand-drawn scene.
-- Real bosses and real creature models. Your cat casts its abilities with visible spell effects, and an ability bar shows every cooldown.
-- Regular enemies now and then drop a small find for your level, aimed at your empty slots first, so a new cat gears up quickly.
-- Bosses drop gear, chests and rare cat skins. Dungeons give Dungeon Chests and raids give Raider's Hoards. The first time you clear a zone you also get a few hundred TapCoins (more for later zones).
-- The first kill of every boss gives a reward that grows with the zone. After that, press Farm in Bosses and loot and your cat fights one boss again and again for a chance at a piece of its real loot.
-- Hunters shoot from the weapon in their paw, wands fire bolts, and abilities play the game's real spell effects on the enemies, including lasting ones like Corruption.
-- Some rewards come from killing real WoW bosses with the addon on (Hogger, Archmage Arugal, Edwin VanCleef and more), and while you are inside a real dungeon the window shows what finishing it gives.
-
-**Expeditions**
-- Send a party of three cats away for 15 minutes to 24 hours. They come back with TapCoins, chests and XP. Dungeon trips can bring home a Dungeon Chest and raid trips a Raider's Hoard.
-- Party expeditions: in a group with friends who have TapCatForever, invite them to send their cats along. Everyone's Power adds up, and everyone claims their own rewards, with a bonus for every other player.
-
-**Professions**
-- Your cat's class picks its main profession: Mining with Blacksmithing (Warrior, Paladin), Skinning with Leatherworking (Rogue, Druid, Hunter, Shaman) or Tailoring (Mage, Priest, Warlock).
-- Each is an idle gathering business of nine spots: veins, hunting grounds with real beasts, or cloth spots at humanoid camps, with hired helpers, and an endless tool upgrade that also makes clicking by hand slowly faster.
-- Craft real Classic gear with stats, 45 recipes per craft from skill 1 to 300, plus a cheap white starter set for each craft. Cosmetic-only recipes are clearly marked.
-- Skill-ups work like WoW: recipes and spots are orange, yellow, green or grey, so you move on to new ones to keep learning.
-- Herbalism, First Aid, Fishing and Cooking unlock as your cat earns Trade Gold (the later ones take a few rounds of selling your business for Renown): a garden that grows in real time, bandages that heal your cat in fights, a fishing dock with a fishing buddy, and recipes you discover by experimenting.
-- Sell your business for Renown to make your Trade Gold come faster.
-- Every class's cat runs its own business with its own Trade Gold and Renown, and the helpers of all your cats keep working while you play another.
-- Each profession has a short "How it works" guide (the Help button next to its name).
-
-**Play with friends**
-- Group up with friends who also have TapCatForever and their cats sit in a little row beside yours. Hover one to see whose cat it is.
-- Your taps count 20% more with one of them and 10% more for each one after that, up to +50% with a full party: more tap progress, cat XP and TapCoins from tapping. It works in parties, raids and dungeon groups.
-- The addons find each other on their own, so there is nothing to set up. Invite a friend and play together.
-
-**Casino**
-- Lucky Paws: a cartoon cat slot machine with three reels and a lever. Three of a kind wins, every cat on the middle line pays something, and three cats pay 100 times your bet. About 3 spins in 10 win, and a big win gets a coin shower and a cheer from your cat.
-- Blackjack with six decks: blackjack pays 3 to 2, double on any first two cards, split a pair once, and the dealer stands on every 17. A hand you leave waits for you, even after a reload.
-- Death roll in a cosy cartoon tavern: two cats take turns rolling 1 to the last number rolled, and whoever rolls a 1 loses. Play the house cat (a different fun name and look each game) or challenge a friend in your party or raid with real /roll rolls. The loser flops over with X eyes and a little ghost floats up, then it pops back up, fine.
-- Rock paper scissors on a snowy mountaintop: both cats shake a paw three times and show a fist paw, an open paw or two toes up. Against the house cat a tie plays again for free and a win pays 1.9 times your bet. With a friend in your party, both picks are locked in before either is shown, and the winner gets the whole bet.
-- Bets are at least 10 TapCoins and at most half your TapCoins (no top bet), shared between all the games. The Casino keeps a small edge on every game and there are no free spins, so TapCoins stay precious. The stats line shows games played, total bet, paid back, net and your biggest win.
-- Everything happens inside the window: nothing shows over your cat during play, except a small Accept or Decline box when a friend challenges you to a death roll or rock paper scissors.
-
-**A window your way**
-- Drag the corner grip to make the main window bigger or smaller (double-click it to reset), or use Window size in Settings.
-- Fold the character column away with the cat button for a narrower window; hovering an item still shows it on a small cat beside the window.
-- Switch to the compact layout for a narrow, tall window with big round tab buttons, about the shape of a phone screen.
-
-**Realm leaderboard**
-- A Leaderboard tab with the cats of players on your realm who joined, in three sections: Total taps (sort by taps, cat level, achievements or Adventure zones cleared), Per class (each class's cats by cat level) and Professions (Trade Gold earned, and the best Blacksmithing, Leatherworking, Tailoring, Herbalism, First Aid, Fishing and Cooking skill). Your own row is highlighted. Also /tcf top.
-- It is off by default. Until you join, the tab explains exactly what is shared and with whom, with a Join the leaderboard button (the same as Share my cat's progress in Settings > Help and info). A Leave button turns it off again. Only players who joined are listed and can see it. The first time you join, you get a Heroic Cache, once per account.
-- Your cat is shared when you are in a party, raid or guild with other players who joined, the same way party cats work, and they pass on the players they know, so the board grows as you group up. Nothing goes over the internet, and turning the option off asks the others to take you off.
-
-**Chests, shop and collecting**
-- Cat Treat Pouches, Adventurer's Strongboxes and Heroic Caches, opened with a spinning reel that lands on your reward. Pouches can hold a blue now and then, Heroic Caches have a tiny chance of a real legendary, and any chest may hold a few TapCoins.
-- The Raider's Hoard can't be bought: you earn it from raids, in Adventure, on raid expeditions and in real WoW. It always holds epic raid boss loot and is the best place to find a legendary.
-- The Dungeon Chest can't be bought either: you earn it from dungeons, in Adventure, on dungeon expeditions and in real WoW. It always holds gear close to your cat's level, mostly from dungeon bosses.
-- Gear you find outside chests goes straight into your bags, with a slim line under the window you can hover.
-- Every class's cat has its own Treasure Bag, and each chest is stamped with the level of the cat that earned it, so it holds gear for that level.
-- 171 real Classic item sets with their set bonuses, shown in the gear tooltip and in the Compendium's Item Sets list.
-- Daily shop wares, daily and weekly quests, 83 achievements, and 23 more for every class's cat.
-- 64 cat skins: tabbies and tuxedos, Bengals and Maine Coons, a Galaxy Cat, Frostsabers, the Spectral Tiger, boss-drop cats, chest-only cats, quest and expedition cats, crafted cats, and achievement cats like Mr. Bigglesworth.
-- Hats, capes, wings, shoulders, fur patterns, effects and racial heritage items for your character's race, many of them animated, and eleven animated sets from Adventure's dungeons and Molten Core.
-- The Compendium lists every skin, cosmetic, effect and piece of gear, what you own, and how to get the rest.
-
-**Account and character**
-- Your nine class cats are shared by all your characters: each has its own level, gear, cosmetics, Trade Gold and professions, and any character can play it. TapCoins, quests and achievements are shared across your account too.
-
-Getting started
----------------
+## Getting started
 
 Install, log in, and the welcome tour shows you around. Right-click the cat to open the main window. Start in the Adventure tab, and check the Treasure Bag whenever you earn a chest. After a big update, a short What's new note appears at the top of the window.
 
-Slash commands
---------------
+## Slash commands
 
 - `/tcf or /tapcat`: open the main window
 - `/tcf compendium`: every item and how to get it
@@ -158,8 +69,7 @@ Slash commands
 - `/tcf scale 0.3-3`: resize the cat
 - `/tcf stats`: your totals
 
-FAQ
----
+## FAQ
 
 **Does it change how I play?**
 No. It only listens to your key presses and mouse clicks and never presses anything for you.
@@ -179,7 +89,6 @@ Only if you turn on Share my cat's progress in Settings > Help and info, which i
 **Can I start over?**
 Settings has "Reset this character" and "Reset ALL progress".
 
-Feedback and bugs
------------------
+## Feedback and bugs
 
 Found a bug or have an idea? Type /tcf feedback in game, leave a comment here, or open an issue on GitHub ([https://github.com/verifiedsupreme/TapCatForever/issues](https://github.com/verifiedsupreme/TapCatForever/issues)). If you can, include the error text (type /console scriptErrors 1 to see errors).
