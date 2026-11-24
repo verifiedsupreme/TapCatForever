@@ -799,6 +799,22 @@ function TCF:CreateWindow()
   end
 
   local lvl = Text(left, "GameFontHighlight", nil, "LEFT"); lvl:SetPoint("TOPLEFT", 12, -362)
+  -- (1.7.0) click the title to show an earned one instead (ProfDepth.lua TCF:CycleTitle)
+  local titleBtn = CreateFrame("Button", nil, left)
+  titleBtn:SetPoint("TOPLEFT", lvl, "TOPLEFT", -2, 2); titleBtn:SetSize(300, 18)
+  titleBtn:SetScript("OnClick", function()
+    if TCF.CycleTitle and TCF:CycleTitle() then TCF:PlaySound("click"); win:Refresh() end
+  end)
+  Tip(titleBtn, function(tt)
+    tt:AddLine("Your cat's title", 1, 0.82, 0)
+    local list = TCF.EarnedTitles and TCF:EarnedTitles() or {}
+    if #list == 0 then
+      tt:AddLine("It grows with your cat's level. Earn more by reaching Grand Master in your crafting guild or completing a profession's legendary set.", 1, 1, 1, true)
+    else
+      tt:AddLine("Click to show another title: " .. table.concat(list, ", ") .. ", or your level title.", 1, 1, 1, true)
+    end
+  end)
+  win.titleButton = titleBtn
   local xp = CreateFrame("StatusBar", nil, left)
   xp:SetSize(292, 14); xp:SetPoint("TOPLEFT", 12, -380)
   xp:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar"); xp:SetStatusBarColor(0.58, 0.0, 0.55)

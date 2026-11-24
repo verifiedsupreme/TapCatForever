@@ -739,6 +739,8 @@ function TCF:OpSpeedMult(prof, i)
   local n = opState(self, prof, i).n
   local m = 1
   for _, ms in ipairs(TCF.MILESTONES) do if n >= ms then m = m * 2 end end
+  -- (1.7.0) the helper's level and trait, the hiding buff and the Busy Hands perk (Workshop.lua)
+  if self.WorkshopSpeedMult then m = m * self:WorkshopSpeedMult(famOf(self, prof), i) end
   return m
 end
 function TCF:OpCycleTime(prof, i) return OPS[i].time / self:OpSpeedMult(prof, i) end
@@ -870,6 +872,11 @@ function TCF:GatherClick(prof, i)
   -- 1.6 patch secret (TCF:GlitchClick below): a glitched spot pays far too much for a minute
   if self.GlitchClick then
     local g2, m2 = self:GlitchClick(f, i)
+    gold, got = gold + g2, got + m2
+  end
+  -- (1.7.0) glints, rich spots, Sharp Tools and rare finds (Workshop.lua)
+  if self.WorkshopClick then
+    local g2, m2 = self:WorkshopClick(f, i, gold, got)
     gold, got = gold + g2, got + m2
   end
   self.lastMineOre, self.lastMineMat, self.lastMineGold, self.lastMineFamily = got, op[2], gold, f
@@ -1030,7 +1037,14 @@ function TCF:HireForeman(prof, i)
   if st.mgr or st.n < 1 or not self:SpendGold(OPS[i].foreman) then return false end
   st.mgr = true; st.run = true
   local fam = TCF.FAMILIES[f]
-  self:Print(string.format("A %s now works %s for you.", fam.hire, fam.ops[i][1]), true)
+  if self.HelperHired then
+    -- (1.7.0) every helper has a name and a trait (Workshop.lua)
+    self:HelperHired(f, i)
+    local h = self:HelperInfo(f, i)
+    self:Print(string.format("%s the %s (%s: %s) now works %s for you.", h.name, fam.hire:lower(), h.trait.name, h.trait.text, fam.ops[i][1]), true)
+  else
+    self:Print(string.format("A %s now works %s for you.", fam.hire, fam.ops[i][1]), true)
+  end
   self:MarkDirty()
   return true
 end
@@ -1071,7 +1085,8 @@ local function produce(self, s, f, i, cycles)
   local op = TCF.FAMILIES[f].ops[i]
   -- whole goods go in the bag; the part of one left over waits for the next cycle (s.matCarry)
   s.matCarry = type(s.matCarry) == "table" and s.matCarry or {}
-  local got = cycles * self:OpMatsPerCycle(f, i) + (tonumber(s.matCarry[op[2]]) or 0)
+  local got = cycles * self:OpMatsPerCycle(f, i) * (self.HelperGoodsMult and self:HelperGoodsMult(f, i) or 1)
+    + (tonumber(s.matCarry[op[2]]) or 0)
   local whole = floor(got)
   s.matCarry[op[2]] = got - whole
   if whole > 0 then s.mats[op[2]] = (s.mats[op[2]] or 0) + whole end
@@ -1088,6 +1103,7 @@ function TCF:ProfAdvance(dt, offline)
         if st.p >= 1 then
           local cycles = st.mgr and floor(st.p) or 1
           produce(self, s, f, i, cycles)
+          if st.mgr and self.HelperWorked then self:HelperWorked(f, i, cycles) end   -- (1.7.0) helpers learn
           st.p = st.mgr and (st.p - cycles) or 0
           if not st.mgr then st.run = false end
         end
@@ -1173,6 +1189,7 @@ function TCF:PrestigeTrade()
   local s = S(self)
   local gain = self:RenownOnReset()
   if gain < 5 then return false end
+  if self.AddRenownPoints then self:DepthState(); self:AddRenownPoints(gain) end   -- (1.7.0) Renown shop (ProfDepth.lua)
   s.renown = s.renown + gain
   s.renownEver = max(s.renownEver, s.renown)
   s.prestiges = s.prestiges + 1
@@ -1385,6 +1402,18 @@ function TCF:CraftBlocked(r)
     local p = TCF.PROF_BY_KEY[r.prof]
     return string.format("Needs %s %d.", p and p.name or r.prof, r.skill)
   end
+  -- (1.7.0) the long-chase recipes need a specialization and a guild rank (ProfDepth.lua, ProfSets.lua)
+  if r.spec and self.Spec then
+    local sp = self:Spec(r.prof)
+    if not sp or sp.key ~= r.spec then
+      local want = TCF.SPEC_BY_KEY[r.spec]
+      return string.format("Needs the %s specialization.", want and want.name or r.spec)
+    end
+  end
+  if r.rank and self.GuildRank and self:GuildRank(r.prof) < r.rank then
+    local g = TCF.GUILDS[r.prof]
+    return string.format("Needs %s with %s.", TCF.GUILD_RANKS[r.rank].name, g and g.name or "your guild")
+  end
   local it = r.item and TCF.ITEMS[r.item]
   if it and self.db.owned[it.id] then
     return it.slot == "skin" and "You already have this skin." or "You already have this."
@@ -1456,11 +1485,23 @@ function TCF:Craft(r)
     local it = self:RecipeItem(r)
     self:Print(string.format("Brewed %s (you have %d). Drink it from Crafting.", it and it.name or "a potion", s.mats[r.potion]))
   elseif r.gear then
-    self:GrantGear(self:RecipeItem(r), "Crafted", true)
+    local it = self:RecipeItem(r)
+    -- (1.7.0) sometimes a Masterwork version (ProfDepth.lua)
+    if self.MasterworkChance and not r.starter and random() < self:MasterworkChance(r) then
+      local mw = TCF.MasterworkGear(r.gear)
+      if mw then
+        it = mw
+        local d = self:DepthState()
+        d.masterworks = (d.masterworks or 0) + 1
+        if not self.tradeQuiet then self:Print(string.format("Masterwork. You made %s.", TCF.GearLink and TCF.GearLink(mw) or mw.name), true) end
+      end
+    end
+    self:GrantGear(it, "Crafted", true)
   else
     local it = TCF.ITEMS[r.item]
     self:GrantItem(it, "Crafted", true)
     if it.slot == "skin" then self:Print("Wear your new " .. TCF.ItemLink(it) .. " skin from the Appearance tab.", true) end
+    if r.longChase and self.CheckSetTitles then self:CheckSetTitles() end   -- (1.7.0) a whole set: its title
   end
   self:MarkDirty()
   return true

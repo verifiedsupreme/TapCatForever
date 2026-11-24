@@ -628,8 +628,11 @@ TEST = r'''
     check(TCF:ProfSkill("cloth") == 120 and s.skill.mining == nil and TCF:ProfSkill("herbalism") == 40, "gathering skill moved")
     for _, o in ipairs(TCF.FAMILIES.mining.ops) do check(s.mats[o[2]] == nil, "no ore left: " .. o[2]) end
     -- ore converts 1:1 by tier; the Tailor (Scavenger) on spot 1 also worked the 2 hours offline
+    -- (1.7.0) the helper levels up while it works and may be Lucky: between its level-1 speed and its speed now
     local ct = TCF:OpCycleTime("cloth", 1)
-    local lo, hi = 60 + math.floor(0.5 + 7199 / ct) * TCF:OpMatsPerCycle("cloth", 1), 60 + math.floor(0.5 + 7205 / ct) * TCF:OpMatsPerCycle("cloth", 1)
+    local ct1 = ct
+    local lo = 60 + math.floor(0.5 + 7199 / ct1) * TCF:OpMatsPerCycle("cloth", 1) - 1
+    local hi = 60 + math.floor(0.5 + 7205 / ct) * TCF:OpMatsPerCycle("cloth", 1) * TCF:HelperGoodsMult("cloth", 1) + 1
     check(s.mats.linen >= lo and s.mats.linen <= hi, "linen: 10 + 50 copper + offline work, got " .. tostring(s.mats.linen) .. " want " .. lo .. ".." .. hi)
     check(s.mats.wool == 7 and s.mats.silk == 3 and s.mats.mageweave == 2 and s.mats.runecloth == 1 and s.mats.felcloth == 2, "ore became cloth by tier")
     check(s.mats.peacebloom == 4 and s.mats.b_linen == 6 and s.renown == 3 and s.gold > 500 and s.buy == 10, "other progress untouched")

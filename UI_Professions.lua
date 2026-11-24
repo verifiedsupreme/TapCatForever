@@ -129,13 +129,14 @@ TCF.UI.Builders.professions = function(page, win)
   end)
 
   local vbtns = {}
-  for i, key in ipairs({ "main", "upg", "craft", "renown" }) do
-    local b = Button(page, "", 108, 24, function() win.profView = key; TCF:PlaySound("click"); win:Refresh() end)
-    b:SetPoint("TOPLEFT", 12 + (i - 1) * 111, -47)
+  -- (1.7.0) a fifth view for the main profession: Guild (ProfDepth.lua)
+  for i, key in ipairs({ "main", "upg", "craft", "guild", "renown" }) do
+    local b = Button(page, "", 86, 24, function() win.profView = key; TCF:PlaySound("click"); win:Refresh() end)
+    b:SetPoint("TOPLEFT", 12 + (i - 1) * 88, -47)
     b.key = key
     vbtns[i] = b
   end
-  vbtns[2]:SetText("Upgrades"); vbtns[4]:SetText("Renown")
+  vbtns[2]:SetText("Upgrades"); vbtns[4]:SetText("Guild"); vbtns[5]:SetText("Renown")
   local buyMode = Button(page, "Buy x1", 76, 22, function()
     local s = TCF:ProfState()
     local modes = { 1, 10, 100, "max" }
@@ -200,7 +201,10 @@ TCF.UI.Builders.professions = function(page, win)
       r.box:SetBackdrop(U.BACKDROP_PANEL); r.box:SetBackdropColor(0.10, 0.12, 0.16, 1); r.box:SetBackdropBorderColor(0.45, 0.40, 0.55, 1)
     end
     r.box:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    r.box:SetScript("OnClick", function() TCF:RunOp(FAM(), r.spot); TCF:PlaySound("click"); win:Refresh() end)
+    r.box:SetScript("OnClick", function()
+      if TCF.WorkshopRowClick then TCF:WorkshopRowClick(FAM(), r.spot) end
+      TCF:RunOp(FAM(), r.spot); TCF:PlaySound("click"); win:Refresh()
+    end)
     r.icon = r.box:CreateTexture(nil, "ARTWORK"); r.icon:SetSize(44, 44); r.icon:SetPoint("CENTER")
     -- the model fills the box (inside its border) and is pulled back so the whole creature fits:
     -- WoW cuts a model off at its frame's edges
@@ -235,7 +239,10 @@ TCF.UI.Builders.professions = function(page, win)
     r.name = Text(r, "GameFontNormal", nil, "LEFT"); r.name:SetPoint("TOPLEFT", r.box, "TOPRIGHT", 8, -2); r.name:SetWidth(258)
     if r.name.SetWordWrap then r.name:SetWordWrap(false) end
     r.bar = Bar(r, 258, 16, 0.25, 0.75, 0.3); r.bar:SetPoint("LEFT", r.box, "RIGHT", 8, 0)
-    r.bar:EnableMouse(true); r.bar:SetScript("OnMouseUp", function() TCF:RunOp(FAM(), r.spot); win:Refresh() end)
+    r.bar:EnableMouse(true); r.bar:SetScript("OnMouseUp", function()
+      if TCF.WorkshopRowClick then TCF:WorkshopRowClick(FAM(), r.spot) end
+      TCF:RunOp(FAM(), r.spot); win:Refresh()
+    end)
     r.info = Text(r, "GameFontDisableSmall", nil, "LEFT"); r.info:SetPoint("BOTTOMLEFT", r.box, "BOTTOMRIGHT", 8, 2); r.info:SetWidth(258)
     if r.info.SetWordWrap then r.info:SetWordWrap(false) end
     -- the hand tool: click to gather by hand
@@ -253,8 +260,12 @@ TCF.UI.Builders.professions = function(page, win)
       b.tex:ClearAllPoints(); b.tex:SetPoint("CENTER"); b.tex:SetSize(bump, bump)
     end)
     r.pick.cd = CreateFrame("Cooldown", nil, r.pick, "CooldownFrameTemplate"); r.pick.cd:SetAllPoints()
+    -- (1.7.0) a glint: the tool sparkles gold for a moment (Workshop.lua)
+    r.glint = r:CreateTexture(nil, "OVERLAY", nil, 6); r.glint:SetSize(64, 64); r.glint:SetPoint("CENTER", r.pick, "CENTER")
+    r.glint:SetTexture(TCF.ART_PATH .. "v\\t_sparkle"); r.glint:SetVertexColor(1, 0.85, 0.3); r.glint:SetBlendMode("ADD"); r.glint:Hide()
     r.pick:SetScript("OnClick", function()
       local fam, i = FAM(), r.spot
+      if TCF.WorkshopRowClick then TCF:WorkshopRowClick(fam, i) end
       if TCF:GatherClick(fam, i) then
         -- one tool per family: every spot's button shows the same cooldown
         for _, row in ipairs(rows) do if row.pick.cd.SetCooldown then row.pick.cd:SetCooldown(GetTime(), TCF:ToolCooldown(fam)) end end
@@ -295,6 +306,15 @@ TCF.UI.Builders.professions = function(page, win)
     r.mgr:SetPoint("BOTTOMRIGHT", -5, 4)
     Tip(r.mgr, function(tt)
       local f = FT()
+      local h = TCF.HelperInfo and TCF:HelperInfo(FAM(), r.spot)
+      if h then
+        -- (1.7.0) the helper: name, level, trait (Workshop.lua)
+        tt:AddLine(string.format("%s, your %s (level %d)", h.name, f.hire:lower(), h.level), 1, 0.82, 0)
+        tt:AddLine(string.format("%s: %s.", h.trait.name, h.trait.text), 0.4, 1, 0.4, true)
+        tt:AddLine(string.format("Brings %d%% more goods from its level. Gets better as it works, up to level %d.", (h.level - 1) * 2, TCF.HELPER_MAX_LEVEL), 1, 1, 1, true)
+        if h.level < TCF.HELPER_MAX_LEVEL then tt:AddLine(string.format("Next level: %s / %s cycles worked.", TCF.FormatBig(floor(h.xp)), TCF.FormatBig(h.next)), 0.7, 0.7, 0.7) end
+        return
+      end
       tt:AddLine("Hire a " .. f.hire:lower(), 1, 0.82, 0)
       tt:AddLine(f.hireDesc or "Works this spot automatically, forever, even offline (up to 24 hours).", 1, 1, 1, true)
     end)
@@ -439,8 +459,33 @@ TCF.UI.Builders.professions = function(page, win)
     spotPage:SetText(string.format("%d-%d of %d", win.spotScroll + 1, win.spotScroll + SPOT_ROWS, total))
     spotUp:SetEnabled(win.spotScroll > 0); spotDown:SetEnabled(win.spotScroll < total - SPOT_ROWS)
     local glitch = TCF:Glitch()
+    -- (1.7.0) glints and spot events while the page is open (Workshop.lua)
+    local shown = {}
+    for _, r in ipairs(rows) do shown[#shown + 1] = r.spot end
+    if TCF.WorkshopTick then TCF:WorkshopTick(shown) end
+    local gl = TCF.WorkshopGlint and TCF:WorkshopGlint()
+    local ev = TCF.WorkshopEvent and TCF:WorkshopEvent()
+    local combo = TCF.WorkshopCombo and TCF:WorkshopCombo() or 0
+    if ev and ev.text then
+      local left = max(0, floor(ev.ends - GetTime() + 0.5))
+      local extra = ev.kind == "stash" and string.format("  |cffffffff%d / %d|r", ev.clicks, TCF.STASH_CLICKS) or ""
+      spotHint:SetText(string.format("|cffffd100%s|r%s  |cff999999(%ds)|r", ev.text, extra, left))
+    elseif combo > 0 then
+      spotHint:SetText(string.format("|cffffd100Glint combo %d|r: rare finds are %d%% likelier. Click the next sparkling %s by hand in time to keep it going.",
+        combo, floor(min(3, 1 + 0.25 * combo) * 100 - 100 + 0.5), f.toolNoun:lower()))
+    end
     for _, r in ipairs(rows) do
       local i = r.spot
+      local glinting = gl and gl.fam == fam and gl.i == i and GetTime() < gl.ends
+      if glinting then
+        r.glint:Show(); r.glint:SetAlpha(0.6 + 0.4 * math.sin(GetTime() * 12))
+        if r.glint.SetRotation then r.glint:SetRotation(GetTime() * 2) end
+        r.pick.sel:Show(); r.pick.sel:SetVertexColor(1, 0.8, 0.2); r.pick.sel:SetAlpha(0.7 + 0.3 * math.sin(GetTime() * 14))
+        r.pickLabel:SetText("|cffffd100Glint x5|r")
+      else
+        r.glint:Hide(); r.pick.sel:Hide()
+        r.pickLabel:SetText("By hand")
+      end
       local o, st = f.ops[i], s.ops[fam][i]
       local open, why = TCF:SpotUnlocked(fam, i)
       local glitched = glitch and glitch.fam == fam and glitch.i == i
@@ -451,6 +496,8 @@ TCF.UI.Builders.professions = function(page, win)
         -- the patch secret: the row's name flickers while the spot is glitched
         r.name:SetText((math.sin(GetTime() * 18) > 0 and "|cffcc66ff" or "|cff66ffee") .. o[1] .. "?|r")
       elseif not open then r.name:SetText("|cff777777" .. o[1] .. "|r")
+      elseif ev and ev.i == i and ev.kind == "rich" then r.name:SetText("|cffffd100x3|r " .. skillColor(gskill, TCF.SpotDifficulty(i)) .. o[1] .. "|r")
+      elseif ev and ev.i == i and ev.kind == "stash" then r.name:SetText("|cffff8040Stash|r " .. skillColor(gskill, TCF.SpotDifficulty(i)) .. o[1] .. "|r")
       else r.name:SetText(skillColor(gskill, TCF.SpotDifficulty(i)) .. o[1] .. "|r") end
       local ct = TCF:OpCycleTime(fam, i)
       r.bar:SetMinMaxValues(0, 1)
@@ -488,7 +535,9 @@ TCF.UI.Builders.professions = function(page, win)
       if open then r.buy:SetText("x" .. count .. "  " .. TCF.GoldStr(bcost, 10)); r.buy:SetEnabled(s.gold >= bcost)
       else r.buy:SetText("|cff888888Locked|r"); r.buy:SetEnabled(false) end
       local fcost = TCF.PROF_OPS[i].foreman
-      if st.mgr then r.mgr:SetText("|cff20ff20Automated|r"); r.mgr:SetEnabled(false)
+      local h = st.mgr and TCF.HelperInfo and TCF:HelperInfo(fam, i)
+      if h then r.mgr:SetText(string.format("|cff20ff20%s|r  Lv %d", h.name, h.level)); r.mgr:SetEnabled(false)
+      elseif st.mgr then r.mgr:SetText("|cff20ff20Automated|r"); r.mgr:SetEnabled(false)
       -- (1.6.2) "Hire" and the price fit the button on one line; the tooltip names the helper
       else r.mgr:SetText("Hire " .. TCF.GoldStr(fcost, 10)); r.mgr:SetEnabled(st.n > 0 and s.gold >= fcost) end
     end
@@ -1480,11 +1529,11 @@ TCF.UI.Builders.professions = function(page, win)
 
   ------------------------------------------------ renown
   local renView = View()
-  local renInfo = Text(renView, "GameFontHighlight", nil, "LEFT"); renInfo:SetPoint("TOPLEFT", 16, -10); renInfo:SetWidth(520); renInfo:SetSpacing(4)
+  local renInfo = Text(renView, "GameFontHighlightSmall", nil, "LEFT"); renInfo:SetPoint("TOPLEFT", 16, -8); renInfo:SetWidth(520); renInfo:SetSpacing(3)
   local renBtn = Button(renView, "Sell the business", 180, 26, function()
     if IsShiftKeyDown() then TCF:PrestigeTrade() else TCF:Print("Shift-click to sell everything you bought with Trade Gold for Renown.", true) end
   end)
-  renBtn:SetPoint("TOPLEFT", 16, -250)
+  renBtn:SetPoint("TOPLEFT", 16, -234)
   local function refreshRenown()
     local s = TCF:ProfState()
     local gain = TCF:RenownOnReset()
@@ -1503,11 +1552,195 @@ TCF.UI.Builders.professions = function(page, win)
     renBtn:SetEnabled(gain >= 5)
   end
 
+
+  ------------------------------------------------ (1.7.0) Renown shop: perks bought with Renown points (ProfDepth.lua)
+  local perkBtns = {}
+  local perkHead = Text(renView, "GameFontNormal", nil, "LEFT"); perkHead:SetPoint("TOPLEFT", 16, -266); perkHead:SetWidth(520)
+  for k, p in ipairs(TCF.RENOWN_PERKS) do
+    local b = Button(renView, "", 258, 22, function()
+      local ok, why = TCF:BuyRenownPerk(p.key)
+      if not ok and why then TCF:Print(why) end
+      win:Refresh()
+    end)
+    b:SetPoint("TOPLEFT", 12 + ((k - 1) % 2) * 264, -284 - floor((k - 1) / 2) * 25)
+    Tip(b, function(tt)
+      local rank = TCF:RenownPerk(p.key)
+      tt:AddLine(string.format("%s (rank %d of %d)", p.name, rank, #p.costs), 1, 0.82, 0)
+      tt:AddLine(p.text, 1, 1, 1, true)
+      local cost = p.costs[rank + 1]
+      if cost then tt:AddLine(string.format("Next rank: %d Renown points (you have %d).", cost, TCF:RenownPoints()), 0.4, 1, 0.4) end
+      tt:AddLine("Perks stay when you sell the business.", 0.7, 0.7, 0.7, true)
+    end)
+    b.perk = p
+    perkBtns[k] = b
+  end
+  local function refreshPerks()
+    perkHead:SetText(string.format("Renown shop  |cffffffff%d points|r  |cff999999(each sale gives points too; perks stay forever)|r", TCF:RenownPoints()))
+    for _, b in ipairs(perkBtns) do
+      local p = b.perk
+      local rank = TCF:RenownPerk(p.key)
+      local cost = p.costs[rank + 1]
+      if cost then b:SetText(string.format("%s %d/%d  |cffffd100%d|r", p.name, rank, #p.costs, cost)); b:SetEnabled(TCF:RenownPoints() >= cost)
+      else b:SetText(string.format("|cff20ff20%s %d/%d|r", p.name, rank, #p.costs)); b:SetEnabled(false) end
+      fitText(b)
+    end
+  end
+
+  ------------------------------------------------ (1.7.0) Guild: rank, specialization, daily craft, work orders
+  local guildView = View()
+  local gHead = Panel(guildView, 532, 54, 0.85); gHead:SetPoint("TOP", 0, -2)
+  gHead.icon = gHead:CreateTexture(nil, "ARTWORK"); gHead.icon:SetSize(40, 40); gHead.icon:SetPoint("LEFT", 8, 0)
+  gHead.name = Text(gHead, "GameFontNormalLarge", nil, "LEFT"); gHead.name:SetPoint("TOPLEFT", 56, -5); gHead.name:SetWidth(460)
+  if gHead.name.SetWordWrap then gHead.name:SetWordWrap(false) end
+  gHead.bar = Bar(gHead, 300, 14, 0.3, 0.55, 0.95); gHead.bar:SetPoint("BOTTOMLEFT", 56, 7)
+  gHead.note = Text(gHead, "GameFontHighlightSmall", nil, "RIGHT"); gHead.note:SetPoint("BOTTOMRIGHT", -10, 7); gHead.note:SetWidth(150)
+  Tip(gHead, function(tt)
+    local craft = TCF:CraftProf()
+    local g = TCF.GUILDS[craft]
+    tt:AddLine(g.name, 1, 0.82, 0)
+    tt:AddLine("Fill work orders to earn reputation. Ranks: Initiate, Apprentice, Journeyman, Expert, Artisan, Master and Grand Master. The legendary recipes need a high rank, and Grand Master gives the title " .. g.master .. ".", 1, 1, 1, true)
+  end)
+  -- specialization
+  local gSpec = Panel(guildView, 532, 44, 0.85); gSpec:SetPoint("TOP", 0, -60)
+  gSpec.text = Text(gSpec, "GameFontHighlightSmall", nil, "LEFT"); gSpec.text:SetPoint("LEFT", 10, 0); gSpec.text:SetWidth(512)
+  gSpec.btns = {}
+  for k = 1, 3 do
+    local b = Button(gSpec, "", 168, 24, function()
+      local sp = gSpec.btns[k].spec
+      if not sp then return end
+      local ok, why = TCF:ChooseSpec(sp.key)
+      if not ok and why then TCF:Print(why, true) end
+      win:Refresh()
+    end)
+    b:SetPoint("LEFT", 8 + (k - 1) * 174, 0)
+    Tip(b, function(tt)
+      local sp = b.spec
+      if not sp then return end
+      tt:AddLine(sp.name, 1, 0.82, 0)
+      tt:AddLine(sp.perk, 1, 1, 1, true)
+      tt:AddLine(string.format("Daily craft: %s. Long-chase set: %s.", TCF.DAILY_MATS[sp.daily].name,
+        (TCF.COSMETIC_SET_BY_KEY[sp.set] and TCF.COSMETIC_SET_BY_KEY[sp.set].name) or "coming"), 0.4, 1, 0.4, true)
+      if TCF:Spec(sp.craft) then tt:AddLine(string.format("Changing costs %d TapCoins.", TCF.SPEC_SWITCH_COINS), 1, 0.5, 0.3) end
+    end)
+    gSpec.btns[k] = b
+  end
+  -- the daily craft
+  local gDaily = Panel(guildView, 532, 44, 0.85); gDaily:SetPoint("TOP", 0, -108)
+  gDaily.icon = gDaily:CreateTexture(nil, "ARTWORK"); gDaily.icon:SetSize(32, 32); gDaily.icon:SetPoint("LEFT", 8, 0)
+  gDaily.text = Text(gDaily, "GameFontHighlightSmall", nil, "LEFT"); gDaily.text:SetPoint("LEFT", 48, 0); gDaily.text:SetWidth(370)
+  gDaily.btn = Button(gDaily, "Make", 96, 24, function()
+    local ok, why = TCF:DailyCraft()
+    if not ok and why then TCF:Print(why, true) end
+    win:Refresh()
+  end)
+  gDaily.btn:SetPoint("RIGHT", -8, 0)
+  -- work orders
+  local gOrdHead = Text(guildView, "GameFontNormal", nil, "LEFT"); gOrdHead:SetPoint("TOPLEFT", 14, -158); gOrdHead:SetWidth(520)
+  local orderRows = {}
+  for k = 1, 5 do
+    local r = Panel(guildView, 532, 38, 0.85); r:SetPoint("TOP", 0, -176 - (k - 1) * 40)
+    r.icon = r:CreateTexture(nil, "ARTWORK"); r.icon:SetSize(28, 28); r.icon:SetPoint("LEFT", 6, 0)
+    r.text = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.text:SetPoint("TOPLEFT", 42, -5); r.text:SetWidth(380)
+    r.reward = Text(r, "GameFontDisableSmall", nil, "LEFT"); r.reward:SetPoint("BOTTOMLEFT", 42, 5); r.reward:SetWidth(380)
+    for _, fs in ipairs({ r.text, r.reward }) do if fs.SetWordWrap then fs:SetWordWrap(false) end end
+    r.btn = Button(r, "Deliver", 90, 24, function()
+      if not r.order then return end
+      local ok, why = TCF:FillOrder(r.order.id)
+      if not ok and why then TCF:Print(why) end
+      win:Refresh()
+    end)
+    r.btn:SetPoint("RIGHT", -6, 0)
+    orderRows[k] = r
+  end
+  local gRare = Text(guildView, "GameFontHighlightSmall", nil, "LEFT"); gRare:SetPoint("TOPLEFT", 14, -380); gRare:SetWidth(520)
+  local function refreshGuild()
+    local craft = TCF:CraftProf()
+    local fam = TCF:MainProf()
+    local g = TCF.GUILDS[craft]
+    local s = TCF:ProfState()
+    local rank, rname, rep, nextRep = TCF:GuildRank(craft)
+    gHead.icon:SetTexture(TCF.Icon(g.icon))
+    gHead.name:SetText(string.format("%s  |cffffffff%s|r", g.name, rname))
+    local lo = TCF.GUILD_RANKS[rank].rep
+    gHead.bar:SetMinMaxValues(0, 1); gHead.bar:SetValue(nextRep and (rep - lo) / (nextRep - lo) or 1)
+    gHead.bar.text:SetText(nextRep and string.format("%s / %s reputation", TCF.Commas(rep), TCF.Commas(nextRep)) or "Grand Master")
+    gHead.note:SetText(string.format("|cff999999Orders filled: %d|r", (TCF:DepthState().filled or 0)))
+    -- specialization
+    local skill = TCF:ProfSkill(craft)
+    local mine = TCF:Spec(craft)
+    local list = TCF.SPECS[craft] or {}
+    if skill < TCF.SPEC_SKILL then
+      gSpec.text:SetText(string.format("|cffffd100Specializations|r open at %s %d (you have %d): %s. Each has its own daily craft, perk and legendary set.",
+        TCF:CraftName(craft), TCF.SPEC_SKILL, skill, (function() local t = {} for _, sp in ipairs(list) do t[#t + 1] = sp.name end return table.concat(t, ", ") end)()))
+      vis(gSpec.text, true)
+      for _, b in ipairs(gSpec.btns) do vis(b, false) end
+    elseif not mine or win.specPick then
+      vis(gSpec.text, false)
+      for k, b in ipairs(gSpec.btns) do
+        local sp = list[k]
+        b.spec = sp
+        vis(b, sp)
+        if sp then b:SetText((mine and mine.key == sp.key) and ("|cff20ff20" .. sp.name .. "|r") or sp.name); fitText(b) end
+      end
+    else
+      gSpec.text:SetText(string.format("|cffffd100%s|r  %s  |cff999999(hover a recipe to see what it needs)|r", mine.name, mine.perk))
+      vis(gSpec.text, true)
+      for _, b in ipairs(gSpec.btns) do vis(b, false) end
+    end
+    -- daily craft
+    if mine then
+      local dm = TCF.DAILY_MATS[mine.daily]
+      gDaily.icon:SetTexture(TCF.Icon(dm.icon)); gDaily.icon:SetDesaturated(false)
+      local parts = {}
+      for m, n in pairs(dm.mats) do
+        local have = s.mats[m] or 0
+        local mat = TCF.MAT_BY_KEY[m]
+        parts[#parts + 1] = string.format("%s%s/%s|r %s", have >= n and "|cff20ff20" or "|cffff5050", TCF.FormatBig(min(have, n)), n, mat and mat.name or m)
+      end
+      table.sort(parts)
+      local wait = TCF:DailyReadyIn(craft)
+      gDaily.text:SetText(string.format("|cffffd100Daily craft: %s|r  (you have %d)\n%s", dm.name, s.mats[mine.daily] or 0, table.concat(parts, ",  ")))
+      if wait > 0 then gDaily.btn:SetText(TCF.FormatDuration(wait)); gDaily.btn:SetEnabled(false)
+      else gDaily.btn:SetText("Make"); gDaily.btn:SetEnabled(true) end
+      vis(gDaily.btn, true)
+    else
+      gDaily.icon:SetTexture(TCF.Icon("INV_Misc_QuestionMark")); gDaily.icon:SetDesaturated(true)
+      gDaily.text:SetText("|cff999999Daily craft: choose a specialization to make a special material once a day. The legendary sets need many of them.|r")
+      vis(gDaily.btn, false)
+    end
+    -- orders
+    local orders = TCF:WorkOrders(craft)
+    local wait = TCF:NextOrderIn(craft)
+    gOrdHead:SetText(string.format("Work orders  |cff999999%d of %d%s|r", #orders, TCF:OrderSlots(),
+      (#orders < TCF:OrderSlots() and wait > 0) and string.format(", a new one in %s", TCF.FormatDuration(wait)) or ""))
+    for k, r in ipairs(orderRows) do
+      local o = orders[k]
+      r.order = o
+      vis(r, o)
+      if o then
+        local icon
+        if o.kind == "gear" then local it = TCF.GEAR and TCF.GEAR[o.key]; icon = it and it.icon
+        else local m = TCF.MAT_BY_KEY[o.key]; icon = m and m.icon end
+        r.icon:SetTexture(TCF.Icon(icon or "INV_Misc_QuestionMark"))
+        local have = TCF:OrderHave(o)
+        r.text:SetText(TCF:OrderText(o) .. string.format("  %s(%d/%d)|r", have >= o.n and "|cff20ff20" or "|cffff5050", min(have, o.n), o.n))
+        r.reward:SetText(string.format("%s,  +%d reputation%s  |cff777777(leaves in %s)|r", TCF.GoldStr(o.gold, 10), o.rep,
+          (o.coins or 0) > 0 and string.format(",  %d TapCoins", o.coins) or "", TCF.FormatDuration(max(0, o.expires - time()))))
+        r.btn:SetEnabled(have >= o.n)
+      end
+    end
+    -- rare finds
+    local parts = {}
+    for _, rf in ipairs(TCF.RARE_FINDS[fam] or {}) do parts[#parts + 1] = string.format("%s |cffa335ee%d|r", rf.name, s.mats[rf.key] or 0) end
+    local ws = TCF:WorkshopState()
+    gRare:SetText(string.format("Rare finds (clicks by hand only):  %s   |cff999999Best glint combo %d|r", table.concat(parts, "   "), ws.best or 0))
+  end
+
   ------------------------------------------------ refresh
   local MAIN = { herbalism = { gardenView, refreshGarden, "Garden" },
     firstaid = { aidView, refreshAid, "Bandages" }, fishing = { fishView, refreshFishing, "Fishing", enterFishing },
     cooking = { cookView, refreshCooking, "Kitchen" } }
-  local allViews = { locked, spotView, upgView, gardenView, gardenerView, aidView, fishView, cookView, craftView, renView }
+  local allViews = { locked, spotView, upgView, gardenView, gardenerView, aidView, fishView, cookView, craftView, renView, guildView }
 
   local refresh
   local acc = 0
@@ -1588,6 +1821,7 @@ TCF.UI.Builders.professions = function(page, win)
     -- the second view button: Upgrades for the main profession, Gardener for Herbalism (1.6.7)
     local hasSecond = fam or prof == "herbalism"
     if win.profView == "upg" and not hasSecond then win.profView = "main" end
+    if win.profView == "guild" and not fam then win.profView = "main" end
     local view = win.profView
     local unlocked = TCF:ProfUnlocked(prof)
     -- the first time each profession is opened, its guide explains it (remembered per account)
@@ -1597,7 +1831,7 @@ TCF.UI.Builders.professions = function(page, win)
     elseif guide:IsShown() and guide.prof ~= prof then guide:Hide() end
     -- header
     profName:SetText(p.name)
-    local skillKey = (fam and view == "craft") and fam.craft or prof
+    local skillKey = (fam and (view == "craft" or view == "guild")) and fam.craft or prof
     local skillProf = TCF.PROF_BY_KEY[skillKey] or p
     local skillName = skillProf.skillName or skillProf.name   -- "Cloth Scavenging", not a second "Tailoring"
     local skill = TCF:ProfSkill(skillKey)
@@ -1610,6 +1844,8 @@ TCF.UI.Builders.professions = function(page, win)
     vbtns[3]:SetText(fam and fam.craftName or "Crafting")
     vbtns[2]:SetText(fam and "Upgrades" or "Gardener")
     vis(vbtns[2], hasSecond)
+    vis(vbtns[4], fam)
+    for _, b in ipairs(vbtns) do fitText(b) end
     for _, b in ipairs(vbtns) do if b.key == view then b:LockHighlight() else b:UnlockHighlight() end end
 
     -- which view, and change visibility only when it changes
@@ -1619,6 +1855,7 @@ TCF.UI.Builders.professions = function(page, win)
       if fam then target, enter = spotView, function() enterSpots(prof) end
       else target, enter = MAIN[prof][1], MAIN[prof][4] end
     elseif view == "upg" then target = fam and upgView or gardenerView
+    elseif view == "guild" then target = guildView
     elseif view == "craft" then target, enter = craftView, function() enterCraft(fam and fam.craft or prof) end
     else target = renView end
     local key = prof .. ":" .. view .. ":" .. (unlocked and "1" or "0")
@@ -1638,7 +1875,8 @@ TCF.UI.Builders.professions = function(page, win)
     elseif target == upgView then refreshUpgrades(prof)
     elseif target == gardenerView then refreshGardener()
     elseif target == craftView then refreshCraft(fam and fam.craft or prof)
-    elseif target == renView then refreshRenown()
+    elseif target == renView then refreshRenown(); refreshPerks()
+    elseif target == guildView then refreshGuild()
     else MAIN[prof][2]() end
   end
   return refresh

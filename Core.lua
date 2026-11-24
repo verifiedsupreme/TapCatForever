@@ -544,6 +544,9 @@ function TCF:SettleXP(class)
 end
 
 function TCF:GetTitle(level)
+  -- (1.7.0) an earned title the player picked (ProfDepth.lua), in place of the level title
+  local db = self.db
+  if not level and db and db.titleSel and type(db.titles) == "table" and db.titles[db.titleSel] then return db.titleSel end
   level = level or self:CD().level
   local t = TCF.TITLES[1][2]
   for _, e in ipairs(TCF.TITLES) do if level >= e[1] then t = e[2] end end

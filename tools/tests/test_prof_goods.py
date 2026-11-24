@@ -14,6 +14,9 @@ def check(seed, load_addon):
       local cloth = T.FAMILIES[fam].ops[1][2]
       local st = s.ops[fam][1]
       st.n, st.mgr, st.p = 1, true, 0
+      -- (1.7.0) this test is about upgrades and Renown: leave the helper's own bonus out (test_prof2.py has it)
+      local helperGoods = T.HelperGoodsMult
+      T.HelperGoodsMult = function() return 1 end
       -- plain: 1 a cycle, as before
       ck(T:OpMatsPerCycle(fam, 1) == 1, "plain spot: 1 good a cycle: " .. T:OpMatsPerCycle(fam, 1))
       local m0 = s.mats[cloth] or 0
@@ -38,6 +41,7 @@ def check(seed, load_addon):
       local u
       for _, x in ipairs(T.UPGRADES[fam]) do if x.id == fam .. "1_0" then u = x end end
       ck(u and u.name:find("goods x3", 1, true) and not u.name:find("!", 1, true), "upgrade name: " .. tostring(u and u.name))
+      T.HelperGoodsMult = helperGoods
       return table.concat(fails, "; ")
     ''')
     if r:

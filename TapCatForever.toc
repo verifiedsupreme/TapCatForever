@@ -49,6 +49,9 @@ FirstAid.lua
 Fishing.lua
 Cooking.lua
 Alchemy.lua
+Workshop.lua
+ProfDepth.lua
+ProfSets.lua
 Purr.lua
 Quests.lua
 Dungeons.lua
