@@ -14,6 +14,7 @@
 - With no spare gear, the note about where gear comes from now sits in the middle of the list and wraps, instead of running across the whole window behind Sell junk and Equip best.
 
 **Professions**
+- The x3 upgrades now multiply the goods a spot gathers (ore, leather, cloth) as well as its Trade Gold, and Renown adds its 2% a point to goods too. The upgrades are now called "Trade Gold and goods x3".
 - The Buy and Hire buttons on every spot are taller and easier to click, and Hire shows just the price ("Hire 75.00K") so it fits on one line. Hover it to see who you hire.
 - The profession icons and the page buttons under them are a little bigger.
 

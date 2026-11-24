@@ -771,9 +771,14 @@ function TCF:GatherIncome(prof)
 end
 function TCF:MiningIncome() return self:GatherIncome() end
 
-function TCF:OpMatsPerCycle(prof, i)
+-- (1.6.2) the goods a cycle gives (ore, leather, cloth) grow with the x3 profit upgrades and Renown,
+-- like its Trade Gold: 1 (2 from 100 owned, 3 from 300) times TCF:UpgradeMult times (1 + 2% per Renown)
+function TCF:OpMatsBase(prof, i)
   local n = opState(self, prof, i).n
   return 1 + (n >= 100 and 1 or 0) + (n >= 300 and 1 or 0)
+end
+function TCF:OpMatsPerCycle(prof, i)
+  return self:OpMatsBase(prof, i) * self:UpgradeMult(prof, i) * (1 + 0.02 * (S(self).renown or 0))
 end
 
 ---------------------------------------------------------------- hand tools
@@ -980,12 +985,12 @@ for _, k in ipairs(FAM_KEYS) do
   for i, o in ipairs(f.ops) do
     for t = 0, 2 do
       list[#list + 1] = { id = k .. i .. "_" .. t, kind = "profit", op = i, mult = 3, family = k,
-        cost = OPS[i].cost * 2e5 * 500 ^ t, name = o[1] .. " profits x3", icon = o[4] }
+        cost = OPS[i].cost * 2e5 * 500 ^ t, name = o[1] .. ": Trade Gold and goods x3", icon = o[4] }
     end
   end
   for t = 0, 2 do
     list[#list + 1] = { id = k .. "_all" .. t, kind = "profit", op = 0, mult = 3, family = k,
-      cost = 1e9 * 1e4 ^ t, name = "All " .. f.tab .. " profits x3", icon = f.icon }
+      cost = 1e9 * 1e4 ^ t, name = "All " .. f.tab .. ": Trade Gold and goods x3", icon = f.icon }
   end
   table.sort(list, function(a, b) return a.cost < b.cost end)
   TCF.UPGRADES[k] = list
@@ -1063,7 +1068,12 @@ end
 local function produce(self, s, f, i, cycles)
   self:EarnGold(self:OpRevenue(f, i) * cycles)
   local op = TCF.FAMILIES[f].ops[i]
-  s.mats[op[2]] = (s.mats[op[2]] or 0) + cycles * self:OpMatsPerCycle(f, i)
+  -- whole goods go in the bag; the part of one left over waits for the next cycle (s.matCarry)
+  s.matCarry = type(s.matCarry) == "table" and s.matCarry or {}
+  local got = cycles * self:OpMatsPerCycle(f, i) + (tonumber(s.matCarry[op[2]]) or 0)
+  local whole = floor(got)
+  s.matCarry[op[2]] = got - whole
+  if whole > 0 then s.mats[op[2]] = (s.mats[op[2]] or 0) + whole end
 end
 
 -- Advance one cat's trade by dt seconds (the current class's, or TCF.tradeClass's inside

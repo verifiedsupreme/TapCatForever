@@ -211,7 +211,7 @@ def check(seed, load_addon):
     mean, hit, sd, reels = exact_rtp(lua)
     lmean, lhit = ex("return T:SlotsExactRTP()")
     ck(abs(mean - lmean) < 1e-12 and abs(hit - lhit) < 1e-12, "RTP agrees: %s %s" % (mean, lmean))
-    ck(0.92 <= mean <= 0.95, "slots RTP in 92-95%%: %.4f" % mean)
+    ck(0.95 <= mean <= 0.965, "slots RTP about 95.5%% (1.6.2): %.4f" % mean)
     ck(all(len(r) == 20 for r in reels), "20 stops per reel")
     # the rarer a line, the more it pays
     odds = {s: reels[0].count(s) * reels[1].count(s) * reels[2].count(s) for s in pays}

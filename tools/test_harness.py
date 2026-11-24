@@ -736,9 +736,9 @@ TEST = r'''
       local refreshPage = TCF.UI.Builders.professions(page, pw)
       local function shown(txt) for i = first, #_frames do local f = _frames[i]; if f.kind == "FontString" and f.text == txt then return true end end end
       refreshPage()
-      check(shown("Warrior: Renown 0 (+0% gold)") and shown(TCF.GoldStr(150, 16)), "the page shows the Warrior's gold and Renown")
+      check(shown("Warrior: Renown 0 (+0%)") and shown(TCF.GoldStr(150, 16)), "the page shows the Warrior's gold and Renown")
       TCF:SetClass("MAGE"); refreshPage()
-      check(shown("Mage: Renown 7 (+14% gold)") and shown(TCF.GoldStr(1114, 16)), "switching class shows the Mage's numbers")
+      check(shown("Mage: Renown 7 (+14%)") and shown(TCF.GoldStr(1114, 16)), "switching class shows the Mage's numbers")
       -- 4d. offline: every cat's helpers worked, and each cat got its own gold
       m.last, w.last = time() - 3600, time() - 1800
       local mg, wg, wc, ml = m.gold, w.gold, w.mats.copper, m.mats.linen

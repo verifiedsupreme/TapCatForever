@@ -123,7 +123,7 @@ TCF.UI.Builders.professions = function(page, win)
   Tip(goldHover, function(tt)
     local s = TCF:ProfState()
     tt:AddLine(string.format("Your %s cat's Trade Gold", className()), 1, 0.82, 0)
-    tt:AddLine(string.format("%s Trade Gold, Renown %d (+%d%% gold).", TCF.GoldStr(s.gold), s.renown, s.renown * 2), 1, 1, 1, true)
+    tt:AddLine(string.format("%s Trade Gold, Renown %d (+%d%% Trade Gold and goods).", TCF.GoldStr(s.gold), s.renown, s.renown * 2), 1, 1, 1, true)
     tt:AddLine(string.format("Trade Gold earned in total: %s. New professions unlock as this grows.", TCF.GoldStr(s.lifetime)), 1, 1, 1, true)
     tt:AddLine(PER_CLASS .. " Your other cats' helpers keep working while you play this one, and what they earn stays with them.", 0.7, 0.7, 0.7, true)
   end)
@@ -1278,7 +1278,7 @@ TCF.UI.Builders.professions = function(page, win)
     end
     renInfo:SetText(string.format(
       "%s Your %s cat's business:\n\n" ..
-      "|cffffd100Renown|r is permanent: each point adds +2%% to this cat's Trade Gold, so it earns faster.\n\n" ..
+      "|cffffd100Renown|r is permanent: each point adds +2%% to this cat's Trade Gold and to the goods its spots gather (ore, leather, cloth), so it earns faster.\n\n" ..
       "Current Renown: |cffffffff%d|r (highest ever %d)\nTrade Gold earned in total: |cffffffff%s|r\nRenown you'd gain by selling now: |cff20ff20%d|r  (+%d TapCoins)\n\n" ..
       "New professions unlock at Trade Gold earned in total (selling never lowers it): %s\n\nSelling resets this cat's Trade Gold, %s, %s, garden plots, %s, helpers and upgrades. " ..
       "You keep skills, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
@@ -1337,7 +1337,7 @@ TCF.UI.Builders.professions = function(page, win)
       guide.body:SetText(string.format(
         "|cffffd100Gather|r: buy %s, then hire %s so they keep working on their own, even while you're offline. Click a %s to %s by hand with your %s. Every cycle earns Trade Gold and %s.\n\n" ..
         "|cffffd100Craft|r: open %s to turn your %s into |cff20ff20real gear with stats|r for this class (it goes to your Gear tab) or |cffcc88ffcosmetics|r that only change your cat's look (marked Cosmetic only; they go to Appearance). Crafting raises your skill and unlocks new recipes up to 300. Locked recipes show the skill they need.\n\n" ..
-        "|cffffd100Grow|r: spend Trade Gold on Upgrades. As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking. When your business is big, sell it for Renown: each point adds 2%% Trade Gold, so the gold comes faster. Selling never lowers the Trade Gold earned that unlocks professions, and you need a few rounds of selling to reach the later ones.\n\n" ..
+        "|cffffd100Grow|r: spend Trade Gold on Upgrades. As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking. When your business is big, sell it for Renown: each point adds 2%% Trade Gold and goods, so they come faster. Selling never lowers the Trade Gold earned that unlocks professions, and you need a few rounds of selling to reach the later ones.\n\n" ..
         "|cff999999Each class has its own Trade Gold and professions.|r",
         fam.spotNounPlural, fam.hirePlural:lower(), fam.spotNoun, fam.verb:lower(), fam.toolNoun:lower(), fam.matNoun,
         fam.craftName, fam.matNoun))
@@ -1385,7 +1385,7 @@ TCF.UI.Builders.professions = function(page, win)
     local skill = TCF:ProfSkill(skillKey)
     skillBar:SetMinMaxValues(0, 300); skillBar:SetValue(skill); skillBar.text:SetText(skillName .. " " .. skill .. " / 300")
     goldText:SetText(TCF.GoldStr(s.gold, 16))
-    renownText:SetText(string.format("%s: Renown %d (+%d%% gold)", className(), s.renown, s.renown * 2))
+    renownText:SetText(string.format("%s: Renown %d (+%d%%)", className(), s.renown, s.renown * 2))
     buyMode:SetText(s.buy == "max" and "Buy Max" or ("Buy x" .. s.buy))
     vis(buyMode, fam and view == "main" and unlocked)
     vbtns[1]:SetText(fam and fam.spotsTitle or MAIN[prof][3])

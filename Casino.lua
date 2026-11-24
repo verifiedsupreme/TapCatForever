@@ -208,8 +208,10 @@ end
 
 ---------------------------------------------------------------- slots
 -- Three reel strips of 20 stops, each with its own mix, so the rarer a line the more it pays:
--- three cats 1 in 1,000, gems 1 in 667, bells 1 in 500, coins 1 in 400, fish 1 in 296,
+-- three cats 1 in 1,000, gems 1 in 667, bells 1 in 444, coins 1 in 333, fish 1 in 296,
 -- yarn balls 1 in 222, paws 1 in 178. Two cats on each reel. One line: the middle row.
+-- (1.6.2: a coin and a bell swapped places between reels 2 and 3: about 95.5% back instead of 94.2%.
+-- The "How it works" tooltip works the odds and payback out from the reels, so it stays exact.)
 TCF.SLOT_SYMBOLS = {
   cat = { name = "Cat", art = "sym_cat" }, gem = { name = "Gem", art = "sym_gem" },
   bell = { name = "Bell", art = "sym_bell" }, coin = { name = "Coin", art = "sym_coin" },
@@ -218,8 +220,8 @@ TCF.SLOT_SYMBOLS = {
 }
 TCF.SLOT_REELS = {
   { "cat", "paw", "yarn", "fish", "paw", "bell", "yarn", "coin", "paw", "gem", "fish", "yarn", "paw", "cat", "fish", "paw", "yarn", "bell", "coin", "gem" },
-  { "paw", "gem", "coin", "fish", "cat", "coin", "yarn", "bell", "coin", "paw", "fish", "gem", "coin", "yarn", "cat", "fish", "paw", "bell", "yarn", "coin" },
-  { "yarn", "bell", "paw", "cat", "fish", "gem", "bell", "yarn", "coin", "paw", "bell", "fish", "gem", "cat", "yarn", "bell", "paw", "fish", "gem", "coin" },
+  { "paw", "gem", "bell", "fish", "cat", "coin", "yarn", "bell", "coin", "paw", "fish", "gem", "coin", "yarn", "cat", "fish", "paw", "bell", "yarn", "coin" },
+  { "yarn", "coin", "paw", "cat", "fish", "gem", "bell", "yarn", "coin", "paw", "bell", "fish", "gem", "cat", "yarn", "bell", "paw", "fish", "gem", "coin" },
 }
 -- what a line pays, as times your bet (your bet included)
 TCF.SLOT_PAY3 = { cat = 100, gem = 40, bell = 25, coin = 15, fish = 10, yarn = 5, paw = 3 }
