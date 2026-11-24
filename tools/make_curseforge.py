@@ -29,31 +29,31 @@ MEDIA = "https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/me
 
 # The fun part first: what your cat gets up to, one card each (picture, title, a few lines)
 CARDS = [
-    ("feat_cat.png", "A cat that taps with you",
+    ("card_cat.png", "A cat that taps with you",
      "Every key you press, every click and every spell you cast, your cat taps its paws along. Left paw on A, right paw on D. "
      "It pulls faces, bursts hearts and stars from its paws, and quietly earns XP and TapCoins while you play the real game."),
     (None, "Nine cats, one adventure",
      "One cat for every class, each levelling from 1 to 60 with its own real WoW gear and abilities. Send it through Elwynn Forest, "
      "the Deadmines, Molten Core and all the way to Naxxramas: real bosses, real loot tables, bosses you can farm, all while you play."),
-    ("feat_sets.png", "Dress it up",
+    ("card_sets.png", "Dress it up",
      "Hundreds of hats, capes, skins and tap effects, eleven animated dungeon sets with flames, frost and stars, and real gear that "
      "shows on your cat. Shift-click anything to try it on first. The rarest skins drop from Ragnaros, Nefarian and Kel'Thuzad."),
     (None, "Run a business",
      "Mining, skinning or tailoring for your class, with spots, helpers and upgrades that work even while you're offline. Craft real "
      "gear, unlock herbalism, first aid, fishing and cooking, and sell up for Renown to grow even faster."),
-    ("feat_garden.png", "Grow a garden",
+    ("card_garden.png", "Grow a garden",
      "26 real Classic herbs from Peacebloom to Icecap, a different seed in every plot, and Bramble the gardener, who harvests and "
      "replants while you're away and trains from Apprentice to Master. Lucky harvests bring Swiftthistle, Wildvine and Black Lotus."),
-    ("feat_potions.png", "Brew potions",
+    ("card_potions.png", "Brew potions",
      "Turn your herbs into 17 classic elixirs and flasks, from Elixir of Lion's Strength to Flask of the Titans, and drink them for "
      "more damage, health, XP or gold. They stack with your Well Fed food."),
-    ("feat_casino.png", "The cat casino",
+    ("card_casino.png", "The cat casino",
      "Lucky Paws slots, blackjack, a death roll in a cosy tavern and rock paper scissors (best of 1, 3 or 5) on a snowy mountaintop. Play the house cat, "
      "or challenge a friend in your party for TapCoins."),
-    ("feat_friends.png", "Better with friends",
+    ("card_friends.png", "Better with friends",
      "Group up with friends who have the addon: their cats sit beside yours, your taps count up to 50% more, you can send your cats "
      "on party expeditions together, check out each other's cats and climb the realm leaderboard."),
-    ("feat_window.png", "Your window, your way",
+    ("card_window.png", "Your window, your way",
      "A big window with your cat and its gear, fold the character panel away, or switch to a phone-sized view with big round buttons. "
      "Quests, achievements, chests with a loot reel, and a Compendium of every item and how to get it."),
 ]
@@ -132,12 +132,12 @@ def md():
     o = ["![TapCatForever]({})".format(LOGO_SMALL), "",
          "### " + INTRO_BOLD, "", INTRO.strip() + " " + INTRO2, "", "*" + PERSONAL + "*", "",
          "---", "", "## What your cat gets up to", ""]
-    # each feature: its heading, a big picture (full width), then the text
+    # cards: a picture beside each (420x260, cut from the game's own screens), in a table so it reads like a web page
+    o += ["| | |", "|:---:|:---|"]
     for img, head, text in CARDS:
-        o += ["### " + head, ""]
-        if img: o += ["![{0}]({1}{2})".format(head, MEDIA, img), ""]
-        o += [text, ""]
-    o += ["---", "", "## What's new in {}".format(LATEST[0]), ""]
+        pic = "![{0}]({1}{2})".format(head, MEDIA, img) if img else ""
+        o.append("| {} | **{}**<br>{} |".format(pic, head, text))
+    o += ["", "---", "", "## What's new in {}".format(LATEST[0]), ""]
     o += ["- " + i for i in LATEST[1]]
     o += ["", "Full patch notes are in the game: Settings > Patch notes, or type `/tcf news`.", "",
           "### Earlier highlights", ""]
@@ -158,12 +158,11 @@ def h(s):
 def htm():
     o = ['<p style="text-align:center"><img src="{}" alt="TapCatForever" width="320" /></p>'.format(LOGO_SMALL),
          "<h3>{}</h3>".format(h(INTRO_BOLD)), "<p>{} {}</p>".format(h(INTRO.strip()), h(INTRO2)),
-         "<p><em>{}</em></p>".format(h(PERSONAL)), "<hr />", "<h2>What your cat gets up to</h2>"]
+         "<p><em>{}</em></p>".format(h(PERSONAL)), "<hr />", "<h2>What your cat gets up to</h2>", "<table>"]
     for img, head, text in CARDS:
-        o.append("<h3>{}</h3>".format(h(head)))
-        if img: o.append('<p><img src="{}{}" alt="{}" style="max-width:100%" /></p>'.format(MEDIA, img, h(head)))
-        o.append("<p>{}</p>".format(h(text)))
-    o += ["<hr />", "<h2>What's new in {}</h2>".format(h(LATEST[0])), "<ul>"]
+        pic = '<img src="{}{}" alt="{}" width="420" />'.format(MEDIA, img, h(head)) if img else ""
+        o.append('<tr><td style="text-align:center">{}</td><td><strong>{}</strong><br />{}</td></tr>'.format(pic, h(head), h(text)))
+    o += ["</table>", "<hr />", "<h2>What's new in {}</h2>".format(h(LATEST[0])), "<ul>"]
     o += ["<li>{}</li>".format(h(i)) for i in LATEST[1]]
     o += ["</ul>", "<p>Full patch notes are in the game: Settings &gt; Patch notes, or type <code>/tcf news</code>.</p>",
           "<h3>Earlier highlights</h3>", "<ul>"]
