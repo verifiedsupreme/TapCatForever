@@ -53,7 +53,8 @@ DR.DUEL_FEE = 0                      -- duels: the % of the loser's bet the tabl
 DR.HOUSE_DELAY = 1.2                 -- the house cat rolls this long after your roll
 DR.INVITE_TIME = 60                  -- a challenge waits this long for an answer
 DR.TURN_TIME = 60                    -- each turn of a duel
-DR.DONE_WAIT = 90                    -- after the 1: wait this long for the other addon to agree
+DR.DONE_WAIT = 20                    -- after the 1: wait this long for the other addon to agree (1.6.4: was 90)
+DR.STALL_CALL_OFF = 20               -- (1.6.4) on their turn: after this long with no roll you may call it off
 DR.TIMEOUT_FORFEIT = true            -- a turn that runs out without a roll loses the duel (false: it is called off)
 local FORFEIT_GRACE = 15             -- the waiting side waits this much longer for the "I ran out of time"
 local PRESSED_GRACE = 5              -- Roll was pressed: wait this much longer for its chat line
@@ -732,6 +733,18 @@ function TCF:DeathRollAnswer(accept)
   send("D2", d.id, "y", first)
   saveDuel(d)
   notify("state", "duel")
+  return true
+end
+
+-- (1.6.4) their turn and nothing came for a while: you may call the duel off (both bets come back).
+-- Only while it's their turn, so nobody can leave a duel they are about to lose on their own turn.
+function DR.CanCallOff()
+  local d = DR.duel
+  return d ~= nil and d.state == "rolling" and d.turn == "opp" and now() - (d.turnAt or 0) >= DR.STALL_CALL_OFF
+end
+function TCF:DeathRollCallOff()
+  if not DR.CanCallOff() then return false end
+  callOff("x", true)
   return true
 end
 

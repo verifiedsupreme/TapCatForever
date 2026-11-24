@@ -445,7 +445,9 @@ function Scene:Action()
   local d = DR.duel
   local g, running = TCF:DeathRollSolo()
   local ok, err
-  if d and d.state == "rolling" then
+  if d and d.state == "rolling" and d.turn == "opp" and DR.CanCallOff and DR.CanCallOff() then
+    ok = TCF:DeathRollCallOff()
+  elseif d and d.state == "rolling" then
     ok = TCF:DeathRollRoll()
   elseif d and d.state == "asking" then
     TCF:DeathRollWithdraw()
@@ -620,12 +622,17 @@ function Scene:Refresh(full)
       if g.turn == "me" then
         status = string.format("%sYour turn (%d s left).", g.n == 0 and "You roll first. " or "", left)
         btn = "Roll 1 - " .. TCF.Commas(g.cur)
+      elseif DR.CanCallOff and DR.CanCallOff() then
+        -- (1.6.4) their roll hasn't come for a while: a way out without a /reload
+        status = string.format("%s's turn (%d s left). Their roll hasn't come through: you can call it off and both bets come back.", opp, left)
+        btn, btnOn = "Call off", true
       else
         status = string.format("%s's turn (%d s left).", opp, left)
         btn, btnOn = "Roll 1 - " .. TCF.Commas(g.cur), false
       end
     elseif g.state == "done" then
-      status = string.format("Waiting for %s's addon to agree on the result...", opp)
+      local wait = max(0, floor((g.doneAt or t) + DR.DONE_WAIT - t))
+      status = string.format("Waiting for %s's addon to agree on the result (%d s)...", opp, wait)
       btn, btnOn = "Roll", false
     else
       local r = g.result

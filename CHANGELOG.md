@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.4
+
+**Death roll with a friend: no more /reload**
+- If it's your friend's turn and their roll hasn't come through for 20 seconds, the button turns into Call off: it ends the duel and both bets come back, so you can start the next one at once.
+- After the 1, the wait for your friend's addon to agree on the result is 20 seconds instead of 90, and the screen counts it down.
+
 ## 1.6.3
 
 **Try things on**
