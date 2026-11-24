@@ -1,8 +1,15 @@
 {
-  "latest": "1.7.0",
+  "latest": "1.8.0",
   "message_break": "<!-- message break -->",
   "image_line": "<!-- image: <file> -->",
   "versions": [
+    {
+      "version": "1.8.0",
+      "file": "1.8.0.md",
+      "headline": "Companion cats: 56 real WoW cats to collect, buy or earn in dungeons, one per cat, walking beside yours. Plus a snazzier Shop and a faster Heroic Cache.",
+      "messages": 2,
+      "images": []
+    },
     {
       "version": "1.7.0",
       "file": "1.7.0.md",

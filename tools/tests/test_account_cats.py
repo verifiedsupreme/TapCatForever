@@ -124,7 +124,10 @@ def check(seed, load_addon):
        "Adventure: Ann's place, kills added, first kills and abilities kept")
     t = "T:ProfState('MAGE')"
     ck(E(t + ".lifetime") == 5000 and E(t + ".gold") == 777, "the business with the most Trade Gold earned (Bob's)")
-    ck(E(t + ".skill.cloth") == 100 and E(t + ".skill.tailoring") == 120 and E(t + ".renown") == 2,
+    # (1.7.0) the one-time gathering-skill cut (a third, best kept in skillBest) may already have run here
+    cloth = E(t + ".skill.cloth")
+    cut_ok = cloth == 100 or (cloth == 33 and E("(%s.skillBest or {}).cloth" % t) == 100)
+    ck(cut_ok and E(t + ".skill.tailoring") == 120 and E(t + ".renown") == 2,
        "best skill per profession and best Renown: %r %r %r" % (E(t + ".skill.cloth"), E(t + ".skill.tailoring"), E(t + ".renown")))
     ck(E(t + ".mats.linen") == 15 and E(t + ".mats.wool") == 3, "materials added up")
     ck(E("T:CD('HUNTER').level") == 12 and E("T:CD('WARRIOR').level") == 5, "the other classes")
