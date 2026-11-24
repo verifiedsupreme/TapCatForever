@@ -102,6 +102,7 @@ local DEFAULTS = {
     showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
     mouse = true, popups = true, sound = false, chat = false, racial = true, cartoon = true, chestAnim = true, textAbove = true, cat3d = true, show3dWeapons = true,
     partyCats = true,   -- (1.6.7) the row of party members' cats beside yours (Party.lua)
+    tapFaces = true,    -- (1.6.8) the cat's face changes as you tap faster
     minimap = { angle = 215, hide = false },
   },
 }
@@ -639,6 +640,58 @@ function TCF:TapsLastSecond(now)
   return n
 end
 
+-- (1.6.8) Tapping faces: the cat looks keener the longer and faster you tap, in ten steps (Cat.lua
+-- shows face_tap1 .. face_tap10). Two things decide the face, and the lower one wins:
+--   heat:  taps made while tapping at a fair pace (at least TAP_FACE_MIN a second) add up; it cools
+--          after a pause, so the top faces take a long run of tapping, never a quick burst
+--   speed: taps in the last second, so slowing down brings the face back down
+-- The face then moves one step at a time, up or down, so it never jumps.
+TCF.TAP_FACE_HEAT = { 10, 30, 60, 100, 160, 240, 340, 460, 620, 800 }   -- heat for each face
+TCF.TAP_FACE_TPS = { 1, 2, 3, 3, 4, 5, 6, 7, 8, 9 }                    -- taps in the last second for each face
+TCF.TAP_FACE_MIN = 2            -- taps a second that count toward heat
+TCF.TAP_FACE_COOL = 12          -- seconds: how fast heat cools after a pause (and 3x slower while tapping slowly)
+TCF.TAP_FACE_UP, TCF.TAP_FACE_DOWN = 0.3, 0.45   -- seconds per step up, per step down
+local face = { level = 0, stepAt = 0, heat = 0, at = 0, lastTap = 0 }
+-- a counted tap (TCF:Tap)
+function TCF:TapFaceHeat(now, tps)
+  self:TapFaceLevel(now)          -- cool first, up to now
+  face.lastTap = now
+  if tps >= TCF.TAP_FACE_MIN then face.heat = min(face.heat + 1, TCF.TAP_FACE_HEAT[#TCF.TAP_FACE_HEAT] * 1.25) end
+end
+function TCF:TapFaceTarget(now)
+  local tps = self:TapsLastSecond(now)
+  local byHeat, bySpeed = 0, 0
+  for i, need in ipairs(TCF.TAP_FACE_HEAT) do if face.heat >= need then byHeat = i end end
+  for i, need in ipairs(TCF.TAP_FACE_TPS) do if tps >= need then bySpeed = i end end
+  return min(byHeat, bySpeed), tps
+end
+-- the face level now (0: the cat's own calm face). Called every frame by the cat.
+function TCF:TapFaceLevel(now)
+  now = now or GetTime()
+  local dt = now - face.at
+  face.at = now
+  local target, tps = self:TapFaceTarget(now)
+  if dt > 0 and dt < 3600 and face.heat > 0 then
+    -- cools after a second without taps, three times slower while tapping slowly
+    if now - face.lastTap > 1 then face.heat = face.heat * math.exp(-dt / TCF.TAP_FACE_COOL)
+    elseif tps < TCF.TAP_FACE_MIN then face.heat = face.heat * math.exp(-dt / (TCF.TAP_FACE_COOL * 3)) end
+    if face.heat < 0.5 then face.heat = 0 end
+  end
+  if target > face.level and now - face.stepAt >= TCF.TAP_FACE_UP then
+    face.level, face.stepAt = face.level + 1, now
+    local st = self.db and self.db.stats
+    if st and face.level > (st.peakFace or 0) then st.peakFace = face.level end
+  elseif target < face.level and now - face.stepAt >= TCF.TAP_FACE_DOWN then
+    face.level, face.stepAt = face.level - 1, now
+  end
+  return face.level, face.heat
+end
+TCF.TapFaceTest = { reset = function() face.level, face.stepAt, face.heat, face.at, face.lastTap = 0, 0, 0, 0, 0 end,
+                    state = function() return face end }
+-- names for the ten faces (Settings tooltip, tests)
+TCF.TAP_FACE_NAMES = { "Keen", "Perky", "Focused", "Determined", "Excited", "Sweating", "Intense", "Starstruck", "On fire", "Legendary" }
+TCF.PET_FACE_NAMES = { "Curious", "Pleased", "Shy", "Cosy", "Purring", "Smitten", "Melty", "Lovestruck", "Blissful", "Pure love" }
+
 -- the taps other players see (leaderboard, party): the lifetime taps without test-mode ones
 function TCF:SharedTaps()
   local db = self.db
@@ -688,6 +741,7 @@ function TCF:Tap(side)
   if self.AdvTapStrike then self:AdvTapStrike() end
   if self.ProfTap then self:ProfTap() end
   if tps > db.stats.peakTPS then db.stats.peakTPS = tps end
+  if self.TapFaceHeat then self:TapFaceHeat(now, tps) end
   if tps >= FRENZY_TPS then
     if not self.inFrenzy then
       self.inFrenzy = true

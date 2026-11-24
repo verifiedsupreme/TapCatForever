@@ -85,6 +85,19 @@ local function countDay(self, r)
   end
 end
 
+-- (1.6.8) petting faces: while you pet (no pause longer than P.GAP), the cat's face goes from Curious
+-- (face_pet1) to Pure love (face_pet10) as the run grows toward Happy Purrs (or toward the refresh while
+-- it purrs), and shows Pure love for a moment when the purring starts. 0: not being petted.
+local blissUntil = 0
+function TCF:PurrFaceLevel(t)
+  t = t or now()
+  if t < blissUntil then return 10 end
+  local cls = self.db and self.db.class
+  if t - lastPet > P.GAP or streakClass ~= cls or streak <= 0 then return 0 end
+  local need = self:PurrActive() and P.REFRESH or P.NEED
+  return max(1, math.min(9, math.ceil(streak / need * 9)))
+end
+
 -- one pet: every left-click on the cat
 function TCF:PurrPet()
   if not self.db then return false end
@@ -98,6 +111,7 @@ function TCF:PurrPet()
   local need = was and P.REFRESH or P.NEED
   if streak < need then return false end
   streak = 0
+  blissUntil = t + 3
   r["until"] = time() + P.DUR
   self:MarkDirty()
   -- one small note on the cat (only with "Popups on cat" on), and nothing else
@@ -155,5 +169,5 @@ end
 
 -- test hooks
 TCF.PurrTest = {
-  reset = function() streak, lastPet, streakClass = 0, -1e9, nil end,
+  reset = function() streak, lastPet, streakClass, blissUntil = 0, -1e9, nil, 0 end,
 }

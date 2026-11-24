@@ -23,7 +23,7 @@ shutil.rmtree(OUT, ignore_errors=True); os.makedirs(OUT)
 # ---- cat layers (make_vector.py writes the SVGs); fill layers get the cel shading
 subprocess.check_call([sys.executable, os.path.join(HERE, "make_vector.py"), CAT_DIR])
 CAT_LAYERS = ["body_t", "body_marks_t", "belly", "body_line", "head_t", "head_marks_t",
-              "paw_L_down_t", "paw_L_down", "paw_R_down_t", "paw_R_down"] + ["face_" + k for k in ("normal", "blink", "happy", "sparkle", "focus")]
+              "paw_L_down_t", "paw_L_down", "paw_R_down_t", "paw_R_down"] + ["face_" + k for k in ("normal", "blink", "happy", "sparkle", "focus")] + ["face_tap%d" % i for i in range(1, 11)] + ["face_pet%d" % i for i in range(1, 11)]
 import glob
 CAT_LAYERS += sorted(os.path.basename(f)[:-4] for f in glob.glob(os.path.join(CAT_DIR, "*.svg"))
                      if os.path.basename(f).startswith(("pat_", "iris_", "mane")))

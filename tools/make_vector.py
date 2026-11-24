@@ -7,7 +7,7 @@ untinted layers so they stay dark brown whatever the fur colour.
 
 usage: python3 tools/make_vector.py <out_dir> [preview.png]
 """
-import os, subprocess, sys
+import math, os, subprocess, sys
 from PIL import Image, ImageChops, ImageDraw
 
 OUT = sys.argv[1]; os.makedirs(OUT, exist_ok=True)
@@ -65,6 +65,127 @@ FACE_BASE = ('<g clip-path="url(#head)"><ellipse cx="128" cy="154" rx="60" ry="3
 FACES = ("normal", "blink", "happy", "sparkle", "focus")
 for k in FACES:
     L["face_" + k] = H(FACE_BASE + eyes(k) + mouth(k) + line(HEAD))
+
+# ---- (1.6.8) tapping faces: tap1 (a little keen) to tap10 (legendary), shown by how fast you tap
+SWEAT, STEAM = "#8fd3ff", "#ffffff"
+def brows(tilt, y=98, w=4):
+    # tilt > 0: angry (inner ends lower)
+    return both(line("M 84 %.1f L 110 %.1f" % (y - tilt, y + tilt), w))
+def round_eyes(r=10.5, extra_shine=False):
+    s = '<circle cx="98" cy="112" r="%.1f" fill="%s"/><circle cx="94" cy="107" r="%.1f" fill="#fff"/><circle cx="101.5" cy="116.5" r="1.9" fill="#fff"/>' % (r, INK, r * 0.38)
+    if extra_shine: s += '<circle cx="103" cy="106" r="1.6" fill="#fff"/>'
+    return both(s)
+def narrow_eyes():
+    # half-closed, intense: a flat lid over a dark eye
+    return both(fill("M 87 112 Q 98 104 109 112 Q 109 122 98 122 Q 87 122 87 112 Z", INK) + '<circle cx="95" cy="114" r="2.4" fill="#fff"/>')
+def star_eyes(c="#ffd23c", s=1.25):
+    star = "M 0 -14 L 4.5 -4.5 L 14 0 L 4.5 4.5 L 0 14 L -4.5 4.5 L -14 0 L -4.5 -4.5 Z"
+    return both('<g transform="translate(98 112) scale(%.2f)">%s</g>' % (s, fill(star, c, 2.2)) + '<circle cx="98" cy="112" r="2.6" fill="#fff"/>')
+def flame_eyes():
+    fl = ("M 98 124 Q 86 122 88 110 Q 90 102 96 96 Q 96 104 100 106 Q 102 98 108 94 Q 112 106 110 114 Q 108 124 98 124 Z")
+    inner = "M 98 122 Q 92 120 93 113 Q 95 108 98 105 Q 99 110 102 111 Q 105 116 103 120 Q 101 122 98 122 Z"
+    return both(fill(fl, "#ff7a1a", 2.5) + fill(inner, "#ffe14a", 0))
+def swirl_eyes():
+    g = '<circle cx="98" cy="112" r="15" fill="#c07bff" opacity=".45"/><circle cx="98" cy="112" r="11" fill="#7b2cff" stroke="%s" stroke-width="2.5"/>' % INK
+    sp = line("M 98 112 Q 98 106 103 108 Q 107 112 102 117 Q 96 120 92 114 Q 90 106 98 103", 2.4).replace(INK, "#f2e6ff")
+    return both(g + sp)
+def open_mouth(big=False, tongue=False):
+    if big:
+        m = fill("M 108 132 Q 128 140 148 132 Q 147 166 128 168 Q 109 166 108 132 Z", "#d9534f", 3.5)
+    else:
+        m = fill("M 112 133 Q 128 140 144 133 Q 142 158 128 159 Q 114 158 112 133 Z", "#f0706a", 3.5)
+    if tongue:
+        m += fill("M 118 %d Q 128 %d 138 %d Q 136 %d 128 %d Q 120 %d 118 %d Z" % ((158, 150, 158, 166, 166, 166, 158) if big else (152, 146, 152, 158, 158, 158, 152)), "#ff9aa6", 0)
+    return m
+def grin_teeth(w=18, grit=False):
+    x0, x1 = 128 - w, 128 + w
+    m = fill("M %d 133 Q 128 %d %d 133 Q %d 150 128 151 Q %d 150 %d 133 Z" % (x0, 138, x1, x1 - 2, x0 + 2, x0), "#fff", 3.2)
+    if grit:
+        for x in range(x0 + 8, x1 - 2, 7): m += line("M %d 135 L %d 149" % (x, x), 2)
+        m += line("M %d 142 L %d 142" % (x0 + 2, x1 - 2), 2)
+    return m
+def sweat(x, y, s=1.0):
+    d = "M 0 -12 Q 8 0 6 6 Q 3 11 0 11 Q -3 11 -6 6 Q -8 0 0 -12 Z"
+    return '<g transform="translate(%.1f %.1f) scale(%.2f)">%s<circle cx="-1.5" cy="4" r="2" fill="#fff"/></g>' % (x, y, s, fill(d, SWEAT, 2.5))
+def steam(x, y):
+    return ''.join('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="2.5" opacity=".95"/>' % (x + dx, y + dy, r, STEAM, INK)
+                   for dx, dy, r in ((0, 0, 9), (10, -8, 7), (-9, -9, 6)))
+def bolt(x, y, flip=False):
+    d = "M 0 0 L 10 -2 L 4 12 L 14 10 L -2 34 L 2 18 L -8 20 Z"
+    tf = 'translate(%.1f %.1f)%s' % (x, y, ' scale(-1 1)' if flip else '')
+    return '<g transform="%s">%s</g>' % (tf, fill(d, "#ffe14a", 2.5))
+def blush(strength):
+    return both('<ellipse cx="78" cy="132" rx="13" ry="7" fill="#ff7c8a" opacity="%.2f"/>' % strength)
+
+TAP_FACES = {
+    # level: eyes, mouth, overlays drawn above the head (sweat, steam, sparks), in the head's space
+    1: (round_eyes(10.5), line("M 114 134 Q 121 143 128 135 Q 135 143 142 134", 3.5), ""),
+    2: (round_eyes(11.5, True), open_mouth(), blush(.35)),
+    3: (both('<circle cx="98" cy="114" r="9" fill="%s"/><circle cx="95" cy="110.5" r="3" fill="#fff"/>' % INK) + brows(2), line("M 116 137 Q 128 142 140 137", 3.5), ""),
+    4: (both('<circle cx="98" cy="114" r="9" fill="%s"/><circle cx="95" cy="110.5" r="3" fill="#fff"/>' % INK) + brows(5), grin_teeth(14), ""),
+    5: (round_eyes(12.5, True), open_mouth(tongue=True), blush(.5)),
+    6: (both('<circle cx="98" cy="114" r="9.5" fill="%s"/><circle cx="95" cy="110.5" r="3" fill="#fff"/>' % INK) + brows(6), open_mouth(), sweat(196, 74)),
+    7: (narrow_eyes() + brows(8, 96, 5), grin_teeth(18, grit=True), sweat(198, 72) + sweat(60, 80, 0.8)),
+    8: (star_eyes(), open_mouth(big=True, tongue=True), blush(.6) + sweat(200, 70, 0.9)),
+    9: (flame_eyes() + brows(7, 94, 5), grin_teeth(20), steam(70, 22) + steam(186, 22)),
+    10: (swirl_eyes() + brows(9, 93, 5), open_mouth(big=True, tongue=True), bolt(30, 50) + bolt(226, 50, True) + steam(128, 6) + blush(.6)),
+}
+def flush(lv):
+    # mad cheeks: a red flush that grows with the tapping level (none at the first two)
+    a = max(0, lv - 2) * 0.09
+    if a <= 0: return ""
+    return both('<ellipse cx="80" cy="131" rx="%.1f" ry="%.1f" fill="#ff2d2d" opacity="%.2f"/>' % (13 + lv * 0.5, 7 + lv * 0.3, a))
+for lv, (e, m, extra) in TAP_FACES.items():
+    extra = extra.replace(blush(.35), "").replace(blush(.5), "").replace(blush(.6), "")
+    L["face_tap%d" % lv] = H(FACE_BASE + flush(lv) + e + m + line(HEAD) + extra)
+
+# ---- (1.6.8) petting faces: pet1 (curious) to pet10 (pure love), shown as a petting streak grows
+HEART = "M 0 10 C -14 0 -12 -12 -5 -12 C -2 -12 0 -9 0 -7 C 0 -9 2 -12 5 -12 C 12 -12 14 0 0 10 Z"
+def heart(x, y, s=1.0, c="#ff6f91", w=2.2, rot=0):
+    return '<g transform="translate(%.1f %.1f) rotate(%d) scale(%.2f)">%s</g>' % (x, y, rot, s, fill(HEART, c, w))
+def heart_eyes(s=1.15, glow=False):
+    g = '<circle cx="98" cy="112" r="16" fill="#ffb3c8" opacity=".5"/>' if glow else ""
+    return both(g + heart(98, 112, s) + '<circle cx="94" cy="106" r="2.2" fill="#fff"/>')
+def joy_eyes():      # ^ ^ (the happy face's eyes)
+    return both(line("M 86 116 Q 98 102 110 116", 4.5))
+def cosy_eyes():     # closed, relaxed: gentle downward curves
+    return both(line("M 86 111 Q 98 121 110 111", 4.5))
+CAT_MOUTH = line("M 114 134 Q 121 142 128 134 Q 135 142 142 134", 3.5)
+SMALL_W = line("M 118 135 Q 123 140 128 135 Q 133 140 138 135", 3)
+def purr_lines():
+    return both(line("M 30 128 Q 24 136 30 144", 3) + line("M 22 124 Q 14 136 22 148", 3))
+def sparkle_at(x, y, s=1.0):
+    st = "M 0 -9 L 2.5 -2.5 L 9 0 L 2.5 2.5 L 0 9 L -2.5 2.5 L -9 0 L -2.5 -2.5 Z"
+    return '<g transform="translate(%.1f %.1f) scale(%.2f)">%s</g>' % (x, y, s, fill(st, "#fff3a8", 1.8))
+
+PET_FACES = {
+    1: (round_eyes(10.5), CAT_MOUTH, blush(.35)),
+    2: (joy_eyes(), CAT_MOUTH, blush(.4)),
+    3: (joy_eyes(), SMALL_W, blush(.8)),
+    4: (cosy_eyes(), open_mouth(), blush(.6)),
+    5: (cosy_eyes(), CAT_MOUTH, blush(.6) + purr_lines()),
+    6: (heart_eyes(), CAT_MOUTH, blush(.7)),
+    7: (cosy_eyes(), open_mouth(), blush(.8) + heart(190, 30, 0.9, rot=15) + purr_lines()),
+    8: (heart_eyes(1.3), open_mouth(tongue=True), blush(.8) + heart(66, 26, 0.8, rot=-15) + heart(192, 24, 0.9, rot=15)),
+    9: (joy_eyes(), open_mouth(tongue=True), blush(.95) + heart(60, 30, 0.8, rot=-20) + heart(128, 6, 1.0) + heart(196, 30, 0.8, rot=20) + sparkle_at(30, 70) + sparkle_at(226, 70)),
+    10: (heart_eyes(1.45, glow=True), open_mouth(big=True, tongue=True), blush(1.0) + purr_lines()
+         + "".join(heart(128 + 92 * math.cos(a), 62 - 66 * math.sin(a), 0.75, rot=int(math.degrees(math.pi / 2 - a)) // 3)
+                   for a in [math.pi * (0.15 + 0.7 * k / 4) for k in range(5)]) + sparkle_at(26, 60) + sparkle_at(230, 60)),
+}
+def kawaii_blush(lv):
+    # cute cheeks: a soft pink blush that deepens, with little blush lines from the third face on
+    a = 0.25 + lv * 0.065
+    s = '<ellipse cx="79" cy="131" rx="%.1f" ry="%.1f" fill="#ff8fb1" opacity="%.2f"/>' % (12.5 + lv * 0.35, 6.8 + lv * 0.2, min(.95, a))
+    if lv >= 3:
+        n = 2 if lv < 6 else 3
+        for k in range(n):
+            x = 72 + k * 6
+            s += '<path d="M %.1f 135 L %.1f 127" fill="none" stroke="#e0507a" stroke-width="2.2" stroke-linecap="round"/>' % (x, x + 4)
+    return both(s)
+for lv, (e, m, extra) in PET_FACES.items():
+    for k in (.35, .4, .6, .7, .8, .95, 1.0):
+        extra = extra.replace(blush(k), "")
+    L["face_pet%d" % lv] = H(FACE_BASE + kawaii_blush(lv) + e + m + line(HEAD) + extra)
 L["face"] = L["face_normal"]
 
 # paws: down = resting on the desk, up = raised showing toe beans

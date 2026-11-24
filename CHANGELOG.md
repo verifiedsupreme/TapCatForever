@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.8
+
+**Tapping faces**
+- Your cat's face now changes the longer and faster you tap, through ten faces: Keen, Perky, Focused, Determined, Excited, Sweating, Intense, Starstruck, On fire and Legendary. Its cheeks go redder as it gets more worked up.
+- It takes both speed and staying power: a quick burst only gets the first few faces, and Legendary takes a long run of fast tapping. Slow down and it calms back down one face at a time.
+
+**Petting faces**
+- While you pet your cat, it goes through ten cute faces as you get closer to Happy Purrs: Curious, Pleased, Shy, Cosy, Purring, Smitten, Melty, Lovestruck, Blissful and, when it starts to purr, Pure love. Kawaii blush included.
+
+**Settings**
+- New "Tapping and petting faces" box, on by default. Turn it off to keep your cat's calm face.
+
 ## 1.6.7
 
 **18 new pet effects**

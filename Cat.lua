@@ -134,10 +134,14 @@ function Cat:SetSize(size)
   if self.vec then self:VecLayout() end
 end
 
+-- the old pixel cat has five faces: the tapping faces borrow the nearest one
+local PIXEL_FACE = { tap1 = "normal", tap2 = "normal", tap3 = "focus", tap4 = "focus", tap5 = "happy", tap6 = "focus",
+                     tap7 = "focus", tap8 = "sparkle", tap9 = "sparkle", tap10 = "sparkle" }
+for i = 1, 10 do PIXEL_FACE["pet" .. i] = i < 6 and "happy" or "sparkle" end
 function Cat:SetFace(kind)
   if self.faceKind == kind then return end
   self.faceKind = kind
-  setTex(self.tex.face, "face_" .. kind)
+  setTex(self.tex.face, "face_" .. (PIXEL_FACE[kind] or kind))
   if self.vec then self:VecFace(kind) end
 end
 
@@ -371,8 +375,16 @@ function Cat:OnUpdate(elapsed)
   end
   -- face
   local face = "normal"
-  if self.faceOverride and now < self.faceUntil then face = self.faceOverride
-  elseif not self.opts.preview and TCF.inFrenzy then face = "focus" end
+  -- (1.6.8) the cat you pet (on screen, or its picture in the window) shows the petting faces;
+  -- the cat on screen shows the tapping faces (Core.lua TCF:TapFaceLevel)
+  local mine = not self.opts.preview or (TCF.window and TCF.window.preview == self)
+  local faces = TCF.db and TCF.db.ui.tapFaces ~= false
+  local petLv = (mine and faces and TCF.PurrFaceLevel) and TCF:PurrFaceLevel(now) or 0
+  local tapLv = (not self.opts.preview and faces and TCF.TapFaceLevel) and TCF:TapFaceLevel(now) or 0
+  if petLv > 0 then face = "pet" .. petLv
+  elseif self.faceOverride and now < self.faceUntil then face = self.faceOverride
+  elseif tapLv > 0 then face = "tap" .. tapLv
+  elseif not self.opts.preview and TCF.inFrenzy and not faces then face = "focus" end
   if face == "normal" then
     if now >= self.blinkAt then
       face = "blink"

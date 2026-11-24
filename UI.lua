@@ -1445,6 +1445,10 @@ function TCF:CreateWindow()
       "Show the cats of party members who have TapCatForever in a little row beside yours. Turning it off only hides the row: your taps still count more with friends, and death roll, rock paper scissors and party expeditions still work.",
       function() if TCF.PartyRefresh then TCF.PartyRefresh() end end)
     win.partyCatsCheck = partyCB
+    -- (1.6.8) the faces that change as you tap faster
+    local faceCB = Check("Tapping and petting faces", "tapFaces", 272, INFO_Y, 260,
+      "Your cat's face changes the longer and faster you tap, in ten steps from Keen to Legendary (that one takes a long run of fast tapping). While you pet it, it goes from Curious to Pure love as you get closer to Happy Purrs. Turn it off to keep its calm face.")
+    win.tapFacesCheck = faceCB
     local partyNote = Text(st, "GameFontHighlightSmall", nil, "LEFT"); partyNote:SetWidth(528)
     Place(partyNote, 16, INFO_Y + 25, 528, INFO_BOTTOM - INFO_Y - 25, "info", "notes")
     local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetWidth(528)
@@ -1493,6 +1497,7 @@ function TCF:CreateWindow()
       partyNote:SetText(note)
       partyNote:SetShown(not ui.testMode)
       partyCB:SetShown(not ui.testMode)
+      faceCB:SetShown(not ui.testMode)
       help:SetShown(not ui.testMode)
       mmB:SetText(ui.minimap.hide and "Show minimap icon" or "Hide minimap icon")
       for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
