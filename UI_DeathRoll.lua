@@ -631,8 +631,7 @@ function Scene:Refresh(full)
         btn, btnOn = "Roll 1 - " .. TCF.Commas(g.cur), false
       end
     elseif g.state == "done" then
-      local wait = max(0, floor((g.doneAt or t) + DR.DONE_WAIT - t))
-      status = string.format("Waiting for %s's addon to agree on the result (%d s)...", opp, wait)
+      status = "Settling the result..."
       btn, btnOn = "Roll", false
     else
       local r = g.result

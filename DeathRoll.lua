@@ -53,7 +53,7 @@ DR.DUEL_FEE = 0                      -- duels: the % of the loser's bet the tabl
 DR.HOUSE_DELAY = 1.2                 -- the house cat rolls this long after your roll
 DR.INVITE_TIME = 60                  -- a challenge waits this long for an answer
 DR.TURN_TIME = 60                    -- each turn of a duel
-DR.DONE_WAIT = 20                    -- after the 1: wait this long for the other addon to agree (1.6.4: was 90)
+DR.DONE_WAIT = 0                     -- (1.6.4) after the 1 each side settles by what it saw, no wait (was 90)
 DR.STALL_CALL_OFF = 20               -- (1.6.4) on their turn: after this long with no roll you may call it off
 DR.TIMEOUT_FORFEIT = true            -- a turn that runs out without a roll loses the duel (false: it is called off)
 local FORFEIT_GRACE = 15             -- the waiting side waits this much longer for the "I ran out of time"
@@ -861,10 +861,16 @@ local function onDone(d, loser, n)
   n = tonumber(n)
   if not n then return end
   if d.state == "rolling" then
-    d.peerDone = { who = who, n = n }      -- they saw the 1 first; wait for our own chat line
-    d.doneAt = d.doneAt or now()
+    if who == "opp" then
+      -- (1.6.4) they saw their own 1 before our chat line came: their word that they lost is enough
+      d.loser, d.n = "opp", max(d.n or 0, n)
+      d.state, d.doneAt = "done", now()
+      settle(d)
+    else
+      d.peerDone = { who = who, n = n }    -- they say we rolled the 1: only our own chat line decides
+      d.doneAt = d.doneAt or now()
+    end
   elseif d.state == "done" then
-    if who ~= d.loser or n ~= d.n then callOff("m", true); return end
     settle(d)
   elseif d.state == "over" and (d.result == "win" or d.result == "lose") then
     -- they missed our message (a /reload while waiting): say it once more
@@ -954,14 +960,12 @@ local function onSystem(text)
   d.n = d.n + 1
   d.cur = v
   if v == 1 then
+    -- (1.6.4) settled by what this side saw, at once: the loser pays, the winner is paid. The other
+    -- addon still hears "I saw the 1" (older versions wait for it before they settle).
     d.state, d.loser, d.doneAt, d.sentDoneAt = "done", who, now(), now()
-    saveDuel(d)
     send("D4", d.id, roleOf(who, d), d.n)
     notify("roll", "duel", who, v, hi)
-    local p = d.peerDone
-    if p then
-      if p.who ~= d.loser or p.n ~= d.n then callOff("m", true) else settle(d) end
-    end
+    settle(d)
     return
   end
   d.turn = who == "me" and "opp" or "me"
@@ -1007,12 +1011,9 @@ local function tick()
     -- after the 1 nothing calls the duel off on this side but the other addon (D3, or a result
     -- that doesn't match): when the wait runs out, the loser pays and the winner gets its own
     -- stake back, never the other way round
-    if t - d.doneAt >= DR.DONE_WAIT then
-      if d.loser == "me" then settle(d) else callOff("t", true) end
-    elseif t - (d.sentDoneAt or 0) >= RESEND_DONE then
-      d.sentDoneAt = t
-      send("D4", d.id, roleOf(d.loser, d), d.n)
-    end
+    -- (1.6.4) only a duel restored after a /reload sits here: it settles by what was seen
+    send("D4", d.id, roleOf(d.loser, d), d.n)
+    settle(d)
   end
 end
 DR.Tick = tick

@@ -1,6 +1,6 @@
 # 1.6.4: a death roll never needs a /reload. When it's the other player's turn and their roll doesn't
 # come for DR.STALL_CALL_OFF seconds, you may call it off (both bets come back); never on your own
-# turn. After the 1 the wait for the other addon is DR.DONE_WAIT (20 s) and the screen counts it down.
+# turn. After the 1 each side settles at once by what it saw.
 # Then the next challenge works straight away.
 import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +17,7 @@ def check(seed, load_addon):
     A, B = net.add("Alice", cls="MAGE", level=20), net.add("Bob", cls="WARRIOR", level=20)
     net.group(["Alice", "Bob"])
     net.pump(2)
-    ck(A.eval("TapCatForever.DR.DONE_WAIT") == 20, "the wait after the 1 is 20 s")
+    ck(A.eval("TapCatForever.DR.DONE_WAIT") == 0, "no wait after the 1")
     a0, b0 = net.coins("Alice"), net.coins("Bob")
     ok = A.eval('(TapCatForever:DeathRollChallenge("Bob", 100, 1000))')
     ck(ok, "challenge")
@@ -45,4 +45,4 @@ def check(seed, load_addon):
     net.pump(1)
     TD._play_to_end(net, waiter, staller, [60, 30, 5, 1])
     ck({net.st("Alice", "result"), net.st("Bob", "result")} == {"win", "lose"}, "the second game finishes")
-    print("death roll stall section (call off on their stalled turn only, bets back, 20 s wait after the 1, next game straight away): all checks passed")
+    print("death roll stall section (call off on their stalled turn only, bets back, settled at once after the 1, next game straight away): all checks passed")

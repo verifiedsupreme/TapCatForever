@@ -487,7 +487,8 @@ def _duels(seed, load_addon, rnd):
     ck(net.st("Bob", "result") == "cancel" and net.st("Bob", "reason") == "r", "Bob told about the reload")
     ck(net.coins("Bob") == b0 and net.coins("Alice") == a0, "reload: no coins moved")
 
-    # --- /reload after the 1 was seen, before the other addon agreed: finishes the duel
+    # --- (1.6.4) after the 1 each side settles at once by what it saw, even when the "I saw the 1"
+    # messages get lost; a /reload afterwards changes nothing
     a0, b0 = net.coins("Alice"), net.coins("Bob")
     start("Alice", "Bob")
     net.forced = [3, 2, 1]
@@ -496,21 +497,19 @@ def _duels(seed, load_addon, rnd):
         r = "Alice" if net.st("Alice", "turn") == "me" else "Bob"
         if net.st("Alice", "state") != "rolling": break
         net.ex(r, "TapCatForever:DeathRollRoll()"); net.pump(0.5)
-    ck(net.st("Alice", "state") == "done" and net.st("Bob", "state") == "done", "both saw the 1")
+    ra, rb = net.st("Alice", "result"), net.st("Bob", "result")
+    ck({ra, rb} == {"win", "lose"}, "both settled at once by what they saw (%s %s)" % (ra, rb))
+    ck(settled(net.coins("Alice") - a0, net.coins("Bob") - b0, 100, ra), "matching amounts with every D4 lost")
     db = net.c["Alice"].eval("_dbString()")
     del net.c["Alice"]
     net.add("Alice", db=db)
-    ck(net.st("Alice", "state") == "done" and net.st("Alice", "restored"), "waiting again after the reload")
     net.c["Alice"].execute('_group = { party1 = { "Bob", "Forever" } }; _fire("GROUP_ROSTER_UPDATE")')
     net.drop = False
     net.pump(12)
-    ra, rb = net.st("Alice", "result"), net.st("Bob", "result")
-    ck({ra, rb} == {"win", "lose"}, "finished after the reload (%s %s)" % (ra, rb))
-    ck(settled(net.coins("Alice") - a0, net.coins("Bob") - b0, 100, ra), "reload after the 1: matching amounts")
-    net.pump(20)
-    ck(settled(net.coins("Alice") - a0, net.coins("Bob") - b0, 100, ra), "still settled once")
+    ck(settled(net.coins("Alice") - a0, net.coins("Bob") - b0, 100, ra), "a /reload afterwards: still settled once")
+    ck(net.c["Alice"].eval("TapCatForever.db.deathRoll.hold == nil"), "no stake held after the reload")
 
-    # --- results that don't match: called off
+    # --- a "D4" naming the other loser after this side settled changes nothing
     a0, b0 = net.coins("Alice"), net.coins("Bob")
     start("Alice", "Bob")
     net.drop = True
@@ -523,24 +522,24 @@ def _duels(seed, load_addon, rnd):
     net.c[r].globals()._deliver("TapCatFvr", "D4;1;%s;%s;1" % (did, wrong), other + "-Forever", "PARTY")
     net.drop = False
     net.pump(2)
-    ck(net.st(r, "result") == "cancel" and net.st(r, "reason") == "m", "mismatch calls it off")
-    ck(net.st(other, "result") == "cancel", "the other side too")
-    ck(net.coins("Alice") == a0 and net.coins("Bob") == b0, "mismatch: no coins moved")
+    ck(net.st(r, "result") == "lose" and net.st(other, "result") == "win", "each side by what it saw: %s %s" % (net.st(r, "result"), net.st(other, "result")))
+    base = {"Alice": a0, "Bob": b0}
+    ck(net.coins(r) - base[r] == -100 and net.coins(other) - base[other] == 100, "the loser paid, the winner was paid")
 
-    # --- the other addon never agrees: the loser pays (it saw its own 1), the winner gets its stake
-    # back but nothing more. Coins only ever leave.
+    # --- the winner never hears from the loser's addon: it saw the 1 itself, so it is paid all the same
+    a0, b0 = net.coins("Alice"), net.coins("Bob")
     start("Alice", "Bob")
     net.drop = True
     net.forced = [1]
     r = "Alice" if net.st("Alice", "turn") == "me" else "Bob"
     other = "Bob" if r == "Alice" else "Alice"
     net.ex(r, "TapCatForever:DeathRollRoll()"); net.pump(0.5)
-    net.pump(95)
+    net.pump(5)
     net.drop = False
     net.pump(2)
-    ck(net.st(r, "result") == "lose" and net.st(other, "result") == "cancel", "no agreement: %s %s" % (net.st(r, "result"), net.st(other, "result")))
+    ck(net.st(r, "result") == "lose" and net.st(other, "result") == "win", "no messages after the 1: %s %s" % (net.st(r, "result"), net.st(other, "result")))
     base = {"Alice": a0, "Bob": b0}
-    ck(net.coins(r) - base[r] == -100 and net.coins(other) == base[other], "no agreement: the loser pays, the winner's stake comes back")
+    ck(net.coins(r) - base[r] == -100 and net.coins(other) - base[other] == 100, "no messages after the 1: paid by what each saw")
     a0, b0 = net.coins("Alice"), net.coins("Bob")
 
     # --- after the 1 the winner is paid only if the loser pays too (two ways it used to make coins)
