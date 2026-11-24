@@ -14,7 +14,7 @@ Each file is already split into Discord messages, every one under Discord's 2000
 <!-- message break -->
 ```
 
-Post each part as its own message, in order, and don't post the break lines.
+Post each part as its own message, in order, and don't post the break lines. The first message starts with a `# TapCatForever <version>` heading and the one-line headline. The rest is Discord markdown: **bold** section titles and `-` bullets.
 
 ## Pictures
 
@@ -30,7 +30,7 @@ For 1.7.0:
 - `media/1.7.0_new_sets.png`: a promo of all 11 new legendary sets. It goes with the first message.
 - `media/1.7.0_sets_tailoring.png`, `media/1.7.0_sets_smithing_leather.png` and `media/1.7.0_sets_gathering.png`: the sets by profession, with their names and titles. They go with the message about the legendary profession sets.
 
-The pictures are made by `tools/make_set_showcase.py`. The first message starts with a `# TapCatForever <version>` heading and the one-line headline. The rest is Discord markdown: **bold** section titles and `-` bullets.
+The pictures are made by `tools/make_set_showcase.py`.
 
 ## Raw links
 
