@@ -30,7 +30,7 @@ local function setModel(m, c, facing, anim)
   pcall(m.SetCamDistanceScale, m, 1)
   pcall(m.SetFacing, m, facing or 0)
   pcall(m.SetAnimation, m, anim or ANIM_STAND)
-  m.check = CHECK_AFTER
+  m.check, m.retried = CHECK_AFTER, nil
 end
 TCF.CompanionSetModel = setModel
 
@@ -42,6 +42,13 @@ local function checkModel(m, e)
   m.check = nil
   if not m.GetModelFileID or not m.comp then return false end
   local ok, file = pcall(m.GetModelFileID, m)
+  if ok and not file and not m.retried then
+    -- maybe still loading: set it again and look once more a little later
+    m.retried = true
+    pcall(m.SetDisplayInfo, m, m.comp.display)
+    m.check = 2
+    return false
+  end
   if ok and not file then
     TCF:CompanionModelMissing(m.comp.key)
     m:Hide()
@@ -57,14 +64,31 @@ local walker
 local function placeWalker()
   local cat = TCF.cat
   if not walker or not cat or not cat.frame then return end
-  -- the opposite side from the party cats' row (on the right unless the screen edge moved it left)
+  -- the opposite side from the party cats' row (on the right unless the screen edge moved it left),
+  -- unless that side is off the screen: then the other side (beyond the row, if it's there)
   local row = TCF.PartyRowFrame and TCF.PartyRowFrame()
-  local right = row and row:IsShown() and row.left and true or false
-  if walker.right == right and walker.placed then return end
+  local rowShown = row and row:IsShown()
+  local right = rowShown and row.left and true or false
+  local hud = TCF.hud
+  local l, r = hud and hud.GetLeft and hud:GetLeft(), hud and hud.GetRight and hud:GetRight()
+  local sw = UIParent and UIParent.GetWidth and UIParent:GetWidth()
+  local hs = hud and hud.GetEffectiveScale and hud:GetEffectiveScale()
+  local us = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+  local beyond = 0
+  if type(l) == "number" and type(r) == "number" and type(sw) == "number" and type(hs) == "number" and type(us) == "number" and us > 0 then
+    local need = (WALK_W + 4) * hs / us
+    local roomL, roomR = l * hs / us, sw - r * hs / us
+    if right and roomR < need and roomL >= need then right = false
+    elseif not right and roomL < need and roomR >= need then right = true end
+    -- on the same side as the party cats: past them
+    if rowShown and (row.left and true or false) == (not right) then beyond = row:GetWidth() or 0 end
+  end
+  if walker.right == right and walker.beyond == beyond and walker.placed then return end
+  walker.beyond = beyond
   walker.right, walker.placed = right, true
   walker:ClearAllPoints()
-  if right then walker:SetPoint("BOTTOMLEFT", cat.frame, "BOTTOMRIGHT", 2, 0)
-  else walker:SetPoint("BOTTOMRIGHT", cat.frame, "BOTTOMLEFT", -2, 0) end
+  if right then walker:SetPoint("BOTTOMLEFT", cat.frame, "BOTTOMRIGHT", 2 + beyond, 0)
+  else walker:SetPoint("BOTTOMRIGHT", cat.frame, "BOTTOMLEFT", -2 - beyond, 0) end
 end
 
 local function face(dir)
@@ -158,7 +182,7 @@ local function walkerUpdate(self, e)
     end
     goSitWatch(self, self.curiousSpot or self.x, true, e)
   elseif was == "pet" or was == "curious" then
-    self.walking = false
+    startIdle()       -- the moment passed: a fresh rest, then wandering again
   end
   if self.walking then
     local d = self.target - self.x
@@ -257,8 +281,7 @@ function TCF:CreateCompanionWindow()
       local c = cell.comp
       if not c then return end
       if TCF:CompanionOwned(c.key) then
-        local mine = TCF:Companion()
-        TCF:SetCompanion(mine == c and nil or c.key)
+        if TCF:Companion() == c then TCF:SetCompanion(nil) else TCF:SetCompanion(c.key) end
         TCF:PlaySound("click")
       else
         local ok, why = TCF:BuyCompanion(c.key)
@@ -312,7 +335,15 @@ function TCF:CreateCompanionWindow()
       end
     end
   end)
-  f:SetScript("OnShow", function(self) self:Refresh() end)
+  f:SetScript("OnShow", function(self)
+    for _, cell in ipairs(self.cells) do cell.comp = nil end   -- a hidden model can come back empty: set them all again
+    self:Refresh()
+  end)
+
+  -- TapCoins change while it's open: the Buy buttons follow (Core.lua's ticker calls this)
+  function f:RefreshLight()
+    if (TCF.db.coins or 0) ~= self.lastCoins then self.lastCoins = TCF.db.coins; self:Refresh() end
+  end
 
   function f:Refresh()
     local cl = TCF.CLASS_BY_KEY and TCF.CLASS_BY_KEY[TCF.db.class]

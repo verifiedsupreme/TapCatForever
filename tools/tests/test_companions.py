@@ -120,6 +120,26 @@ def check(seed, load_addon):
       ck(f and f:IsShown(), "the Companion Cats window opens")
       f:Refresh()
       ck(f.cells[1].comp and T:CompanionOwned(f.cells[1].comp.key), "owned companions first")
+      -- Unchoose takes the companion away; Choose puts it back
+      local cell
+      for _, c in ipairs(f.cells) do if c.comp and c.comp == T:Companion() then cell = c end end
+      if cell then
+        cell.btn.scripts.OnClick(cell.btn)
+        ck(T:Companion() == nil, "Unchoose clears it")
+        cell.btn.scripts.OnClick(cell.btn)
+        ck(T:Companion() == cell.comp, "Choose puts it back")
+      else ck(false, "the chosen companion's cell") end
+      -- the Buy buttons follow TapCoins while the window is open
+      local cheap
+      for _, c in ipairs(f.cells) do if c.comp and not T:CompanionOwned(c.comp.key) and c.comp.price > 0 then cheap = c; break end end
+      if cheap then
+        cheap.btn.Disable = function(b) b.disabled = true end
+        cheap.btn.Enable = function(b) b.disabled = false end
+        db.coins = 0; f:RefreshLight()
+        ck(cheap.btn.disabled == true, "Buy greyed out without coins")
+        db.coins = 5000000; f:RefreshLight()
+        ck(cheap.btn.disabled == false, "and lit up once coins come in")
+      end
       f.page = 99; f:Refresh()
       ck(f.page == math.ceil(#T.COMPANIONS / 8), "pages")
       T:ToggleCompanions()

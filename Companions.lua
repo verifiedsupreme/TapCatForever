@@ -94,12 +94,14 @@ function TCF:CompanionState()
   local s = db.companions
   if type(s) ~= "table" then s = {}; db.companions = s end
   s.owned = type(s.owned) == "table" and s.owned or {}
-  s.missing = type(s.missing) == "table" and s.missing or {}
+  -- models this game couldn't load: for this session only (never saved, so a slow load can't hide a cat for good)
+  s.missing = nil
+  TCF.companionMissing = TCF.companionMissing or {}
   return s
 end
 
 function TCF:CompanionOwned(key) return self:CompanionState().owned[key] and true or false end
-function TCF:CompanionMissing(key) return self:CompanionState().missing[key] and true or false end
+function TCF:CompanionMissing(key) return TCF.companionMissing and TCF.companionMissing[key] and true or false end
 
 -- the companion this class's cat has chosen (nil: none)
 function TCF:Companion(class)
@@ -193,6 +195,7 @@ function TCF:CheckCompanionUnlocks(quiet)
         for _, cd in pairs(self.db.classData) do
           if type(cd) == "table" and type(cd.adv) == "table" and (cd.adv.best or 0) >= need then
             s.owned[c.key] = time and time() or true
+            self.companionsChanged = true
             if not quiet then
               self:Print(string.format("You cleared %s: |cffffd100%s|r joins you as a companion. Choose it on the character panel.", t.name, c.name), true)
               if self.PlaySound then self:PlaySound("ach") end
@@ -203,12 +206,13 @@ function TCF:CheckCompanionUnlocks(quiet)
       end
     end
   end
+  if self.companionsChanged then self.companionsChanged = nil; self:CompanionNotify() end
 end
 
 -- a model the game couldn't load (the walker and the window check 0.6 s after showing it)
 function TCF:CompanionModelMissing(key)
-  local s = self:CompanionState()
-  if not s.missing[key] then s.missing[key] = true; if self.MarkDirty then self:MarkDirty() end end
+  TCF.companionMissing = TCF.companionMissing or {}
+  TCF.companionMissing[key] = true
 end
 
 -- the companions in the order the window lists them: owned first, then by price, earned ones last

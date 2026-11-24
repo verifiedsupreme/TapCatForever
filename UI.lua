@@ -752,7 +752,9 @@ function TCF:CreateWindow()
   compSlot:SetScript("OnLeave", function() GameTooltip:Hide() end)
   win.companionButton = compSlot
   local compModel = CreateFrame("PlayerModel", nil, stage)
-  compModel:SetSize(86, 86); compModel:SetPoint("BOTTOMLEFT", stage, "BOTTOMLEFT", 4, 4)
+  -- above the Clear preview row, in front of the cat picture, below the Clear preview button
+  compModel:SetSize(78, 78); compModel:SetPoint("BOTTOMLEFT", stage, "BOTTOMLEFT", 4, 30)
+  if compModel.SetFrameLevel and stage.GetFrameLevel then compModel:SetFrameLevel((stage:GetFrameLevel() or 1) + 8) end
   compModel:Hide()
   win.companionModel = compModel
   compModel:SetScript("OnUpdate", function(self, e) if TCF.CompanionCheckModel and TCF.CompanionCheckModel(self, e) then self:Hide() end end)

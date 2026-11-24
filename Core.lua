@@ -1901,6 +1901,7 @@ ticker:SetScript("OnUpdate", function(_, elapsed)
     self:CheckAchievements()
     self:RefreshHUD()
     if self.window and self.window:IsShown() then self.window:RefreshLight() end
+    if self.companionWin and self.companionWin:IsShown() then self.companionWin:RefreshLight() end
   end
 end)
 
