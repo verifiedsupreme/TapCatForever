@@ -240,7 +240,7 @@ function TCF:InitDB()
     local l = self:LookOf(cl.key)
     if not l.tapSet then l.tap = l.tap or "tap_puff"; l.tapSet = true end
     if not (l.fur and TCF.ITEMS[l.fur]) then l.fur = "fur_ginger" end
-    for _, slot in ipairs({ "pattern", "skin", "tap" }) do if l[slot] and not TCF.ITEMS[l[slot]] then l[slot] = nil end end
+    for _, slot in ipairs({ "pattern", "skin", "tap", "pet" }) do if l[slot] and not TCF.ITEMS[l[slot]] then l[slot] = nil end end
   end
   for k in pairs(db.looks) do if not TCF.CLASS_BY_KEY[k] then db.looks[k] = nil end end
   -- cosmetic overrides per class (empty = the cat shows its real gear)
@@ -426,7 +426,7 @@ end
 function TCF:GetLoadout(class) return self.db.loadouts[class or self.db.class] end
 
 -- the fur, pattern, skin and tap effect slots (TCF.SLOTS entries with look = true) of one cat
-local LOOK_FIELDS = { "fur", "pattern", "skin", "tap", "tapSet" }
+local LOOK_FIELDS = { "fur", "pattern", "skin", "tap", "tapSet", "pet" }
 function TCF.CopyLook(l)
   local out = {}
   for _, k in ipairs(LOOK_FIELDS) do out[k] = l and l[k] end
@@ -462,6 +462,7 @@ function TCF:GetAppearance(class, previewItem, previewGear)
   out.pattern = look.pattern and TCF.ITEMS[look.pattern] or nil
   out.skin = look.skin and TCF.ITEMS[look.skin] or nil
   out.tap = look.tap and TCF.ITEMS[look.tap] or nil
+  out.pet = look.pet and TCF.ITEMS[look.pet] or nil   -- (1.6.6) nil: hearts
   -- racial accessory can be hidden in Settings (since 1.6 it has its own slot, "race")
   if not self.db.ui.racial and out.acc and out.acc.source == "race" then out.acc = nil end
   if not self.db.ui.racial then out.race = nil end
@@ -610,6 +611,8 @@ end
 function TCF:AddClassXP(class, n)
   local cd = self:CD(class)
   if not cd or n <= 0 or cd.level >= TCF.MAX_LEVEL then return end
+  -- (1.6.6) Happy Purrs (Purr.lua): the cat you play gets 5% more
+  if self.PurrMult then n = n * self:PurrMult(class) end
   cd.xp = (cd.xp or 0) + n
   self:SettleXP(class)
   self:MarkDirty()
@@ -656,7 +659,7 @@ function TCF:Tap(side)
   db.taps = db.taps + credit
   local cd = self:CD()
   if cd.level < TCF.MAX_LEVEL then
-    cd.xp = cd.xp + (self.FoodBuff and self:FoodBuff("xp") or 1) * mult
+    cd.xp = cd.xp + (self.FoodBuff and self:FoodBuff("xp") or 1) * mult * (self.PurrMult and self:PurrMult() or 1)
     self:SettleXP()
   end
   local cap = TCF.TAP_COIN_CAP

@@ -4509,7 +4509,7 @@ def main():
       local bad = {}
       for _, it in ipairs(TapCatForever.ITEM_LIST) do
         -- tap effects are cartoon sprites in Art/v (t_<shape>)
-        local names = it.slot == "tap" and { "v/t_" .. it.art } or TapCatForever.PART_B[it.art] and { it.art .. "_a", it.art .. "_b" } or { it.art }
+        local names = (it.slot == "tap" or it.slot == "pet") and { "v/t_" .. it.art } or TapCatForever.PART_B[it.art] and { it.art .. "_a", it.art .. "_b" } or { it.art }
         for _, n in ipairs(names) do bad[#bad + 1] = n end
       end
       return bad''')

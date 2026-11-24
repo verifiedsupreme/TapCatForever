@@ -28,7 +28,7 @@ local floor, min, max = math.floor, math.min, math.max
 
 -- the per-character keys that held the cats before 1.6.0
 TCF.CHAR_CAT_KEYS = { "classData", "loadouts", "look", "looks", "expeditions", "owned", "itemSources" }
-local LOOK_FIELDS = { "fur", "pattern", "skin", "tap", "tapSet" }
+local LOOK_FIELDS = { "fur", "pattern", "skin", "tap", "tapSet", "pet" }
 
 local function copy(v, seen)
   if type(v) ~= "table" then return v end

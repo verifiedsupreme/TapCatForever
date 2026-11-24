@@ -232,7 +232,7 @@ local function ItemPicture(parent, size)
       self.restore = nil
       for _, t in ipairs({ self.base, self.a, self.b }) do t:ClearAllPoints(); t:SetAllPoints(self) end
     end
-    if it.slot == "tap" then
+    if it.slot == "tap" or it.slot == "pet" then
       self.a:SetTexture(ART .. "v\\t_" .. art); self.a:SetTexCoord(0, 1, 0, 1)
       self.a:SetVertexColor(it.c1[1], it.c1[2], it.c1[3]); self.a:SetDesaturated(desat); self.a:Show()
       return
@@ -438,6 +438,12 @@ function TCF:CreateHUD()
   xp:SetStatusBarColor(0.58, 0.0, 0.55)
   local xbg = xp:CreateTexture(nil, "BACKGROUND"); xbg:SetAllPoints(); xbg:SetColorTexture(0, 0, 0, 0.55)
   f.xp = xp
+  -- (1.6.6) Happy Purrs: a tiny heart right of the XP bar while the cat purrs, nothing otherwise
+  f.purr = info:CreateTexture(nil, "OVERLAY"); f.purr:SetSize(9, 9); f.purr:SetPoint("LEFT", xp, "RIGHT", 3, 0)
+  f.purr:SetTexture(ART .. "ui_heart"); f.purr:SetVertexColor(1, 0.55, 0.75); f.purr:Hide()
+  function f:RefreshPurr()
+    self.purr:SetShown(TCF:PurrActive() and self.xp:IsShown() and true or false)
+  end
   f.stats = Text(info, "GameFontHighlightSmall"); f.stats:SetPoint("TOP", xp, "BOTTOM", 0, -2)
 
   -- unopened-chest badge (click to open the Treasure Bag)
@@ -472,6 +478,7 @@ function TCF:CreateHUD()
       TCF.db.stats.pets = TCF.db.stats.pets + 1
       TCF:MarkDirty()
       cat:Pet()
+      if TCF.PurrPet then TCF:PurrPet() end   -- Happy Purrs (Purr.lua)
     end
   end)
   f:SetScript("OnMouseWheel", function(s, delta)
@@ -486,6 +493,7 @@ function TCF:CreateHUD()
     tt:AddLine("TapCatForever", 1, 0.72, 0.3)
     local cl = TCF.CLASS_BY_KEY[TCF.db.class]
     tt:AddLine(string.format("Level %d %s %s", TCF:CD().level, cl.name, TCF:GetTitle()), 1, 1, 1)
+    if TCF.PurrTooltip then TCF:PurrTooltip(tt) end
     local friends = TCF.PartyCount and TCF:PartyCount() or 0
     if friends > 0 then
       tt:AddLine(string.format("Party bonus: your taps count +%d%%", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)), 0.4, 1, 0.4)
@@ -575,6 +583,7 @@ function TCF:CreateHUD()
       cl.color[1] * 255, cl.color[2] * 255, cl.color[3] * 255, cl.name))
     self.xp:SetMinMaxValues(0, TCF.XPForLevel(cd.level))
     self.xp:SetValue(cd.xp)
+    self:RefreshPurr()
     local parts = {}
     if ui.showTaps then parts[#parts + 1] = TCF.Commas(db.taps) .. " taps" end
     if ui.showCoins then parts[#parts + 1] = coinStr(db.coins, 11) end
@@ -721,6 +730,49 @@ function TCF:CreateWindow()
   for i, k in ipairs(DOLL_BOTTOM) do DollButton(k):SetPoint("TOP", stage, "BOTTOM", (i - 2) * 40, -6) end
 
   local className = Text(left, "GameFontNormal"); className:SetPoint("TOP", stage, "BOTTOM", 0, -46)
+  -- (1.6.6) Happy Purrs (Purr.lua): a small heart by the class name, grey until the cat purrs
+  local purrBtn = CreateFrame("Button", nil, left)
+  purrBtn:SetSize(14, 14); purrBtn:SetPoint("LEFT", className, "RIGHT", 5, 0)
+  purrBtn.tex = purrBtn:CreateTexture(nil, "ARTWORK"); purrBtn.tex:SetAllPoints(); purrBtn.tex:SetTexture(ART .. "ui_heart")
+  Tip(purrBtn, function(tt) TCF:PurrTooltip(tt, true) end)
+  win.purrButton = purrBtn
+  function win:RefreshPurr()
+    local on = TCF:PurrActive()
+    purrBtn.tex:SetDesaturated(not on)
+    if on then purrBtn.tex:SetVertexColor(1, 0.55, 0.75); purrBtn:SetAlpha(1) else purrBtn.tex:SetVertexColor(1, 1, 1); purrBtn:SetAlpha(0.45) end
+  end
+  -- the cat's picture can be petted too (left-click); below the Clear preview button
+  local petPic = CreateFrame("Button", nil, stage)
+  petPic:SetPoint("TOPLEFT", 6, -6); petPic:SetPoint("BOTTOMRIGHT", -6, 30)
+  petPic:SetScript("OnClick", function()
+    TCF.db.stats.pets = (TCF.db.stats.pets or 0) + 1
+    TCF:MarkDirty()
+    if win.preview and win.preview.Pet then win.preview:Pet() end
+    TCF:PurrPet()
+    if GameTooltip:IsOwned(purrBtn) then GameTooltip:Hide() end
+  end)
+  win.petPicture = petPic
+  -- the first time the window opens: a soft note over the picture that fades by itself
+  local hint = Text(stage, "GameFontHighlightSmall", nil, "CENTER")
+  hint:SetPoint("TOP", stage, "TOP", 0, -12); hint:SetWidth(190)
+  hint:SetText("|cffff99ccPsst. Pet me 100 times in a row\nand I'll purr: +5% XP for an hour.|r")
+  hint:Hide()
+  win.purrHint = hint
+  function win:ShowPurrHint()
+    if TCF.db.purrHintSeen then return end
+    TCF.db.purrHintSeen = true
+    hint:SetAlpha(1); hint:Show()
+    hint.t = 0
+    if not hint.driver then
+      hint.driver = CreateFrame("Frame", nil, stage)
+      hint.driver:SetScript("OnUpdate", function(d, e)
+        hint.t = (hint.t or 0) + e
+        if hint.t > 7 then hint:Hide(); d:Hide()
+        elseif hint.t > 5 then hint:SetAlpha(1 - (hint.t - 5) / 2) end
+      end)
+    end
+    hint.driver:Show()
+  end
   local classBtns = {}
   for i, cl in ipairs(TCF.CLASSES) do
     local b = CreateFrame("Button", nil, left)
@@ -956,6 +1008,11 @@ function TCF:CreateWindow()
     collected:SetText(string.format("%d collected", owned))
     local empty = #list == 0
     emptyText:SetShown(empty)
+    if empty then
+      emptyText:SetText(win.slot == "pet"
+        and "|cff888888Your cat floats hearts when you pet it.\nGive it Happy Purrs on more days, and days in a row,\nto unlock new pet effects.|r"
+        or "|cff888888Nothing collected for this slot yet.\nOpen chests, craft, or visit the Shop.|r")
+    end
     pageText:SetShown(not empty); prev:SetShown(not empty); nextB:SetShown(not empty)
   end
 
@@ -1493,6 +1550,7 @@ function TCF:CreateWindow()
     className:SetTextColor(cl.color[1], cl.color[2], cl.color[3])
     for i, b in ipairs(classBtns) do b.sel:SetShown(TCF.CLASSES[i].key == TCF.db.class) end
     TCF.UI.HideTryOn(self)   -- the cat's look, with any items shift-clicked on
+    self:RefreshPurr()
     for _, b in ipairs(dollBtns) do b:Update() end
     for i, b in ipairs(classBtns) do b.away:SetShown(TCF:IsOnExpedition(TCF.CLASSES[i].key) and true or false) end
     if self.tab == TAB_WARDROBE then self:RefreshWardrobe()
@@ -1505,7 +1563,7 @@ function TCF:CreateWindow()
   win.parts = { W = W, H = H, title = title, ver = ver, close = close, coins = coins, bagBtn = bagBtn, bagLabel = bagLabel,
                 compBtn = compBtn, left = left, right = right, pages = pages, iconTabs = ICON_TABS }
   if TCF.UI.SetupWindowLayout then TCF.UI.SetupWindowLayout(win) end
-  win:SetScript("OnShow", function(s) s:Refresh() end)
+  win:SetScript("OnShow", function(s) s:Refresh(); if s.ShowPurrHint then s:ShowPurrHint() end end)
   SelectTab(TAB_ADVENTURE)
 end
 

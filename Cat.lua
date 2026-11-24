@@ -452,8 +452,15 @@ end
 
 function Cat:Pet()
   local s = self.size
+  local fx = self.look and self.look.pet   -- (1.6.6) the pet effect, or hearts
   for i = 1, 3 do
     local h = self:GetFloater("tex")
+    if fx and fx.art then
+      setTex(h, "v\\t_" .. fx.art)
+      if fx.rainbow then h:SetVertexColor(hsv(random())) else h:SetVertexColor(fx.c1[1], fx.c1[2], fx.c1[3]) end
+    else
+      setTex(h, "ui_heart"); h:SetVertexColor(1, 1, 1)
+    end
     local sz = s * (0.14 + random() * 0.08)
     h:SetSize(sz, sz)
     self:Float(h, 1.4 + random() * 0.4, (random() - 0.5) * s * 0.6, s * 0.15, s * 0.5, s * 0.05)
@@ -470,6 +477,7 @@ function Cat:Celebrate(text, r, g, b, header)
   self:Float(fs, 3, 0, self.size * 0.55, self.size * 0.35)
   for i = 1, 5 do
     local h = self:GetFloater("tex")
+    setTex(h, "ui_heart"); h:SetVertexColor(1, 1, 1)   -- a pet effect may have used this one
     local sz = self.size * 0.12
     h:SetSize(sz, sz)
     self:Float(h, 1.6, (random() - 0.5) * self.size, self.size * 0.1, self.size * 0.6, self.size * 0.06)

@@ -29,6 +29,9 @@ TCF.SLOTS = {
   { key = "pattern", name = "Pattern",   icon = "Ability_Druid_Rake",    look = true },
   { key = "skin",    name = "Skin",      icon = "Ability_Mount_WhiteTiger", look = true },
   { key = "tap",     name = "Tap Effect", icon = "Spell_Nature_Lightning",  look = true },
+  -- (1.6.6) what floats up when you pet your cat: hearts until you pick another (Purr.lua unlocks them)
+  { key = "pet",     name = "Pet Effect", icon = "INV_ValentinesCandy", look = true,
+    desc = "What floats up when you pet your cat (hearts until you pick another). New ones come from Happy Purrs on more days, and more days in a row, with this cat. Saved separately for each class's cat." },
 }
 TCF.SLOT_BY_KEY = {}
 for _, s in ipairs(TCF.SLOTS) do TCF.SLOT_BY_KEY[s.key] = s end
@@ -650,6 +653,20 @@ local TAPFX = {
   { "tap_rainbow",  "tap", "star",    "Rainbow Stars",     5, { 1, 0.6, 0.6 },    nil, "Spell_Nature_Starfall", { rainbow = true } },
 }
 addUniversal(TAPFX, "loot")
+-- Pet effects (1.6.6): what floats up when you pet your cat, in place of the hearts. Unlocked by
+-- Happy Purrs with that cat (Purr.lua TCF.PURR_UNLOCKS): on more days, and on more days in a row.
+local PETFX = {
+  { "pet_paw",     "pet", "paw",     "Paw Prints",      1, { 1, 0.6, 0.72 },   nil, "Ability_Druid_CatForm" },
+  { "pet_note",    "pet", "note",    "Purr Notes",      2, { 0.72, 0.52, 1 },  nil, "INV_Misc_Drum_01" },
+  { "pet_star",    "pet", "star",    "Little Stars",    2, { 1, 0.85, 0.3 },   nil, "Spell_Holy_PowerWordShield" },
+  { "pet_bubble",  "pet", "bubble",  "Bubbles",         3, { 0.55, 0.85, 1 },  nil, "Spell_Frost_SummonWaterElemental" },
+  { "pet_leaf",    "pet", "leaf",    "Falling Leaves",  3, { 0.5, 0.85, 0.4 }, nil, "INV_Misc_Herb_10" },
+  { "pet_sparkle", "pet", "sparkle", "Purr Sparkles",   4, { 0.45, 0.9, 1 },   nil, "Spell_Holy_MagicalSentry" },
+  { "pet_snow",    "pet", "snow",    "Snowflakes",      4, { 0.7, 0.9, 1 },    nil, "Spell_Frost_FrostNova" },
+  { "pet_coin",    "pet", "coin",    "Lucky Coins",     4, { 1, 0.8, 0.3 },    nil, "INV_Misc_Coin_01" },
+  { "pet_rainbow", "pet", "heart",   "Rainbow Hearts",  5, { 1, 0.6, 0.6 },    nil, "INV_ValentinesCandy", { rainbow = true } },
+}
+addUniversal(PETFX, "purr")
 addUniversal(U, "loot")
 addUniversal(EFFECTS, "loot")
 

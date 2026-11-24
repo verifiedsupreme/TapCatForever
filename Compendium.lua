@@ -338,6 +338,8 @@ function TCF:HowToGet(it)
       commas(TCF.RACE_PRICE or 600), race:match("^[AEIOU]") and "an" or "a", race))
   elseif src == "set" and self.CosmeticSetLines then
     for _, line in ipairs(self:CosmeticSetLines(it)) do add(line) end
+  elseif src == "purr" and self.PurrUnlockLine then
+    add(self:PurrUnlockLine(it))
   elseif src == "retired" then
     add("No longer available. Players who have it keep it.")
   end
@@ -365,7 +367,7 @@ local CATS = {
   { key = "skin", name = "Skins" }, { key = "cos", name = "Cosmetics" }, { key = "tap", name = "Tap Effects" },
   { key = "effect", name = "Effects" }, { key = "gear", name = "Gear" }, { key = "sets", name = "Item Sets" },
 }
-local COS_SLOTS = { "head", "shoulder", "chest", "back", "main", "off", "acc", "race", "pattern", "fur" }
+local COS_SLOTS = { "head", "shoulder", "chest", "back", "main", "off", "acc", "race", "pattern", "fur", "pet" }
 local FILTERS = { { "all", "All" }, { "owned", "Owned" }, { "missing", "Missing" } }
 -- item grid: 12 x 7 cells of 58 (+5 gap) = 751 x 436; gear grid: 9 x 10 of 40 (+4) = 392 x 436
 local COLS, ROWS, CELL, GAP = 12, 7, 58, 5

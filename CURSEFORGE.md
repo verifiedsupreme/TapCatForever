@@ -24,6 +24,7 @@ Every keystroke you already make in World of Warcraft earns your cat XP and TapC
 
 ## What's new in 1.6
 
+- Happy Purrs: pet your cat 100 times in a row for +5% XP for an hour, and unlock cute pet effects (paw prints, music notes, rainbow hearts and more) by coming back on more days.
 - Gear that fits your class: Equip best now picks Spell Power and Intellect for casters, Strength for Warriors and Paladins and Agility for Hunters and Rogues, like WoW.
 - Shift-click any item to try it on your cat before you wear or buy it.
 - Multiplayer works: death roll and rock paper scissors with a friend, party cat profiles with their taps, and a realm leaderboard that fills in from your party.

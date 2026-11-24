@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.6
+
+**Happy Purrs**
+- Pet your cat (left-click it on your screen, or its picture in the window) 100 times in a row and it purrs: +5% XP for an hour. While it purrs, 50 pets in a row start the hour again. A short pause between pets is fine.
+- Each class's cat purrs on its own. While it purrs, a tiny heart sits next to its XP bar, and a heart next to the class name in the window lights up (hover it for how it works and how many pets you're on).
+
+**Pet effects**
+- A new Pet Effect slot in Appearance: what floats up when you pet your cat, in place of the hearts. Paw Prints, Purr Notes, Little Stars, Bubbles, Falling Leaves, Purr Sparkles, Snowflakes, Lucky Coins and Rainbow Hearts.
+- They come from being there for your cat: Happy Purrs on more days, and on more days in a row, with that cat. The Compendium shows what each one needs.
+
 ## 1.6.5
 
 **Gear that fits your class, like WoW**
