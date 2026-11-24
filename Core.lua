@@ -101,6 +101,7 @@ local DEFAULTS = {
     locked = false, clickThrough = false,
     showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
     mouse = true, popups = true, sound = false, chat = false, racial = true, cartoon = true, chestAnim = true, textAbove = true, cat3d = true, show3dWeapons = true,
+    partyCats = true,   -- (1.6.7) the row of party members' cats beside yours (Party.lua)
     minimap = { angle = 215, hide = false },
   },
 }
@@ -1865,6 +1866,7 @@ function TCF:TestCheat(kind)
   local db = self.db
   if not db.ui.testMode then return end
   if kind == "coins" then self:AddCoins(5000)
+  elseif kind == "taps" then db.taps = (db.taps or 0) + 1000   -- (1.6.7) lifetime taps, for the leaderboard and achievements
   elseif kind == "gold" then local s = self:ProfState(); s.gold = s.gold + 1e7; s.lifetime = s.lifetime + 1e7
   elseif kind == "renown" then
     -- professions unlock with the Trade Gold a cat has earned in total

@@ -1240,7 +1240,7 @@ TEST = r'''
         and byLabel["Reset your cats"].frame:GetText():find("ff5555", 1, true), "the reset buttons are red, at the bottom")
       -- every setting from before still has its checkbox, and each one flips its setting
       local want = { "shown", "locked", "clickThrough", "catOnly", "mouse", "showLevel", "showXP", "showTaps", "showCoins",
-                     "popups", "sound", "racial", "chat", "chestAnim", "textAbove" }
+                     "popups", "sound", "racial", "chat", "chestAnim", "textAbove", "partyCats" }
       local have = {}
       for _, cb in ipairs(win.settingsChecks) do have[cb.key] = cb end
       check(#win.settingsChecks == #want, "Settings checkboxes: " .. #win.settingsChecks)

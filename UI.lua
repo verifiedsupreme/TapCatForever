@@ -1440,12 +1440,16 @@ function TCF:CreateWindow()
     -- notes between Help and Progress (y 363 to 431): the party note, then the help line, or
     -- the test mode buttons in place of both while test mode is on
     local INFO_Y, INFO_BOTTOM = 363, 431
+    -- (1.6.7) the party cats beside yours can be hidden (only the picture: the bonus stays)
+    local partyCB = Check("Show party cats", "partyCats", 16, INFO_Y, 240,
+      "Show the cats of party members who have TapCatForever in a little row beside yours. Turning it off only hides the row: your taps still count more with friends, and death roll, rock paper scissors and party expeditions still work.",
+      function() if TCF.PartyRefresh then TCF.PartyRefresh() end end)
+    win.partyCatsCheck = partyCB
     local partyNote = Text(st, "GameFontHighlightSmall", nil, "LEFT"); partyNote:SetWidth(528)
-    Place(partyNote, 16, INFO_Y, 528, INFO_BOTTOM - INFO_Y, "info", "notes")
+    Place(partyNote, 16, INFO_Y + 25, 528, INFO_BOTTOM - INFO_Y - 25, "info", "notes")
     local help = Text(st, "GameFontDisableSmall", nil, "LEFT"); help:SetWidth(528)
     help:SetPoint("TOPLEFT", partyNote, "BOTTOMLEFT", 0, -6)
-    help:SetText("Slash commands: /tcf show, hide, lock, unlock, reset, scale <n>, stats, compendium, news, top, feedback\n" ..
-      "TapCoins, quests and achievements are shared; gear, cosmetics and cat levels are per character, and each class has its own Trade Gold and professions.")
+    help:SetText("Slash commands: /tcf show, hide, lock, unlock, reset, scale <n>, stats, compendium, news, top, feedback")
     win.settingsInfo = { y = INFO_Y, bottom = INFO_BOTTOM, note = partyNote, help = help }
 
     -- test mode shortcuts (/tcf testmode): 60 tall, in the party note's and help line's place
@@ -1455,28 +1459,11 @@ function TCF:CreateWindow()
     local tt = Text(testBox, "GameFontNormalSmall", "|cffff6060Test mode|r  |cffaaaaaa(/tcf testmode to hide)|r", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
     local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },
                      { "+5 of each chest", "chests" }, { "+10 cat levels", "levels" }, { "Skip 1 hour", "hour" },
-                     { "Fake party cats", "party" }, { "Remove fake cats", "partyclear" } }
+                     { "+1,000 taps", "taps" } }
     -- four per row on the button grid
     for i, c in ipairs(cheats) do
-      local b = Button(testBox, c[1], COL_W, 22, function()
-        if c[2] == "party" then
-          -- 1, 2, 3, 4, 5 (shows "+1"), then none again
-          if TCF.PartyTestInject then TCF:PartyTestInject(((TCF:PartyTestCount() or 0) + 1) % 6) end
-          win:RefreshSettings()
-        elseif c[2] == "partyclear" then
-          if TCF.PartyTestClear then TCF:PartyTestClear() end
-          win:RefreshSettings()
-        else
-          TCF:TestCheat(c[2])
-        end
-      end)
+      local b = Button(testBox, c[1], COL_W, 22, function() TCF:TestCheat(c[2]) end)
       b:SetPoint("TOPLEFT", COL[(i - 1) % 4 + 1] - COL[1], -14 - math.floor((i - 1) / 4) * 24)
-      if c[2] == "party" then
-        Tip(b, function(t)
-          t:AddLine("Fake party cats", 1, 0.82, 0)
-          t:AddLine("Shows pretend party cats beside your cat, as if friends with TapCatForever were in your group. Each click adds one, up to five. Remove fake cats takes them all away; leaving a group or turning test mode off does too.", 1, 1, 1, true)
-        end)
-      end
     end
 
     -- Progress: set apart at the bottom, in red, on the right away from the buttons above
@@ -1505,6 +1492,7 @@ function TCF:CreateWindow()
       if friends > 0 then note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)) end
       partyNote:SetText(note)
       partyNote:SetShown(not ui.testMode)
+      partyCB:SetShown(not ui.testMode)
       help:SetShown(not ui.testMode)
       mmB:SetText(ui.minimap.hide and "Show minimap icon" or "Hide minimap icon")
       for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end

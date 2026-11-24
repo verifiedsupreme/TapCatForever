@@ -602,9 +602,12 @@ refreshRow = function()
   row.more:SetShown(extra > 0)
   row.placed = false
   placeRow()
-  row:SetShown(#list > 0)
+  -- (1.6.7) Settings > Show party cats: only the picture goes; the tap bonus and everything else stay
+  local ui = TCF.db and TCF.db.ui
+  row:SetShown(#list > 0 and not (ui and ui.partyCats == false))
 end
 TCF.PartyRefresh = function() refreshRow() end
+TCF.PartyRowFrame = function() return row end
 
 ---------------------------------------------------------------- a party cat's profile
 -- Click a party cat: a small window with that cat drawn big, its class and level, and the gear it
