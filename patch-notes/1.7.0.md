@@ -8,6 +8,7 @@ Professions 2.0: rare finds and glints by hand, named helpers, guilds with work 
 - Spot events while you watch your spots: a stash to grab with 10 quick clicks, a rich spot that pays 3 times as much for 30 seconds, or a patrol to hide from (don't click, and your helpers work twice as fast for a minute).
 - Your helpers have names and traits now, and bring more goods as they level up, all the way to level 20.
 - The gathering spots show your materials exactly (701,620 Linen Cloth instead of 701.62K) up to 10 million, so every click shows.
+<!-- image: media/1.7.0_new_sets.png -->
 
 <!-- message break -->
 
@@ -38,3 +39,6 @@ Professions 2.0: rare finds and glints by hand, named helpers, guilds with work 
 - 11 new animated sets you craft over a long time. Tailoring: Mooncloth Regalia (moonlight and stars), Felweave Shroud (fel fire) and Spellfire (arcane flames). Blacksmithing: Sulfuron Forgemaster (a molten forge) and Dark Iron Bulwark (smouldering dark iron). Leatherworking: Black Dragonscale and Devilsaur Hunter. Herbalism: Lotus Bloom. Fishing: Pinchy's Wish. Cooking: Feast of the Ages. First Aid: Field Medic.
 - Their titles: Moonweaver, Felweaver, Spellfire Savant, Forgemaster, Dark Iron Warden, Dragonscale Stalker, Devilsaur Hunter, Lotus Keeper, Angler of Legend, Master Chef and Field Medic.
 - Each set takes a long time on purpose: skill 300, your specialization, a high guild rank, many daily materials and rare finds. Owning a whole set gives its title.
+<!-- image: media/1.7.0_sets_tailoring.png -->
+<!-- image: media/1.7.0_sets_smithing_leather.png -->
+<!-- image: media/1.7.0_sets_gathering.png -->

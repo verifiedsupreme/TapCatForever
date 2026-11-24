@@ -14,6 +14,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "patch-notes")
 MESSAGE_BREAK = "<!-- message break -->"
+IMAGE_LINE = "<!-- image: %s -->"     # attach this picture (path from patch-notes/) to the message it's in
+
+# pictures for a version (tools/make_set_showcase.py): file in patch-notes/, caption, and text of the
+# section it goes with (None: the first message)
+IMAGES = {
+    "1.7.0": [
+        ("media/1.7.0_new_sets.png", "11 new legendary sets", None),
+        ("media/1.7.0_sets_tailoring.png", "Tailoring sets", "Legendary profession sets"),
+        ("media/1.7.0_sets_smithing_leather.png", "Blacksmithing and Leatherworking sets", "Legendary profession sets"),
+        ("media/1.7.0_sets_gathering.png", "Herbalism, Fishing, Cooking and First Aid sets", "Legendary profession sets"),
+    ],
+}
 LIMIT = 1900          # a little room under Discord's 2000
 
 
@@ -80,12 +92,20 @@ def main():
         hl = news.HIGHLIGHTS.get(ver)
         msgs = messages(ver, body, hl)
         assert all(len(m) <= 2000 for m in msgs), ver
+        imgs = []
+        for f, cap, anchor in IMAGES.get(ver, []):
+            assert os.path.exists(os.path.join(OUT, f)), f
+            k = 0
+            if anchor:
+                k = next((i for i, m in enumerate(msgs) if anchor in m), 0)
+            msgs[k] += "\n" + IMAGE_LINE % f
+            imgs.append({"file": f, "caption": cap, "message": k + 1})
         text = ("\n\n" + MESSAGE_BREAK + "\n\n").join(msgs) + "\n"
         open(os.path.join(OUT, ver + ".md"), "w", encoding="utf-8").write(text)
         if n == 0:
             open(os.path.join(OUT, "latest.md"), "w", encoding="utf-8").write(text)
-        index.append({"version": ver, "file": ver + ".md", "headline": hl, "messages": len(msgs)})
-    json.dump({"latest": index[0]["version"], "message_break": MESSAGE_BREAK, "versions": index},
+        index.append({"version": ver, "file": ver + ".md", "headline": hl, "messages": len(msgs), "images": imgs})
+    json.dump({"latest": index[0]["version"], "message_break": MESSAGE_BREAK, "image_line": IMAGE_LINE % "<file>", "versions": index},
               open(os.path.join(OUT, "index.json"), "w", encoding="utf-8"), indent=2)
     print("patch-notes: %d versions, latest %s (%d messages)" % (len(index), index[0]["version"], index[0]["messages"]))
 
