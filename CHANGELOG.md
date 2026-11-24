@@ -25,7 +25,8 @@
 - The TapCoin is orange now, so it doesn't look like Trade Gold.
 
 **Legendary profession sets**
-- SETS_LINE
+- 11 new animated sets you craft over a long time. Tailoring: Mooncloth Regalia (moonlight and stars), Felweave Shroud (fel fire) and Spellfire (arcane flames). Blacksmithing: Sulfuron Forgemaster (a molten forge) and Dark Iron Bulwark (smouldering dark iron). Leatherworking: Black Dragonscale and Devilsaur Hunter. Herbalism: Lotus Bloom. Fishing: Pinchy's Wish. Cooking: Feast of the Ages. First Aid: Field Medic.
+- Their titles: Moonweaver, Felweaver, Spellfire Savant, Forgemaster, Dark Iron Warden, Dragonscale Stalker, Devilsaur Hunter, Lotus Keeper, Angler of Legend, Master Chef and Field Medic.
 - Each set takes a long time on purpose: skill 300, your specialization, a high guild rank, many daily materials and rare finds. Owning a whole set gives its title.
 
 ## 1.6.8

@@ -37,6 +37,17 @@ Sets\BlackrockSpire.lua
 Sets\DireMaul.lua
 Sets\Scholomance.lua
 Sets\Stratholme.lua
+Sets\MoonclothRegalia.lua
+Sets\FelweaveShroud.lua
+Sets\Spellfire.lua
+Sets\SulfuronForgemaster.lua
+Sets\DarkIronBulwark.lua
+Sets\BlackDragonscale.lua
+Sets\DevilsaurHunter.lua
+Sets\LotusBloom.lua
+Sets\PinchysWish.lua
+Sets\FeastOfTheAges.lua
+Sets\FieldMedic.lua
 Abilities.lua
 SpellKitData.lua
 Adventure.lua
