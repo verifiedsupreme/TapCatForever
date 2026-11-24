@@ -54,12 +54,13 @@ CARDS = [
 
 # the newest update: its version and a few highlights
 LATEST = ("1.6", [
+    "A much deeper Herbalism: 26 real herbs, rare Swiftthistle, Wildvine and Black Lotus, a seed for every plot, and Bramble the gardener to train from Apprentice to Master.",
+    "Brew 17 classic potions and flasks from your herbs and drink them for buffs on top of your Well Fed food.",
+    "Rock paper scissors in best of 1, 3 or 5, against the house cat or a friend.",
     "Happy Purrs: pet your cat 100 times in a row for +5% XP for an hour, and unlock 27 pet effects (fireballs, lightning, poison, yarn balls, fishies, rainbow hearts and more) by coming back on more days.",
     "Gear that fits your class: Equip best now picks Spell Power and Intellect for casters, Strength for Warriors and Paladins and Agility for Hunters and Rogues, like WoW.",
     "Shift-click any item to try it on your cat before you wear or buy it.",
     "Multiplayer works: death roll and rock paper scissors with a friend, party cat profiles with their taps, and a realm leaderboard that fills in from your party.",
-    "A bigger phone view with a fold-away tab menu, a tidier header, and profession buttons that are easy to hit.",
-    "Your x3 profession upgrades and Renown now multiply the ore, leather and cloth you gather too.",
     "The cat Casino, animated cosmetic sets, a resizable window, and your cats shared by every character on your account.",
 ])
 
