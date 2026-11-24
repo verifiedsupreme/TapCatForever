@@ -38,7 +38,7 @@ CARDS = [
     ("card_sets.png", "Dress it up",
      "Hundreds of hats, capes, skins and tap effects, eleven animated dungeon sets with flames, frost and stars, and real gear that "
      "shows on your cat. Shift-click anything to try it on first. The rarest skins drop from Ragnaros, Nefarian and Kel'Thuzad."),
-    (None, "Run a business",
+    ("card_business.png", "Run a business",
      "Mining, skinning or tailoring for your class, with spots, helpers and upgrades that work even while you're offline. Craft real "
      "gear, unlock herbalism, first aid, fishing and cooking, and sell up for Renown to grow even faster."),
     ("card_garden.png", "Grow a garden",
