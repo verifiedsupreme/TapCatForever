@@ -10,15 +10,55 @@ Every keystroke you already make in World of Warcraft earns your cat XP and TapC
 
 ## What your cat gets up to
 
-| | |
-|:---:|:---|
-| ![A cat that taps with you](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_cats.png) | **A cat that taps with you**<br>Every key you press, every click and every spell you cast, your cat taps its paws along. Left paw on A, right paw on D. It pulls faces, bursts hearts and stars from its paws, and quietly earns XP and TapCoins while you play the real game. |
-| ![Nine cats, one adventure](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_farm.png) | **Nine cats, one adventure**<br>One cat for every class, each levelling from 1 to 60 with its own real WoW gear and abilities. Send it through Elwynn Forest, the Deadmines, Molten Core and all the way to Naxxramas: real bosses, real loot tables, bosses you can farm, all while you play. |
-| ![Dress it up](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_sets.png) | **Dress it up**<br>Hundreds of hats, capes, skins and tap effects, eleven animated dungeon sets with flames, frost and stars, and real gear that shows on your cat. Shift-click anything to try it on first. The rarest skins drop from Ragnaros, Nefarian and Kel'Thuzad. |
-| ![Run a business](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_professions.png) | **Run a business**<br>Mining, skinning or tailoring for your class, with spots, helpers and upgrades that work even while you're offline. Craft real gear, unlock herbalism, first aid, fishing and cooking, and sell up for Renown to grow even faster. |
-| ![The cat casino](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_casino.png) | **The cat casino**<br>Lucky Paws slots, blackjack, a death roll in a cosy tavern and rock paper scissors on a snowy mountaintop. Play the house cat, or challenge a friend in your party for TapCoins. |
-| ![Better with friends](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_party.png) | **Better with friends**<br>Group up with friends who have the addon: their cats sit beside yours, your taps count up to 50% more, you can send your cats on party expeditions together, check out each other's cats and climb the realm leaderboard. |
-| ![Your window, your way](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/tile_window.png) | **Your window, your way**<br>A big window with your cat and its gear, fold the character panel away, or switch to a phone-sized view with big round buttons. Quests, achievements, chests with a loot reel, and a Compendium of every item and how to get it. |
+### A cat that taps with you
+
+![A cat that taps with you](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/feat_cat.png)
+
+Every key you press, every click and every spell you cast, your cat taps its paws along. Left paw on A, right paw on D. It pulls faces, bursts hearts and stars from its paws, and quietly earns XP and TapCoins while you play the real game.
+
+### Nine cats, one adventure
+
+One cat for every class, each levelling from 1 to 60 with its own real WoW gear and abilities. Send it through Elwynn Forest, the Deadmines, Molten Core and all the way to Naxxramas: real bosses, real loot tables, bosses you can farm, all while you play.
+
+### Dress it up
+
+![Dress it up](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/feat_sets.png)
+
+Hundreds of hats, capes, skins and tap effects, eleven animated dungeon sets with flames, frost and stars, and real gear that shows on your cat. Shift-click anything to try it on first. The rarest skins drop from Ragnaros, Nefarian and Kel'Thuzad.
+
+### Run a business
+
+Mining, skinning or tailoring for your class, with spots, helpers and upgrades that work even while you're offline. Craft real gear, unlock herbalism, first aid, fishing and cooking, and sell up for Renown to grow even faster.
+
+### Grow a garden
+
+![Grow a garden](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/feat_garden.png)
+
+26 real Classic herbs from Peacebloom to Icecap, a different seed in every plot, and Bramble the gardener, who harvests and replants while you're away and trains from Apprentice to Master. Lucky harvests bring Swiftthistle, Wildvine and Black Lotus.
+
+### Brew potions
+
+![Brew potions](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/feat_potions.png)
+
+Turn your herbs into 17 classic elixirs and flasks, from Elixir of Lion's Strength to Flask of the Titans, and drink them for more damage, health, XP or gold. They stack with your Well Fed food.
+
+### The cat casino
+
+![The cat casino](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/feat_casino.png)
+
+Lucky Paws slots, blackjack, a death roll in a cosy tavern and rock paper scissors (best of 1, 3 or 5) on a snowy mountaintop. Play the house cat, or challenge a friend in your party for TapCoins.
+
+### Better with friends
+
+![Better with friends](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/feat_friends.png)
+
+Group up with friends who have the addon: their cats sit beside yours, your taps count up to 50% more, you can send your cats on party expeditions together, check out each other's cats and climb the realm leaderboard.
+
+### Your window, your way
+
+![Your window, your way](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/feat_window.png)
+
+A big window with your cat and its gear, fold the character panel away, or switch to a phone-sized view with big round buttons. Quests, achievements, chests with a loot reel, and a Compendium of every item and how to get it.
 
 ---
 
