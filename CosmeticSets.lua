@@ -62,7 +62,8 @@ function TCF.AddCosmeticSet(def)
   for _, p in ipairs(def.pieces) do
     assert(not TCF.ITEMS[p.id], "duplicate item " .. p.id)
     local it = { id = p.id, slot = p.slot, art = p.art, name = p.name, rarity = p.rarity, c1 = { 1, 1, 1 }, c2 = { 1, 1, 1 },
-      icon = p.icon, source = "set", set = def.key, bossName = p.boss, word = p.word or PIECE_WORD[p.slot] }
+      icon = p.icon, source = "set", set = def.key, bossName = p.boss, word = p.word or PIECE_WORD[p.slot],
+      craftSet = def.prof }   -- (1.7.0) a crafted set's piece: made by that profession (ProfSets.lua)
     -- bossName, not boss: gear items use it.boss as a number (an index into a tier's bosses)
     it.price = TCF.RARITY[it.rarity].price
     if p.slot == "effect" then
@@ -108,6 +109,17 @@ function TCF:CosmeticSetLines(it)
     out[1] = string.format("Adventure: %s%s always drops it until you own it", it.bossName, zone and (" in " .. zone) or "")
   end
   local have, total = self:CosmeticSetProgress(def.key)
+  if def.prof then
+    -- (1.7.0) a crafted set: the recipe says what it takes (ProfSets.lua)
+    if self.ProfSetLines then for _, l in ipairs(self:ProfSetLines(it)) do out[#out + 1] = l end end
+    local words = {}
+    for _, p in ipairs(def.items) do
+      words[#words + 1] = (self.db and self.db.owned[p.id] and "|cff40ff40" or "") .. p.word .. (self.db and self.db.owned[p.id] and "|r" or "")
+    end
+    out[#out + 1] = string.format("%s set (%d/%d), cosmetic only: %s%s", def.name, have, total, table.concat(words, ", "),
+      def.title and (". The whole set gives the title " .. def.title) or "")
+    return out
+  end
   local parts = {}
   for _, p in ipairs(def.items) do
     parts[#parts + 1] = (self.db and self.db.owned[p.id] and "|cff40ff40" or "") .. p.word .. " from " .. (p.bossName or "?")

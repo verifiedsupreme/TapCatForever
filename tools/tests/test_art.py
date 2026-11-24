@@ -152,6 +152,23 @@ def check(seed, load_addon):
 
       -- every set (tools/sets/*.py): pieces from different bosses of its own zone, drawings and animations present
       for _, def in ipairs(T.COSMETIC_SETS) do
+       if def.prof then
+        -- (1.7.0) a crafted set: every piece has a recipe in its profession, a drawing and a cheap animation
+        for _, it in ipairs(def.items) do
+          ck(it.id:find("^set_" .. def.key .. "_"), def.key .. ": item ids start with set_" .. def.key .. "_")
+          ck(it.slot == "effect" or T.VEC["cos:" .. it.art .. ":f"], def.key .. ": drawing for " .. it.id)
+          ck(not it.name:find("!", 1, true), def.key .. ": plain name " .. it.name)
+          local rec
+          for _, r in ipairs(T.RECIPES[def.prof] or {}) do if r.item == it.id then rec = r end end
+          ck(rec, def.key .. ": a recipe for " .. it.id .. " in " .. def.prof)
+          local layers = T.AnimOf(it) or {}
+          ck(#layers <= 6, def.key .. ": at most 6 animated layers on " .. it.id)
+          for _, L in ipairs(layers) do
+            ck(not L.n or L.n <= 8, def.key .. ": at most 8 particles a layer on " .. it.id)
+            ck(not L.keys or #L.keys <= 4, def.key .. ": at most 4 flipbook frames on " .. it.id)
+          end
+        end
+       else
         local zoneBosses = {}
         for _, t in ipairs(T.TIERS) do if t.key == def.zone then for _, b in ipairs(t.bosses) do zoneBosses[b[1]] = true end end end
         ck(next(zoneBosses), def.key .. ": zone " .. tostring(def.zone) .. " is an Adventure zone")
@@ -169,6 +186,7 @@ def check(seed, load_addon):
             ck(not L.keys or #L.keys <= 4, def.key .. ": at most 4 flipbook frames on " .. it.id)
           end
         end
+       end
       end
 
       -- 6. skins with effects, and the shine on other Legendary cosmetics

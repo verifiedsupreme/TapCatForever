@@ -82,7 +82,9 @@ def check(seed, load_addon):
           for _, s in ipairs({ "head", "shoulder", "chest", "back", "main", "effect" }) do ck(slots[s], key .. " has a " .. s .. " piece") end
         end
       end
-      ck(nSets == 11 and #T.COSMETIC_SETS == 11, "11 sets: " .. nSets .. " / " .. #T.COSMETIC_SETS)
+      local nDungeon = 0
+      for _, d in ipairs(T.COSMETIC_SETS) do if not d.prof then nDungeon = nDungeon + 1 end end
+      ck(nSets == 11 and nDungeon == 11, "11 dungeon sets: " .. nSets .. " / " .. nDungeon)
       local nBoss = 0
       for b, list in pairs(T.BOSS_COSMETICS) do nBoss = nBoss + 1; ck(#list >= 1, "boss list not empty: " .. b) end
       ck(nBoss == 66, "66 bosses give a set piece: " .. nBoss)

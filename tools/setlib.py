@@ -119,6 +119,9 @@ def build(SET, out=None, work=None):
         f.write("-- %s\n" % SET.get("about", SET["name"] + " set"))
         f.write("local ADDON, TCF = ...\n")
         body = {"key": SET["key"], "name": SET["name"], "zone": SET.get("zone"), "vec": vec, "pieces": pieces}
+        # (1.7.0) a crafted set (a profession's long chase): no zone or bosses, its recipes are in ProfSets.lua
+        for k in ("prof", "spec", "title"):
+            if SET.get(k): body[k] = SET[k]
         f.write("TCF.AddCosmeticSet(%s)\n" % lua(body))
     print("set %s: %d pieces, %d textures -> %s" % (SET["key"], len(pieces), len(vec), path))
     return path
