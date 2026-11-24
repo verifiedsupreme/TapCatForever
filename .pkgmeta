@@ -5,6 +5,8 @@ ignore:
   - media
   - notes
   - README.md
+  - ROADMAP.md
+  - patch-notes
   - CURSEFORGE.md
   - CURSEFORGE.html
   - CURSEFORGE.txt
