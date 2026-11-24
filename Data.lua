@@ -665,6 +665,25 @@ local PETFX = {
   { "pet_snow",    "pet", "snow",    "Snowflakes",      4, { 0.7, 0.9, 1 },    nil, "Spell_Frost_FrostNova" },
   { "pet_coin",    "pet", "coin",    "Lucky Coins",     4, { 1, 0.8, 0.3 },    nil, "INV_Misc_Coin_01" },
   { "pet_rainbow", "pet", "heart",   "Rainbow Hearts",  5, { 1, 0.6, 0.6 },    nil, "INV_ValentinesCandy", { rainbow = true } },
+  -- (1.6.7) full-colour ones (tools/make_petfx.py): drawn in their own colours, so a white tint
+  { "pet_yarn",      "pet", "yarn",      "Yarn Balls",          2, { 1, 1, 1 }, nil, "INV_Fabric_Wool_01" },
+  { "pet_fish",      "pet", "fish",      "Fishies",             2, { 1, 1, 1 }, nil, "INV_Misc_Fish_02" },
+  { "pet_mouse",     "pet", "mouse",     "Toy Mice",            2, { 1, 1, 1 }, nil, "INV_Misc_Bag_10" },
+  { "pet_fireball",  "pet", "fireball",  "Fireballs",           3, { 1, 1, 1 }, nil, "Spell_Fire_FlameBolt" },
+  { "pet_lightning", "pet", "lightning", "Crackling Lightning", 3, { 1, 1, 1 }, nil, "Spell_Nature_Lightning" },
+  { "pet_catnip",    "pet", "catnip",    "Catnip",              3, { 1, 1, 1 }, nil, "INV_Misc_Herb_11" },
+  { "pet_poison",    "pet", "poison",    "Poison Drips",        3, { 1, 1, 1 }, nil, "Spell_Nature_CorrosiveBreath" },
+  { "pet_butterfly", "pet", "butterfly", "Butterflies",         3, { 1, 1, 1 }, nil, "Spell_Nature_Polymorph" },
+  { "pet_frost",     "pet", "frost",     "Frost Shards",        4, { 1, 1, 1 }, nil, "Spell_Frost_FrostBolt02" },
+  { "pet_shadow",    "pet", "shadow",    "Shadow Wisps",        4, { 1, 1, 1 }, nil, "Spell_Shadow_ShadowBolt" },
+  { "pet_holy",      "pet", "holy",      "Holy Light",          4, { 1, 1, 1 }, nil, "Spell_Holy_HolyBolt" },
+  { "pet_felfire",   "pet", "felfire",   "Fel Fire",            4, { 1, 1, 1 }, nil, "Spell_Fire_FelFire" },
+  { "pet_blood",     "pet", "blood",     "Blood Drops",         4, { 1, 1, 1 }, nil, "Spell_Shadow_LifeDrain" },
+  { "pet_arcane",    "pet", "arcane",    "Arcane Runes",        4, { 1, 1, 1 }, nil, "Spell_Holy_MagicalSentry" },
+  { "pet_ghost",     "pet", "ghost",     "Little Ghosts",       4, { 1, 1, 1 }, nil, "Spell_Holy_GuardianSpirit" },
+  { "pet_moon",      "pet", "moon",      "Moons",               5, { 1, 1, 1 }, nil, "Spell_Nature_StarFall" },
+  { "pet_crown",     "pet", "crown",     "Crowns",              5, { 1, 1, 1 }, nil, "INV_Crown_01" },
+  { "pet_gem",       "pet", "gem",       "Gems",                5, { 1, 1, 1 }, nil, "INV_Misc_Gem_Diamond_01" },
 }
 addUniversal(PETFX, "purr")
 addUniversal(U, "loot")

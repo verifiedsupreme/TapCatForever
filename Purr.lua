@@ -17,6 +17,13 @@ TCF.PURR_UNLOCKS = {
   { id = "pet_paw", days = 1 },  { id = "pet_note", days = 3 },  { id = "pet_star", run = 3 },
   { id = "pet_bubble", days = 7 }, { id = "pet_leaf", run = 7 },  { id = "pet_sparkle", days = 14 },
   { id = "pet_snow", run = 14 },  { id = "pet_coin", days = 30 }, { id = "pet_rainbow", run = 30 },
+  -- (1.6.7) the full-colour ones, from a second day to a whole year
+  { id = "pet_yarn", days = 2 },      { id = "pet_fish", days = 5 },       { id = "pet_mouse", run = 5 },
+  { id = "pet_fireball", days = 10 }, { id = "pet_lightning", run = 10 },  { id = "pet_catnip", days = 12 },
+  { id = "pet_poison", days = 20 },   { id = "pet_butterfly", days = 25 }, { id = "pet_frost", run = 21 },
+  { id = "pet_shadow", days = 40 },   { id = "pet_holy", run = 45 },       { id = "pet_felfire", days = 50 },
+  { id = "pet_blood", days = 60 },    { id = "pet_arcane", days = 75 },    { id = "pet_ghost", days = 90 },
+  { id = "pet_moon", run = 90 },      { id = "pet_crown", days = 180 },    { id = "pet_gem", days = 365 },
 }
 
 local streak, lastPet, streakClass = 0, -1e9, nil

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.7
+
+**18 new pet effects**
+- Full-colour ones this time: Fireballs, Crackling Lightning, Poison Drips, Frost Shards, Shadow Wisps, Holy Light, Arcane Runes, Fel Fire and Blood Drops, plus Yarn Balls, Fishies, Toy Mice, Catnip, Butterflies, Little Ghosts, Moons, Crowns and Gems.
+- Like the others, they come from Happy Purrs with your cat: Yarn Balls on a second day, Fireballs on the 10th, Crackling Lightning after 10 days in a row, all the way to Gems for a whole year. The Compendium shows what each one needs, and days you already have count.
+
 ## 1.6.6
 
 **Happy Purrs**

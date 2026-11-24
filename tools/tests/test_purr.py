@@ -76,6 +76,19 @@ def check(seed, load_addon):
       -- the slot and the how-to-get line
       ck(T.SLOT_BY_KEY.pet and T.SLOT_BY_KEY.pet.look, "a Pet Effect slot")
       ck(T:PurrUnlockLine(T.ITEMS.pet_rainbow):find("30 days in a row", 1, true), "how to get Rainbow Hearts")
+      -- 1.6.7: every pet effect has its sprite, an unlock rule, and the full-colour ones aren't tinted
+      local rules = {}
+      for _, u in ipairs(T.PURR_UNLOCKS) do rules[u.id] = u end
+      local npet = 0
+      for _, it in ipairs(T.ITEM_LIST) do
+        if it.slot == "pet" then
+          npet = npet + 1
+          ck(rules[it.id], "unlock rule for " .. it.id)
+        end
+      end
+      ck(npet >= 27, "27 pet effects: " .. npet)
+      ck(T.ITEMS.pet_fireball and T.ITEMS.pet_fireball.c1[1] == 1 and T.ITEMS.pet_fireball.c1[3] == 1, "full-colour sprites keep their colours")
+      ck(T.db.owned.pet_yarn, "a second day with Happy Purrs: Yarn Balls")
       -- the small indicators
       local hud = T.hud
       clockT = clockT + 86400; pets(100)
