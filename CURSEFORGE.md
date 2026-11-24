@@ -1,11 +1,3 @@
-# CurseForge page text
-
-## Summary (under 256 characters)
-
-A cartoon cat taps along with every key you press. Level a cat for each class to 60, dress it in real WoW gear and animated dungeon sets, fight through dungeons and raids, craft gear, send party expeditions and try the cat Casino. Made for WoW: Forever.
-
-## Description
-
 ![TapCatForever](https://raw.githubusercontent.com/verifiedsupreme/TapCatForever/main/media/logo_small.png)
 
 ### A little cartoon cat lives on your screen and taps its paws every time you press a key.

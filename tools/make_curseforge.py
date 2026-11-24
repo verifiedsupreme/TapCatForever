@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Writes the CurseForge page text in three forms from one source, so they never drift apart:
-CURSEFORGE.md (Markdown, with the summary), CURSEFORGE.html (for the HTML editor) and
+CURSEFORGE.md (Markdown, starting with the logo, ready to paste), CURSEFORGE.html (for the HTML editor) and
 CURSEFORGE.txt (plain text to paste into the WYSIWYG editor).
 
 usage: python3 tools/make_curseforge.py
@@ -120,8 +120,8 @@ def txt():
 
 
 def md():
-    o = ["# CurseForge page text", "", "## Summary (under 256 characters)", "", SUMMARY, "", "## Description", "",
-         "![TapCatForever]({})".format(LOGO_SMALL), "",
+    # starts with the logo: the whole file is pasted into CurseForge's Markdown editor as it is
+    o = ["![TapCatForever]({})".format(LOGO_SMALL), "",
          "### " + INTRO_BOLD, "", INTRO.strip() + " " + INTRO2, "", "*" + PERSONAL + "*", "",
          "---", "", "## What your cat gets up to", ""]
     # cards: a picture beside each, in a table so it reads like a web page
