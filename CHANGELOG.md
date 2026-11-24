@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.0
+
+**Professions 2.0: a reason to work your spots by hand**
+- Rare finds: clicking a gathering spot by hand can find something rare, better at the later spots. Ore: Black Diamond, Star Ruby, Blood of the Mountain. Leather: Warbear Leather, Black Dragonscale, Pristine Hide of the Beast. Cloth: Essence of Undeath, Demonic Rune, Righteous Orb. Helpers never find them.
+- Glints: now and then a spot's tool sparkles. Click it by hand in time for 5 times the reward and a combo; every glint in a row makes rare finds likelier.
+- Spot events while you watch your spots: a stash to grab with 10 quick clicks, a rich spot that pays 3 times as much for 30 seconds, or a patrol to hide from (don't click, and your helpers work twice as fast for a minute).
+- Your helpers have names and traits now, and bring more goods as they level up, all the way to level 20.
+
+**Professions 2.0: deeper layers (the new Guild page)**
+- Specializations at 225, like Classic: Mooncloth, Shadoweave or Spellfire Tailoring, Armorsmith or Weaponsmith, Dragonscale or Tribal Leatherworking. Each has its own perk and daily craft (Primal Mooncloth, Shadowcloth, Spellcloth, Enchanted Thorium, Arcanite, Cured Rugged Hide, Enchanted Leather).
+- Guilds and work orders: The Silken Thread, the Thorium Brotherhood and the Hide and Hunt Lodge post orders for materials, crafted gear, rare finds and daily materials. Orders pay Trade Gold, TapCoins and reputation, from Initiate to Grand Master. Grand Master comes with a title.
+- Masterwork: crafted gear now and then comes out as a Masterwork version with better stats.
+- Renown shop: selling your business also gives Renown points. Spend them on perks that stay forever: Sharp Tools, Keen Eye, Glint Seeker, Busy Hands, Guild Ties, Rested Hands and Steady Hands. Cats that already have Renown start with points.
+- Titles: click your cat's title in the window to show one you earned.
+
+**Legendary profession sets**
+- SETS_LINE
+- Each set takes a long time on purpose: skill 300, your specialization, a high guild rank, many daily materials and rare finds. Owning a whole set gives its title.
+
 ## 1.6.8
 
 **Tapping faces**
