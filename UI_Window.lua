@@ -202,7 +202,7 @@ local TAB_ICONS = {
   Professions = { "Trade_BlackSmithing", "Gathering and crafting." },
   Appearance = { "INV_Misc_Cape_02", "The cosmetics you collected. Cosmetic only." },
   Quests = { "INV_Misc_Note_01", "Quests and their rewards." },
-  Shop = { "INV_Box_01", "Chests and cosmetics for TapCoins." },   -- a chest: the Treasure Bag next to it is a bag
+  Shop = { "INV_Box_01", "Cat skins, chests and cosmetics for TapCoins." },   -- a chest: the Treasure Bag next to it is a bag
   Casino = { "INV_Misc_Coin_02", "Slots, blackjack, death roll and rock paper scissors." },
   Leaderboard = { "INV_Crown_02", "Cats of players on your realm." },
 }

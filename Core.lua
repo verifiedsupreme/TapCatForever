@@ -93,7 +93,8 @@ local DEFAULTS = {
   achievements = {},
   stats = { chests = 0, drops = 0, frenzies = 0, pets = 0, peakTPS = 0, classesPlayed = {} },
   daily = { last = "", streak = 0, best = 0 },
-  shop = { day = "", rerolls = 0, stock = {}, bought = {} },
+  -- featured: the Skin of the Day for each class cat ({ [class] = skin id or false }), picked on featuredDay
+  shop = { day = "", rerolls = 0, stock = {}, bought = {}, featured = nil, featuredDay = nil },
   keys = { pouch = 0, strong = 0, heroic = 0, raid = 0 },  -- free (unopened) chests
   ui = {
     point = { "BOTTOM", "BOTTOM", 0, 160 },
@@ -1058,13 +1059,16 @@ function TCF:ChestLevel()
   return clampLevel(cd and cd.level)
 end
 
--- Skins are bought from the Appearance tab
-function TCF:BuySkin(id)
+-- Skins are bought in the Shop (Cat Skins) or the Appearance tab (where = "shop" for the Shop).
+-- The Skin of the Day costs less (TCF:SkinPrice).
+function TCF:BuySkin(id, where)
   local it = TCF.ITEMS[id]
   if not it or it.slot ~= "skin" or self.db.owned[id] or not it.skinPrice then return false end
-  if not self:SpendCoins(it.skinPrice) then return false end
+  if not self:SpendCoins(self:SkinPrice(it)) then return false end
   self.db.owned[id] = 1
-  if self.NoteItemSource then self:NoteItemSource(id, "Bought in the Appearance tab") end
+  if self.NoteItemSource then
+    self:NoteItemSource(id, where == "shop" and "Bought in the Shop" or "Bought in the Appearance tab")
+  end
   self.db.look.skin = id
   self:Print("Your cat is now a " .. TCF.ItemLink(it) .. ".", true)
   if self.ShowLootReveal then self:ShowLootReveal(it, true, 0, "New skin") end
@@ -1605,12 +1609,49 @@ end
 
 function TCF:RerollCost() return 50 * (2 ^ min(self.db.shop.rerolls, 5)) end
 
+-- Skin of the Day: one shop skin the cat doesn't own yet, a fifth off for the day. Each class cat
+-- gets its own pick (skins belong to the cat), fixed for the day: buying it or rerolling the Daily
+-- Wares doesn't move the discount to another skin.
+TCF.FEATURED_SKIN_DISCOUNT = 0.2
+function TCF:FeaturedSkin(class)
+  local shop = self.db and self.db.shop
+  if not shop then return nil end
+  class = class or self.db.class
+  local day = today()
+  if shop.featuredDay ~= day or type(shop.featured) ~= "table" then
+    shop.featured, shop.featuredDay = {}, day
+  end
+  local id = class and shop.featured[class]
+  if class and id == nil then
+    local pool = {}
+    for _, it in ipairs(TCF.ITEM_LIST) do
+      if it.slot == "skin" and it.skinPrice and not self:Owned(class)[it.id] then pool[#pool + 1] = it end
+    end
+    local ci = 0
+    for i, cl in ipairs(TCF.CLASSES) do if cl.key == class then ci = i end end
+    local rnd = seededRandom(tonumber(day) * 31 + ci)
+    id = #pool > 0 and pool[rnd(#pool)].id or false
+    shop.featured[class] = id
+  end
+  return id and TCF.ITEMS[id] or nil
+end
+
+-- what a shop skin costs today (the Skin of the Day: 20% off, rounded to 50)
+function TCF:SkinPrice(it)
+  if not it or not it.skinPrice then return it and it.skinPrice end
+  if self:FeaturedSkin() == it then
+    return max(50, floor(it.skinPrice * (1 - TCF.FEATURED_SKIN_DISCOUNT) / 50 + 0.5) * 50)
+  end
+  return it.skinPrice
+end
+
 function TCF:BuildShop(force)
   local shop = self.db.shop
   local day = today()
   if shop.day ~= day then
     shop.day = day; shop.rerolls = 0; force = true
   end
+  self:FeaturedSkin()
   if not force and #shop.stock > 0 then return end
   local seed = tonumber(day) * 7 + shop.rerolls * 7919 + (self.db.taps % 997)
   local rnd = seededRandom(seed)
@@ -1621,11 +1662,13 @@ function TCF:BuildShop(force)
     attempts = attempts + 1
     local r, roll, acc = 1, rnd() * 100, 0
     for i = 1, 5 do acc = acc + weights[i]; if roll <= acc then r = i; break end end
+    -- slots 1 and 2: made for this class; slot 3: for any class (Daily Wares belong to the cat that
+    -- buys them, so another class's piece would be one this cat can never wear)
     local wantClass = #stock < 2
     local cands = {}
     for _, it in ipairs(TCF.ITEM_LIST) do
       if it.rarity == r and it.source == "loot" and not used[it.id] and not self.db.owned[it.id]
-        and ((wantClass and it.class == self.db.class) or (not wantClass and it.class ~= self.db.class)) then
+        and ((wantClass and it.class == self.db.class) or (not wantClass and it.class == nil)) then
         cands[#cands + 1] = it
       end
     end

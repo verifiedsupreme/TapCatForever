@@ -294,7 +294,7 @@ function TCF:HowToGet(it)
   end
 
   if it.slot == "skin" then
-    if it.skinPrice then add("Buy in the Appearance tab for " .. commas(it.skinPrice) .. " TapCoins") end
+    if it.skinPrice then add("Buy in the Shop (Cat Skins) for " .. commas(it.skinPrice) .. " TapCoins") end
     for _, d in ipairs(skinDrops(it)) do
       local t = zoneOfBoss(d[1])
       add(string.format("Adventure: dropped by %s%s, %s chance", d[1], t and (" in " .. t.name) or "", pct(d[2])))
@@ -324,7 +324,7 @@ function TCF:HowToGet(it)
       add(string.format("Chests that can hold %s cosmetics: %s", TCF.RARITY[it.rarity].name, chests))
     end
     local cl = it.class and TCF.CLASS_BY_KEY[it.class]
-    if cl then add(string.format("%s only: it drops only while your cat is a %s, but it can turn up in any cat's Daily Wares", cl.name, cl.name)) end
+    if cl then add(string.format("%s only: it drops only while your cat is a %s, and it turns up only in that class's Daily Wares", cl.name, cl.name)) end
   elseif src == "achievement" then
     local a = achFor("item", it.id)
     add(a and ("Achievement reward: " .. a.name .. " (" .. (a.desc:gsub("%.$", "")) .. ")") or "Achievement reward")

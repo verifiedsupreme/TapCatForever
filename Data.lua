@@ -478,7 +478,7 @@ TCF.RACE_ITEM = {
 }
 
 -- Cat skins: the cat's whole look (fur colour, markings, eyes, mane).
--- source: price (Appearance tab), drop {boss, chance}, ach (achievement id), or get (other sources):
+-- source: price (bought in the Shop), drop {boss, chance}, ach (achievement id), or get (other sources):
 --   { kind = "chest", chest = "pouch"|"strong"|"heroic"|"dungeon"|"raid", chance }   rolled each time that chest is opened
 --   { kind = "quest", quest = "daily"|"weekly", chance }            rolled when a quest of that type is done
 --   { kind = "expedition", expedition = key or "any", chance }      rolled on a successful expedition
@@ -518,7 +518,7 @@ local SKINS = {
   { "skin_onyxpanther",  "Jeweled Onyx Panther",    5, c(0.12, 0.10, 0.14), 1,   { "skin_stars", c(1.00, 1.00, 1.00) },   c(0.40, 1.00, 0.60), nil, nil, "INV_Misc_Gem_Pearl_04", nil, 42185, "skin_ach_aq40" },
   { "skin_bigglesworth", "Mr. Bigglesworth",        5, c(0.96, 0.94, 0.92), 1,   nil,                                     c(0.40, 0.70, 1.00), nil, nil, "Spell_Shadow_RaiseDead", nil, 46897, "skin_ach_naxx" },
   { "skin_luckycat",     "Fortune's Waving Cat",    5, c(1.00, 0.98, 0.94), 1,   { "skin_stars", c(1.00, 0.82, 0.30) },   nil,                 nil, nil, "INV_Misc_Coin_02", nil, 137922, "skin_ach_collect" },
-  -- shop cats (Appearance tab)
+  -- shop cats (sold in the Shop, Cat Skins)
   { "skin_mittens",      "Mittens",                 1, c(0.95, 0.62, 0.35), 1,   { "pat_socks", c(1.00, 0.98, 0.95) },   nil,                 nil, 300,  "INV_Box_PetCarrier_01", nil, nil, nil, nil },
   { "skin_tuxedo",       "Tuxedo Cat",              1, c(0.16, 0.15, 0.18), 1,   { "pat_tuxedo", c(0.97, 0.96, 0.94) },  c(0.55, 0.90, 0.40), nil, 400,  "INV_Shirt_Black_01", nil, nil, nil, nil },
   { "skin_cow",          "Cow Cat",                 1, c(0.98, 0.97, 0.95), 1,   { "pat_cow", c(0.17, 0.16, 0.18) },     nil,                 nil, 450,  "INV_Box_PetCarrier_01", nil, nil, nil, nil },

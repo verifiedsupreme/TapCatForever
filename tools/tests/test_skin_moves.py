@@ -107,7 +107,7 @@ def check(seed, load_addon):
       for _ in pairs(PRICES) do want = want + 1 end
       ck(n == want, "shop skins: " .. n .. ", expected " .. want)
       h = how("skin_lion")
-      ck(h:find("Buy in the Appearance tab for " .. T.Commas(12000) .. " TapCoins", 1, true), "price line: " .. h)
+      ck(h:find("Buy in the Shop (Cat Skins) for " .. T.Commas(12000) .. " TapCoins", 1, true), "price line: " .. h)
       -- Epic and Legendary cosmetics keep their prices
       ck(T.RARITY[4].price == 1500 and T.RARITY[5].price == 5000, "Epic and Legendary cosmetic prices unchanged")
 

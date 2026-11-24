@@ -328,6 +328,25 @@ TCF.UI.ItemCell, TCF.UI.ItemPicture, TCF.UI.coinStr = ItemCell, ItemPicture, coi
 TCF.UI.BACKDROP_PANEL, TCF.UI.BACKDROP_DIALOG, TCF.UI.BT = BACKDROP_PANEL, BACKDROP_DIALOG, BT
 TCF.UI.Builders = TCF.UI.Builders or {}
 
+-- Buying a shop skin, from the Shop (where = "shop") or the Appearance tab: asks first, at today's
+-- price (the Skin of the Day costs less, TCF:SkinPrice)
+function TCF.UI.ConfirmBuySkin(it, where)
+  if not it or not it.skinPrice or TCF.db.owned[it.id] then return end
+  local price = TCF:SkinPrice(it)
+  if TCF.db.coins < price then TCF:Print("You need " .. TCF.Commas(price) .. " TapCoins for " .. it.name .. ".", true) return end
+  if StaticPopup_Show then
+    StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN = StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN or {
+      text = "Buy the %s skin for %s TapCoins?", button1 = YES or "Yes", button2 = NO or "No",
+      OnAccept = function(_, data) if type(data) == "table" then TCF:BuySkin(data.id, data.where) end end,
+      timeout = 0, whileDead = true, hideOnEscape = true,
+    }
+    local dlg = StaticPopup_Show("TAPCATFOREVER_BUY_SKIN", it.name, TCF.Commas(price))
+    if dlg then dlg.data = { id = it.id, where = where } end
+  else
+    TCF:BuySkin(it.id, where)
+  end
+end
+
 -- A square button showing a real gear item (WoW icon, quality border)
 function TCF.UI.GearButton(parent, size)
   local b = CreateFrame("Button", nil, parent, BT)
@@ -648,7 +667,7 @@ function TCF:CreateWindow()
                      "Quests", "Shop", "Achievements", "Leaderboard", "Casino", "Settings" }
   local builderKeys = { [TAB_GEAR] = "gear", [TAB_ADVENTURE] = "adventure", [TAB_ABILITIES] = "abilities",
                         [TAB_EXPEDITIONS] = "expeditions", [TAB_PROFESSIONS] = "professions",
-                        [TAB_LEADERBOARD] = "leaderboard", [TAB_CASINO] = "casino" }
+                        [TAB_LEADERBOARD] = "leaderboard", [TAB_CASINO] = "casino", [TAB_SHOP] = "shop" }
   local pageRefresh = {}
   win.TAB_GEAR, win.TAB_LEADERBOARD, win.TAB_CASINO, win.TAB_SETTINGS = TAB_GEAR, TAB_LEADERBOARD, TAB_CASINO, TAB_SETTINGS
   win.TAB_ACH, win.TAB_PROFESSIONS = TAB_ACH, TAB_PROFESSIONS
@@ -979,17 +998,7 @@ function TCF:CreateWindow()
           TCF:Print(it.name .. ": " .. line, true)
           return
         end
-        if TCF.db.coins < it.skinPrice then TCF:Print("You need " .. TCF.Commas(it.skinPrice) .. " TapCoins for " .. it.name .. ".", true) return end
-        if StaticPopup_Show then
-          StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN = StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN or {
-            text = "Buy the %s skin for %s TapCoins?", button1 = YES or "Yes", button2 = NO or "No",
-            OnAccept = function(_, data) TCF:BuySkin(data) end, timeout = 0, whileDead = true, hideOnEscape = true,
-          }
-          local dlg = StaticPopup_Show("TAPCATFOREVER_BUY_SKIN", it.name, TCF.Commas(it.skinPrice))
-          if dlg then dlg.data = it.id end
-        else
-          TCF:BuySkin(it.id)
-        end
+        TCF.UI.ConfirmBuySkin(it)
         return
       end
       if not it or not TCF.db.owned[it.id] then return end
@@ -1058,7 +1067,7 @@ function TCF:CreateWindow()
       if it then
         cells[i]:SetItem(it, TCF.db.owned[it.id], TCF:IsEquipped(it))
         if it.slot == "skin" and not TCF.db.owned[it.id] then
-          cells[i].count:SetText(it.skinPrice and ("|cffffd100" .. TCF.Commas(it.skinPrice) .. "|r") or ("|cffff8000" .. TCF.SkinSourceTag(it) .. "|r"))
+          cells[i].count:SetText(it.skinPrice and ("|cffffd100" .. TCF.Commas(TCF:SkinPrice(it)) .. "|r") or ("|cffff8000" .. TCF.SkinSourceTag(it) .. "|r"))
           cells[i].pic:SetAlpha(0.7)
         end
       else cells[i]:Hide() end
@@ -1135,140 +1144,7 @@ function TCF:CreateWindow()
     end
   end
 
-  ------------------------------------------------ Shop
-  local sh = pages[TAB_SHOP]
-  local shopTitle = Text(sh, "GameFontNormalLarge", "Daily Wares"); shopTitle:SetPoint("TOPLEFT", 16, -14)
-  local resetText = Text(sh, "GameFontDisableSmall", nil, "LEFT"); resetText:SetPoint("LEFT", shopTitle, "RIGHT", 10, -1)
-  local reroll = Button(sh, "New Stock", 150, 22, function()
-    if TCF:RerollShop() then TCF:PlaySound("buy") end
-  end)
-  reroll:SetPoint("TOPRIGHT", -14, -12)
-  Tip(reroll, function(tt)
-    tt:AddLine("Refresh the daily wares", 1, 0.82, 0)
-    tt:AddLine("The price doubles with each refresh, and resets at midnight.", 1, 1, 1, true)
-  end)
-  local cards = {}
-  for i = 1, 3 do
-    local c = Panel(sh, 160, 112, 0.9)
-    c:SetPoint("TOPLEFT", 14 + (i - 1) * 166, -42)
-    c.cell = ItemCell(c, 56); c.cell:SetPoint("TOPLEFT", 8, -8)
-    c.cell:SetScript("OnEnter", function(s)
-      if not s.item then return end
-      GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, s.item)
-      if TCF:CanEquip(s.item) then TCF.UI.PreviewHint(GameTooltip, win, s.item) end
-      GameTooltip:Show()
-      if TCF:CanEquip(s.item) then TCF.UI.ShowTryOn(win, s.item) end
-    end)
-    c.cell:SetScript("OnLeave", function() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end)
-    c.cell:SetScript("OnClick", function(s)
-      if s.item and TCF:CanEquip(s.item) and TCF.UI.PreviewClick(win, s.item) then s:GetScript("OnEnter")(s) end
-    end)
-    c.name = Text(c, "GameFontNormalSmall", nil, "LEFT"); c.name:SetPoint("TOPLEFT", c.cell, "TOPRIGHT", 6, 0)
-    c.name:SetWidth(84); c.name:SetHeight(42); c.name:SetJustifyV("TOP")
-    c.cls = Text(c, "GameFontDisableSmall", nil, "LEFT"); c.cls:SetPoint("BOTTOMLEFT", c.cell, "BOTTOMRIGHT", 6, 2)
-    c.price = Text(c, "GameFontHighlight", nil, "LEFT"); c.price:SetPoint("BOTTOMLEFT", 10, 12)
-    c.buy = Button(c, "Buy", 60, 20, function() if c.id then TCF:BuyItem(c.id) end end)
-    c.buy:SetPoint("BOTTOMRIGHT", -8, 8)
-    cards[i] = c
-  end
-  local chestTitle = Text(sh, "GameFontNormalLarge", "Treasure Chests"); chestTitle:SetPoint("TOPLEFT", 16, -176)
-  local chestCards = {}
-  -- chests you can buy (the Dungeon Chest and Raider's Hoard have no price: they only come from
-  -- dungeons and raids)
-  local shopChests = {}
-  for _, ch in ipairs(TCF.CHESTS) do if ch.cost then shopChests[#shopChests + 1] = ch end end
-  for i, ch in ipairs(shopChests) do
-    local c = Panel(sh, 160, 118, 0.9)
-    c:SetPoint("TOPLEFT", 14 + (i - 1) * 166, -200)
-    local ic = c:CreateTexture(nil, "ARTWORK"); ic:SetSize(40, 40); ic:SetPoint("TOPLEFT", 10, -10)
-    ic:SetTexture(TCF.Icon(ch.icon))
-    local n = Text(c, "GameFontNormalSmall", ch.name, "LEFT"); n:SetPoint("TOPLEFT", ic, "TOPRIGHT", 6, 0); n:SetWidth(96)
-    local d = Text(c, "GameFontDisableSmall", ch.desc, "LEFT"); d:SetPoint("TOPLEFT", 10, -54); d:SetWidth(140)
-    c.open = Button(c, coinStr(ch.cost, 12), 72, 20, function() TCF:OpenChest(ch.key) end)
-    c.open:SetPoint("BOTTOMLEFT", 8, 8)
-    c.key = Button(c, "Bag", 66, 20, function() TCF:ToggleBag() end)
-    c.key:SetPoint("BOTTOMRIGHT", -8, 8)
-    Tip(c.key, function(tt)
-      tt:AddLine("Your unopened chests (Treasure Bag)", 1, 0.82, 0)
-      for _, line in ipairs(TCF.CHEST_SOURCES) do tt:AddLine(line, 1, 1, 1, true) end
-    end)
-    Tip(c, function(tt) TCF:ChestOddsTooltip(tt, ch, true) end)
-    c.chest = ch
-    chestCards[i] = c
-  end
-  local gearPct = floor((TCF.CHEST_GEAR_CHANCE or 0.9) * 100 + 0.5)  -- same odds as TCF:OpenChest
-  local dungeonText = Text(sh, "GameFontHighlightSmall", nil, "LEFT"); dungeonText:SetPoint("TOPLEFT", 16, -326); dungeonText:SetWidth(520)
-  -- kept to about five lines so it clears the heritage panel below
-  dungeonText:SetText("|cffffd100Free chests:|r " .. TCF.DUNGEON_CHEST_TEXT .. " Quests, levels, zone clears and expeditions give chests too. Chests hold gear (" .. gearPct .. "%) or a cosmetic (" .. (100 - gearPct) .. "%); Dungeon Chests and Raider's Hoards only gear.")
-  -- racial heritage offer for the current character's race
-  local her = Panel(sh, 528, 58, 0.9); her:SetPoint("TOPLEFT", 14, -384)
-  her.cell = ItemCell(her, 46); her.cell:SetPoint("LEFT", 6, 0)
-  her.cell:SetScript("OnEnter", function(s)
-    if not s.item then return end
-    GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, s.item)
-    TCF.UI.PreviewHint(GameTooltip, win, s.item)
-    GameTooltip:Show()
-    TCF.UI.ShowTryOn(win, s.item)
-  end)
-  her.cell:SetScript("OnLeave", function() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end)
-  her.cell:SetScript("OnClick", function(s)
-    if s.item and TCF.UI.PreviewClick(win, s.item) then s:GetScript("OnEnter")(s) end
-  end)
-  her.title = Text(her, "GameFontNormal", nil, "LEFT"); her.title:SetPoint("TOPLEFT", her.cell, "TOPRIGHT", 8, -4)
-  her.desc = Text(her, "GameFontHighlightSmall", nil, "LEFT"); her.desc:SetPoint("BOTTOMLEFT", her.cell, "BOTTOMRIGHT", 8, 4); her.desc:SetWidth(330)
-  her.buy = Button(her, "Buy", 100, 22, function() TCF:BuyRaceAccessory() end); her.buy:SetPoint("RIGHT", -8, 0)
-  local lastLoot = Text(sh, "GameFontHighlight", nil, "LEFT"); lastLoot:SetPoint("BOTTOMLEFT", 16, 14); lastLoot:SetWidth(480)
-
-  function win:RefreshShop()
-    TCF:BuildShop()
-    local secs = TCF:SecondsUntilReset()
-    resetText:SetText(string.format("new wares in %dh %dm", floor(secs / 3600), floor(secs % 3600 / 60)))
-    reroll:SetText("New Stock " .. coinStr(TCF:RerollCost(), 12))
-    reroll:SetEnabled(TCF.db.coins >= TCF:RerollCost())
-    local stock = TCF.db.shop.stock
-    for i, c in ipairs(cards) do
-      local id = stock[i]
-      local it = id and TCF.ITEMS[id]
-      if it then
-        c:Show(); c.id = id
-        local owned = TCF.db.owned[id]
-        c.cell:SetItem(it, true, false)
-        local col = TCF.RARITY[it.rarity]
-        c.name:SetText("|c" .. col.hex .. it.name .. "|r")
-        local cl = it.class and TCF.CLASS_BY_KEY[it.class]
-        c.cls:SetText(cl and cl.name or "Any class")
-        c.price:SetText(owned and "|cff20ff20Owned|r" or coinStr(it.price, 13))
-        c.buy:SetEnabled(not owned and TCF.db.coins >= it.price)
-      else
-        c:Hide()
-      end
-    end
-    for _, c in ipairs(chestCards) do
-      c.open:SetEnabled(TCF.db.coins >= c.chest.cost)
-      local k = TCF.db.keys[c.chest.key] or 0
-      c.key:SetText("Bag (" .. k .. ")"); c.key:SetEnabled(k > 0)
-    end
-    local rit, raceName = TCF:RaceItemForPlayer()
-    if rit then
-      her:Show()
-      her.cell:SetItem(rit, true, false)
-      her.title:SetText("Racial Heritage: |c" .. TCF.RARITY[rit.rarity].hex .. rit.name .. "|r")
-      local owned = TCF.db.owned[rit.id]
-      her.desc:SetText(owned and "Owned. Hide or show it with \"Show racial accessory\" in Settings."
-        or ("Show your " .. (raceName or "") .. " pride on this character's cats."))
-      her.buy:SetText(owned and "Owned" or coinStr(TCF.RACE_PRICE, 12))
-      her.buy:SetEnabled(not owned and TCF.db.coins >= TCF.RACE_PRICE)
-    else her:Hide() end
-    local lc = TCF.lastChest
-    if lc and lc.gear then
-      lastLoot:SetText("Last chest: " .. TCF.GearLink(lc.gear) .. (lc.isNew and " |cff20ff20New|r" or ""))
-    elseif lc and lc.item then
-      lastLoot:SetText("Last chest: " .. TCF.ItemLink(lc.item) .. (lc.isNew and " |cff20ff20New|r" or
-        string.format(" |cffaaaaaa(duplicate, +%d TapCoins)|r", lc.salvage)))
-    else
-      lastLoot:SetText("|cff888888Earn TapCoins from quests, Adventure bosses, level-ups and daily logins.|r")
-    end
-  end
+  -- the Shop page: UI_Shop.lua (TCF.UI.Builders.shop)
 
   ------------------------------------------------ Achievements
   local ac = pages[TAB_ACH]
@@ -1595,8 +1471,7 @@ function TCF:CreateWindow()
       "|cffffd100Power %d|r   DPS |cffffffff%d|r   Health |cffffffff%d|r\nArmor |cffffffff%d|r   Crit |cffffffff%.1f%%|r   Item level |cffffffff%d|r\nGear owned: |cffffffff%d|r   Cosmetics: |cffffffff%d / %d|r\nLifetime taps: |cffffffff%s|r\nTapCoins earned: |cffffffff%s|r\nDaily streak: |cffffffff%d|r (best %d)",
       cs.power, cs.dps, cs.hp, cs.armor, cs.crit, cs.ilvl, nGear, n, total,
       TCF.Commas(db.taps), TCF.Commas(db.coinsEarned), db.daily.streak, db.daily.best))
-    if self.tab == TAB_SHOP then self:RefreshShop()
-    elseif self.tab == TAB_ACH then self:RefreshAchievements()
+    if self.tab == TAB_ACH then self:RefreshAchievements()
     elseif self.tab == TAB_QUESTS then self:RefreshQuests()
     elseif pageRefresh[self.tab] then pageRefresh[self.tab](true) end
     local ready = TCF:QuestsReady()
