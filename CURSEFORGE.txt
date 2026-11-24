@@ -35,20 +35,20 @@ Group up with friends who have the addon: their cats sit beside yours, your taps
 Your window, your way
 A big window with your cat and its gear, fold the character panel away, or switch to a phone-sized view with big round buttons. Quests, achievements, chests with a loot reel, and a Compendium of every item and how to get it.
 
-WHAT'S NEW IN 1.6
+WHAT'S NEW IN 1.7
 
-• Tapping and petting faces: your cat gets more and more fired up the longer and faster you tap (all the way to Legendary), and melts into ten cute faces while you pet it.
-• A much deeper Herbalism: 26 real herbs, rare Swiftthistle, Wildvine and Black Lotus, a seed for every plot, and Bramble the gardener to train from Apprentice to Master.
-• Brew 17 classic potions and flasks from your herbs and drink them for buffs on top of your Well Fed food.
-• Rock paper scissors in best of 1, 3 or 5, against the house cat or a friend.
-• Happy Purrs: pet your cat 100 times in a row for +5% XP for an hour, and unlock 27 pet effects (fireballs, lightning, poison, yarn balls, fishies, rainbow hearts and more) by coming back on more days.
-• Gear that fits your class: Equip best now picks Spell Power and Intellect for casters, Strength for Warriors and Paladins and Agility for Hunters and Rogues, like WoW.
-• Shift-click any item to try it on your cat before you wear or buy it.
-• Multiplayer works: death roll and rock paper scissors with a friend, party cat profiles with their taps, and a realm leaderboard that fills in from your party.
-• The cat Casino, animated cosmetic sets, a resizable window, and your cats shared by every character on your account.
+• Professions 2.0: work your spots by hand for rare finds (Black Diamond, Black Dragonscale, Righteous Orb and more), sparkling glints worth 5 times the reward, and stashes, rich veins and patrols to react to.
+• Named helpers with their own traits who level up as they work, specializations at 225 with daily crafts like Mooncloth and Arcanite, and a guild for every craft with work orders and seven ranks up to a Grand Master title.
+• Masterwork gear: any crafted piece can come out better than the recipe.
+• A Renown shop: every sale for Renown now also gives Renown points to spend on sharper tools, a keener eye, busier helpers, more work orders and more Masterworks.
+• 11 legendary crafted sets with their own animated effects and titles, from the Mooncloth Regalia and Sulfuron Forgemaster to Pinchy's Wish and the Feast of the Ages. They take a long, long time to make.
+• A Profession Bag for every material, with tabs, what each one is for, and bigger bags to buy with TapCoins.
+• TapCoins are orange now, so you can tell them from gold at a glance.
+• Earlier in 1.6: tapping and petting faces, a deep Herbalism with 17 potions, rock paper scissors best of 5, Happy Purrs, class-smart gear, and multiplayer death rolls and leaderboards.
 
 EARLIER HIGHLIGHTS
 
+• 1.6: The cat Casino with death rolls and rock paper scissors against friends, animated cosmetic sets, tapping and petting faces, a deep Herbalism with potions, and your cats shared by every character on your account.
 • 1.5: Class professions that craft real gear, real legendaries, party cats with a tap bonus, a fishing dock, 33 new skins, the Compendium, party expeditions and the realm leaderboard.
 • 1.4: Every zone filled with its real Classic creatures and bosses, death animations and floating damage numbers.
 • 1.3: Hand-drawn Adventure backgrounds for all 28 zones, the chest opening reel and spell effects in fights.
