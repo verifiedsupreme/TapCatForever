@@ -1052,11 +1052,10 @@ TCF.UI.Builders.professions = function(page, win)
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
     if rec.gear then
       TCF:GearTooltip(GameTooltip, it)
-      if TCF.UI.ShowTryOn then TCF.UI.ShowTryOn(win, it) end
     else
       TCF:ItemTooltip(GameTooltip, it, true)   -- already says "Cosmetic only (no stats)"
-      win.preview:ApplyAppearance(TCF:GetAppearance(nil, it))
     end
+    TCF.UI.ShowTryOn(win, it)
     local p = TCF.PROF_BY_KEY[rec.prof]
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(string.format("Recipe: %s%s", p and p.name or rec.prof, rec.skill and (" " .. rec.skill) or ""), 1, 0.82, 0)
@@ -1068,6 +1067,7 @@ TCF.UI.Builders.professions = function(page, win)
         1, 1, 1, have >= need and 0.2 or 1, have >= need and 1 or 0.3, have >= need and 0.2 or 0.3)
     end
     if rec.gear then GameTooltip:AddLine("Crafted gear goes straight into your bag.", 0.7, 0.7, 0.7, true) end
+    TCF.UI.PreviewHint(GameTooltip, win, it)
     if rec.starter then
       local done, total = TCF:StarterProgress(rec.prof)
       GameTooltip:AddLine(string.format("Starter set (%d/%d made): a cheap white piece for each slot, so a new cat can wear a full crafted set.", done, total), 0.88, 0.75, 0.5, true)
@@ -1076,7 +1076,7 @@ TCF.UI.Builders.professions = function(page, win)
   end
   local function recipeLeave()
     GameTooltip:Hide()
-    win.preview:ApplyAppearance(TCF:GetAppearance())
+    TCF.UI.HideTryOn(win)
   end
   for i = 1, CROWS do
     local r = Panel(craftView, 532, 48, 0.85); r:SetPoint("TOP", 0, -22 - (i - 1) * 50)
@@ -1085,6 +1085,11 @@ TCF.UI.Builders.professions = function(page, win)
     for _, b in ipairs({ r.gearBtn, r.cell }) do
       b:SetScript("OnEnter", function(s) recipeEnter(r, s) end)
       b:SetScript("OnLeave", recipeLeave)
+      -- (1.6.3) shift-click the picture: try the item on the cat
+      b:SetScript("OnClick", function(s)
+        local it = r.recipe and TCF:RecipeItem(r.recipe)
+        if it and TCF.UI.PreviewClick(win, it) then recipeEnter(r, s) end
+      end)
     end
     r:SetScript("OnEnter", function(s) recipeEnter(r, s) end)
     r:SetScript("OnLeave", recipeLeave)

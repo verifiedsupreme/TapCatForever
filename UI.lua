@@ -663,6 +663,24 @@ function TCF:CreateWindow()
   local preview = TCF.CreateCat(stage, 200, { preview = true })
   preview.frame:SetPoint("CENTER", 0, -2)
   win.preview = preview
+  -- (1.6.3) shift-clicked items stay on the cat: this takes them all off again
+  local clearPv = Button(stage, "Clear preview", 104, 20, function() TCF.UI.ClearPreview(win) end)
+  clearPv:SetPoint("BOTTOM", stage, "BOTTOM", 0, 6)
+  if clearPv.SetFrameLevel and stage.GetFrameLevel then clearPv:SetFrameLevel((stage:GetFrameLevel() or 1) + 20) end
+  Tip(clearPv, function(tt)
+    tt:AddLine("Clear preview", 1, 0.82, 0)
+    tt:AddLine("Takes off everything you shift-clicked onto your cat. Nothing was equipped or bought.", 1, 1, 1, true)
+  end)
+  clearPv:Hide()
+  win.previewClear = clearPv
+  function win:UpdatePreviewClear()
+    local n = self.pinOrder and #self.pinOrder or 0
+    clearPv:SetShown(n > 0)
+    if self.tryOnClear then
+      self.tryOnClear:SetShown(n > 0)
+      if self.tryOnStage and self.tryOnStage.label then self.tryOnStage.label:SetShown(n == 0) end
+    end
+  end
 
   local DOLL_LEFT = { "HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "WRIST", "WAIST" }
   local DOLL_RIGHT = { "HANDS", "LEGS", "FEET", "FINGER1", "FINGER2", "TRINKET1", "TRINKET2" }
@@ -837,6 +855,8 @@ function TCF:CreateWindow()
     c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     c:SetScript("OnClick", function(s)
       local it = s.item
+      -- (1.6.3) shift-click: try it on (or take it off) without equipping
+      if it and TCF.UI.PreviewClick(win, it) then s:GetScript("OnEnter")(s); return end
       if it and it.slot == "skin" and not TCF.db.owned[it.id] then
         if not it.skinPrice then
           local how = TCF.HowToGet and TCF:HowToGet(it) or {}
@@ -867,10 +887,11 @@ function TCF:CreateWindow()
       if TCF.db.owned[s.item.id] then
         GameTooltip:AddLine(TCF:IsEquipped(s.item) and "Click to unequip" or "Click to equip", 0, 1, 0)
       end
+      TCF.UI.PreviewHint(GameTooltip, win, s.item)
       GameTooltip:Show()
-      win.preview:ApplyAppearance(TCF:GetAppearance(nil, s.item))
+      TCF.UI.ShowTryOn(win, s.item)
     end)
-    c:SetScript("OnLeave", function() GameTooltip:Hide(); win.preview:ApplyAppearance(TCF:GetAppearance()) end)
+    c:SetScript("OnLeave", function() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end)
     cells[i] = c
   end
   local pageText = Text(wd, "GameFontHighlightSmall"); pageText:SetPoint("BOTTOM", 0, 16)
@@ -1013,10 +1034,16 @@ function TCF:CreateWindow()
     c:SetPoint("TOPLEFT", 14 + (i - 1) * 166, -42)
     c.cell = ItemCell(c, 56); c.cell:SetPoint("TOPLEFT", 8, -8)
     c.cell:SetScript("OnEnter", function(s)
-      GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, s.item); GameTooltip:Show()
-      if TCF:CanEquip(s.item) then win.preview:ApplyAppearance(TCF:GetAppearance(nil, s.item)) end
+      if not s.item then return end
+      GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, s.item)
+      if TCF:CanEquip(s.item) then TCF.UI.PreviewHint(GameTooltip, win, s.item) end
+      GameTooltip:Show()
+      if TCF:CanEquip(s.item) then TCF.UI.ShowTryOn(win, s.item) end
     end)
-    c.cell:SetScript("OnLeave", function() GameTooltip:Hide(); win.preview:ApplyAppearance(TCF:GetAppearance()) end)
+    c.cell:SetScript("OnLeave", function() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end)
+    c.cell:SetScript("OnClick", function(s)
+      if s.item and TCF:CanEquip(s.item) and TCF.UI.PreviewClick(win, s.item) then s:GetScript("OnEnter")(s) end
+    end)
     c.name = Text(c, "GameFontNormalSmall", nil, "LEFT"); c.name:SetPoint("TOPLEFT", c.cell, "TOPRIGHT", 6, 0)
     c.name:SetWidth(84); c.name:SetHeight(42); c.name:SetJustifyV("TOP")
     c.cls = Text(c, "GameFontDisableSmall", nil, "LEFT"); c.cls:SetPoint("BOTTOMLEFT", c.cell, "BOTTOMRIGHT", 6, 2)
@@ -1059,10 +1086,15 @@ function TCF:CreateWindow()
   her.cell = ItemCell(her, 46); her.cell:SetPoint("LEFT", 6, 0)
   her.cell:SetScript("OnEnter", function(s)
     if not s.item then return end
-    GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, s.item); GameTooltip:Show()
-    win.preview:ApplyAppearance(TCF:GetAppearance(nil, s.item))
+    GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:ItemTooltip(GameTooltip, s.item)
+    TCF.UI.PreviewHint(GameTooltip, win, s.item)
+    GameTooltip:Show()
+    TCF.UI.ShowTryOn(win, s.item)
   end)
-  her.cell:SetScript("OnLeave", function() GameTooltip:Hide(); win.preview:ApplyAppearance(TCF:GetAppearance()) end)
+  her.cell:SetScript("OnLeave", function() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end)
+  her.cell:SetScript("OnClick", function(s)
+    if s.item and TCF.UI.PreviewClick(win, s.item) then s:GetScript("OnEnter")(s) end
+  end)
   her.title = Text(her, "GameFontNormal", nil, "LEFT"); her.title:SetPoint("TOPLEFT", her.cell, "TOPRIGHT", 8, -4)
   her.desc = Text(her, "GameFontHighlightSmall", nil, "LEFT"); her.desc:SetPoint("BOTTOMLEFT", her.cell, "BOTTOMRIGHT", 8, 4); her.desc:SetWidth(330)
   her.buy = Button(her, "Buy", 100, 22, function() TCF:BuyRaceAccessory() end); her.buy:SetPoint("RIGHT", -8, 0)
@@ -1460,7 +1492,7 @@ function TCF:CreateWindow()
     className:SetText(cl.name)
     className:SetTextColor(cl.color[1], cl.color[2], cl.color[3])
     for i, b in ipairs(classBtns) do b.sel:SetShown(TCF.CLASSES[i].key == TCF.db.class) end
-    self.preview:ApplyAppearance(TCF:GetAppearance())
+    TCF.UI.HideTryOn(self)   -- the cat's look, with any items shift-clicked on
     for _, b in ipairs(dollBtns) do b:Update() end
     for i, b in ipairs(classBtns) do b.away:SetShown(TCF:IsOnExpedition(TCF.CLASSES[i].key) and true or false) end
     if self.tab == TAB_WARDROBE then self:RefreshWardrobe()

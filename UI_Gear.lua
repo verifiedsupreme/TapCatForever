@@ -117,20 +117,95 @@ do
   end
 end
 
--- Hover preview: the cat on the left tries the item on
-function TCF.UI.ShowTryOn(win, it)
-  if not win.preview then return end
-  local out = TCF:GetAppearance(nil, nil, it)
-  -- a chosen cosmetic would hide the previewed piece: show the item in the slots it changes
-  local with, without = TCF:GearAppearance(nil, it), TCF:GearAppearance()
-  for k, v in pairs(with) do
-    if not without[k] or without[k].id ~= v.id then out[k] = v end
+-- Trying things on. Hovering an item tries it on the cat in the character column (or the small cat
+-- beside the window when that column is folded); (1.6.3) shift-clicking an item keeps it on the cat
+-- until you shift-click it again or press Clear preview: several items at once (a hat and a cape),
+-- one per slot. Nothing is equipped or bought; the pins go when the window closes or the class changes.
+local function isGear(it) return type(it) == "table" and it.ilvl ~= nil and it.req ~= nil end
+TCF.UI.IsGearItem = isGear
+local function pinKey(it) return (isGear(it) and "g:" or "c:") .. tostring(it.slot) end
+-- the cat's look with the pinned items (and one more, the hovered item) on it
+function TCF.UI.PreviewLook(win, extra)
+  local out = TCF:GetAppearance()
+  local without
+  local list = {}
+  for _, it in ipairs(win and win.pinOrder or {}) do list[#list + 1] = it end
+  if extra then list[#list + 1] = extra end
+  for _, it in ipairs(list) do
+    if isGear(it) then
+      -- a chosen cosmetic would hide the previewed piece: show the item in the slots it changes
+      without = without or TCF:GearAppearance()
+      for k, v in pairs(TCF:GearAppearance(nil, it)) do
+        if not without[k] or without[k].id ~= v.id then out[k] = v end
+      end
+    elseif it.slot then
+      out[it.slot] = it
+    end
   end
-  win.preview:ApplyAppearance(out)
+  return out
+end
+
+local function pinsFor(win)
+  local cls = TCF.db and TCF.db.class
+  if win.pinClass ~= cls then win.pins, win.pinOrder, win.pinClass = {}, {}, cls end
+  win.pins = win.pins or {}; win.pinOrder = win.pinOrder or {}
+  return win.pins, win.pinOrder
+end
+
+function TCF.UI.ShowTryOn(win, it)
+  if not win or not win.preview then return end
+  pinsFor(win)
+  win.preview:ApplyAppearance(TCF.UI.PreviewLook(win, it))
 end
 
 function TCF.UI.HideTryOn(win)
-  if win.preview then win.preview:ApplyAppearance(TCF:GetAppearance()) end
+  if not win or not win.preview then return end
+  pinsFor(win)
+  win.preview:ApplyAppearance(TCF.UI.PreviewLook(win))
+  if win.UpdatePreviewClear then win:UpdatePreviewClear() end
+end
+
+function TCF.UI.IsPinned(win, it)
+  if not win or not it or not win.pins then return false end
+  local p = win.pins[pinKey(it)]
+  return p ~= nil and p.id == it.id
+end
+
+-- shift-click: on the cat, or off again
+function TCF.UI.TogglePreview(win, it)
+  if not win or not it or not it.slot then return false end
+  local pins, order = pinsFor(win)
+  local k = pinKey(it)
+  local was = pins[k]
+  if was then
+    pins[k] = nil
+    for i, o in ipairs(order) do if o == was then table.remove(order, i); break end end
+  end
+  local on = not (was and was.id == it.id)
+  if on then pins[k] = it; order[#order + 1] = it end
+  if TCF.PlaySound then TCF:PlaySound("click") end
+  TCF.UI.HideTryOn(win)
+  return on
+end
+
+function TCF.UI.ClearPreview(win)
+  if not win then return end
+  win.pins, win.pinOrder = {}, {}
+  TCF.UI.HideTryOn(win)
+end
+
+-- the line every tooltip that can be shift-clicked adds
+function TCF.UI.PreviewHint(tt, win, it)
+  if not tt or not it then return end
+  if TCF.UI.IsPinned(win, it) then tt:AddLine("Shift-click to take it off your cat.", 0.5, 0.8, 1)
+  else tt:AddLine("Shift-click to try it on your cat.", 0.5, 0.8, 1) end
+end
+
+-- an item button's click: true when it was a shift-click (handled here)
+function TCF.UI.PreviewClick(win, it)
+  if not (IsShiftKeyDown and IsShiftKeyDown()) or not it then return false end
+  TCF.UI.TogglePreview(win, it)
+  return true
 end
 
 TCF.UI.Builders.gear = function(page, win)
@@ -196,10 +271,12 @@ TCF.UI.Builders.gear = function(page, win)
       TCF.UI.ShowTryOn(win, r.item)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, r.item)
       GameTooltip:AddLine("Sells for " .. TCF:GearSellText(r.item) .. " (worn copies are kept).", 0.7, 0.7, 0.7)
+      TCF.UI.PreviewHint(GameTooltip, win, r.item)
       GameTooltip:Show()
     end
     local function leave() GameTooltip:Hide(); TCF.UI.HideTryOn(win) end
     r.btn:SetScript("OnEnter", enter); r.btn:SetScript("OnLeave", leave)
+    r.btn:SetScript("OnClick", function(self) if r.item and TCF.UI.PreviewClick(win, r.item) then enter(self) end end)
     r:SetScript("OnEnter", enter); r:SetScript("OnLeave", leave)
     rows[i] = r
   end

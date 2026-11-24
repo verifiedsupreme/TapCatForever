@@ -429,6 +429,22 @@ local function SetupLayout(win)
   tryOn.label = U.Text(tryOn, "GameFontNormalSmall", "Trying on"); tryOn.label:SetPoint("TOP", 0, -12)
   tryOn:Hide()
   win.tryOnStage = tryOn
+  -- (1.6.3) shift-clicked items stay on: the small cat has its own Clear button
+  local tryClear = U.Button(tryOn, "Clear", 60, 18, function() TCF.UI.ClearPreview(win) end)
+  tryClear:SetPoint("TOP", 0, -9)   -- in place of the "Trying on" label while something is pinned
+  if tryClear.SetFrameLevel then tryClear:SetFrameLevel((tryOn:GetFrameLevel() or 1) + 20) end
+  U.Tip(tryClear, function(tt)
+    tt:AddLine("Clear preview", 1, 0.82, 0)
+    tt:AddLine("Takes off everything you shift-clicked onto your cat.", 1, 1, 1, true)
+  end)
+  tryClear:Hide()
+  win.tryOnClear = tryClear
+  -- closing the window takes the previewed items off
+  if win.HookScript then
+    win:HookScript("OnHide", function(f)
+      if f.pinOrder and #f.pinOrder > 0 and TCF.UI.ClearPreview then TCF.UI.ClearPreview(f) end
+    end)
+  end
   local function lookSig(look)
     local t = {}
     for k, v in pairs(look or {}) do

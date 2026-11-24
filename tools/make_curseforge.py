@@ -25,7 +25,10 @@ PERSONAL = ("This is my first addon, and I'm so glad you're here. I update it of
 INTRO2 = "It never touches your gameplay. It just watches your key presses and makes them a little more fun."
 
 FEATURES = [
-    ("What's new in 1.6.2", [
+    ("What's new in 1.6.3", [
+        "Shift-click any item (gear, cosmetics, skins, Shop offers, recipes, the Compendium) to try it on your cat. It stays on while you look around, so you can try several pieces together, and nothing is equipped or bought.",
+    ]),
+    ("New in 1.6.2", [
         "Multiplayer works: death roll and rock paper scissors with a friend in your party play through to the end, a friend's profile (click their cat in the party row) shows their total taps, achievements and zones, and the realm leaderboard fills in from the players in your party who joined it, with one row per player, two-word character names included.",
         "A bigger phone view: every page is drawn larger, so text is easier to read and buttons are easier to hit. A new Tabs button folds the round page buttons into one menu, so the pages get more room.",
         "The header row (character, phone view, Compendium, Achievements, Settings) stays in the same place when you fold the character column away or open it again.",

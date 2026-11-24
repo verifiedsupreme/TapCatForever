@@ -594,6 +594,12 @@ function TCF:CreateCompendium()
     c:SetPoint("TOPLEFT", ((i - 1) % COLS) * (CELL + GAP), -floor((i - 1) / COLS) * (CELL + GAP))
     c:SetScript("OnClick", function(s)
       local it = s.item
+      -- (1.6.3) shift-click: try it on the cat in the main window (opened if it isn't)
+      if it and IsShiftKeyDown and IsShiftKeyDown() then
+        TCF:CompendiumPreview(it)
+        if s:IsMouseOver() and s:GetScript("OnEnter") then s:GetScript("OnEnter")(s) end
+        return
+      end
       -- wear something you own (if your cat's class can); anything else does nothing
       if it and TCF.db.owned[it.id] and TCF:CanEquip(it) and not TCF:IsEquipped(it) then
         TCF:Equip(it)
@@ -617,6 +623,7 @@ function TCF:CreateCompendium()
           GameTooltip:AddLine("Switch your cat to " .. (cl and cl.name or "its class") .. " to wear it.", 1, 0.6, 0.2, true)
         end
       end
+      if TCF.UI.PreviewHint then TCF.UI.PreviewHint(GameTooltip, TCF.window, it) end
       GameTooltip:Show()
     end)
     c:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -666,9 +673,16 @@ function TCF:CreateCompendium()
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
       TCF:GearTooltip(GameTooltip, s.item)
       addHowSection(GameTooltip, s.item)
+      if TCF.UI.PreviewHint then TCF.UI.PreviewHint(GameTooltip, TCF.window, s.item) end
       GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:SetScript("OnClick", function(s)
+      if s.item and IsShiftKeyDown and IsShiftKeyDown() then
+        TCF:CompendiumPreview(s.item)
+        s:GetScript("OnEnter")(s)
+      end
+    end)
     b:Hide()
     gcells[i] = b
   end
@@ -895,4 +909,14 @@ do
       return slash(msg, ...)
     end
   end
+end
+
+-- (1.6.3) shift-click in the Compendium: the item goes on the cat in the main window (opened if it
+-- isn't, with the Appearance or Gear page behind it), or comes off again
+function TCF:CompendiumPreview(it)
+  if not it or not TCF.UI.TogglePreview then return end
+  if not self.window or not self.window:IsShown() then self:ToggleWindow() end
+  local win = self.window
+  if not win then return end
+  TCF.UI.TogglePreview(win, it)
 end
