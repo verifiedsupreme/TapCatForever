@@ -26,6 +26,7 @@ Every keystroke you already make in World of Warcraft earns your cat XP and TapC
 
 ## What's new in 1.6
 
+- Tapping and petting faces: your cat gets more and more fired up the longer and faster you tap (all the way to Legendary), and melts into ten cute faces while you pet it.
 - A much deeper Herbalism: 26 real herbs, rare Swiftthistle, Wildvine and Black Lotus, a seed for every plot, and Bramble the gardener to train from Apprentice to Master.
 - Brew 17 classic potions and flasks from your herbs and drink them for buffs on top of your Well Fed food.
 - Rock paper scissors in best of 1, 3 or 5, against the house cat or a friend.
