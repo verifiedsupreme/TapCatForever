@@ -146,6 +146,27 @@ local function myFull()
   return validName(full) and full or nil
 end
 local function myKey() local f = myFull(); return f and keyOf(f) end
+-- (1.6.5) rows left by the 1.6.1.1 two-word-name bug: a player under some other realm ("Its
+-- Caffeinated-Trip", "Ziggu Trip-Caffeinated": the second word of the sharer's name taken for a realm)
+-- while the same player has a row on your realm, or is you. Such a row is dropped and not taken in again.
+-- and the two such rows players reported by name, wherever they turn up
+local KNOWN_SHADOWS = { ["itscaffeinated-trip"] = true, ["ziggutrip-caffeinated"] = true,
+  ["ziggu-trip"] = true, ["its-caffeinated"] = true }
+local function shadowed(b, k)
+  if type(k) ~= "string" then return false end
+  if KNOWN_SHADOWS[k] then return true end
+  local n, r = k:match("^([^%-]+)%-(.+)$")
+  local mr = myRealm()
+  if not n or not mr then return false end
+  local mrk = (mr:gsub("[%s%-']", "")):lower()
+  if r == mrk then return false end
+  local function real(key) return (b and b.e and b.e[key] ~= nil) or key == myKey() end
+  -- the same player under the second word of someone's name ("Its Caffeinated-Trip")
+  if real(n .. "-" .. mrk) then return true end
+  -- or the first word as the name and the second as the realm ("Ziggu-Trip" for "Ziggu Trip")
+  return real(n .. r .. "-" .. mrk)
+end
+TCF.LeaderboardShadowed = shadowed
 -- a sender key that is ours: the learned name, or, while that isn't known, the name the game gives us
 -- (good enough for telling our own echoes apart, not for sharing under)
 local function mineForReads()
@@ -203,7 +224,8 @@ local pruned = {}   -- realm -> true once tidied this session
 local function prune(b, t)
   local n, list = 0, {}
   for k, e in pairs(b.e) do
-    if type(k) ~= "string" or not validEntry(e) or keyOf(e.n) ~= k or standIn(e.n) or e.ts < t - EXPIRE or e.ts > t + SKEW then
+    if type(k) ~= "string" or not validEntry(e) or keyOf(e.n) ~= k or standIn(e.n) or e.ts < t - EXPIRE or e.ts > t + SKEW
+       or shadowed(b, k) then
       b.e[k] = nil
     else
       if e.x ~= nil and not (validExtra(e.x) and type(e.xts) == "number" and e.xts > 0 and e.xts <= t + SKEW) then e.x, e.xts = nil, nil end
@@ -367,6 +389,7 @@ local function merge(b, e, t, mine, direct)
   local k = keyOf(e.n)
   if not k or standIn(e.n) then return nil, "name" end
   if mine and k == mine then return nil, "self" end
+  if shadowed(b, k) then return nil, "shadow" end
   if e.ts > t + SKEW then return nil, "future" end
   if e.ts < t - EXPIRE then return nil, "old" end
   local rm = b.rm[k]
@@ -1106,7 +1129,7 @@ function TCF:LeaderboardSection(section, sub)
   local b = board(false)
   if b then
     for k, e in pairs(b.e) do
-      if k ~= mine and fresh(e.ts, st) then add(e) end   -- 30 days old during a long session: gone at once
+      if k ~= mine and fresh(e.ts, st) and not shadowed(b, k) then add(e) end   -- 30 days old during a long session: gone at once
     end
   end
   local own = self:LeaderboardOwnEntry()

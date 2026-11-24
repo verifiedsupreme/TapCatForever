@@ -65,7 +65,7 @@ def _run(seed, load_addon, secret):
     ck(A.eval("TapCatForever.LeaderboardValidName(' Its-Realm')") is False, "a leading space is not a name")
     # before the own name is learned nothing is shared under a guess: the own row shows, the key is unknown
     ck(A.eval("TapCatForever:LeaderboardOwnEntry().guess") is True, "own entry is a guess until the own name is learned (secret=%s)" % secret)
-    ck("ziggu-trip" in A.eval("_boardKeys()"), "the stale row waits for the own name")   # UnitName alone can't say which rows are ours
+    ck("ziggu-trip" not in A.eval("_boardKeys()"), "the stale row is gone at once (1.6.5: a known leftover)")
     A.execute('_fire("GROUP_ROSTER_UPDATE")'); B.execute('_fire("GROUP_ROSTER_UPDATE")')
     sent_before_name = []
     for _ in range(150):

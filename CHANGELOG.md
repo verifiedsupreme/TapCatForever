@@ -8,6 +8,10 @@
 - Gear that drops for you now and then matches your class's stats a little better too: Stamina-only pieces no longer count as caster gear.
 - Adventure enemies have 6% more health, so the stronger, better-chosen gear keeps zones as long as before, and Power is sized as before, so expeditions are as hard as they were.
 
+**Realm leaderboard**
+- Extra rows that the two-word name problem of 1.6.1.1 left behind (a player listed again under part of someone's name, like "Its Caffeinated-Trip" or "Ziggu-Trip") are removed and not taken in again, so each player shows once.
+- The "still being worked on" note is gone: the leaderboard works.
+
 ## 1.6.4
 
 **Death roll with a friend: no more /reload**
