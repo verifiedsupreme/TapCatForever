@@ -41,4 +41,9 @@ def check(seed, load_addon):
     rows = lua.eval('(function() local l = TapCatForever:LeaderboardSection("taps", "taps"); local t = {}; for _, r in ipairs(l) do t[#t + 1] = r.n end; return table.concat(t, ",") end)()')
     names = rows.split(",")
     ck(sorted(names) == sorted(["Its Caffeinated-Realm", "Kelsi Rose-Otherrealm", "Holyword Uwu-Realm", "Avery Skyclaw-Realm", "Ziggu Trip-Realm"]), "the list shows each player once: %r" % rows)
+    # every view: Per class (the Hunter board in the report) and Professions too
+    for sec, sub in (("class", "HUNTER"), ("class", "MAGE"), ("prof", "gold")):
+        rows = lua.eval('(function() local l = TapCatForever:LeaderboardSection("%s", "%s"); local t = {}; for _, r in ipairs(l) do t[#t + 1] = r.n end; return table.concat(t, ",") end)()' % (sec, sub))
+        for bad in ("Its Caffeinated-Trip", "Ziggu Trip-Caffeinated", "Ziggu-Trip", "Its-Caffeinated"):
+            ck(bad not in rows.split(","), "%s %s shows no leftover row: %r" % (sec, sub, rows))
     print("leaderboard leftover rows section (the 1.6.1.1 rows under a wrong realm go and stay gone, real rows stay): all checks passed")
