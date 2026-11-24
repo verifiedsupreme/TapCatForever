@@ -429,7 +429,10 @@ function TCF:AdvPackCleared()
   local run, cd = self.advRun, self:CD()
   local adv = cd.adv
   local code = stageCode(adv.tier, adv.stage)
-  if code > adv.best then adv.best = code; adv.newStages = (adv.newStages or 0) + 1 end
+  if code > adv.best then
+    adv.best = code; adv.newStages = (adv.newStages or 0) + 1
+    if self.CheckCompanionUnlocks then self:CheckCompanionUnlocks() end   -- (1.8.0) Companions.lua
+  end
   if self.advRun then self.advRun.losses = 0 end
   run.catHP = min(run.catMax, run.catHP + run.catMax * 0.35)
   run.shield = 0

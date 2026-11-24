@@ -64,6 +64,7 @@ Workshop.lua
 ProfDepth.lua
 ProfSets.lua
 Bag.lua
+Companions.lua
 Purr.lua
 Quests.lua
 Dungeons.lua
@@ -78,6 +79,7 @@ ItemSources.lua
 LootToast.lua
 Party.lua
 PartyExpeditions.lua
+UI_Companions.lua
 DevView.lua
 Leaderboard.lua
 Casino.lua

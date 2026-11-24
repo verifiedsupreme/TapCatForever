@@ -1872,6 +1872,9 @@ function TCF:RefreshAll()
   self:UpdateMinimapButton()
   if self.window and self.window:IsShown() then self.window:Refresh() end
   if self.bag and self.bag:IsShown() then self.bag:Refresh() end
+  -- (1.8.0) companion cats: the walker beside the cat and their window (UI_Companions.lua)
+  if self.CompanionRefresh then self:CompanionRefresh() end
+  if self.companionWin and self.companionWin:IsShown() then self.companionWin:Refresh() end
 end
 
 function TCF:RefreshHUD()
@@ -1926,6 +1929,7 @@ ev:SetScript("OnEvent", function(_, event, a1)
     TCF:EnsureQuests()
     TCF:ProfessionsTick(true)
     TCF:BuildShop()
+    if TCF.CheckCompanionUnlocks then TCF:CheckCompanionUnlocks() end
     TCF:RefreshAll()
     TCF:MarkDirty()
     if not TCF.db.welcomed and TCF.ShowWelcome then TCF:ShowWelcome() end
@@ -2030,11 +2034,12 @@ SlashCmdList.TAPCATFOREVER = function(msg)
   elseif cmd == "scale" and tonumber(arg) then
     ui.scale = max(0.3, min(3, tonumber(arg))); TCF.hud:ApplySettings()
   elseif cmd == "bag" then TCF:ToggleBag()
+  elseif cmd == "companions" or cmd == "companion" or cmd == "pets" then TCF:ToggleCompanions()
   elseif cmd == "welcome" then TCF:ShowWelcome()
   elseif cmd == "testmode" then
     -- on any other character it can only be turned off (a save from before 1.7.0 may have it on)
     if not isDevCharacter() and not ui.testMode then
-      TCF:Print("/tapcat - open window | bag | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats", true)
+      TCF:Print("/tapcat - open window | bag | companions | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats", true)
       return
     end
     ui.testMode = not ui.testMode
@@ -2053,7 +2058,7 @@ SlashCmdList.TAPCATFOREVER = function(msg)
     TCF:Print(string.format("Level %d (%s), %s lifetime taps, %s TapCoins, %d/%d cosmetics.",
       TCF:CD().level, TCF:GetTitle(), TCF.Commas(TCF.db.taps), TCF.Commas(TCF.db.coins), n, total), true)
   else
-    TCF:Print("/tapcat - open window | bag | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats", true)
+    TCF:Print("/tapcat - open window | bag | companions | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats", true)
   end
 end
 

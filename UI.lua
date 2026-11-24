@@ -729,6 +729,50 @@ function TCF:CreateWindow()
   for i, k in ipairs(DOLL_RIGHT) do DollButton(k):SetPoint("TOPLEFT", stage, "TOPRIGHT", 6, -(i - 1) * 36) end
   for i, k in ipairs(DOLL_BOTTOM) do DollButton(k):SetPoint("TOP", stage, "BOTTOM", (i - 2) * 40, -6) end
 
+  -- (1.8.0) the companion slot (Companions.lua): right of the ranged slot; the chosen companion's
+  -- real model sits in the corner of the cat's picture
+  local compSlot = TCF.UI.GearButton(left, 34)
+  compSlot:SetPoint("TOP", stage, "BOTTOM", 2 * 40 + 6, -6)
+  compSlot.ring = compSlot:CreateTexture(nil, "BACKGROUND", nil, -1)
+  compSlot.ring:SetPoint("TOPLEFT", -3, 3); compSlot.ring:SetPoint("BOTTOMRIGHT", 3, -3)
+  compSlot.ring:SetColorTexture(1, 0.55, 0.15, 0.25)
+  compSlot:SetScript("OnClick", function() TCF:ToggleCompanions(); TCF:PlaySound("click") end)
+  compSlot:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    local c = TCF:Companion()
+    if c then TCF:CompanionTooltip(GameTooltip, c)
+    else
+      GameTooltip:AddLine("Companion", 1, 0.82, 0)
+      GameTooltip:AddLine("A real WoW cat to keep your cat company. Buy one with TapCoins or earn one by clearing big dungeons in Adventure.", 1, 1, 1, true)
+    end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Click: choose or buy companions", 0, 1, 0)
+    GameTooltip:Show()
+  end)
+  compSlot:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  win.companionButton = compSlot
+  local compModel = CreateFrame("PlayerModel", nil, stage)
+  compModel:SetSize(86, 86); compModel:SetPoint("BOTTOMLEFT", stage, "BOTTOMLEFT", 4, 4)
+  compModel:Hide()
+  win.companionModel = compModel
+  compModel:SetScript("OnUpdate", function(self, e) if TCF.CompanionCheckModel and TCF.CompanionCheckModel(self, e) then self:Hide() end end)
+  function win:RefreshCompanion()
+    local c = TCF.Companion and TCF:Companion()
+    compSlot.icon:SetTexture(TCF.Icon(c and "Ability_Hunter_Pet_Cat" or "Ability_Hunter_BeastCall"))
+    compSlot.icon:SetDesaturated(not c); compSlot.icon:SetAlpha(c and 1 or 0.5)
+    compSlot.ring:SetShown(c ~= nil)
+    local col = c and TCF.RARITY[c.rarity] and TCF.RARITY[c.rarity].color
+    if compSlot.SetBackdropBorderColor then
+      if col then compSlot:SetBackdropBorderColor(col[1], col[2], col[3], 1) else compSlot:SetBackdropBorderColor(0.35, 0.32, 0.42, 1) end
+    end
+    if c and not TCF:CompanionMissing(c.key) then
+      if compModel.comp ~= c or not compModel:IsShown() then TCF.CompanionSetModel(compModel, c, 0.6) end
+    else
+      compModel.comp = nil; compModel:Hide()
+    end
+  end
+  compModel:SetScript("OnShow", function(self) if self.comp then TCF.CompanionSetModel(self, self.comp, 0.6) end end)
+
   local className = Text(left, "GameFontNormal"); className:SetPoint("TOP", stage, "BOTTOM", 0, -46)
   -- (1.6.6) Happy Purrs (Purr.lua): a small heart by the class name, grey until the cat purrs
   local purrBtn = CreateFrame("Button", nil, left)
@@ -1562,6 +1606,7 @@ function TCF:CreateWindow()
     TCF.UI.HideTryOn(self)   -- the cat's look, with any items shift-clicked on
     self:RefreshPurr()
     for _, b in ipairs(dollBtns) do b:Update() end
+    if self.RefreshCompanion then self:RefreshCompanion() end
     for i, b in ipairs(classBtns) do b.away:SetShown(TCF:IsOnExpedition(TCF.CLASSES[i].key) and true or false) end
     if self.tab == TAB_WARDROBE then self:RefreshWardrobe()
     elseif self.tab == TAB_SETTINGS then self:RefreshSettings()
