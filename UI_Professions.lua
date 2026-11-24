@@ -105,8 +105,8 @@ TCF.UI.Builders.professions = function(page, win)
         local have, need, done = TCF:ProfUnlockProgress(p.key)
         if done then tt:AddLine("Learned", 1, 1, 1)
         else
-          tt:AddLine(string.format("Unlocks when this cat has earned %s Trade Gold.", TCF.GoldStr(need)), 1, 1, 1, true)
-          tt:AddLine(string.format("So far: %s (%d%%)", TCF.GoldStr(have), min(99, floor(100 * have / need))), 0.8, 0.8, 0.8)
+          tt:AddLine(string.format("Opens when this cat has earned %s Trade Gold since its last sale.", TCF.GoldStr(need)), 1, 1, 1, true)
+          tt:AddLine(string.format("This run: %s (%d%%)", TCF.GoldStr(have), min(99, floor(100 * have / need))), 0.8, 0.8, 0.8)
         end
       end
       tt:AddLine(PER_CLASS, 0.7, 0.7, 0.7, true)
@@ -124,7 +124,7 @@ TCF.UI.Builders.professions = function(page, win)
     local s = TCF:ProfState()
     tt:AddLine(string.format("Your %s cat's Trade Gold", className()), 1, 0.82, 0)
     tt:AddLine(string.format("%s Trade Gold, Renown %d (+%d%% Trade Gold and goods).", TCF.GoldStr(s.gold), s.renown, s.renown * 2), 1, 1, 1, true)
-    tt:AddLine(string.format("Trade Gold earned in total: %s. New professions unlock as this grows.", TCF.GoldStr(s.lifetime)), 1, 1, 1, true)
+    tt:AddLine(string.format("Trade Gold earned since your last sale: %s. Professions open as this grows (and close again when you sell).", TCF.GoldStr(s.runEarned or s.lifetime)), 1, 1, 1, true)
     tt:AddLine(PER_CLASS .. " Your other cats' helpers keep working while you play this one, and what they earn stays with them.", 0.7, 0.7, 0.7, true)
   end)
 
@@ -531,7 +531,7 @@ TCF.UI.Builders.professions = function(page, win)
         nextMs and string.format("Next speed boost at %d", nextMs) or "Max speed"))
       local canPick = i == 1 or st.n > 0
       r.pick:SetEnabled(canPick); r.pick.tex:SetDesaturated(not canPick)
-      r.pick.count:SetText(lvl > 0 and lvl or "")
+      r.pick.count:SetText("")   -- (1.7.0) the tool's level shows on Upgrade, not on every button
       local count = s.buy == "max" and max(1, TCF:OpMaxBuy(fam, i)) or s.buy
       local bcost = TCF:OpCost(fam, i, count)
       if open then r.buy:SetText("x" .. count .. "  " .. TCF.GoldStr(bcost, 10)); r.buy:SetEnabled(s.gold >= bcost)
@@ -1543,13 +1543,19 @@ TCF.UI.Builders.professions = function(page, win)
     for _, p in ipairs(TCF:ProfList()) do
       if (p.gold or 0) > 0 then unlocks[#unlocks + 1] = string.format("%s%s at %s|r", TCF:ProfUnlocked(p.key) and "|cff20ff20" or "|cffaaaaaa", p.name, TCF.FormatBig(p.gold)) end
     end
+    -- (1.7.0) what selling does to the money, in plain percentages
+    local nowPct, afterPct = s.renown * 2, (s.renown + gain) * 2
+    local more = floor(((1 + 0.02 * (s.renown + gain)) / (1 + 0.02 * s.renown) - 1) * 100 + 0.5)
     renInfo:SetText(string.format(
       "%s Your %s cat's business:\n\n" ..
-      "|cffffd100Renown|r is permanent: each point adds +2%% to this cat's Trade Gold and to the goods its spots gather (ore, leather, cloth), so it earns faster.\n\n" ..
-      "Current Renown: |cffffffff%d|r (highest ever %d)\nTrade Gold earned in total: |cffffffff%s|r\nRenown you'd gain by selling now: |cff20ff20%d|r  (+%d TapCoins)\n\n" ..
-      "New professions unlock at Trade Gold earned in total (selling never lowers it): %s\n\nSelling resets this cat's Trade Gold, %s, %s, garden plots, %s, helpers and upgrades. " ..
-      "You keep skills, recipes, materials, crafted gear, bandages, dishes and unlocked professions. Your other cats keep their own business.",
-      PER_CLASS, className(), s.renown, s.renownEver, TCF.GoldStr(s.lifetime, 12), gain, min(1000, gain * 3), table.concat(unlocks, ", "),
+      "|cffffd100Renown|r is permanent: each point adds 2%% to this cat's Trade Gold and to the goods its spots gather.\n\n" ..
+      "Renown now: |cffffffff%d|r, so you earn |cffffffff+%d%%|r.\n" ..
+      "Sell now: |cff20ff20+%d Renown|r (and %d TapCoins), and you'd earn |cff20ff20+%d%%|r: |cff20ff20%d%% more money|r than today.\n" ..
+      "Trade Gold earned since your last sale: |cffffffff%s|r\n\n" ..
+      "Professions open as this run's Trade Gold grows: %s. Selling closes them again until you earn it back, which goes faster with more Renown.\n\n" ..
+      "Selling resets this cat's Trade Gold, %s, %s, gathering skill, garden plots, %s, helpers and upgrades. " ..
+      "You keep crafting skills, recipes, materials, crafted gear, potions, bandages, dishes, perks and guild ranks.",
+      PER_CLASS, className(), s.renown, nowPct, gain, min(1000, gain * 3), afterPct, more, TCF.GoldStr(s.runEarned or s.lifetime, 12), table.concat(unlocks, ", "),
       FT().spotsTitle:lower(), FT().toolNoun:lower(), FT().hirePlural:lower()))
     renBtn:SetEnabled(gain >= 5)
   end
@@ -1788,7 +1794,7 @@ TCF.UI.Builders.professions = function(page, win)
       guide.body:SetText(string.format(
         "|cffffd100Gather|r: buy %s, then hire %s so they keep working on their own, even while you're offline. Click a %s to %s by hand with your %s. Every cycle earns Trade Gold and %s.\n\n" ..
         "|cffffd100Craft|r: open %s to turn your %s into |cff20ff20real gear with stats|r for this class (it goes to your Gear tab) or |cffcc88ffcosmetics|r that only change your cat's look (marked Cosmetic only; they go to Appearance). Crafting raises your skill and unlocks new recipes up to 300. Locked recipes show the skill they need.\n\n" ..
-        "|cffffd100Grow|r: spend Trade Gold on Upgrades. As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking. When your business is big, sell it for Renown: each point adds 2%% Trade Gold and goods, so they come faster. Selling never lowers the Trade Gold earned that unlocks professions, and you need a few rounds of selling to reach the later ones.\n\n" ..
+        "|cffffd100Grow|r: spend Trade Gold on Upgrades. As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking. When your business is big, sell it for Renown: each point adds 2%% Trade Gold and goods, so they come faster. Selling starts a new run: the professions close until this run's Trade Gold reaches them again, which goes faster with each sale's Renown.\n\n" ..
         "|cff999999Each class has its own Trade Gold and professions.|r",
         fam.spotNounPlural, fam.hirePlural:lower(), fam.spotNoun, fam.verb:lower(), fam.toolNoun:lower(), fam.matNoun,
         fam.craftName, fam.matNoun))
@@ -1983,8 +1989,8 @@ TCF.UI.Builders.professions = function(page, win)
 
     if target == locked then
       local have, need = TCF:ProfUnlockProgress(prof)
-      lockText:SetText(string.format("%s unlocks when your %s cat has earned |cffffd100%s|r Trade Gold in total.\n\nSo far: %s (%d%%)\n\n" ..
-        "Every bit of Trade Gold your professions earn counts, and selling your business for Renown never lowers it. It takes a few rounds of selling: each sale's Renown makes the gold come faster.\n\n|cffaaaaaa%s|r",
+      lockText:SetText(string.format("%s opens when your %s cat has earned |cffffd100%s|r Trade Gold since its last sale.\n\nThis run: %s (%d%%)\n\n" ..
+        "Every bit of Trade Gold your professions earn counts. Selling your business for Renown closes it again until you earn it back, but each sale's Renown makes the gold come faster, so you get back sooner and can reach further.\n\n|cffaaaaaa%s|r",
         p.name, className(), TCF.GoldStr(need), TCF.GoldStr(have), min(99, floor(100 * have / max(1, need))), PER_CLASS))
     elseif target == spotView then refreshSpots(prof)
     elseif target == upgView then refreshUpgrades(prof)

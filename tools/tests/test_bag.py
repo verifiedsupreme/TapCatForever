@@ -32,7 +32,8 @@ def check(seed, load_addon):
       -- tabs
       local function has(tab, key) for _, k in ipairs(T:BagList(tab)) do if k == key then return true end end end
       ck(has("gathered", "linen") and has("rare", "essundeath") and has("daily", "primalmooncloth") and has("herbs", "peacebloom") and has("bandages", "b_linen"), "materials by tab")
-      ck(#T:MatUses("runecloth") > 0 and #T:MatUses("boot") == 0, "what a material is for")
+      local bootUses = table.concat(T:MatUses("boot"), ",")
+      ck(#T:MatUses("runecloth") > 0 and bootUses == "Pinchy's Wish", "what a material is for (an Old Boot: the Pinchy's Wish set): " .. bootUses)
       -- buying a bigger bag
       T.db.coins = 400
       ck(not T:BuyMatBag(), "the Wool Bag costs 500")

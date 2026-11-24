@@ -702,12 +702,45 @@ function TCF:SharedTaps()
   return max(0, (tonumber(db.taps) or 0) - (tonumber(db.testTaps) or 0))
 end
 
-function TCF:Tap(side)
+-- (1.7.0) Auto-clicker guard, for the obvious cases only: the same key or button pressed again and
+-- again at a machine-steady rhythm. A run of TCF.AUTOCLICK_RUN presses in a row of one key, each gap
+-- within TCF.AUTOCLICK_SPREAD seconds of every other (and under a second), stops counting that key
+-- until the rhythm breaks: a pause, a different key, or one uneven gap. Fast human mashing is never
+-- that even for that long, so it never trips this. The cat still taps along; nothing else is taken.
+TCF.AUTOCLICK_RUN, TCF.AUTOCLICK_SPREAD = 150, 0.03
+local ac = { src = nil, last = 0, n = 0, lo = nil, hi = nil, blocked = false, told = 0 }
+local function autoclicked(self, now, src)
+  if not src then return false end
+  local dt = now - ac.last
+  ac.last = now
+  if src ~= ac.src or dt > 1 or dt <= 0 then
+    ac.src, ac.n, ac.lo, ac.hi, ac.blocked = src, 0, nil, nil, false
+    return false
+  end
+  local lo, hi = min(ac.lo or dt, dt), max(ac.hi or dt, dt)
+  if hi - lo > TCF.AUTOCLICK_SPREAD then
+    ac.n, ac.lo, ac.hi, ac.blocked = 1, dt, dt, false   -- an uneven gap: a person after all
+    return false
+  end
+  ac.n, ac.lo, ac.hi = ac.n + 1, lo, hi
+  if not ac.blocked and ac.n >= TCF.AUTOCLICK_RUN then
+    ac.blocked = true
+    if now - ac.told > 300 then
+      ac.told = now
+      self:Print("That key is being pressed at a perfectly steady rhythm, like an auto-clicker, so it stopped counting for now. It counts again as soon as the rhythm changes.", true)
+    end
+  end
+  return ac.blocked
+end
+TCF.AutoclickTest = { reset = function() ac.src, ac.last, ac.n, ac.lo, ac.hi, ac.blocked, ac.told = nil, 0, 0, nil, nil, false, 0 end }
+
+function TCF:Tap(side, src)
   local db = self.db
   if not db then return end
   local now = GetTime()
   lastInput = now
   if self.cat then self.cat:Tap(side) end
+  if autoclicked(self, now, src) then return end
   local tps = self:TapsLastSecond(now)
   if tps >= TAP_CAP then return end
   recentHead = recentHead % 32 + 1
@@ -768,7 +801,7 @@ local IGNORE = { LSHIFT = true, RSHIFT = true, LCTRL = true, RCTRL = true, LALT 
 
 function TCF:OnKey(key)
   if IGNORE[key] then return end
-  self:Tap(LEFT_KEYS[key] and "L" or RIGHT_KEYS[key] and "R" or nil)
+  self:Tap(LEFT_KEYS[key] and "L" or RIGHT_KEYS[key] and "R" or nil, key)
 end
 
 -- The listener propagates every key to the game, so it never swallows input.
@@ -1900,7 +1933,7 @@ ev:SetScript("OnEvent", function(_, event, a1)
     TCF:SetupKeyboard()
   elseif event == "GLOBAL_MOUSE_DOWN" then
     if TCF.db and TCF.db.ui.mouse then
-      TCF:Tap(a1 == "LeftButton" and "L" or a1 == "RightButton" and "R" or nil)
+      TCF:Tap(a1 == "LeftButton" and "L" or a1 == "RightButton" and "R" or nil, "mouse:" .. tostring(a1))
     end
   elseif event == CAST_EVENT then
     -- Fallback for when the keyboard listener isn't available: count casts
@@ -1912,23 +1945,41 @@ end)
 
 ---------------------------------------------------------------- test mode
 -- Shortcuts for trying every part of the game quickly. Turned on with /tcf testmode.
--- Locked to the developer's character, or a password on any other character.
--- Only hashes are stored here.
-local TEST_KEY, DEV_NAMES = 282723659, { [282723659] = true, [1306739114] = true }
+-- (1.7.0) Only ever on the developer's one character, Ziggu Trip: no password, no other character.
+-- Only a hash of the name is stored here.
+local DEV_NAME = 1306739114   -- "ziggutrip": the name in lower case, without its space
 local function keyHash(s)
   local x = 5381
   for i = 1, #s do x = (x * 33 + s:byte(i)) % 4294967296 end
   return x
 end
+local function plainName(v) return type(v) == "string" and v ~= "" and not TCF.IsSecret(v) end
 local function isDevCharacter()
   local name = UnitName and UnitName("player")
-  if not name or TCF.IsSecret(name) then return false end
-  return DEV_NAMES[keyHash(name:lower())] or false
+  if not plainName(name) then return false end
+  if keyHash((name:gsub("%s", "")):lower()) == DEV_NAME then return true end
+  -- WoW: Forever can give a two-word name in two parts ("Ziggu", then "Trip" where the realm goes)
+  if not name:find("%s") and UnitFullName then
+    local ok, a, b = pcall(UnitFullName, "player")
+    if ok and plainName(a) and plainName(b) and a == name then
+      return keyHash(((a .. b):gsub("%s", "")):lower()) == DEV_NAME
+    end
+  end
+  return false
+end
+
+-- test mode is on only on that character; a save that had it on anywhere else has it turned off
+function TCF:TestModeOn()
+  local ui = self.db and self.db.ui
+  if not (ui and ui.testMode) then return false end
+  if isDevCharacter() then return true end
+  ui.testMode = nil
+  return false
 end
 
 function TCF:TestCheat(kind)
   local db = self.db
-  if not db.ui.testMode then return end
+  if not self:TestModeOn() then return end
   if kind == "coins" then self:AddCoins(5000)
   elseif kind == "taps" then
     -- (1.6.7) lifetime taps for testing: counted here (achievements, the tap total), but never sent
@@ -1981,7 +2032,8 @@ SlashCmdList.TAPCATFOREVER = function(msg)
   elseif cmd == "bag" then TCF:ToggleBag()
   elseif cmd == "welcome" then TCF:ShowWelcome()
   elseif cmd == "testmode" then
-    if not ui.testMode and not isDevCharacter() and keyHash(arg or "") ~= TEST_KEY then
+    -- on any other character it can only be turned off (a save from before 1.7.0 may have it on)
+    if not isDevCharacter() and not ui.testMode then
       TCF:Print("/tapcat - open window | bag | welcome | show | hide | toggle | lock | unlock | reset | scale <0.3-3> | stats", true)
       return
     end

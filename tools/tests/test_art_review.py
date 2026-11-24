@@ -24,9 +24,10 @@ def check(seed, load_addon):
       local nSet = 0
       for _, it in ipairs(T.ITEM_LIST) do
         if it.source == "set" then
-          nSet = nSet + 1
           ck(it.boss == nil, it.id .. ": no it.boss on a set piece")
-          ck(type(it.bossName) == "string", it.id .. ": bossName")
+          -- (1.7.0) the crafted profession sets (it.craftSet) come from a profession, not a boss
+          if it.craftSet then ck(it.bossName == nil, it.id .. ": a crafted set piece has no boss")
+          else nSet = nSet + 1; ck(type(it.bossName) == "string", it.id .. ": bossName") end
           local ok = pcall(function() return it.boss and it.boss > 0 end)
           ck(ok, it.id .. ": comparing it.boss does not error")
         end

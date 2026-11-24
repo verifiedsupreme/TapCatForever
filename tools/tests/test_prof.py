@@ -249,7 +249,7 @@ check(tx:find("4-9 of 9", 1, true) and tx:find("Cult of the Damned (Naxxramas)",
 T.window.spotScroll = 0; T.window:Refresh()
 check(texts():find("1-6 of 9", 1, true), "scrolled back to the first spots")
 -- selling resets them like the others, the spots stay open
-ps.lifetime = math.max(ps.lifetime, 1e15)
+ps.lifetime = math.max(ps.lifetime, 1e15); ps.runEarned = ps.lifetime
 T:PrestigeTrade()
 check(ps.ops[fam][9].n == 0 and not ps.ops[fam][9].mgr and T:SpotUnlocked(fam, 9), "selling resets spot 9, it stays open")
 -- 1.6.0: no round Professions button in the header any more; the Professions tab opens it

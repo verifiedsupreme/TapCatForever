@@ -138,7 +138,7 @@ end
 
 -- the developer: one of the developer's characters, or test mode
 function TCF:IsDeveloper()
-  if self.db and self.db.ui and self.db.ui.testMode then return true end
+  if self.TestModeOn and self:TestModeOn() then return true end
   local n = myName()
   return n and isDevName(n) and true or false
 end
@@ -530,7 +530,7 @@ local function wrapSlash()
     local cmd = type(msg) == "string" and msg:lower():match("^%s*(%S*)") or ""
     if cmd == "players" and TCF.db and TCF:IsDeveloper() then TCF:DevAsk(); return end
     -- test mode: the key that makes this character one of the developer's (DEV_HASH above)
-    if cmd == "devkey" and TCF.db and TCF.db.ui.testMode then
+    if cmd == "devkey" and TCF.db and TCF:TestModeOn() then
       local k = fullKey(myName() or "")
       TCF:Print(k and ("Developer key for this character: " .. keyHash(k)) or "Your realm isn't known yet. Try again in a moment.", true)
       return

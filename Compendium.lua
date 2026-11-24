@@ -126,7 +126,7 @@ function TCF.CraftSourceOf(it)
     local r, prof = gearRecipeFor(it.id)
     return it.crafted or prof, it.craftSkill or (r and r.skill), it.craftMats or (r and r.mats), true
   end
-  if it.source == "craft" then
+  if it.source == "craft" or it.craftSet then   -- (1.7.0) a crafted set's piece (ProfSets.lua)
     local r, prof = recipeFor(it.id)
     if r then return prof, r.skill, r.mats, false end
     return "?", nil, nil, false

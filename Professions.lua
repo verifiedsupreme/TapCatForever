@@ -213,10 +213,13 @@ TCF.PROFESSIONS = {
 local function unlockedIn(s, p)
   if not p then return false end
   if not p then return false end
-  -- learned before (this cat was told): kept, so no save loses an unlock when the amounts change.
-  -- (1.5.3.4: Renown alone no longer unlocks anything; 1.5.2 saves were marked told at load.)
-  if type(s.announced) == "table" and s.announced[p.key] then return true end
-  return (s.lifetime or 0) >= (p.gold or 0)
+  -- (1.7.0) Trade Gold earned since the last sale for Renown (s.runEarned) opens a profession, so a
+  -- sale closes them again until the cat earns it back (faster, with its Renown). Before 1.7.0 it was
+  -- all the Trade Gold ever earned; a save from then starts with that as this run's.
+  if p.family or (p.gold or 0) <= 0 then return true end
+  -- a cat learned it before 1.7.0 and hasn't sold since: kept until that first sale
+  if not s.soldSince170 and type(s.announced) == "table" and s.announced[p.key] then return true end
+  return (s.runEarned or s.lifetime or 0) >= (p.gold or 0)
 end
 TCF.PROF_BY_KEY = {}
 for i, p in ipairs(TCF.PROFESSIONS) do p.index = i; TCF.PROF_BY_KEY[p.key] = p end
@@ -277,7 +280,7 @@ TCF.PICK_SECONDS, TCF.PICK_ORE_CHANCE = 0.5, 0.25
 local function freshOp() return { n = 0, p = 0, run = false, mgr = false } end
 local function freshTrade()
   return { gold = 0, lifetime = 0, renown = 0, prestiges = 0, ops = {}, upgrades = {}, milestones = {},
-    mats = {}, skill = {}, tools = {}, last = time(), buy = 1, famMoved = true }
+    mats = {}, skill = {}, tools = {}, last = time(), buy = 1, famMoved = true, gatherCut170 = true, runEarned = 0, soldSince170 = true }
 end
 
 -- Once per save (1.4 and older): the old single Mining progress moves to the family of the
@@ -578,7 +581,7 @@ end
 function TCF:ProfUnlockProgress(prof)
   local p = TCF.PROF_BY_KEY[prof]
   local s = S(self)
-  return s.lifetime, p and p.gold or 0, unlockedIn(s, p)
+  return s.runEarned or s.lifetime, p and p.gold or 0, unlockedIn(s, p)
 end
 
 -- Tells the cat you're playing, once, about each profession it can now learn (a chat line, no
@@ -649,11 +652,23 @@ end
 function TCF.SpotDifficulty(i) return ((i or 1) - 1) * 50 end
 
 function TCF:ProfSkill(prof) return S(self).skill[prof] or 1 end
+-- (1.7.0) gathering skills (Mining, Skinning, Cloth Scavenging) rise a third as fast, and reset when the
+-- business is sold; the best a cat ever had (s.skillBest) still opens the later spots
+TCF.GATHER_SKILL_RATE = 1 / 3
 function TCF:ProfSkillUp(prof, difficulty)
   local s = S(self)
   local cur = s.skill[prof] or 1
   if cur >= 300 then return end
-  if random() < TCF.SkillUpChance(cur, difficulty) then s.skill[prof] = cur + 1; return true end
+  local chance = TCF.SkillUpChance(cur, difficulty)
+  if TCF.FAMILIES[prof] then chance = chance * TCF.GATHER_SKILL_RATE end
+  if random() < chance then
+    s.skill[prof] = cur + 1
+    if TCF.FAMILIES[prof] then
+      s.skillBest = type(s.skillBest) == "table" and s.skillBest or {}
+      s.skillBest[prof] = max(s.skillBest[prof] or 0, cur + 1)
+    end
+    return true
+  end
 end
 
 ---------------------------------------------------------------- numbers
@@ -674,10 +689,12 @@ function TCF:EarnGold(n)
   n = n * (1 + 0.02 * s.renown)
   s.gold = s.gold + n
   s.lifetime = s.lifetime + n
+  if s.runEarned == nil then s.runEarned = s.lifetime - n end
+  s.runEarned = s.runEarned + n
   -- a new profession to learn? (cheap: only when the next unlock has been passed)
   if not self.tradeQuiet then
     for _, p in ipairs(TCF.PROFESSIONS) do
-      if p.gold > 0 and s.lifetime >= p.gold and not s.announced[p.key] then self:CheckProfUnlocks(); break end
+      if p.gold > 0 and s.runEarned >= p.gold and not s.announced[p.key] then self:CheckProfUnlocks(); break end
     end
   end
   return n
@@ -707,8 +724,9 @@ function TCF:SpotUnlocked(prof, i)
   local need = {}
   if u.renown and (s.renownEver or 0) < u.renown then need[#need + 1] = string.format("Renown %d (highest so far %d)", u.renown, s.renownEver or 0) end
   if u.lifetime and (s.lifetime or 0) < u.lifetime then need[#need + 1] = string.format("%s Trade Gold earned (so far %s)", TCF.FormatBig(u.lifetime), TCF.FormatBig(s.lifetime or 0)) end
-  if u.skill and (s.skill[fam] or 1) < u.skill then
-    need[#need + 1] = string.format("%s skill %d (now %d)", TCF.FAMILIES[fam].skillName, u.skill, s.skill[fam] or 1)
+  local best = max(s.skill[fam] or 1, type(s.skillBest) == "table" and s.skillBest[fam] or 0)
+  if u.skill and best < u.skill then
+    need[#need + 1] = string.format("%s skill %d (best so far %d)", TCF.FAMILIES[fam].skillName, u.skill, best)
   end
   if #need > 0 then return false, "Opens at " .. table.concat(need, " and ") .. "." end
   -- remembered, so changing the numbers later never closes a spot someone has
@@ -1096,6 +1114,16 @@ end
 -- TCF:WithTradeClass). offline = only automated things run.
 function TCF:ProfAdvance(dt, offline)
   local s = S(self)
+  if not s.gatherCut170 then
+    -- (1.7.0) gathering skill rose far too fast before: every cat keeps a third of it (its best is remembered)
+    s.gatherCut170 = true
+    s.skillBest = type(s.skillBest) == "table" and s.skillBest or {}
+    for _, f in ipairs(FAM_KEYS) do
+      local k = s.skill[f]
+      if k and k > 1 then s.skillBest[f] = max(s.skillBest[f] or 0, k); s.skill[f] = max(1, floor(k / 3)) end
+    end
+    if s.runEarned == nil then s.runEarned = s.lifetime or 0 end
+  end
   for _, f in ipairs(FAM_KEYS) do
     for i, st in ipairs(s.ops[f]) do
       if st.n > 0 and (st.mgr or (st.run and not offline)) then
@@ -1197,6 +1225,14 @@ function TCF:PrestigeTrade()
   s.prestiges = s.prestiges + 1
   s.gold = 0
   s.upgrades = {}
+  -- (1.7.0) a new run: professions open again as this run's Trade Gold grows, gathering skill starts over
+  s.runEarned = 0; s.soldSince170 = true
+  s.announced = {}
+  s.skillBest = type(s.skillBest) == "table" and s.skillBest or {}
+  for _, f in ipairs(FAM_KEYS) do
+    s.skillBest[f] = max(s.skillBest[f] or 0, s.skill[f] or 1)
+    s.skill[f] = nil
+  end
   for _, f in ipairs(FAM_KEYS) do
     s.tools[f] = 0
     for i = 1, #OPS do s.ops[f][i] = freshOp() end

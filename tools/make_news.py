@@ -12,6 +12,7 @@ import os, re
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
 HIGHLIGHTS = {
+    "1.7.0": "Professions 2.0: rare finds and glints by hand, named helpers, guilds with work orders, specializations, a Renown shop, a Profession Bag and 11 legendary crafted sets.",
     "1.6.0": "New: the cat Casino, a main window you can resize or make compact, professions that level like WoW, and animated cosmetic sets from Adventure's dungeons.",
     "1.5.3": "New: a realm leaderboard tab. Join it to see other players' taps and get a big chest for your level. Also level 60, faster unlocks and more.",
     "1.5.1": "Each class's cat now has its own Trade Gold and Renown, real legendaries can drop, raids give the new Raider's Hoard, and there is lots more gear.",

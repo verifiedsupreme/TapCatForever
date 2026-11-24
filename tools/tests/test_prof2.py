@@ -182,6 +182,26 @@ def check(seed, load_addon):
       ck(T.db.titles["Test Weaver"], "the whole set gives its title")
       local lines = table.concat(T:HowToGet(T.ITEMS.set_zzt_head), " | ")
       ck(lines:find("Crafted", 1, true) and lines:find("Primal Mooncloth", 1, true) and lines:find("Test Regalia set", 1, true), "how to get it: " .. lines)
+      -- gathering skill: a third as fast, reset on a sale (the best is kept for the later spots), cut once in 1.7.0
+      local sk = T:ProfState()
+      sk.skill.cloth = 100; sk.gatherCut170 = nil; sk.skillBest = nil
+      T:ProfAdvance(0.01)
+      ck(sk.skill.cloth == 33 and sk.skillBest.cloth == 100, "1.7.0 keeps a third of gathering skill: " .. tostring(sk.skill.cloth))
+      local ups, n = 0, 3000
+      for k = 1, n do sk.skill.cloth = 50; if T:ProfSkillUp("cloth", 50) then ups = ups + 1 end end
+      ck(ups > n * 0.25 and ups < n * 0.42, "a 'always' gathering skill-up now comes a third of the time: " .. ups)
+      local cups = 0
+      for k = 1, 600 do sk.skill.tailoring = 50; if T:ProfSkillUp("tailoring", 50) then cups = cups + 1 end end
+      ck(cups == 600, "crafting skill-ups are unchanged")
+      -- professions open with this run's Trade Gold
+      sk.skill.cloth = 120
+      sk.gold, sk.lifetime, sk.runEarned = 1e15, 1e20, 2e9
+      ck(T:ProfUnlocked("herbalism") and not T:ProfUnlocked("firstaid"), "this run's 2B opens Herbalism only")
+      T:PrestigeTrade()
+      ck(sk.runEarned == 0 and not T:ProfUnlocked("herbalism") and T:ProfUnlocked("cloth"), "a sale closes Herbalism again (the main profession stays)")
+      ck((sk.skill.cloth or 1) == 1 and sk.skillBest.cloth >= 120, "a sale resets gathering skill and keeps the best")
+      T:EarnGold(2e9)
+      ck(T:ProfUnlocked("herbalism"), "earned back: open again")
       return table.concat(fails, "; ")
     ''')
     if r:

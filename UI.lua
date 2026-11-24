@@ -1506,15 +1506,16 @@ function TCF:CreateWindow()
     end, "Reset ALL progress", "Start over on every character. Your settings are kept. This cannot be undone.")
 
     function win:RefreshSettings()
-      testBox:SetShown(ui.testMode and true or false)
+      local testOn = TCF:TestModeOn()
+      testBox:SetShown(testOn)
       local note = "|cffffd100Play with friends:|r your taps count 20% more with one friend who has TapCatForever, and 10% more for each friend after that, up to +50% with a full party."
       local friends = TCF.PartyCount and TCF:PartyCount() or 0
       if friends > 0 then note = note .. string.format(" |cff66ff66Now: +%d%%.|r", floor((TCF:PartyTapMult() - 1) * 100 + 0.5)) end
       partyNote:SetText(note)
-      partyNote:SetShown(not ui.testMode)
-      partyCB:SetShown(not ui.testMode)
-      faceCB:SetShown(not ui.testMode)
-      help:SetShown(not ui.testMode)
+      partyNote:SetShown(not testOn)
+      partyCB:SetShown(not testOn)
+      faceCB:SetShown(not testOn)
+      help:SetShown(not testOn)
       mmB:SetText(ui.minimap.hide and "Show minimap icon" or "Hide minimap icon")
       for _, cb in ipairs(checks) do cb:SetChecked(ui[cb.key] and true or false) end
       shareCB:SetChecked(ui.shareDev and true or false)

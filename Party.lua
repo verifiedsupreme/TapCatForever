@@ -701,7 +701,7 @@ function TCF:PartyTestClear()
 end
 
 function TCF:PartyTestInject(n)
-  if not (self.db and self.db.ui.testMode) then return end
+  if not (self.db and self:TestModeOn()) then return end
   n = max(0, min(8, floor(tonumber(n) or 0)))
   for i = #fakes, 1, -1 do fakes[i] = nil end
   local furs, skins, hats = {}, {}, {}

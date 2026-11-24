@@ -409,7 +409,7 @@ TEST = r'''
     assert(not TCF:ProfUnlocked("herbalism"), "herbalism needs renown")
     -- unlock everything for testing
     ps.renown, ps.renownEver, ps.gold = 200, 200, 1e12
-    ps.lifetime = math.max(ps.lifetime, 1e17)   -- 1.5.3.4: Trade Gold earned unlocks (Renown alone doesn't)
+    ps.lifetime = math.max(ps.lifetime, 1e17); ps.runEarned = ps.lifetime   -- Trade Gold earned (1.7.0: this run's) unlocks
     for _, p in ipairs(TCF.PROFESSIONS) do assert(TCF:ProfUnlocked(p.key), p.key .. " unlocked") end
     -- Herbalism: plant, water, harvest; gardener works offline
     assert(TCF:Plant(1, "peacebloom")); assert(not TCF:Plant(1, "peacebloom"), "plot busy")
@@ -457,11 +457,14 @@ TEST = r'''
     ps.mats.linen = (ps.mats.linen or 0) + 1000; assert(TCF:Craft(TCF.RECIPES[TCF:CraftProf()][1]), "craft the first Tailoring cosmetic")  -- (1.6: cosmetics cost more)
     for _, p in ipairs(TCF.PROFESSIONS) do
       win.profSel = p.key
-      for _, v in ipairs({ "main", "upg", "craft", "renown" }) do win.profView = v; win:SelectTab(5); _update(0.2) end
+      for _, v in ipairs({ "main", "upg", "craft", "guild", "renown" }) do win.profView = v; win:SelectTab(5); _update(0.2) end
     end
-    ps.lifetime = 1e17
+    ps.lifetime = 1e17; ps.runEarned = 1e17
     assert(TCF:PrestigeTrade(), "sell the business")
-    assert(ps.gold == 0 and ps.ops.mining[1].n == 0 and ps.ops.cloth[1].n == 0 and ps.ops.skinning[1].n == 0 and TCF:ProfUnlocked("cooking"), "reset keeps unlocks")
+    -- (1.7.0) a sale closes the later professions until this run's Trade Gold opens them again
+    assert(ps.gold == 0 and ps.ops.mining[1].n == 0 and ps.ops.cloth[1].n == 0 and ps.ops.skinning[1].n == 0 and not TCF:ProfUnlocked("cooking"), "a sale closes the later professions")
+    ps.runEarned = 1e17
+    assert(TCF:ProfUnlocked("cooking"), "earned back: open again")
     print("renown after selling:", ps.renown)
     -- paperdoll click (right click unequips, left click jumps to the wardrobe)
     for tab = 1, #win.tabButtons do win:SelectTab(tab) end
@@ -487,7 +490,7 @@ TEST = r'''
     assert(TCF:CD("WARRIOR").level == mainLevel, "the alt plays the account's cats")
     assert(TCF.db.class == "MAGE" and not TCF:Owned("MAGE").race_tauren, "a new character starts on its own class's cat")
     TCF:AddCoins(1000); assert(TCF:BuyRaceAccessory())
-    assert(TCF:GetLoadout("MAGE").race == "race_tauren" and TCF:GetLoadout("WARRIOR").race ~= "race_tauren", "racial piece worn by the Mage cat that bought it")
+    assert(TCF:GetLoadout("MAGE").race == "race_tauren" and TCF:GetLoadout("WARRIOR").race ~= "race_tauren", "racial piece worn by the Mage cat that bought it " .. tostring(TCF:GetLoadout("MAGE").race) .. " " .. tostring(TCF:GetLoadout("WARRIOR").race) .. " " .. tostring(TCF.db.class) .. " " .. tostring(select(1, TCF:RaceItemForPlayer()) and select(1, TCF:RaceItemForPlayer()).slot))
     -- only the selected class's cat adventures: others stay paused
     TCF:SetClass("MAGE"); TCF:AdvStart()
     for i = 1, 400 do _update(0.25) end
@@ -625,7 +628,8 @@ TEST = r'''
     check(TCF:ToolLevel("cloth") == 20 and TCF:ToolLevel() == 20 and TCF:ToolLevel("mining") == 0, "pickaxe level became the shears' level")
     check(s.upgrades.cloth1_0 and s.upgrades.cloth_all0 and not s.upgrades.mining1_0, "upgrades moved")
     check(s.milestones.cloth1_25 and s.milestones.cloth1_100 and not s.milestones.mining1_25, "milestones moved")
-    check(TCF:ProfSkill("cloth") == 120 and s.skill.mining == nil and TCF:ProfSkill("herbalism") == 40, "gathering skill moved")
+    -- (1.7.0) and then cut to a third (the best is remembered)
+    check(TCF:ProfSkill("cloth") == 40 and s.skillBest.cloth == 120 and s.skill.mining == nil and TCF:ProfSkill("herbalism") == 40, "gathering skill moved")
     for _, o in ipairs(TCF.FAMILIES.mining.ops) do check(s.mats[o[2]] == nil, "no ore left: " .. o[2]) end
     -- ore converts 1:1 by tier; the Tailor (Scavenger) on spot 1 also worked the 2 hours offline
     -- (1.7.0) the helper levels up while it works and may be Lucky: between its level-1 speed and its speed now
@@ -755,7 +759,7 @@ TEST = r'''
       check(m.last >= time() - 1 and w.last >= time() - 1, "both cats are up to date")
       -- 4e. online: the cat you aren't playing keeps working, quietly, into its own trade
       TCF:SetClass("MAGE")
-      w.renownEver = 60; w.lifetime = math.max(w.lifetime, 1e15); w.fish = { spot = 1, buddy = 1, bp = 0 }   -- Fishing learned (1.5.3.4: by Trade Gold earned)
+      w.renownEver = 60; w.lifetime = math.max(w.lifetime, 1e15); w.runEarned = w.lifetime; w.fish = { spot = 1, buddy = 1, bp = 0 }   -- Fishing learned (1.5.3.4: by Trade Gold earned)
       local odds = TCF.FISH_ODDS.buddyTreasure
       TCF.FISH_ODDS.buddyTreasure = 1
       local chat0, pouch0, toasts0 = #_chat, TCF:ChestsOf("pouch", "WARRIOR"), (TapCatForeverLootToasts and TapCatForeverLootToasts:IsShown())
@@ -780,7 +784,7 @@ TEST = r'''
       TCF:SetClass("WARRIOR"); check(TCF:FoodBuff("dmg") == 1 and TCF:FoodBuff("dmg", "MAGE") > 1, "the Warrior isn't Well Fed")
       TCF:SetClass("MAGE")
       -- 4g. selling the business is per cat
-      m.lifetime = 1e14
+      m.lifetime = 1e14; m.runEarned = 1e14
       check(TCF:PrestigeTrade() and m.gold == 0 and m.ops.cloth[1].n == 0 and w.ops.mining[1].n == 110 and w.gold > 0, "selling the Mage's business leaves the Warrior's")
       -- 4h. "Reset your cats" clears every class's professions; "Reset ALL" clears every character
       TCF:ResetProgress("char")
@@ -908,7 +912,11 @@ TEST = r'''
           last = r.skill; gear = gear + 1; crafted[it] = true
         else
           check(r.item and TCF.ITEMS[r.item] and r.cosmetic == true, ck .. " cosmetic recipe flagged cosmetic: " .. tostring(r.item))
-          for m in pairs(r.mats) do check(famMats[k][m], ck .. " cosmetic uses its own family's materials: " .. m) end
+          -- (1.7.0) the long-chase set pieces also take the family's daily materials and rare finds
+          for m in pairs(r.mats) do
+            local ok = famMats[k][m] or (r.longChase and ((TCF.DAILY_MATS and TCF.DAILY_MATS[m]) or (TCF.RARE_FIND_BY_KEY[m] and TCF.RARE_FIND_BY_KEY[m].fam == k)))
+            check(ok, ck .. " cosmetic uses its own family's materials: " .. m)
+          end
           if TCF.ITEMS[r.item].slot == "skin" then skins = skins + 1 else cos = cos + 1 end
           local tip = tipText(function() TCF:ItemTooltip(GameTooltip, TCF.ITEMS[r.item]) end)
           check(tip:find("Cosmetic only (no stats)", 1, true), r.item .. " tooltip says cosmetic only")
@@ -1082,7 +1090,7 @@ TEST = r'''
       check(eq[w.slot == "RANGED" and "RANGED" or "MAINHAND"] == w.id and (TCF:Bag(cl.key)[w.id] or 0) >= 1, cl.key .. " starts holding " .. w.name)
     end
     -- 9. fishing view: the dock builds with and without the Fishing Buddy
-    ps.renownEver = math.max(ps.renownEver, 200); ps.lifetime = math.max(ps.lifetime, 1e17)   -- everything learned (1.5.3.4: by Trade Gold earned)
+    ps.renownEver = math.max(ps.renownEver, 200); ps.lifetime = math.max(ps.lifetime, 1e17); ps.runEarned = ps.lifetime   -- everything learned (1.5.3.4: by Trade Gold earned)
     local fs = TCF:FishState()
     local function buddyLabelShown(from, name)
       for i = from, #_frames do local f = _frames[i]; if f.kind == "FontString" and f.text == name and f.shown then return true end end
@@ -1123,7 +1131,7 @@ TEST = r'''
       mf.bp = 40; step(10)
       check(not popShown(), "the pop goes away")
       TCF:SetClass("PRIEST")
-      local ps2 = TCF:ProfState(); ps2.renownEver = math.max(ps2.renownEver, 200); ps2.lifetime = math.max(ps2.lifetime, 1e17)
+      local ps2 = TCF:ProfState(); ps2.renownEver = math.max(ps2.renownEver, 200); ps2.lifetime = math.max(ps2.lifetime, 1e17); ps2.runEarned = ps2.lifetime
       local pf = TCF:FishState(); pf.buddy, pf.bp = 1, 5
       check(pf ~= mf, "the Priest has its own fishing buddy")
       refresh(); step(1)
@@ -1608,12 +1616,15 @@ TEST = r'''
       for m, need in pairs(r.mats) do ps.mats[m] = need * 8 end
       check(TCF:Craft(r) and toasts0 == 1, "one Craft with the window open draws a notice (" .. toasts0 .. "), so the next check can fail")
       ps.skill[craft], toasts0 = r.skill, 0
-      local had1 = bag[it.id] or 0
+      -- (1.7.0) a craft can come out as its Masterwork version (another item id): both count
+      local mwItem = TCF.MasterworkGear and TCF.MasterworkGear(r.gear)
+      local function inBag() return (bag[it.id] or 0) + (mwItem and bag[mwItem.id] or 0) end
+      local had1 = inBag()
       local chat0 = #_chat
       local made = TCF:CraftAll(r)
       TCF.ChestCoinsText = origCoinsText
       if not winWasShown then TCF.window:Hide() end
-      check(made == 7 and (bag[it.id] or 0) == had1 + 7, "Craft all made " .. made)
+      check(made == 7 and inBag() == had1 + 7, "Craft all made " .. made .. ", bag +" .. (inBag() - had1))
       -- (1.6 skill-up curve: the first 5 always give a point, the next ones half the time)
       check(#_chat == chat0 + 1 and _chat[#_chat]:find("Crafted 7 x", 1, true) and _chat[#_chat]:find("skill +" .. (ps.skill[craft] - r.skill), 1, true) and not _chat[#_chat]:find("!", 1, true),
         "Craft all: one chat line: " .. tostring(_chat[#_chat]))
@@ -2111,10 +2122,13 @@ TEST = r'''
       for _, l in pairs(TCF.WORLD_POOL) do for _, it in ipairs(l) do inPool[it] = true end end
       for _, l in pairs(TCF.TIER_POOL) do for _, it in ipairs(l) do inPool[it] = true end end
       for _, bl in pairs(TCF.BOSS_LOOT) do for _, l in pairs(bl) do for _, it in ipairs(l) do inPool[it] = true end end end
+      for _, list in pairs(TCF.RECIPES) do
+        for _, r in ipairs(list) do if r.gear and not r.starter and TCF.MasterworkGear(r.gear) then break end end
+      end
       local nSuf, nRetired, seenId, perBase = 0, 0, {}, {}
       for _, it in ipairs(TCF.GEAR_LIST) do
         check(not seenId[it.id] and TCF.GEAR[it.id] == it, "gear id used once: " .. it.id); seenId[it.id] = true
-        if it.suffix then
+        if it.suffix and not it.masterwork then   -- (1.7.0) Masterwork crafts use suffix 99 (test_prof2.py)
           nSuf = nSuf + 1
           local b = TCF.GEAR[it.base]
           check(it.id == TCF.SUFFIX_ID_BASE + it.base * 100 + it.suffix and it.suffix >= 1 and it.suffix <= 99, "suffix id scheme: " .. it.id)
@@ -2129,7 +2143,7 @@ TEST = r'''
           check(inPool[it], "suffix item drops: " .. it.name)
           perBase[it.base] = (perBase[it.base] or 0) + 1
         else
-          check(it.id < 100000, "a real item id: " .. it.id)
+          check(it.id < 100000 or it.masterwork, "a real item id: " .. it.id)
         end
         if it.retired then nRetired = nRetired + 1; check(not inPool[it], "a random-suffix base no longer drops: " .. it.name) end
       end
@@ -2976,11 +2990,11 @@ TEST = r'''
       check(#lines == 1 and lines[1]:find("Herbalism", 1, true) and lines[1]:find("Mage", 1, true), "one chat line: " .. tostring(lines[1]))
       TCF:EarnGold(1000); login("Progprof"); TCF:SetClass("WARRIOR"); TCF:SetClass("MAGE")
       check(#chatSince(c1, "can now learn") == 1, "it never repeats")
-      -- selling the business never takes an unlock away (and never lowers the gold earned)
-      s.lifetime = 6e13; TCF:EarnGold(0)
+      -- (1.7.0) selling the business closes the later professions until the new run earns them again (it never lowers the gold earned)
+      s.lifetime = 6e13; s.runEarned = 6e13; TCF:EarnGold(0)
       check(TCF:ProfUnlocked("firstaid") and #chatSince(c1, "First Aid") == 1, "First Aid at 50T")
-      s.lifetime = 1e17
-      check(TCF:PrestigeTrade() and s.lifetime == 1e17 and s.gold == 0 and TCF:ProfUnlocked("cooking"), "selling keeps Trade Gold earned and unlocks")
+      s.lifetime = 1e17; s.runEarned = 1e17; TCF:EarnGold(0)
+      check(TCF:PrestigeTrade() and s.lifetime == 1e17 and s.gold == 0 and not TCF:ProfUnlocked("cooking") and not TCF:ProfUnlocked("herbalism"), "(1.7.0) selling keeps Trade Gold earned, closes the professions for the new run")
       check(#chatSince(c1, "Cooking") == 1 and #chatSince(c1, "Fishing") == 1, "every unlock announced once")
       -- 1.5.3.4: Renown alone no longer unlocks anything new (only Trade Gold earned)
       TCF:SetClass("PRIEST")
@@ -2998,7 +3012,7 @@ TEST = r'''
       -- unlocked but never announced (offline): told at login, once
       TCF:SetClass("MAGE")
       s = TCF:ProfState()
-      s.announced = {}
+      s.announced = {}; s.runEarned = s.lifetime   -- (1.7.0) earned again this run
       local c3 = #_chat
       login("Progprof")
       check(#chatSince(c3, "can now learn") == 4, "told at login")
@@ -3006,14 +3020,14 @@ TEST = r'''
       check(#chatSince(c3, "can now learn") == 4, "only once")
       -- a 1.5.2 save already heard about what its Renown unlocked: no chat line for those
       TapCatForeverDB.chars["Progren-Forever"] = { class = "MAGE", classData = { MAGE = { level = 30, xp = 0,
-        trade = { gold = 0, lifetime = 3e9, renown = 25, renownEver = 25, famMoved = true, last = time() } } } }
+        trade = { gold = 0, lifetime = 3e9, runEarned = 3e9, renown = 25, renownEver = 25, famMoved = true, last = time() } } } }
       local c4 = #_chat
       login("Progren")
       check(TCF:ProfUnlocked("firstaid") and #chatSince(c4, "can now learn") == 0, "old Renown unlocks are not announced again")
       TapCatForeverDB.chars["Progren-Forever"] = nil
       -- the 1.5.1 split: a cat whose earned Trade Gold unlocked First Aid keeps First Aid's cloth
       TapCatForeverDB.chars["Progaid-Forever"] = { class = "WARRIOR", classData = { MAGE = { level = 10, xp = 0 }, WARRIOR = { level = 20, xp = 0 } },
-        trade = { gold = 10, lifetime = 6e13, renown = 0, renownEver = 0, famMoved = true, last = time(),
+        trade = { gold = 10, lifetime = 6e13, runEarned = 6e13, renown = 0, renownEver = 0, famMoved = true, last = time(),
           ops = { cloth = { { n = 2, p = 0, run = false, mgr = false } }, mining = { { n = 4, p = 0, run = false, mgr = false } } },
           mats = { linen = 5000, copper = 5 } } }
       login("Progaid")
@@ -3031,10 +3045,10 @@ TEST = r'''
         for i = first, #_frames do local f = _frames[i]; if f.kind == "FontString" and type(f.text) == "string" and f.text:find(sub, 1, true) then return f.text end end
       end
       refreshPage()
-      local lock = has("unlocks when your Mage cat has earned")
-      check(lock and lock:find(TCF.GoldStr(1e15), 1, true) and lock:find("So far: " .. TCF.GoldStr(5e6) .. " (0%)", 1, true), "locked view: " .. tostring(lock))
+      local lock = has("opens when your Mage cat has earned")
+      check(lock and lock:find(TCF.GoldStr(1e15), 1, true) and lock:find("since its last sale", 1, true) and lock:find("This run: " .. TCF.GoldStr(5e6) .. " (0%)", 1, true), "locked view: " .. tostring(lock))
       pw.profSel = "herbalism"; refreshPage()
-      check(has("So far: " .. TCF.GoldStr(5e6) .. " (0%)"), "progress in percent")
+      check(has("This run: " .. TCF.GoldStr(5e6) .. " (0%)"), "progress in percent")
       pw.profView = "renown"; refreshPage()
       check(has("Herbalism at 1.00B") and not has("unlocks new professions"), "the Renown view lists the gold")
       TCF.ShowProfessionGuide(TCF, "cloth")
@@ -3044,7 +3058,7 @@ TEST = r'''
           if f.prof and f.prof.key == "cooking" and f.scripts.OnEnter then f.scripts.OnEnter(f) end
         end
       end)
-      check(tip:find("Unlocks when this cat has earned", 1, true) and tip:find("So far:", 1, true), "tab tooltip: " .. tip)
+      check(tip:find("Opens when this cat has earned", 1, true) and tip:find("This run:", 1, true), "tab tooltip: " .. tip)
 
       -- put the account back
       TCF.PartyTapMult, TCF.FoodBuff = partyMult, foodBuff
@@ -3781,7 +3795,7 @@ def check_leaderboard(seed=1):
     # Alpha's other cats and trade: a level 17 Mage cat, Trade Gold and a few skills (the extra fields)
     A.ex("""local TCF = TapCatForever
       TCF.db.classData.MAGE.level = 17
-      local s = TCF:ProfState("WARRIOR"); s.lifetime = 1234567890123; s.skill.blacksmithing = 150; s.skill.herbalism = 42""")
+      local s = TCF:ProfState("WARRIOR"); s.lifetime = 1234567890123; s.runEarned = s.lifetime; s.skill.blacksmithing = 150; s.skill.herbalism = 42""")
     ha, chat0 = A.heroic(), A.ev("#_chat")
     A.ex("_optIn(true)"); C.ex("_optIn(true)")
     ck(A.heroic() == ha + 1, "sign-up: a Heroic Cache")
@@ -4483,6 +4497,12 @@ def load_addon(login=True):
         chunk = lua.execute("return function(src, name) return assert(loadstring(src, name)) end")(src, "@" + fn)
         lua.execute("return function(f) setfenv(f, setmetatable({ os = false, io = false, require = false, loadfile = false, dofile = false }, { __index = _G, __newindex = _G })) end")(chunk)
         chunk("TapCatForever", ns)
+    # test mode only ever turns on for the developer's character in game; the tests turn it on anywhere
+    lua.execute('TapCatForever.RealTestModeOn = TapCatForever.TestModeOn')
+    # Masterwork crafts (5%) would make exact craft counts change from run to run; test_prof2.py
+    # turns them on where it checks them, and one forced Masterwork joins the gear checks below
+    lua.execute('TapCatForever.MASTERWORK_CHANCE = 0')
+    lua.execute('function TapCatForever:TestModeOn() return self.db and self.db.ui and self.db.ui.testMode and true or false end')
     if login:
         lua.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
     return lua
