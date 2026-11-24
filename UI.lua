@@ -337,11 +337,20 @@ function TCF.UI.ConfirmBuySkin(it, where)
   if StaticPopup_Show then
     StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN = StaticPopupDialogs.TAPCATFOREVER_BUY_SKIN or {
       text = "Buy the %s skin for %s TapCoins?", button1 = YES or "Yes", button2 = NO or "No",
-      OnAccept = function(_, data) if type(data) == "table" then TCF:BuySkin(data.id, data.where) end end,
+      OnAccept = function(_, data)
+        if type(data) ~= "table" then return end
+        local it = TCF.ITEMS[data.id]
+        -- the price or the cat changed while the question was open (midnight, switching class): ask again
+        if not it or TCF:SkinPrice(it) ~= data.price or TCF.db.class ~= data.class then
+          if it then TCF.UI.ConfirmBuySkin(it, data.where) end
+          return
+        end
+        TCF:BuySkin(data.id, data.where)
+      end,
       timeout = 0, whileDead = true, hideOnEscape = true,
     }
     local dlg = StaticPopup_Show("TAPCATFOREVER_BUY_SKIN", it.name, TCF.Commas(price))
-    if dlg then dlg.data = { id = it.id, where = where } end
+    if dlg then dlg.data = { id = it.id, where = where, price = price, class = TCF.db.class } end
   else
     TCF:BuySkin(it.id, where)
   end

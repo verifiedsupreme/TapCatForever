@@ -343,6 +343,7 @@ TCF.UI.Builders.shop = function(page, win)
   her.cell = ItemCell(her, 46); her.cell:SetPoint("LEFT", 8, 0)
   tryOnCell(her.cell)
   her.title = Text(her, "GameFontNormalSmall", nil, "LEFT"); her.title:SetPoint("TOPLEFT", 62, -9); her.title:SetWidth(104)
+  her.title:SetHeight(12); if her.title.SetWordWrap then her.title:SetWordWrap(false) end
   her.desc = Text(her, "GameFontHighlightSmall", nil, "LEFT"); her.desc:SetPoint("TOPLEFT", 62, -23)
   her.desc:SetWidth(104); her.desc:SetHeight(36); her.desc:SetJustifyV("TOP")
   her.buy = Button(her, "Buy", 84, 20, function() TCF:BuyRaceAccessory() end); her.buy:SetPoint("BOTTOMRIGHT", -8, 8)
@@ -693,7 +694,9 @@ TCF.UI.Builders.shop = function(page, win)
         local lines = {}
         for j, o in ipairs(oddsFor(ch)) do
           if j > 3 then break end
-          lines[#lines + 1] = string.format("|c%s%s|r  %s", o[3], o[1], TCF.OddsText(o[2]))
+          -- short names, one line each (the card is narrow)
+          local name = o[1] == "Cat skin from the shop" and "Cat skin" or o[1]
+          lines[#lines + 1] = string.format("|c%s%s|r  %s", o[3], name, TCF.OddsText(o[2]))
         end
         c.odds:SetText(table.concat(lines, "\n"))
       end
@@ -727,6 +730,11 @@ TCF.UI.Builders.shop = function(page, win)
     local d = db()
     if not d then return end
     TCF:BuildShop()
+    -- the stock or the Skin of the Day changed (midnight, a reroll): draw everything again
+    local sh = d.shop or {}
+    local feat = TCF.FeaturedSkin and TCF:FeaturedSkin()
+    local sig = tostring(sh.day) .. ":" .. tostring(sh.rerolls) .. ":" .. table.concat(sh.stock or {}, ",") .. ":" .. tostring(feat and feat.id) .. ":" .. tostring(d.class)
+    if sig ~= win.shopSig then win.shopSig = sig; light = false; win.shopSkinsDirty = true end
     local cur = win.shopView
     if not views[cur] then cur = "featured"; win.shopView = cur end
     for key, v in pairs(views) do v:SetShown(key == cur) end
