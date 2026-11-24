@@ -6,6 +6,17 @@
 - Full-colour ones this time: Fireballs, Crackling Lightning, Poison Drips, Frost Shards, Shadow Wisps, Holy Light, Arcane Runes, Fel Fire and Blood Drops, plus Yarn Balls, Fishies, Toy Mice, Catnip, Butterflies, Little Ghosts, Moons, Crowns and Gems.
 - Like the others, they come from Happy Purrs with your cat: Yarn Balls on a second day, Fireballs on the 10th, Crackling Lightning after 10 days in a row, all the way to Gems for a whole year. The Compendium shows what each one needs, and days you already have count.
 
+**Herbalism, much deeper**
+- Every plot keeps its own seed now. Pick a seed and right-click a plot to grow it there from the next harvest on (a small icon shows what comes next), shift-right-click to dig it up and plant it now, or use "Grow it in every plot". Your gardener finally follows along, so you can change what grows without losing your gardener.
+- Meet Bramble, your gardener. Hire it, then train it from Apprentice to Journeyman, Expert, Artisan and Master: plants grow faster, one replant in three is free, one more herb from every harvest, and twice the rare herbs. Bramble also plants empty plots for you. All of this has its own Gardener page next to Garden.
+- 18 more herbs from the real game, 26 in all: Earthroot, Stranglekelp, Bruiseweed, Wild Steelbloom, Liferoot, Goldthorn, Khadgar's Whisker, Wintersbite, Firebloom, Purple Lotus, Arthas' Tears, Blindweed, Ghost Mushroom, Gromsblood, Golden Sansam, Mountain Silversage, Plaguebloom and Icecap. Use the arrows (or the mouse wheel) to page through the seeds.
+- Rare herbs come with some harvests: Swiftthistle from Mageroyal or Briarthorn, Wildvine from Firebloom, Purple Lotus or Gromsblood, and Black Lotus from Sungrass, Dreamfoil and the high herbs.
+- New garden upgrades: Rain Barrel (watering helps three times as much), Alchemy Lab (potions last twice as long) and Moonwell (twice the rare herbs).
+
+**Potions**
+- Herbalism's Crafting list now brews 17 potions from your herbs, from Elixir of Lion's Strength to Flask of the Titans, Flask of Supreme Power and Flask of Distilled Wisdom (those need a Black Lotus).
+- Drink one for a buff: Adventure damage or health, cat XP, gathering profits, rare fish or garden growth. One potion at a time, and it counts on top of a Well Fed dish. Brewing raises your Herbalism skill too.
+
 **Rock paper scissors: best of 3 and best of 5**
 - A new button in the top bar picks best of 1, 3 or 5, against the house cat or a friend. In best of 3 the first to win 2 rounds takes the game, in best of 5 the first to win 3. Ties still play again and don't count.
 - The score shows in the top bar while the game runs, and each round won gets a small cheer. The bet is the same for the whole game: one bet, one payout.

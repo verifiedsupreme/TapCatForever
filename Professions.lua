@@ -457,6 +457,7 @@ local function mergeTrade(src, dst)
       end
       if type(a.n) == "number" then b.n = max(b.n or 0, a.n) end
       if type(a.buddy) == "number" then b.buddy = max(b.buddy or 0, a.buddy) end
+      if type(a.gl) == "number" then b.gl = max(b.gl or 0, a.gl) end   -- (1.6.7) the gardener's rank
     end
   end
 end
@@ -1349,6 +1350,7 @@ end
 
 function TCF:RecipeItem(r)
   if r.gear then return TCF.GEAR and TCF.GEAR[r.gear] end
+  if r.potion then return TCF.POTION_BY_KEY and TCF.POTION_BY_KEY[r.potion] end
   return TCF.ITEMS[r.item]
 end
 
@@ -1428,7 +1430,7 @@ function TCF:CraftAll(r)
     local it = self:RecipeItem(r)
     local name = it and it.name or "items"
     local gained = r.prof and (self:ProfSkill(r.prof) - skill0) or 0
-    local where = r.gear and "your Gear bag" or "your collection"
+    local where = r.gear and "your Gear bag" or (r.potion and "your potions" or "your collection")
     self:Print(string.format("Crafted %d x %s (in %s)%s.", made, name, where,
       gained > 0 and string.format(", skill +%d", gained) or ""), true)
     self:MarkDirty(); self:RefreshAll()
@@ -1447,7 +1449,13 @@ function TCF:Craft(r)
     s.starterMade = type(s.starterMade) == "table" and s.starterMade or {}
     s.starterMade[r.gear] = true
   end
-  if r.gear then
+  if r.potion then
+    -- (1.6.7) a potion: into this cat's stock (Herbalism), and brewing teaches Herbalism
+    s.mats[r.potion] = (s.mats[r.potion] or 0) + 1
+    self:ProfSkillUp("herbalism", r.teach or r.skill or 1)
+    local it = self:RecipeItem(r)
+    self:Print(string.format("Brewed %s (you have %d). Drink it from Crafting.", it and it.name or "a potion", s.mats[r.potion]))
+  elseif r.gear then
     self:GrantGear(self:RecipeItem(r), "Crafted", true)
   else
     local it = TCF.ITEMS[r.item]

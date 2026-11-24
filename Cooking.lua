@@ -185,9 +185,11 @@ function TCF:FoodBuff(kind, class)
   local cd = db.classData and db.classData[class or self.tradeClass or db.class]
   local s = cd and type(cd.trade) == "table" and cd.trade
   local b = s and s.cook and s.cook.buff
-  if not b or b["until"] < time() then return 1 end
-  if b.kind == kind or (b.kind == "all" and (kind == "dmg" or kind == "hp")) then return 1 + b.value end
-  return 1
+  -- (1.6.7) a potion (Alchemy.lua) counts on top of the dish
+  local potion = self.PotionBuff and self:PotionBuff(kind, class) or 1
+  if not b or b["until"] < time() then return potion end
+  if b.kind == kind or (b.kind == "all" and (kind == "dmg" or kind == "hp")) then return (1 + b.value) * potion end
+  return potion
 end
 
 -- Adventure: beasts drop meat for their level

@@ -48,6 +48,7 @@ Herbalism.lua
 FirstAid.lua
 Fishing.lua
 Cooking.lua
+Alchemy.lua
 Purr.lua
 Quests.lua
 Dungeons.lua

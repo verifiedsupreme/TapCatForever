@@ -528,39 +528,63 @@ TCF.UI.Builders.professions = function(page, win)
   end
 
   ------------------------------------------------ Herbalism: garden
+  -- (1.6.7) 26 seeds in pages of 8, a seed per plot (right-click: grow the picked seed there next,
+  -- shift-right-click: dig up and plant it now), and a button to grow it in every plot. The
+  -- gardener and the garden upgrades have their own view (the second button: Gardener).
   local gardenView = View()
   win.seedSel = win.seedSel or "peacebloom"
+  local SEED_PAGE = 8
   local seedBtns = {}
-  for i, sd in ipairs(TCF.SEEDS) do
-    local b = IconButton(gardenView, 32); b:SetPoint("TOPLEFT", 26 + (i - 1) * 64, -4)
-    b.tex:SetTexture(TCF.Icon(sd[3]))
-    b.price = Text(gardenView, "GameFontHighlightSmall"); b.price:SetPoint("TOP", b, "BOTTOM", 0, -2); b.price:SetWidth(64)
+  local function seedPages() return math.ceil(#TCF.SEEDS / SEED_PAGE) end
+  local function pageOf(key) local sd = TCF.SEED_BY_KEY[key]; return sd and floor((sd.index - 1) / SEED_PAGE) or 0 end
+  local seedPrev = Button(gardenView, "<", 22, 32, function() win.seedPage = max(0, (win.seedPage or 0) - 1); win:Refresh() end)
+  seedPrev:SetPoint("TOPLEFT", 6, -4)
+  local seedNext = Button(gardenView, ">", 22, 32, function() win.seedPage = min(seedPages() - 1, (win.seedPage or 0) + 1); win:Refresh() end)
+  seedNext:SetPoint("TOPRIGHT", -10, -4)
+  gardenView:EnableMouseWheel(true)
+  gardenView:SetScript("OnMouseWheel", function(_, d)
+    win.seedPage = min(seedPages() - 1, max(0, (win.seedPage or 0) - d)); win:Refresh()
+  end)
+  for i = 1, SEED_PAGE do
+    local b = IconButton(gardenView, 32); b:SetPoint("TOPLEFT", 40 + (i - 1) * 61, -4)
+    b.price = Text(gardenView, "GameFontHighlightSmall"); b.price:SetPoint("TOP", b, "BOTTOM", 0, -2); b.price:SetWidth(62)
     b:SetScript("OnClick", function()
+      local sd = b.seed
+      if not sd then return end
       if TCF:ProfSkill("herbalism") >= sd[7] then win.seedSel = sd[1]; win.gardenMsg = nil
-      else win.gardenMsg = { "|cffff5050" .. sd[2] .. " unlocks at Herbalism skill " .. sd[7] .. ". Harvest herbs to raise your skill.|r", GetTime() + 4 } end
+      else win.gardenMsg = { "|cffff5050" .. sd[2] .. " unlocks at Herbalism skill " .. sd[7] .. ". Harvest herbs (or brew potions) to raise your skill.|r", GetTime() + 4 } end
       win:Refresh()
     end)
     Tip(b, function(tt)
+      local sd = b.seed
+      if not sd then return end
       tt:AddLine(sd[2] .. " seeds", 1, 0.82, 0)
       tt:AddLine(string.format("Grows in %s. Seed: %s. Sells for %s per herb.", TCF.FormatDuration(sd[4]), TCF.GoldStr(sd[5]), TCF.GoldStr(sd[6])), 1, 1, 1, true)
+      if sd.rare then
+        local rh = TCF.RARE_BY_KEY[sd.rare[1]]
+        tt:AddLine("Sometimes brings " .. (rh and rh.name or sd.rare[1]) .. " too.", 0.64, 0.4, 1, true)
+      end
       if TCF:ProfSkill("herbalism") < sd[7] then tt:AddLine("Needs Herbalism " .. sd[7], 1, 0.3, 0.3)
       else addTeachLine(tt, TCF:ProfSkill("herbalism"), sd.teach or sd[7]) end
     end)
-    b.seed = sd
     seedBtns[i] = b
   end
   local seedHint = Text(gardenView, "GameFontHighlightSmall", nil, "LEFT")
   seedHint:SetPoint("TOPLEFT", 12, -56); seedHint:SetWidth(520)
   local plots = {}
+  local function plotMsg(ok, why) win.gardenMsg = (not ok and why) and { "|cffff5050" .. why .. "|r", GetTime() + 4 } or nil end
   for i = 1, TCF.GARDEN_MAX_PLOTS do
     local p = CreateFrame("Button", nil, gardenView, U.BT)
     p:SetSize(126, 62); p:SetPoint("TOPLEFT", 12 + ((i - 1) % 4) * 131, -88 - floor((i - 1) / 4) * 66)
     if p.SetBackdrop then p:SetBackdrop(U.BACKDROP_PANEL); p:SetBackdropColor(0.20, 0.14, 0.08, 0.95) end
     p.icon = p:CreateTexture(nil, "ARTWORK"); p.icon:SetSize(28, 28); p.icon:SetPoint("TOPLEFT", 6, -6)
-    p.name = Text(p, "GameFontNormalSmall", nil, "LEFT"); p.name:SetPoint("LEFT", p.icon, "RIGHT", 4, 0); p.name:SetWidth(84)
+    p.name = Text(p, "GameFontNormalSmall", nil, "LEFT"); p.name:SetPoint("LEFT", p.icon, "RIGHT", 4, 0); p.name:SetWidth(70)
+    -- the seed it grows next, when that's not what grows now
+    p.nextIcon = p:CreateTexture(nil, "OVERLAY"); p.nextIcon:SetSize(16, 16); p.nextIcon:SetPoint("TOPRIGHT", -5, -5); p.nextIcon:Hide()
     p.bar = Bar(p, 112, 12, 0.3, 0.8, 0.3); p.bar:SetPoint("BOTTOM", 0, 8)
     p:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    p:SetScript("OnClick", function()
+    if p.RegisterForClicks then p:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+    p:SetScript("OnClick", function(_, button)
       local g = TCF:GardenState()
       local ok, why
       if i == g.n + 1 then
@@ -569,56 +593,184 @@ TCF.UI.Builders.professions = function(page, win)
       elseif i > g.n + 1 then
         -- plots are bought in order: a locked plot further out does nothing
         ok, why = false, "Buy plot " .. (g.n + 1) .. " first."
-      else ok, why = TCF:PlotClick(i, win.seedSel) end
-      win.gardenMsg = (not ok and why) and { "|cffff5050" .. why .. "|r", GetTime() + 4 } or nil
+      elseif button == "RightButton" then
+        if IsShiftKeyDown and IsShiftKeyDown() then ok, why = TCF:PlotDig(i, win.seedSel)
+        else ok, why = TCF:PlotSetNext(i, win.seedSel) end
+      else
+        local plot = g.plots[i]
+        -- an empty plot plants the seed you picked (and remembers it)
+        ok, why = TCF:PlotClick(i, (plot and plot.seed) and nil or win.seedSel)
+      end
+      plotMsg(ok, why)
       win:Refresh()
+    end)
+    Tip(p, function(tt)
+      local g = TCF:GardenState()
+      if i > g.n then
+        tt:AddLine(i == g.n + 1 and "Buy this plot" or "Locked plot", 1, 0.82, 0)
+        tt:AddLine(i == g.n + 1 and ("Costs " .. TCF.GoldStr(TCF:PlotCost(i)) .. ".") or ("Buy plot " .. (g.n + 1) .. " first."), 1, 1, 1, true)
+        return
+      end
+      local plot = g.plots[i]
+      local sd = plot and TCF.SEED_BY_KEY[plot.seed]
+      local want = TCF.SEED_BY_KEY[TCF:PlotWant(i) or ""]
+      tt:AddLine(string.format("Plot %d%s", i, sd and (": " .. sd[2]) or ""), 1, 0.82, 0)
+      if want and (not sd or want ~= sd) then
+        tt:AddLine(string.format("Grows %s next%s.", want[2], TCF:GardenerLevel() >= 1 and " (Bramble plants it)" or ""), 0.4, 1, 0.4, true)
+      end
+      local sel = TCF.SEED_BY_KEY[win.seedSel]
+      tt:AddLine(sd and "Click: water it, or harvest it when it's ripe." or ("Click: plant " .. (sel and sel[2] or "the seed you picked") .. "."), 1, 1, 1, true)
+      if sel then
+        tt:AddLine("Right-click: grow " .. sel[2] .. " here from the next harvest on.", 0.8, 0.8, 0.8, true)
+        if sd then tt:AddLine("Shift-right-click: dig it up and plant " .. sel[2] .. " now (what grows is lost).", 0.8, 0.8, 0.8, true) end
+      end
     end)
     plots[i] = p
   end
-  local gUps = {}
-  for i, u in ipairs(TCF.GARDEN_UPGRADES) do
-    local b = UpgradeButton(gardenView, 258, function() return u end, function() TCF:BuyGardenUpgrade(u.key); win:Refresh() end,
-      function() return TCF:GardenState().up[u.key] end)
-    b:SetPoint("TOPLEFT", 12 + ((i - 1) % 2) * 264, -292 - floor((i - 1) / 2) * 26)
-    gUps[i] = b
-  end
-  local gardenNote = Text(gardenView, "GameFontHighlightSmall", nil, "LEFT"); gardenNote:SetPoint("TOPLEFT", 12, -348); gardenNote:SetWidth(520)
+  -- grow the picked seed in every plot
+  local plantAll = Button(gardenView, "Grow it in every plot", 258, 22, function()
+    local ok, why = TCF:GardenPlantAll(win.seedSel)
+    plotMsg(ok, why)
+    win:Refresh()
+  end)
+  plantAll:SetPoint("TOPLEFT", 12, -292)
+  Tip(plantAll, function(tt)
+    local sel = TCF.SEED_BY_KEY[win.seedSel]
+    tt:AddLine("Grow " .. (sel and sel[2] or "it") .. " in every plot", 1, 0.82, 0)
+    tt:AddLine("Empty plots are planted now. Growing plots finish what they have, then grow this one from their next harvest on (Bramble the gardener replants them).", 1, 1, 1, true)
+  end)
+  local gardenerLine = Text(gardenView, "GameFontHighlightSmall", nil, "LEFT")
+  gardenerLine:SetPoint("LEFT", plantAll, "RIGHT", 10, 0); gardenerLine:SetWidth(258)
+  -- rare herbs and the potion you're under
+  local rareLine = Text(gardenView, "GameFontHighlightSmall", nil, "LEFT"); rareLine:SetPoint("TOPLEFT", 12, -324); rareLine:SetWidth(520)
+  local gardenNote = Text(gardenView, "GameFontHighlightSmall", nil, "LEFT"); gardenNote:SetPoint("TOPLEFT", 12, -344); gardenNote:SetWidth(520)
   local function refreshGarden()
     local g, s = TCF:GardenState()
     local skill = TCF:ProfSkill("herbalism")
-    for _, b in ipairs(seedBtns) do
-      b.sel:SetShown(win.seedSel == b.seed[1]); b.tex:SetDesaturated(skill < b.seed[7])
-      b.count:SetText((s.mats[b.seed[1]] or 0) > 0 and TCF.FormatBig(s.mats[b.seed[1]]) or "")
-      b.price:SetText(skill < b.seed[7] and ("|cff888888Skill " .. b.seed[7] .. "|r")
-        or ((s.gold >= b.seed[5] and "|cffffd100" or "|cffff5050") .. TCF.FormatBig(b.seed[5]) .. "|r"))
+    if win.seedPage == nil then win.seedPage = pageOf(win.seedSel) end
+    win.seedPage = min(max(0, win.seedPage), seedPages() - 1)
+    seedPrev:SetEnabled(win.seedPage > 0); seedNext:SetEnabled(win.seedPage < seedPages() - 1)
+    for k, b in ipairs(seedBtns) do
+      local sd = TCF.SEEDS[win.seedPage * SEED_PAGE + k]
+      b.seed = sd
+      vis(b, sd); vis(b.price, sd)
+      if sd then
+        b.tex:SetTexture(TCF.Icon(sd[3]))
+        b.sel:SetShown(win.seedSel == sd[1]); b.tex:SetDesaturated(skill < sd[7])
+        b.count:SetText((s.mats[sd[1]] or 0) > 0 and TCF.FormatBig(s.mats[sd[1]]) or "")
+        b.price:SetText(skill < sd[7] and ("|cff888888Skill " .. sd[7] .. "|r")
+          or ((s.gold >= sd[5] and "|cffffd100" or "|cffff5050") .. TCF.FormatBig(sd[5]) .. "|r"))
+      end
     end
     -- what clicking an empty plot will do (or why the last click didn't work)
     local sel = TCF.SEED_BY_KEY[win.seedSel]
     if win.gardenMsg and GetTime() < win.gardenMsg[2] then
       seedHint:SetText(win.gardenMsg[1])
     elseif sel then
-      seedHint:SetText(string.format("Planting |cffffd100%s|r: seeds cost %s (you have %s). Grows in %s, sells for %s. Click an empty plot to plant; click growing plots to water them.",
-        sel[2], TCF.GoldStr(sel[5]), TCF.GoldStr(s.gold), TCF.FormatDuration(sel[4]), TCF.GoldStr(sel[6])))
+      seedHint:SetText(string.format("Planting |cffffd100%s|r: seeds cost %s, grows in %s, sells for %s. Click an empty plot to plant, right-click a plot to grow it there next. Click growing plots to water them.",
+        sel[2], TCF.GoldStr(sel[5]), TCF.FormatDuration(sel[4]), TCF.GoldStr(sel[6])))
     end
+    plantAll:SetText(sel and ("Grow " .. sel[2] .. " in every plot") or "Grow it in every plot")
+    fitText(plantAll)
     for i, p in ipairs(plots) do
       local plot = g.plots[i]
+      local want = i <= g.n and TCF.SEED_BY_KEY[TCF:PlotWant(i) or ""]
       if i > g.n then
         p.icon:SetTexture(TCF.Icon("INV_Misc_Bag_10")); p.icon:SetDesaturated(true)
         p.name:SetText(i == g.n + 1 and ("Buy plot\n" .. TCF.GoldStr(TCF:PlotCost(i), 10)) or "|cff666666Locked|r")
-        p.bar:Hide()
+        p.bar:Hide(); p.nextIcon:Hide()
       elseif plot and plot.seed then
         local sd = TCF.SEED_BY_KEY[plot.seed]
         p.icon:SetTexture(TCF.Icon(sd[3])); p.icon:SetDesaturated(false)
         p.bar:Show(); p.bar:SetMinMaxValues(0, sd[4]); p.bar:SetValue(plot.grown)
         local left = (sd[4] - plot.grown) / TCF:GardenSpeed()
         p.name:SetText(sd[2]); p.bar.text:SetText(left <= 0 and "|cff20ff20Ready to harvest|r" or TCF.FormatDuration(left))
+        if want and want ~= sd then p.nextIcon:SetTexture(TCF.Icon(want[3])); p.nextIcon:Show() else p.nextIcon:Hide() end
       else
-        p.icon:SetTexture(TCF.Icon("INV_Misc_Flower_02")); p.icon:SetDesaturated(true)
-        p.name:SetText("|cffaaaaaaEmpty plot|r"); p.bar:Hide()
+        p.icon:SetTexture(TCF.Icon(want and want[3] or "INV_Misc_Flower_02")); p.icon:SetDesaturated(true)
+        p.name:SetText(want and ("|cffaaaaaaEmpty|r\n|cff888888" .. want[2] .. "|r") or "|cffaaaaaaEmpty plot|r"); p.bar:Hide(); p.nextIcon:Hide()
       end
     end
+    local gl = TCF:GardenerLevel()
+    gardenerLine:SetText(gl >= 1 and string.format("|cff20ff20%s|r, %s Gardener, tends the garden.", TCF.GARDENER_NAME, TCF.GARDENER[gl].rank)
+      or "|cffaaaaaaNo gardener yet: hire Bramble in Gardener.|r")
+    local parts = {}
+    for _, r in ipairs(TCF.RARE_HERBS) do
+      parts[#parts + 1] = string.format("%s |cffa335ee%d|r", r.name, s.mats[r.key] or 0)
+    end
+    rareLine:SetText("Rare herbs:  " .. table.concat(parts, "   "))
+    local pot = TCF:PotionLine()
+    gardenNote:SetText(pot and ("|cff20ff20" .. pot .. "|r") or "|cff999999Brew potions from your herbs in Crafting.|r")
+  end
+
+  ------------------------------------------------ Herbalism: the gardener and the garden upgrades (1.6.7)
+  local gardenerView = View()
+  local gCard = Panel(gardenerView, 532, 150, 0.85); gCard:SetPoint("TOP", 0, -2)
+  gCard.icon = gCard:CreateTexture(nil, "ARTWORK"); gCard.icon:SetSize(44, 44); gCard.icon:SetPoint("TOPLEFT", 10, -10)
+  gCard.icon:SetTexture(TCF.Icon("Trade_Herbalism"))
+  gCard.title = Text(gCard, "GameFontNormalLarge", nil, "LEFT"); gCard.title:SetPoint("TOPLEFT", 64, -10); gCard.title:SetWidth(280)
+  gCard.sub = Text(gCard, "GameFontHighlightSmall", nil, "LEFT"); gCard.sub:SetPoint("TOPLEFT", 64, -34); gCard.sub:SetWidth(440)
+  gCard.perks = {}
+  for k = 1, #TCF.GARDENER do
+    local fs = Text(gCard, "GameFontHighlightSmall", nil, "LEFT"); fs:SetPoint("TOPLEFT", 14, -58 - (k - 1) * 17); fs:SetWidth(504)
+    if fs.SetWordWrap then fs:SetWordWrap(false) end
+    gCard.perks[k] = fs
+  end
+  local trainBtn = Button(gCard, "Hire", 170, 24, function()
+    local ok, why = TCF:TrainGardener()
+    if not ok and why then win.gardenerMsg = { "|cffff5050" .. why .. "|r", GetTime() + 4 } else win.gardenerMsg = nil end
+    TCF:PlaySound("click")
+    win:Refresh()
+  end)
+  trainBtn:SetPoint("TOPRIGHT", -10, -12)
+  Tip(trainBtn, function(tt)
+    local gl = TCF:GardenerLevel()
+    local nxt = TCF.GARDENER[gl + 1]
+    if not nxt then tt:AddLine("Bramble is a Master Gardener", 1, 0.82, 0); return end
+    tt:AddLine(gl == 0 and "Hire Bramble" or ("Train Bramble to " .. nxt.rank), 1, 0.82, 0)
+    tt:AddLine(nxt.perk, 1, 1, 1, true)
+    tt:AddLine("Cost: " .. TCF.GoldStr(nxt.cost), 1, 1, 1)
+  end)
+  local upHead = Text(gardenerView, "GameFontNormal", nil, "LEFT"); upHead:SetPoint("TOPLEFT", 14, -162); upHead:SetText("Garden upgrades")
+  local gUps = {}
+  for i, u in ipairs(TCF.GARDEN_UPGRADES) do
+    local b = UpgradeButton(gardenerView, 258, function() return u end, function() TCF:BuyGardenUpgrade(u.key); win:Refresh() end,
+      function() return TCF:GardenState().up[u.key] end)
+    b:SetPoint("TOPLEFT", 12 + ((i - 1) % 2) * 264, -182 - floor((i - 1) / 2) * 26)
+    gUps[i] = b
+  end
+  local gStats = Text(gardenerView, "GameFontHighlightSmall", nil, "LEFT"); gStats:SetPoint("TOPLEFT", 14, -266); gStats:SetWidth(516)
+  local gRare = Text(gardenerView, "GameFontHighlightSmall", nil, "LEFT"); gRare:SetPoint("TOPLEFT", 14, -290); gRare:SetWidth(516)
+  local function refreshGardener()
+    local g, s = TCF:GardenState()
+    local gl = TCF:GardenerLevel()
+    gCard.title:SetText(gl >= 1 and string.format("%s, %s Gardener", TCF.GARDENER_NAME, TCF.GARDENER[gl].rank) or "No gardener yet")
+    fitText(gCard.title)
+    gCard.icon:SetDesaturated(gl < 1)
+    if win.gardenerMsg and GetTime() < win.gardenerMsg[2] then gCard.sub:SetText(win.gardenerMsg[1])
+    else
+      gCard.sub:SetText(gl >= 1 and "Tends your garden, even while you're offline."
+        or "Hire Bramble to tend your garden, even offline.")
+    end
+    for k, fs in ipairs(gCard.perks) do
+      local e = TCF.GARDENER[k]
+      local col = k <= gl and "|cff20ff20" or (k == gl + 1 and "|cffffd100" or "|cff888888")
+      fs:SetText(string.format("%s%s:|r %s%s|r", col, e.rank, k <= gl and "|cffffffff" or "|cff999999", e.perk))
+    end
+    local nxt = TCF.GARDENER[gl + 1]
+    if nxt then
+      trainBtn:SetText((gl == 0 and "Hire  " or ("Train: " .. nxt.rank .. "  ")) .. TCF.GoldStr(nxt.cost, 10))
+      trainBtn:SetEnabled(s.gold >= nxt.cost)
+    else
+      trainBtn:SetText("|cff20ff20Master Gardener|r"); trainBtn:SetEnabled(false)
+    end
+    fitText(trainBtn)
     for _, b in ipairs(gUps) do b:Update() end
-    gardenNote:SetText(string.format("Black Lotus: |cffa335ee%d|r   (ripe Sungrass and Dreamfoil sometimes mutate into it)", s.mats.lotus or 0))
+    gStats:SetText(string.format("Harvests: |cffffffff%s|r   Rare herbs found: |cffa335ee%s|r   Seeds Bramble saved: |cffffffff%s|r   Growth speed: |cffffffff%d%%|r",
+      TCF.FormatBig(g.harvests or 0), TCF.FormatBig(g.rares or 0), TCF.FormatBig(g.saved or 0), floor(TCF:GardenSpeed() * 100 + 0.5)))
+    local parts = {}
+    for _, r in ipairs(TCF.RARE_HERBS) do parts[#parts + 1] = string.format("|cffa335ee%s|r from %s", r.name, TCF.RareSources(r.key)) end
+    gRare:SetText("Rare herbs come with some harvests: " .. table.concat(parts, "; ") .. ". They go into the best potions.")
   end
 
   ------------------------------------------------ First Aid: bandages
@@ -1050,12 +1202,19 @@ TCF.UI.Builders.professions = function(page, win)
     local it = TCF:RecipeItem(rec)
     if not it then return end
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-    if rec.gear then
+    if rec.potion then
+      -- (1.6.7) a potion: what it does, how long, and the one-at-a-time rule
+      GameTooltip:AddLine("|c" .. TCF.RARITY[it.rarity].hex .. it.name .. "|r")
+      GameTooltip:AddLine("Drink: " .. TCF.PotionEffectText(it, TCF:PotionMinutes(it)) .. ".", 0.2, 1, 0.2, true)
+      GameTooltip:AddLine("One potion at a time: drinking another replaces it. It counts on top of a Well Fed dish.", 0.8, 0.8, 0.8, true)
+      local have = TCF:ProfState().mats[it.id] or 0
+      GameTooltip:AddLine(string.format("You have %d.", have), 1, 1, 1)
+    elseif rec.gear then
       TCF:GearTooltip(GameTooltip, it)
     else
       TCF:ItemTooltip(GameTooltip, it, true)   -- already says "Cosmetic only (no stats)"
     end
-    TCF.UI.ShowTryOn(win, it)
+    if not rec.potion then TCF.UI.ShowTryOn(win, it) end
     local p = TCF.PROF_BY_KEY[rec.prof]
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(string.format("Recipe: %s%s", p and p.name or rec.prof, rec.skill and (" " .. rec.skill) or ""), 1, 0.82, 0)
@@ -1067,7 +1226,8 @@ TCF.UI.Builders.professions = function(page, win)
         1, 1, 1, have >= need and 0.2 or 1, have >= need and 1 or 0.3, have >= need and 0.2 or 0.3)
     end
     if rec.gear then GameTooltip:AddLine("Crafted gear goes straight into your bag.", 0.7, 0.7, 0.7, true) end
-    TCF.UI.PreviewHint(GameTooltip, win, it)
+    if rec.potion then GameTooltip:AddLine("Brewing raises your Herbalism skill.", 0.7, 0.7, 0.7, true)
+    else TCF.UI.PreviewHint(GameTooltip, win, it) end
     if rec.starter then
       local done, total = TCF:StarterProgress(rec.prof)
       GameTooltip:AddLine(string.format("Starter set (%d/%d made): a cheap white piece for each slot, so a new cat can wear a full crafted set.", done, total), 0.88, 0.75, 0.5, true)
@@ -1098,6 +1258,29 @@ TCF.UI.Builders.professions = function(page, win)
     r.need = Text(r, "GameFontHighlightSmall", nil, "LEFT"); r.need:SetPoint("BOTTOMLEFT", 52, 4); r.need:SetWidth(350)
     for _, fs in ipairs({ r.name, r.info, r.need }) do if fs.SetWordWrap then fs:SetWordWrap(false) end end
     r.delta = Text(r, "GameFontNormal", nil, "RIGHT"); r.delta:SetPoint("RIGHT", -124, 0)
+    -- (1.6.7) potions: their icon, and a Drink button left of Brew
+    r.pot = CreateFrame("Button", nil, r); r.pot:SetSize(40, 40); r.pot:SetPoint("LEFT", 5, 0)
+    r.pot.tex = r.pot:CreateTexture(nil, "ARTWORK"); r.pot.tex:SetAllPoints()
+    r.pot.count = Text(r.pot, "NumberFontNormal", nil, "RIGHT"); r.pot.count:SetPoint("BOTTOMRIGHT", 2, -2)
+    r.pot:SetScript("OnEnter", function(s) recipeEnter(r, s) end)
+    r.pot:SetScript("OnLeave", recipeLeave)
+    r.pot:Hide()
+    r.drink = Button(r, "Drink", 58, 22, function()
+      if r.recipe and r.recipe.potion then
+        local ok, why = TCF:DrinkPotion(r.recipe.potion)
+        if not ok and why then TCF:Print(why) end
+        win:Refresh()
+      end
+    end)
+    r.drink:SetPoint("RIGHT", -120, 0); r.drink:Hide()
+    Tip(r.drink, function(tt)
+      local it = r.recipe and TCF:RecipeItem(r.recipe)
+      if not it then return end
+      tt:AddLine("Drink " .. it.name, 1, 0.82, 0)
+      tt:AddLine(TCF.PotionEffectText(it, TCF:PotionMinutes(it)) .. ".", 1, 1, 1, true)
+      local cur = TCF:PotionLine()
+      if cur then tt:AddLine("Replaces " .. cur .. ".", 1, 0.5, 0.3, true) end
+    end)
     r.craft = Button(r, "Craft", 62, 22, function()
       if r.recipe and TCF:Craft(r.recipe) then TCF:PlaySound("click"); win:Refresh() end
     end)
@@ -1195,7 +1378,20 @@ TCF.UI.Builders.professions = function(page, win)
       if type(lw) == "number" and lw > 238 then craftLegend:SetText(legend) end
     else
       craftHead:SetText(string.format("%s crafting  |cffffffff(skill %d / 300)|r", p and p.name or key, skill))
-      craftLegend:SetText("Cosmetics change your cat's look only.")
+      if key == "herbalism" then
+        -- (1.6.7) potions are here too: the one you're under, or how they work
+        local b = TCF:PotionActive()
+        local pit = b and TCF.POTION_BY_KEY[b.key]
+        if pit then
+          craftLegend:SetText(string.format("|cff20ff20%s|r (%s left)", pit.name, TCF.FormatDuration(b["until"] - time())))
+          local lw = textWidth(craftLegend)
+          if type(lw) == "number" and lw > 238 then craftLegend:SetText(string.format("|cff20ff20Potion:|r %s left", TCF.FormatDuration(b["until"] - time()))) end
+        else
+          craftLegend:SetText("Brew potions, drink one for a buff.")
+        end
+      else
+        craftLegend:SetText("Cosmetics change your cat's look only.")
+      end
     end
     fitText(craftHead)
     local maxScroll = max(0, #craftList - CROWS)
@@ -1214,7 +1410,19 @@ TCF.UI.Builders.professions = function(page, win)
         if rec.skill then
           skillTxt = "  " .. (lockedRow and "|cffff5050" or (isCraft and skillColor(skill, rec.skill) or "|cffaaaaaa")) .. "Skill " .. rec.skill .. "|r"
         end
-        if rec.gear then
+        vis(r.pot, rec.potion); vis(r.drink, rec.potion and (s.mats[rec.potion] or 0) > 0)
+        r.craft:SetText(rec.potion and "Brew" or "Craft")
+        if rec.potion then
+          vis(r.cell, false); vis(r.gearBtn, false)
+          r.pot.tex:SetTexture(TCF.Icon(it.icon)); r.pot.tex:SetDesaturated(lockedRow); r.pot.tex:SetAlpha(lockedRow and 0.55 or 1)
+          local have = s.mats[it.id] or 0
+          r.pot.count:SetText(have > 0 and have or "")
+          local col = lockedRow and "|cff888888" or ("|c" .. TCF.RARITY[it.rarity].hex)
+          r.name:SetText(col .. it.name .. "|r" .. skillTxt)
+          r.info:SetText("|cff66ccffPotion|r  |cffcccccc" .. TCF.PotionEffectText(it, TCF:PotionMinutes(it)) .. "|r")
+          r.delta:SetText("")
+          r.drink:SetEnabled(have > 0)
+        elseif rec.gear then
           vis(r.cell, false); vis(r.gearBtn, true)
           r.gearBtn:SetGear(it)
           r.gearBtn.icon:SetDesaturated(lockedRow); r.gearBtn.icon:SetAlpha(lockedRow and 0.55 or 1)
@@ -1259,7 +1467,7 @@ TCF.UI.Builders.professions = function(page, win)
         r.craft:SetEnabled(TCF:CanCraft(rec))
         -- (1.6.7) the button says how many it makes ("x12", "x50"), so "All" never means 50
         local nAll = TCF:CraftCount(rec)
-        r.all:SetText(nAll > 1 and ("x" .. nAll) or "x0")
+        r.all:SetText("x" .. nAll)
         r.all:SetEnabled(nAll > 1)
       end
     end
@@ -1299,7 +1507,7 @@ TCF.UI.Builders.professions = function(page, win)
   local MAIN = { herbalism = { gardenView, refreshGarden, "Garden" },
     firstaid = { aidView, refreshAid, "Bandages" }, fishing = { fishView, refreshFishing, "Fishing", enterFishing },
     cooking = { cookView, refreshCooking, "Kitchen" } }
-  local allViews = { locked, spotView, upgView, gardenView, aidView, fishView, cookView, craftView, renView }
+  local allViews = { locked, spotView, upgView, gardenView, gardenerView, aidView, fishView, cookView, craftView, renView }
 
   local refresh
   local acc = 0
@@ -1320,7 +1528,7 @@ TCF.UI.Builders.professions = function(page, win)
 
   ------------------------------------------------ "How it works" guide (opens by itself the first time)
   local GUIDE_OTHER = {
-    herbalism = "|cffffd100Grow|r: plant seeds in your garden plots. Herbs grow in real time, even while you're offline, and a gardener can replant for you.\n\n|cffffd100Use|r: sell herbs for Trade Gold, cook with them, or craft herbal cosmetics in Crafting (cosmetic only: they change your cat's look, no stats).",
+    herbalism = "|cffffd100Grow|r: pick a seed and plant it in your garden plots. Herbs grow in real time, even while you're offline. Right-click a plot to grow the seed you picked there next, so each plot can grow something different.\n\n|cffffd100Gardener|r: hire Bramble to harvest and replant for you, then train it from Apprentice to Master for faster growth, free seeds, more herbs and more rare herbs.\n\n|cffffd100Use|r: every harvest pays Trade Gold. Brew herbs into potions in Crafting and drink them for buffs, cook with them, or craft herbal cosmetics (cosmetic only, no stats).",
     firstaid = "|cffffd100Make bandages|r: turn cloth into bandages. Cloth drops from enemies in Adventure and can be bought from the cloth merchant.\n\n|cffffd100Use|r: in Adventure your cat uses its best bandage when it gets hurt. Crafting has First Aid cosmetics (cosmetic only, no stats).",
     fishing = "|cffffd100Fish|r: cast and click when the bobber dips. A fishing buddy sits on the dock and catches fish for you, even while you're offline.\n\n|cffffd100Use|r: fish go into Cooking, sell for Trade Gold, and rare catches unlock fishing cosmetics in Crafting (cosmetic only, no stats).",
     cooking = "|cffffd100Cook|r: combine ingredients (meat, fish, herbs, spices) to discover recipes. Dishes give your cat a Well Fed buff, such as more Adventure damage or more cat XP.\n\n|cffffd100Use|r: eat dishes for buffs, or craft chef cosmetics in Crafting (cosmetic only, no stats).",
@@ -1377,7 +1585,9 @@ TCF.UI.Builders.professions = function(page, win)
       vis(b, bp)
       if bp then vis(b.sel, bp.key == prof); b.tex:SetDesaturated(not TCF:ProfUnlocked(bp.key)) end
     end
-    if win.profView == "upg" and not fam then win.profView = "main" end
+    -- the second view button: Upgrades for the main profession, Gardener for Herbalism (1.6.7)
+    local hasSecond = fam or prof == "herbalism"
+    if win.profView == "upg" and not hasSecond then win.profView = "main" end
     local view = win.profView
     local unlocked = TCF:ProfUnlocked(prof)
     -- the first time each profession is opened, its guide explains it (remembered per account)
@@ -1398,7 +1608,8 @@ TCF.UI.Builders.professions = function(page, win)
     vis(buyMode, fam and view == "main" and unlocked)
     vbtns[1]:SetText(fam and fam.spotsTitle or MAIN[prof][3])
     vbtns[3]:SetText(fam and fam.craftName or "Crafting")
-    vis(vbtns[2], fam)
+    vbtns[2]:SetText(fam and "Upgrades" or "Gardener")
+    vis(vbtns[2], hasSecond)
     for _, b in ipairs(vbtns) do if b.key == view then b:LockHighlight() else b:UnlockHighlight() end end
 
     -- which view, and change visibility only when it changes
@@ -1407,7 +1618,7 @@ TCF.UI.Builders.professions = function(page, win)
     elseif view == "main" then
       if fam then target, enter = spotView, function() enterSpots(prof) end
       else target, enter = MAIN[prof][1], MAIN[prof][4] end
-    elseif view == "upg" then target = upgView
+    elseif view == "upg" then target = fam and upgView or gardenerView
     elseif view == "craft" then target, enter = craftView, function() enterCraft(fam and fam.craft or prof) end
     else target = renView end
     local key = prof .. ":" .. view .. ":" .. (unlocked and "1" or "0")
@@ -1425,6 +1636,7 @@ TCF.UI.Builders.professions = function(page, win)
         p.name, className(), TCF.GoldStr(need), TCF.GoldStr(have), min(99, floor(100 * have / max(1, need))), PER_CLASS))
     elseif target == spotView then refreshSpots(prof)
     elseif target == upgView then refreshUpgrades(prof)
+    elseif target == gardenerView then refreshGardener()
     elseif target == craftView then refreshCraft(fam and fam.craft or prof)
     elseif target == renView then refreshRenown()
     else MAIN[prof][2]() end
