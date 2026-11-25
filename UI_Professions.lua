@@ -1730,11 +1730,15 @@ TCF.UI.Builders.professions = function(page, win)
         if o.kind == "gear" then local it = TCF.GEAR and TCF.GEAR[o.key]; icon = it and it.icon
         else local m = TCF.MAT_BY_KEY[o.key]; icon = m and m.icon end
         r.icon:SetTexture(TCF.Icon(icon or "INV_Misc_QuestionMark"))
+        -- (1.8.0) delivered so far plus what you have now; part of an order can be handed in
+        local got = o.got or 0
         local have = TCF:OrderHave(o)
-        r.text:SetText(TCF:OrderText(o) .. string.format("  %s(%d/%d)|r", have >= o.n and "|cff20ff20" or "|cffff5050", min(have, o.n), o.n))
+        local reach = got + min(have, o.n - got)
+        r.text:SetText(TCF:OrderText(o) .. string.format("  %s(%s/%s)|r", reach >= o.n and "|cff20ff20" or "|cffff5050", TCF.Commas(reach), TCF.Commas(o.n)))
         r.reward:SetText(string.format("%s,  +%d reputation%s  |cff777777(leaves in %s)|r", TCF.GoldStr(o.gold, 10), o.rep,
           (o.coins or 0) > 0 and string.format(",  %d TapCoins", o.coins) or "", TCF.FormatDuration(max(0, o.expires - time()))))
-        r.btn:SetEnabled(have >= o.n)
+        r.btn:SetEnabled(have > 0 and got < o.n)
+        r.btn:SetText(reach >= o.n and "Deliver" or "Deliver part")
       end
     end
     -- rare finds

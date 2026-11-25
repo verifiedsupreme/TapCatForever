@@ -111,6 +111,23 @@ def check(seed, load_addon):
       local rep0 = T:GuildRep()
       ck(T:FillOrder(o.id), "an order filled")
       ck(T:GuildRep() == rep0 + o.rep and #T:WorkOrders() == 2, "reputation, and the slot waits for a new order")
+      -- (1.8.0) orders never ask for more than the bag holds; part of one can be delivered
+      local fam = T:MainProf()
+      local key = T.FAMILIES[fam].ops[1][2]
+      local cap = T:OrderMatCap(key)
+      ck(cap and cap <= T:MatCapFor(key), "an order fits the bag: " .. tostring(cap))
+      local big = { kind = "mat", key = key, n = 891460, who = "a Ratchet bruiser", rep = 140, gold = 1000, coins = 0, id = 9001, expires = time() + 3600 }
+      local d = T:DepthState(); local list = d.orders[craft]
+      list[#list + 1] = big
+      T:WorkOrders()
+      ck(big.n == cap, "an old order bigger than the bag asks for what fits: " .. big.n)
+      s.mats[key] = math.floor(cap / 2)
+      local rep1 = T:GuildRep()
+      local ok, part = T:FillOrder(9001)
+      ck(ok and part == "partial" and big.got == math.floor(cap / 2) and (s.mats[key] or 0) == 0 and T:GuildRep() == rep1, "half delivered, no reward yet")
+      ck(not T:FillOrder(9001), "nothing more to deliver")
+      s.mats[key] = cap
+      ck(T:FillOrder(9001) and T:GuildRep() == rep1 + 140 and s.mats[key] == cap - (cap - math.floor(cap / 2)), "the rest delivered: the reward, and the extra stays in the bag")
       _clock = _clock + 1
       local tnow = time
       local off = 0

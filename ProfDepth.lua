@@ -187,6 +187,14 @@ local ORDER_WHO = {
 }
 local function income(self, f) return max(self.GatherIncome and self:GatherIncome(f) or 0, 1) end
 function TCF:OrderSlots() return TCF.ORDER_SLOTS + self:RenownPerk("orders") end
+-- (1.8.0) the most of one material an order asks for: three quarters of what the bag's stack holds
+-- (Bag.lua), so it can always be filled; nil with the Bottomless Bag
+TCF.ORDER_BAG_SHARE = 0.75
+function TCF:OrderMatCap(key)
+  local cap = self.MatCapFor and self:MatCapFor(key)
+  if not cap or cap == math.huge then return nil end
+  return max(10, floor(cap * TCF.ORDER_BAG_SHARE / 10) * 10)
+end
 
 -- a new order this cat can fill with work: materials it gathers, gear it can craft, a rare find or
 -- a daily material once it has them
@@ -227,6 +235,8 @@ local function newOrder(self, craft)
     local op = fam.ops[best]
     local per = self:OpMatsPerCycle(f, best) * 600 / max(1, self:OpCycleTime(f, best))
     local n = max(10, floor(per / 10 + 0.5) * 10)
+    local cap = self:OrderMatCap(op[2])
+    if cap then n = min(n, cap) end
     return { kind = "mat", key = op[2], n = n, who = who, rep = 50 + 10 * best, gold = inc * 600, coins = 0 }
   end
   return { kind = "mat", key = fam.ops[1][2], n = 10, who = who, rep = 40, gold = 500, coins = 0 }
@@ -240,6 +250,13 @@ function TCF:WorkOrders(craft)
   if type(list) ~= "table" then list = {}; d.orders[craft] = list end
   local t = time()
   for i = #list, 1, -1 do if (list[i].expires or 0) < t then table.remove(list, i) end end
+  -- an order bigger than the bag can hold (made before 1.8.0): it asks for what fits, same reward
+  for _, o in ipairs(list) do
+    if o.kind == "mat" then
+      local cap = self:OrderMatCap(o.key)
+      if cap and o.n > cap then o.n = max(cap, o.got or 0) end
+    end
+  end
   d.orderAt = d.orderAt or {}
   local slots = self:OrderSlots()
   while #list < slots and (d.orderAt[craft] or 0) <= t do
@@ -274,14 +291,24 @@ function TCF:FillOrder(id, craft)
   local list = self:WorkOrders(craft)
   for k, o in ipairs(list) do
     if o.id == id then
-      if self:OrderHave(o) < o.n then return false, "You don't have enough yet." end
+      -- (1.8.0) deliver what you have now; the reward comes when the whole order is in
+      local got = o.got or 0
+      local give = min(self:OrderHave(o), o.n - got)
+      if give <= 0 then return false, "You don't have any to deliver yet." end
       if o.kind == "gear" then
         local bag = self:Bag()
-        bag[o.key] = bag[o.key] - o.n
+        bag[o.key] = bag[o.key] - give
         if bag[o.key] <= 0 then bag[o.key] = nil end
       else
         local s = S(self)
-        s.mats[o.key] = s.mats[o.key] - o.n
+        s.mats[o.key] = s.mats[o.key] - give
+      end
+      o.got = got + give
+      if o.got < o.n then
+        self:Print(string.format("Delivered %s. %s more to finish the order.", TCF.Commas(give), TCF.Commas(o.n - o.got)), true)
+        self:PlaySound("click")
+        self:MarkDirty()
+        return true, "partial"
       end
       local gold = self:EarnGold(o.gold)
       if (o.coins or 0) > 0 then self:AddCoins(o.coins) end
