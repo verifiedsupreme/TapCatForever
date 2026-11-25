@@ -228,7 +228,8 @@ def _long_look(load_addon):
       local CODE = { head = "h", chest = "c", main = "m", off = "o", back = "b", acc = "a", effect = "e", neck = "n", belt = "w", ring = "r", shoulder = "s", race = "x" }
       local look, FILLED = {}, {}
       for _, s in ipairs(SLOTS) do look[s] = best[s]; if best[s] then FILLED[#FILLED + 1] = s end end
-      look.fur, look.pattern, look.skin = best.fur, best.pattern, best.skin
+      -- (1.7.4) furs are skins: the longest old fur id still stands in for a friend on an older version
+      look.fur, look.pattern, look.skin = T.ITEMS.fur_prismatic, best.pattern, best.skin
       _look = look
       T.GetAppearance = function(self, class) return look end
       T.db.taps = 999999999999999

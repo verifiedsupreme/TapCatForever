@@ -343,9 +343,11 @@ local function parse(text)
     if ok and type(out) == "table" then look = out end
   end
   for slot, it in pairs(cosmetics) do look[slot] = it end
-  look.fur = cos(fur, "fur") or items.fur_ginger
+  look.fur = items.fur_ginger
   look.pattern = cos(pat, "pattern")
   look.skin = cos(skin, "skin")
+  -- (1.7.4) a friend on an older version still sends a fur colour: it is a skin now
+  if not look.skin and items[fur] and items[fur].furSkin and fur ~= "fur_ginger" then look.skin = items[fur] end
   return kind .. "1", class, floor(level), look, eq, stats
 end
 TCF.PartyParse = parse
@@ -680,7 +682,7 @@ function TCF:ShowPartyProfile(m)
   lines[#lines + 1] = string.format("Gear worn: %d pieces", n)
   if n > 0 then lines[#lines + 1] = string.format("Average item level: %d", math.floor(power / n + 0.5)) end
   if look.skin then lines[#lines + 1] = "Skin: " .. look.skin.name end
-  if look.fur and not look.skin then lines[#lines + 1] = "Fur: " .. look.fur.name end
+
   for _, slot in ipairs({ "head", "chest", "back", "acc", "main" }) do
     local it = look[slot]
     if it and not it.gear then lines[#lines + 1] = "Cosmetic: " .. it.name end

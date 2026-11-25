@@ -243,6 +243,9 @@ function TCF:InitDB()
     local l = self:LookOf(cl.key)
     if not l.tapSet then l.tap = l.tap or "tap_puff"; l.tapSet = true end
     if not (l.fur and TCF.ITEMS[l.fur]) then l.fur = "fur_ginger" end
+    -- (1.7.4) a fur colour a cat wore is its skin now (when it had none); the base coat is ginger
+    if l.fur ~= "fur_ginger" and not l.skin then l.skin = l.fur end
+    l.fur = "fur_ginger"
     for _, slot in ipairs({ "pattern", "skin", "tap", "pet" }) do if l[slot] and not TCF.ITEMS[l[slot]] then l[slot] = nil end end
   end
   for k in pairs(db.looks) do if not TCF.CLASS_BY_KEY[k] then db.looks[k] = nil end end
@@ -448,7 +451,9 @@ function TCF:LookOf(class)
   local l = looks[class]
   if type(l) ~= "table" then
     local cl = TCF.CLASS_BY_KEY[class]
-    l = { fur = cl and cl.fur or "fur_ginger", tap = "tap_puff", tapSet = true }
+    -- (1.7.4) the class colour is a skin now, over the ginger base coat
+    local colour = cl and cl.fur
+    l = { fur = "fur_ginger", skin = (colour and colour ~= "fur_ginger" and TCF.ITEMS[colour]) and colour or nil, tap = "tap_puff", tapSet = true }
     looks[class] = l
   end
   return l
@@ -1810,7 +1815,8 @@ function TCF:GetStat(stat)
     for _, cl in ipairs(TCF.CLASSES) do
       local mine, n = self:Owned(cl.key), 0
       for _, it in ipairs(TCF.ITEM_LIST) do
-        if it.slot == "skin" and mine[it.id] and (stat == "skins" or drops[it.id] or it.get ~= nil) then n = n + 1 end
+        -- (1.7.4) the old fur colours (skins now, five of them free) don't count as collected skins
+        if it.slot == "skin" and not it.furSkin and mine[it.id] and (stat == "skins" or drops[it.id] or it.get ~= nil) then n = n + 1 end
       end
       best = max(best, n)
     end

@@ -34,7 +34,8 @@ def check(seed, load_addon):
       local T = TapCatForever
       T:SetClass("MAGE")
       for _, id in ipairs({ "skin_frostsaber", "skin_lion", "fur_snow", "tap_puff" }) do T.db.owned[id] = 1 end
-      T:Equip(T.ITEMS.skin_frostsaber); T:Equip(T.ITEMS.fur_snow)
+      -- (1.7.4: Equip of a fur colour now fills the skin slot) the old fields, written as an old save held them
+      local l = T:LookOf(); l.skin = "skin_frostsaber"; l.fur = "fur_snow"
       -- as a 1.5.x save looked: the character's own cats, one look and one collection for all of them
       _as15()
     ''')
@@ -44,8 +45,8 @@ def check(seed, load_addon):
     X = lambda c: B.execute(c)
     for cls in ("MAGE", "WARRIOR", "PRIEST", "DRUID"):
         X('TapCatForever:SetClass("%s")' % cls)
-        ck(E("TapCatForever:GetAppearance().skin.id") == "skin_frostsaber" and E("TapCatForever:GetAppearance().fur.id") == "fur_snow",
-           "migration: the %s cat wears the look worn before" % cls)
+        ck(E("TapCatForever:GetAppearance().skin.id") == "skin_frostsaber" and E("TapCatForever:GetAppearance().fur.id") == "fur_ginger",
+           "migration: the %s cat wears the look worn before: %r %r" % (cls, E("TapCatForever:GetAppearance().skin.id"), E("TapCatForever:GetAppearance().fur.id")))
 
     # --- a new skin on the Mage stays on the Mage
     X('TapCatForever:SetClass("MAGE"); TapCatForever:Equip(TapCatForever.ITEMS.skin_lion)')
@@ -60,8 +61,8 @@ def check(seed, load_addon):
     ck(E("TapCatForever:GetAppearance().skin == nil") and E("TapCatForever:GetAppearance('MAGE').skin.id") == "skin_lion", "Unequip on the Warrior only")
     X("TapCatForever:Equip(TapCatForever.ITEMS.skin_frostsaber)")
     # fur and tap effect per class
-    X("TapCatForever:Equip(TapCatForever.ITEMS.fur_ginger)")
-    ck(E("TapCatForever:GetAppearance().fur.id") == "fur_ginger" and E("TapCatForever:GetAppearance('MAGE').fur.id") == "fur_snow", "fur per class")
+    # (1.7.4) furs are skins: the base coat is ginger on every cat
+    ck(E("TapCatForever.ITEMS.fur_snow.slot") == "skin" and E("TapCatForever:GetAppearance('MAGE').fur.id") == "fur_ginger", "fur colours are skins")
     X("TapCatForever:Unequip('tap', 'MAGE')")
     ck(E("TapCatForever:GetAppearance('MAGE').tap == nil") and E("TapCatForever:GetAppearance().tap ~= nil"), "tap effect per class (Unequip for another class)")
     X("TapCatForever:Equip(TapCatForever.ITEMS.tap_puff, 'MAGE')")
@@ -75,7 +76,7 @@ def check(seed, load_addon):
     pw = E("TapCatForever:PartyPayload()")
     ck(pw.startswith("WARRIOR;") and ";skin_frostsaber;" in pw and ";fur_ginger;" in pw, "party message for the Warrior: %s" % pw)
     pm = E("TapCatForever:PartyPayload('MAGE')")
-    ck(pm.startswith("MAGE;") and ";skin_lion;" in pm and ";fur_snow;" in pm, "party message for the Mage: %s" % pm)
+    ck(pm.startswith("MAGE;") and ";skin_lion;" in pm and ";fur_ginger;" in pm, "party message for the Mage: %s" % pm)
 
     # --- previews follow the current class: Shop try on, Gear page, the screen cat, Casino
     ck(E("TapCatForever:GetAppearance(nil, TapCatForever.ITEMS.skin_lion).skin.id") == "skin_lion"
@@ -137,15 +138,17 @@ def check(seed, load_addon):
     ck(C.eval("TapCatForever:GetAppearance().skin.id") == "skin_frostsaber" and C.eval("TapCatForever:GetAppearance('MAGE').skin.id") == "skin_lion",
        "after a reload: Warrior frostsaber, Mage lion")
     C.execute('TapCatForever:SetClass("MAGE")')
-    ck(C.eval("TapCatForever:GetAppearance().skin.id") == "skin_lion" and C.eval("TapCatForever:GetAppearance().fur.id") == "fur_snow", "the Mage after a reload")
+    ck(C.eval("TapCatForever:GetAppearance().skin.id") == "skin_lion" and C.eval("TapCatForever:GetAppearance().fur.id") == "fur_ginger", "the Mage after a reload")
 
     # --- a new account: each cat in its own class fur
     N = login(load_addon, "Freshcat")
     furs = {}
     for cls in ("WARRIOR", "MAGE", "ROGUE", "DRUID"):
         N.execute('TapCatForever:SetClass("%s")' % cls)
-        furs[cls] = N.eval("TapCatForever:GetAppearance().fur.id")
-        ck(furs[cls] == N.eval("TapCatForever.CLASS_BY_KEY[%r].fur" % cls), "a new %s cat in its class fur: %s" % (cls, furs[cls]))
+        # (1.7.4) the class colour is the new cat's skin, over the ginger base coat
+        furs[cls] = N.eval("(TapCatForever:GetAppearance().skin or TapCatForever:GetAppearance().fur).id")
+        ck(furs[cls] == N.eval("TapCatForever.CLASS_BY_KEY[%r].fur" % cls) and N.eval("TapCatForever:GetAppearance().fur.id") == "fur_ginger",
+           "a new %s cat in its class colour: %s" % (cls, furs[cls]))
     print("class looks section (old save: every cat keeps the worn look; skin, fur and tap effect per class; Equip and Unequip "
           "for another class; party message, try on, screen cat and Casino follow the class; set pieces and the racial slot; "
           "reload; new cats in their class fur): all checks passed")

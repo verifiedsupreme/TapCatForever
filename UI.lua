@@ -967,7 +967,10 @@ function TCF:CreateWindow()
   local wd = pages[TAB_WARDROBE]
   win.slot = "head"
   local slotBtns = {}
-  for i, s in ipairs(TCF.SLOTS) do
+  local slotN = 0
+  for _, s in ipairs(TCF.SLOTS) do if not s.hidden then   -- (1.7.4) no Fur button
+    slotN = slotN + 1
+    local i = slotN
     local b = CreateFrame("Button", nil, wd)
     b:SetSize(34, 34); b:SetPoint("TOPLEFT", 12 + (i - 1) * 38, -12)
     local t = b:CreateTexture(nil, "ARTWORK"); t:SetAllPoints(); t:SetTexture(TCF.Icon(s.icon))
@@ -982,7 +985,7 @@ function TCF:CreateWindow()
     end)
     b.key = s.key
     slotBtns[i] = b
-  end
+  end end
   local slotTitle = Text(wd, "GameFontNormal", nil, "LEFT"); slotTitle:SetPoint("TOPLEFT", 14, -54)
   -- animated cosmetics on or off (CatAnim.lua), right of the slot title
   if TCF.UI.AnimCheck then TCF.UI.AnimCheck(wd) end
@@ -1605,8 +1608,8 @@ function TCF:UpdateMinimapButton()
   local b = self.minimapButton
   if not b then return end
   b:SetShown(not self.db.ui.minimap.hide)
-  local fur = TCF.ITEMS[self.db.look.fur]
-  if fur then b.fur:SetVertexColor(fur.c1[1], fur.c1[2], fur.c1[3]) end
+  local fur = TCF.ITEMS[self.db.look.skin or ""] or TCF.ITEMS[self.db.look.fur]   -- (1.7.4) the skin's colour
+  if fur and fur.c1 then b.fur:SetVertexColor(fur.c1[1], fur.c1[2], fur.c1[3]) end
 end
 
 ---------------------------------------------------------------- loot reveal box

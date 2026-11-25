@@ -25,7 +25,9 @@ TCF.SLOTS = {
   { key = "off",     name = "Off Hand",  icon = "INV_Shield_06" },
   { key = "effect",  name = "Effect",    icon = "Spell_Holy_MagicalSentry" },
   { key = "acc",     name = "Accessory", icon = "INV_Misc_Gift_01" },
-  { key = "fur",     name = "Fur",       icon = "Ability_Druid_CatForm", look = true },
+  -- (1.7.4) no Fur slot for players any more: every fur colour is a skin (addUniversal below). The fur
+  -- stays as the cat's hidden base coat (ginger) under no skin.
+  { key = "fur",     name = "Fur",       icon = "Ability_Druid_CatForm", look = true, hidden = true },
   { key = "pattern", name = "Pattern",   icon = "Ability_Druid_Rake",    look = true },
   { key = "skin",    name = "Skin",      icon = "Ability_Mount_WhiteTiger", look = true },
   { key = "tap",     name = "Tap Effect", icon = "Spell_Nature_Lightning",  look = true },
@@ -629,6 +631,8 @@ local function addUniversal(list, source)
       c1 = u[6], c2 = u[7], icon = u[8], source = source,
     }
     if u[9] then for k, v in pairs(u[9]) do it[k] = v end end
+    -- (1.7.4) fur colours are skins now (same id, so owners keep them)
+    if it.slot == "fur" then it.slot, it.furSkin = "skin", true end
     add(it)
   end
 end

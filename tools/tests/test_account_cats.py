@@ -131,8 +131,8 @@ def check(seed, load_addon):
        "best skill per profession and best Renown: %r %r %r" % (E(t + ".skill.cloth"), E(t + ".skill.tailoring"), E(t + ".renown")))
     ck(E(t + ".mats.linen") == 15 and E(t + ".mats.wool") == 3, "materials added up")
     ck(E("T:CD('HUNTER').level") == 12 and E("T:CD('WARRIOR').level") == 5, "the other classes")
-    ck(E("T:LookOf('MAGE').skin") == "skin_lion" and E("T:LookOf('MAGE').fur") == "fur_snow", "the Mage wears the base cat's look")
-    ck(E("T:LookOf('HUNTER').fur") == "fur_cream", "the Hunter wears Cid's look")
+    ck(E("T:LookOf('MAGE').skin") == "skin_lion" and E("T:LookOf('MAGE').fur") == "fur_ginger", "the Mage wears the base cat's look (1.7.4: the fur under a skin is the plain base coat)")
+    ck(E("T:LookOf('HUNTER').skin") == "fur_cream" and E("T:LookOf('HUNTER').fur") == "fur_ginger", "the Hunter wears Cid's look (1.7.4: Cream is a skin now)")
     ck(E("#T.db.expeditions.active") == 2 and E("T.db.expeditions.done") == 5 and E("T.db.expeditions.group.id") == "aaaaaa"
        and E("T.db.expeditions.groupQueue[1].id") == "bbbbbb", "every expedition under way is kept")
     ck(E("T:ItemSourceRecord('skin_lion', 'MAGE').first[1]") == "Heroic Cache", "where cosmetics came from is kept")

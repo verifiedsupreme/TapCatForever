@@ -368,7 +368,7 @@ local CATS = {
   { key = "effect", name = "Effects" }, { key = "gear", name = "Gear" }, { key = "sets", name = "Item Sets" },
   { key = "mats", name = "Materials" },   -- (1.7.3) MatLibrary.lua: every material and where it comes from
 }
-local COS_SLOTS = { "head", "shoulder", "chest", "back", "main", "off", "acc", "race", "pattern", "fur", "pet" }
+local COS_SLOTS = { "head", "shoulder", "chest", "back", "main", "off", "acc", "race", "pattern", "pet" }   -- (1.7.4) furs are skins
 local FILTERS = { { "all", "All" }, { "owned", "Owned" }, { "missing", "Missing" } }
 -- item grid: 12 x 7 cells of 58 (+5 gap) = 751 x 436; gear grid: 9 x 10 of 40 (+4) = 392 x 436
 local COLS, ROWS, CELL, GAP = 12, 7, 58, 5

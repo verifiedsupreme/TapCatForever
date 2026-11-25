@@ -197,7 +197,8 @@ def check(seed, load_addon):
       end
       ck(n >= 35, "effects on the expensive skins and cosmetics: " .. n)
       for _, it in ipairs(T.ITEM_LIST) do
-        if it.slot == "skin" and it.rarity >= 4 then ck(T.AnimOf(it), "Epic or Legendary skin has an effect: " .. it.id) end
+        if it.slot == "skin" and it.rarity >= 4 and not it.furSkin then   -- (1.7.4) old fur colours: plain on purpose
+          ck(T.AnimOf(it), "Epic or Legendary skin has an effect: " .. it.id) end
       end
       for _, id in ipairs({ "skin_diamond", "skin_galaxy", "skin_spectral", "skin_golden", "skin_rainbow", "skin_flamesaber" }) do
         masks = 0
