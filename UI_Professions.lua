@@ -217,10 +217,6 @@ TCF.UI.Builders.professions = function(page, win)
     r.count = Text(r.cover, "NumberFontNormal", nil, "RIGHT"); r.count:SetPoint("BOTTOMRIGHT", -4, 4)
     r.sel = r.cover:CreateTexture(nil, "OVERLAY"); r.sel:SetPoint("TOPLEFT", -4, 4); r.sel:SetPoint("BOTTOMRIGHT", 4, -4)
     r.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); r.sel:SetBlendMode("ADD"); r.sel:Hide()
-    -- (1.8.0) your top spot: a tag over its picture (and a gold border on the row)
-    r.hereBg = r.cover:CreateTexture(nil, "ARTWORK"); r.hereBg:SetPoint("TOPLEFT", 2, -2); r.hereBg:SetPoint("TOPRIGHT", -2, -2); r.hereBg:SetHeight(13)
-    r.hereBg:SetColorTexture(0.35, 0.25, 0.02, 0.85); r.hereBg:Hide()
-    r.here = Text(r.cover, "GameFontNormalSmall", "Your spot", "CENTER"); r.here:SetPoint("TOP", 0, -2); r.here:Hide()
     Tip(r.box, function(tt)
       local f = FT()
       local i = r.spot
@@ -495,15 +491,10 @@ TCF.UI.Builders.professions = function(page, win)
       end
       local o, st = f.ops[i], s.ops[fam][i]
       local open, why, whyKind = TCF:SpotUnlocked(fam, i)
-      -- (1.8.0) where you are: the highest spot you own, and the next one to buy
+      -- the highest spot you own (the next one says "Next: buy one to start")
       local top = 0
       for k = 1, #s.ops[fam] do if (s.ops[fam][k].n or 0) > 0 then top = k end end
-      if top == 0 then top = 1 end   -- nothing bought yet: you work the first spot by hand
-      local isHere = i == top
-      vis(r.here, false); vis(r.hereBg, false)   -- (1.7.3) no tag: the gold border is enough
-      if r.SetBackdropBorderColor then
-        if isHere then r:SetBackdropBorderColor(1, 0.82, 0.2, 1) else r:SetBackdropBorderColor(0.45, 0.40, 0.55, 1) end
-      end
+      if top == 0 then top = 1 end
       local glitched = glitch and glitch.fam == fam and glitch.i == i
       if r.icon:IsShown() then r.icon:SetDesaturated(st.n == 0) end
       if r.model:IsShown() and r.model.SetAlpha then r.model:SetAlpha(st.n == 0 and 0.5 or 1) end

@@ -2,7 +2,7 @@
 
 ## 1.7.3
 
-- The "Your spot" tag over your newest gathering spot is gone. The gold frame on that row stays.
+- The "Your spot" tag and gold frame over your newest gathering spot are gone.
 - Tooltips and the recipe list no longer say how likely a skill point is ("always", "often" and so on), since the chance changed and the words were wrong. The colours still show it, and you see your skill go up in the bar.
 
 **Finding things**
