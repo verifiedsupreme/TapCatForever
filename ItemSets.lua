@@ -247,6 +247,37 @@ function TCF:SetSources(set)
   return lines, table.concat(tags, "/")
 end
 
+-- (1.7.3) cosmetic sets (CosmeticSets.lua: the dungeon sets and the crafted legendary sets) in the list
+function TCF.CosmeticSetTag(def)
+  if def.prof then
+    local p = TCF.PROF_BY_KEY and TCF.PROF_BY_KEY[def.prof]
+    return p and p.name or def.prof
+  end
+  return TCF.TIER_SHORT and TCF.TIER_SHORT[def.zone] or def.zone or ""
+end
+function TCF:CosmeticSetTooltip(tt, def)
+  local have, total = self:CosmeticSetProgress(def.key)
+  tt:AddLine(def.name, 1, 0.82, 0)
+  tt:AddLine(string.format("Cosmetic set: %d of %d pieces collected. Pieces change your cat's look only.", have, total), 1, 1, 1, true)
+  for _, it in ipairs(def.items) do
+    local col = self.db.owned[it.id] and TCF.RARITY[it.rarity].color or { 0.5, 0.5, 0.5 }
+    tt:AddLine("  " .. it.name, col[1], col[2], col[3])
+  end
+  tt:AddLine(" ")
+  tt:AddLine("Where to get it", 1, 0.82, 0)
+  if def.prof then
+    for _, l in ipairs(self.ProfSetLines and self:ProfSetLines(def.items[1]) or {}) do tt:AddLine(l, 0.6, 0.8, 1, true) end
+    if def.title then tt:AddLine("The whole set gives the title " .. def.title .. ".", 0.6, 0.8, 1, true) end
+  else
+    local zone
+    for _, t in ipairs(TCF.TIERS or {}) do if t.key == def.zone then zone = t.name end end
+    local parts = {}
+    for _, it in ipairs(def.items) do if it.bossName then parts[#parts + 1] = it.word .. ": " .. it.bossName end end
+    tt:AddLine(string.format("Adventure%s, each piece from a boss: %s", zone and (", " .. zone) or "", table.concat(parts, ", ")), 0.6, 0.8, 1, true)
+  end
+  tt:AddLine("Shift-click: try the whole set on your cat.", 0, 1, 0, true)
+end
+
 function TCF:SetTooltip(tt, set, got)
   tt:AddLine(set.name, 1, 0.82, 0)
   local have, lv = 0, 0
@@ -296,8 +327,8 @@ function TCF:CompendiumPreviewSet(set)
   local win = self.window
   if not win then return end
   local pieces, allOn = {}, true
-  for _, id in ipairs(set.items) do
-    local g = TCF.GEAR[id]
+  for _, x in ipairs(set.items) do
+    local g = type(x) == "table" and x or TCF.GEAR[x]   -- a cosmetic set holds its items, a gear set ids
     if g then
       pieces[#pieces + 1] = g
       if not (TCF.UI.IsPinned and TCF.UI.IsPinned(win, g)) then allOn = false end
@@ -332,7 +363,7 @@ function TCF:RefreshCompendiumSets(f, ctx)
       r:SetScript("OnEnter", function(s)
         if not s.set then return end
         GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
-        TCF:SetTooltip(GameTooltip, s.set, ownedGear())
+        if s.cos then TCF:CosmeticSetTooltip(GameTooltip, s.set) else TCF:SetTooltip(GameTooltip, s.set, ownedGear()) end
         GameTooltip:Show()
       end)
       r:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -380,8 +411,39 @@ function TCF:RefreshCompendiumSets(f, ctx)
       b:Hide()
       det.cells[k] = b
     end
+    det.ccells = {}
+    for k = 1, 10 do
+      local c = UI.ItemCell(det, 30)
+      c:SetPoint("BOTTOMLEFT", 10 + (k - 1) * 34, 6)
+      c:SetScript("OnEnter", function(s)
+        if not s.item then return end
+        GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
+        TCF:ItemTooltip(GameTooltip, s.item)
+        GameTooltip:Show()
+      end)
+      c:SetScript("OnLeave", function() GameTooltip:Hide() end)
+      c:SetScript("OnClick", function(s)
+        if not s.item then return end
+        if IsControlKeyDown and IsControlKeyDown() and TCF.TestGive and TCF:TestGive(s.item) then view.showPieces(); return end
+        TCF:CompendiumPreview(s.item)
+      end)
+      c:Hide()
+      det.ccells[k] = c
+    end
     function view.showPieces()
       local set = view.sel
+      for _, c in ipairs(det.ccells) do c.item = nil; c:Hide() end
+      if set and type(set.items[1]) == "table" then
+        -- a cosmetic set: its items
+        det.hint:Hide(); det.title:Show(); det.all:Show()
+        det.title:SetText(set.name .. "  |cff999999(click a piece to try it on)|r")
+        for _, b in ipairs(det.cells) do b.item = nil; b:Hide() end
+        for k, it in ipairs(set.items) do
+          local c = det.ccells[k]
+          if c then c.item = it; c:SetItem(it, TCF.db.owned[it.id] and true or false, false); c:Show() end
+        end
+        return
+      end
       det.hint:SetShown(not set); det.title:SetShown(set and true or false); det.all:SetShown(set and true or false)
       local got = ownedGear()
       local k = 0
@@ -408,6 +470,20 @@ function TCF:RefreshCompendiumSets(f, ctx)
   view:Show()
   local got = ownedGear()
   local list, complete, fits = {}, 0, 0
+  -- (1.7.3) the cosmetic sets first: the crafted legendary sets, then the dungeon sets
+  local cos = {}
+  for _, def in ipairs(TCF.COSMETIC_SETS or {}) do cos[#cos + 1] = def end
+  table.sort(cos, function(a, b)
+    if (a.prof and 1 or 0) ~= (b.prof and 1 or 0) then return a.prof ~= nil end
+    return a.name < b.name
+  end)
+  for _, def in ipairs(cos) do
+    fits = fits + 1
+    local have, total = TCF:CosmeticSetProgress(def.key)
+    local done = have >= total
+    if done then complete = complete + 1 end
+    if ctx.passes(done) then list[#list + 1] = { set = def, have = have, cos = true, total = total } end
+  end
   for _, set in ipairs(TCF.ITEM_SETS) do
     if setFits(set, ctx.classKey) then
       fits = fits + 1
@@ -422,7 +498,16 @@ function TCF:RefreshCompendiumSets(f, ctx)
   local first = ctx.setPages(#list, SROWS * SCOLS)
   for i, r in ipairs(view.rows) do
     local e = list[first + i]
-    if e then
+    if e and e.cos then
+      local def, q = e.set, 1
+      for _, it in ipairs(def.items) do q = max(q, it.rarity or 1) end
+      r.set, r.cos = def, true
+      r.name:SetText(string.format("|c%s%s|r  |cff999999%s|r", TCF.RARITY[q].hex, def.name, def.prof and "Crafted" or "Cosmetic"))
+      r.tag:SetText(TCF.CosmeticSetTag(def))
+      r.num:SetText(string.format("%s%d / %d|r", e.have >= e.total and "|cff20ff20" or "|cffffffff", e.have, e.total))
+      r:Show()
+    elseif e then
+      r.cos = nil
       local set, lv, q = e.set, 0, 1
       for _, id in ipairs(set.items) do
         local g = TCF.GEAR[id]

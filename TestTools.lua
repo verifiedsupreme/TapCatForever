@@ -305,6 +305,13 @@ end
 function TCF:TestGiveSet(set)
   if not self:TestModeOn() or type(set) ~= "table" then return false end
   local bag, n = self:Bag(), 0
+  if type((set.items or {})[1]) == "table" then
+    -- a cosmetic set
+    for _, it in ipairs(set.items) do if not self.db.owned[it.id] then self.db.owned[it.id] = 1; n = n + 1 end end
+    self:Print(string.format("Test: %s (%d pieces) is yours.", set.name or "the set", n), true)
+    self:MarkDirty(); self:RefreshAll()
+    return true
+  end
   for _, id in ipairs(set.items or {}) do
     if TCF.GEAR[id] and (bag[id] or 0) == 0 then bag[id] = 1; n = n + 1 end
   end
