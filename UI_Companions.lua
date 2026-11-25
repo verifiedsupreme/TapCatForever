@@ -1,4 +1,4 @@
--- TapCatForever: companion cats on screen and in their window (1.8.0, Companions.lua has the data).
+-- TapCatForever: companion cats on screen and in their window (1.7.4, Companions.lua has the data).
 --  * the walker: with Companion Stroll, your cat's companion (a real WoW cat model) walks back and forth
 --    beside your cat, party-cat sized, on the other side from the party cats' row
 --  * the Companion Cats window: every companion as its real model, bought or chosen from here

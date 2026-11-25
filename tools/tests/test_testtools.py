@@ -1,4 +1,4 @@
-# 1.8.0 test tools (TestTools.lua): saved states (save, change things, restore everything back), forcing
+# 1.7.4 test tools (TestTools.lua): saved states (save, change things, restore everything back), forcing
 # professions and gathering spots open or closed, the quick setters, and none of it outside test mode.
 
 def check(seed, load_addon):

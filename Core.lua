@@ -1921,7 +1921,7 @@ function TCF:RefreshAll()
   self:UpdateMinimapButton()
   if self.window and self.window:IsShown() then self.window:Refresh() end
   if self.bag and self.bag:IsShown() then self.bag:Refresh() end
-  -- (1.8.0) companion cats: the walker beside the cat and their window (UI_Companions.lua)
+  -- (1.7.4) companion cats: the walker beside the cat and their window (UI_Companions.lua)
   if self.CompanionRefresh then self:CompanionRefresh() end
   if self.companionWin and self.companionWin:IsShown() then self.companionWin:Refresh() end
 end
@@ -2047,7 +2047,7 @@ function TCF:TestCheat(kind)
     self:Print("All professions unlocked.", true)
     self:CheckProfUnlocks()
   elseif kind == "companions" then
-    -- (1.8.0) every companion cat and Companion Stroll, for trying them out
+    -- (1.7.4) every companion cat and Companion Stroll, for trying them out
     if self.CompanionState then
       local s = self:CompanionState()
       for _, c in ipairs(TCF.COMPANIONS) do s.owned[c.key] = s.owned[c.key] or time() end

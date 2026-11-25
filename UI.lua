@@ -757,7 +757,7 @@ function TCF:CreateWindow()
   for i, k in ipairs(DOLL_RIGHT) do DollButton(k):SetPoint("TOPLEFT", stage, "TOPRIGHT", 6, -(i - 1) * 36) end
   for i, k in ipairs(DOLL_BOTTOM) do DollButton(k):SetPoint("TOP", stage, "BOTTOM", (i - 2) * 40, -6) end
 
-  -- (1.8.0) the companion slot (Companions.lua): right of the ranged slot; the chosen companion's
+  -- (1.7.4) the companion slot (Companions.lua): right of the ranged slot; the chosen companion's
   -- real model sits in the corner of the cat's picture
   local compSlot = TCF.UI.GearButton(left, 34)
   compSlot:SetPoint("TOP", stage, "BOTTOM", 2 * 40 + 6, -6)
@@ -1408,7 +1408,7 @@ function TCF:CreateWindow()
     testBox:SetSize(528, 60); testBox:SetPoint("TOPLEFT", st, "TOPLEFT", 16, -INFO_Y)
     win.settingsInfo.testBox = testBox
     local tt = Text(testBox, "GameFontNormalSmall", "|cffff6060Test mode|r  |cffaaaaaa(/tcf testmode to hide)|r", "LEFT"); tt:SetPoint("TOPLEFT", 0, 0)
-    -- (1.8.0) saved states, open or close anything, quick setters (TestTools.lua)
+    -- (1.7.4) saved states, open or close anything, quick setters (TestTools.lua)
     local toolsBtn = Button(testBox, "Test tools...", 110, 16, function() TCF:ToggleTestTools() end)
     toolsBtn:SetPoint("TOPRIGHT", testBox, "TOPRIGHT", 0, 2)
     local cheats = { { "+5,000 TapCoins", "coins" }, { "+10M Trade Gold", "gold" }, { "Unlock professions", "renown" },

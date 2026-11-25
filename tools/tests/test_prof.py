@@ -203,7 +203,7 @@ for _, k in ipairs(T.FAMILY_KEYS) do
 end
 ps.renownEver, ps.renown, ps.lifetime, ps.spotsOpen = 0, 0, 0, nil
 ps.skill[fam] = 1
--- (1.8.0) a ladder: a spot opens once you own one of the spot before it
+-- (1.7.4) a ladder: a spot opens once you own one of the spot before it
 for i = 1, 9 do ps.ops[fam][i].n = 0 end
 local ok, why = T:SpotUnlocked(fam, 3)
 check(T:SpotUnlocked(fam, 1) and not T:SpotUnlocked(fam, 2) and not ok and why:find("first", 1, true), "spot 3 needs spot 2 first: " .. tostring(why))
@@ -225,7 +225,7 @@ ok, why = T:SpotUnlocked(fam, 8)
 check(not ok and why:find("skill 250", 1, true), "spot 8 also needs the gathering skill: " .. tostring(why))
 ps.skill[fam] = 250
 check(T:SpotUnlocked(fam, 8), "spot 8 open")
-ps.ops[fam][8].n = 1   -- (1.8.0) the ladder: spot 9 needs one of spot 8
+ps.ops[fam][8].n = 1   -- (1.7.4) the ladder: spot 9 needs one of spot 8
 ok, why = T:SpotUnlocked(fam, 9)
 check(not ok and why:find("Trade Gold earned", 1, true) and why:find("skill 300", 1, true), "spot 9 needs 1Qa earned and skill 300: " .. tostring(why))
 ps.lifetime, ps.skill[fam] = 1e15, 300
@@ -261,7 +261,7 @@ check(texts():find("1-6 of 9", 1, true), "scrolled back to the first spots")
 -- selling resets them like the others, the spots stay open
 ps.lifetime = math.max(ps.lifetime, 1e15); ps.runEarned = ps.lifetime
 T:PrestigeTrade()
-check(ps.ops[fam][9].n == 0 and not ps.ops[fam][9].mgr and not T:SpotUnlocked(fam, 9) and T:SpotUnlocked(fam, 1), "(1.8.0) selling resets spot 9: the ladder starts again from the first spot")
+check(ps.ops[fam][9].n == 0 and not ps.ops[fam][9].mgr and not T:SpotUnlocked(fam, 9) and T:SpotUnlocked(fam, 1), "(1.7.4) selling resets spot 9: the ladder starts again from the first spot")
 for i = 1, 8 do ps.ops[fam][i].n = 1 end
 check(T:SpotUnlocked(fam, 9), "and spot 9's own gate stays opened (Renown, skill)")
 -- 1.6.0: no round Professions button in the header any more; the Professions tab opens it

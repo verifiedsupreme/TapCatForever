@@ -1,4 +1,4 @@
-# 1.8.0 companion cats (Companions.lua, UI_Companions.lua): real WoW cat models bought with TapCoins or
+# 1.7.4 companion cats (Companions.lua, UI_Companions.lua): real WoW cat models bought with TapCoins or
 # earned by clearing dungeons, owned by the account, chosen per class cat; the character panel slot; the
 # Companion Cats window; Companion Stroll (250,000 TapCoins) walks the companion beside the cat on the
 # other side from the party cats, and can be turned off; models the game can't load are hidden.

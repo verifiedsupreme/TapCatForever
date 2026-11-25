@@ -1,4 +1,4 @@
-# 1.8.0 Shop revamp: the Skin of the Day (a fifth off one shop skin a day, per cat), the Daily
+# 1.7.4 Shop revamp: the Skin of the Day (a fifth off one shop skin a day, per cat), the Daily
 # Wares' third slot (any-class pieces only), and the Shop page's three views (Featured, Cat Skins,
 # Chests) plus its Companions button: they build, refresh, buy and stay cheap on the quick refresh.
 def check(seed, load_addon):

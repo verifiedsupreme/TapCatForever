@@ -1,4 +1,4 @@
--- TapCatForever: companion cats (1.8.0). Real WoW cat models (PlayerModel:SetDisplayInfo) that keep
+-- TapCatForever: companion cats (1.7.4). Real WoW cat models (PlayerModel:SetDisplayInfo) that keep
 -- your cat company. Bought with TapCoins (50,000 to 1,000,000) or earned by clearing big dungeons and raids
 -- in Adventure. Owned companions are the account's: every class cat can pick any of them, its own one.
 -- They show on the character panel; a very expensive upgrade (Companion Stroll) lets the companion walk

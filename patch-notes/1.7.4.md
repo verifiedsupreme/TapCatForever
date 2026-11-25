@@ -1,4 +1,4 @@
-# TapCatForever 1.8.0
+# TapCatForever 1.7.4
 Companion cats: 56 real WoW cats to collect, buy or earn in dungeons, one per cat, walking beside yours. Plus a snazzier Shop and a faster Heroic Cache.
 
 **Companion cats**

@@ -1,4 +1,4 @@
-# 1.8.0 Heroic Cache: price and odds, the opening reel's speed (full speed, then a brake onto the
+# 1.7.4 Heroic Cache: price and odds, the opening reel's speed (full speed, then a brake onto the
 # prize) and what the Heroic Cache's reel shows (a set mix of what the chest can really hold for
 # the cat, plus a few locked big prizes, never the same item twice on screen). Real drops are
 # unchanged: a young cat still can't win gear far above its level or a legendary.

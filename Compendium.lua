@@ -597,7 +597,7 @@ function TCF:CreateCompendium()
     c:SetPoint("TOPLEFT", ((i - 1) % COLS) * (CELL + GAP), -floor((i - 1) / COLS) * (CELL + GAP))
     c:SetScript("OnClick", function(s)
       local it = s.item
-      -- (1.8.0) test mode: ctrl-click gives it to you
+      -- (1.7.4) test mode: ctrl-click gives it to you
       if it and IsControlKeyDown and IsControlKeyDown() and TCF.TestGive and TCF:TestGive(it) then f:Refresh(); return end
       -- (1.6.3) shift-click: try it on the cat in the main window (opened if it isn't)
       if it and IsShiftKeyDown and IsShiftKeyDown() then

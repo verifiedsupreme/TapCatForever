@@ -187,7 +187,7 @@ local ORDER_WHO = {
 }
 local function income(self, f) return max(self.GatherIncome and self:GatherIncome(f) or 0, 1) end
 function TCF:OrderSlots() return TCF.ORDER_SLOTS + self:RenownPerk("orders") end
--- (1.8.0) the most of one material an order asks for: three quarters of what the bag's stack holds
+-- (1.7.4) the most of one material an order asks for: three quarters of what the bag's stack holds
 -- (Bag.lua), so it can always be filled; nil with the Bottomless Bag
 TCF.ORDER_BAG_SHARE = 0.75
 function TCF:OrderMatCap(key)
@@ -250,7 +250,7 @@ function TCF:WorkOrders(craft)
   if type(list) ~= "table" then list = {}; d.orders[craft] = list end
   local t = time()
   for i = #list, 1, -1 do if (list[i].expires or 0) < t then table.remove(list, i) end end
-  -- an order bigger than the bag can hold (made before 1.8.0): it asks for what fits, same reward
+  -- an order bigger than the bag can hold (made before 1.7.4): it asks for what fits, same reward
   for _, o in ipairs(list) do
     if o.kind == "mat" then
       local cap = self:OrderMatCap(o.key)
@@ -281,7 +281,7 @@ function TCF:OrderText(o)
   local m = TCF.MAT_BY_KEY[o.key]
   return string.format("%s wants %d %s", o.who:gsub("^%l", string.upper), o.n, m and m.name or o.key)
 end
--- (1.8.0) a Masterwork copy counts for a gear order too (the plain ones are handed in first)
+-- (1.7.4) a Masterwork copy counts for a gear order too (the plain ones are handed in first)
 local function mwId(key)
   local mw = TCF.MasterworkGear and TCF.MASTERWORK_SUFFIX and (TCF.SUFFIX_ID_BASE + key * 100 + TCF.MASTERWORK_SUFFIX)
   return mw and TCF.GEAR and TCF.GEAR[mw] and mw or nil
@@ -295,7 +295,7 @@ function TCF:OrderHave(o)
   return S(self).mats[o.key] or 0
 end
 
--- (1.8.0) make what an order wants right from the order: its gear recipe, or today's daily material
+-- (1.7.4) make what an order wants right from the order: its gear recipe, or today's daily material
 function TCF:OrderRecipe(o, craft)
   craft = craft or craftOf(self)
   if o.kind == "gear" then
@@ -337,7 +337,7 @@ function TCF:FillOrder(id, craft)
   local list = self:WorkOrders(craft)
   for k, o in ipairs(list) do
     if o.id == id then
-      -- (1.8.0) deliver what you have now; the reward comes when the whole order is in
+      -- (1.7.4) deliver what you have now; the reward comes when the whole order is in
       local got = o.got or 0
       local give = min(self:OrderHave(o), o.n - got)
       if give <= 0 then return false, "You don't have any to deliver yet." end

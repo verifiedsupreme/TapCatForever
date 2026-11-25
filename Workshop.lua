@@ -138,7 +138,7 @@ function TCF:WorkshopTick(visible, t)
   if not live(self, f) then return end
   t = t or now()
   local ws = W(self)
-  -- (1.8.0) a glint or stash on a spot you can't see (you turned the page) ends quietly
+  -- (1.7.4) a glint or stash on a spot you can't see (you turned the page) ends quietly
   local onScreen = {}
   for _, i in ipairs(visible or {}) do onScreen[i] = true end
   if glint and not onScreen[glint.i] then glint = nil end

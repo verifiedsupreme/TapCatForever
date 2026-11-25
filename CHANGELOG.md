@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.8.0
+## 1.7.4
 
 **Companion cats**
 - Your cat can have a companion: a real WoW cat, the game's own 3D model. There are 56 to collect: house cats, kittens and cubs, lynxes, sabers, tigers, lions, panthers, the Felsaber, the Spectral Tiger and more.

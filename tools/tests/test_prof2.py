@@ -111,7 +111,7 @@ def check(seed, load_addon):
       local rep0 = T:GuildRep()
       ck(T:FillOrder(o.id), "an order filled")
       ck(T:GuildRep() == rep0 + o.rep and #T:WorkOrders() == 2, "reputation, and the slot waits for a new order")
-      -- (1.8.0) orders never ask for more than the bag holds; part of one can be delivered
+      -- (1.7.4) orders never ask for more than the bag holds; part of one can be delivered
       local fam = T:MainProf()
       local key = T.FAMILIES[fam].ops[1][2]
       local cap = T:OrderMatCap(key)

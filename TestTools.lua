@@ -1,4 +1,4 @@
--- TapCatForever: test tools (1.8.0). Test mode only (Core.lua: only ever on the developer's character).
+-- TapCatForever: test tools (1.7.4). Test mode only (Core.lua: only ever on the developer's character).
 --  * saved states: copy the whole save into one of three slots, and put it back later (reloads the UI)
 --  * open or close anything: professions and gathering spots forced open or closed, or left to the game
 --  * quick setters: cat level, skills, guild rank, Renown points, bag, Adventure, companions, TapCoins
@@ -284,7 +284,7 @@ function TCF:ToggleTestTools()
   return true
 end
 
----------------------------------------------------------------- give yourself anything (1.8.0)
+---------------------------------------------------------------- give yourself anything (1.7.4)
 -- Ctrl-click in the Compendium (test mode): a cosmetic or skin is yours, a gear piece goes in the bag,
 -- a set gives every piece. Quietly, without salvage or achievements.
 function TCF:TestGive(it)

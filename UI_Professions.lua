@@ -394,7 +394,7 @@ TCF.UI.Builders.professions = function(page, win)
   local function spotTotal() return TCF:SpotCount() end
   local function placeRows(fam, force)
     local f = TCF.FAMILIES[fam]
-    -- (1.8.0) whole pages (1-6, then 7-9), never overlapping; rows past the last spot are hidden
+    -- (1.7.4) whole pages (1-6, then 7-9), never overlapping; rows past the last spot are hidden
     local lastPage = floor((max(1, spotTotal()) - 1) / SPOT_ROWS) * SPOT_ROWS
     local off = min(max(0, floor((win.spotScroll or 0) / SPOT_ROWS + 0.5) * SPOT_ROWS), lastPage)
     win.spotScroll = off
@@ -1377,7 +1377,7 @@ TCF.UI.Builders.professions = function(page, win)
   craftUp:SetPoint("RIGHT", craftPage, "LEFT", -10, 0)
   local craftDown = Button(craftView, ">", 28, 20, function() win.craftScroll = (win.craftScroll or 0) + CROWS; win:Refresh() end)
   craftDown:SetPoint("LEFT", craftPage, "RIGHT", 10, 0)
-  -- (1.8.0) search the recipes by name
+  -- (1.7.4) search the recipes by name
   local search = CreateFrame("EditBox", nil, craftView, "InputBoxTemplate")
   search:SetSize(150, 20); search:SetPoint("TOPLEFT", 22, -22 - CROWS * 50 - 6)
   if search.SetAutoFocus then search:SetAutoFocus(false) end
@@ -1429,7 +1429,7 @@ TCF.UI.Builders.professions = function(page, win)
     wipe(craftList)
     for idx, rec in ipairs(TCF.RECIPES[key] or {}) do
       local it = TCF:RecipeItem(rec)
-      -- (1.8.0) the search box: the item's name, or its set's
+      -- (1.7.4) the search box: the item's name, or its set's
       local match = q == ""
       if it and not match then
         local def = rec.set and TCF.COSMETIC_SET_BY_KEY and TCF.COSMETIC_SET_BY_KEY[rec.set]
@@ -1708,7 +1708,7 @@ TCF.UI.Builders.professions = function(page, win)
       win:Refresh()
     end)
     r.btn:SetPoint("RIGHT", -6, 0)
-    -- (1.8.0) make it here when you can: the order's gear, or today's daily material
+    -- (1.7.4) make it here when you can: the order's gear, or today's daily material
     r.craft = Button(r, "Craft", 60, 24, function()
       if not r.order then return end
       local ok, why = TCF:CraftForOrder(r.order.id)
@@ -1807,7 +1807,7 @@ TCF.UI.Builders.professions = function(page, win)
         if o.kind == "gear" then local it = TCF.GEAR and TCF.GEAR[o.key]; icon = it and it.icon
         else local m = TCF.MAT_BY_KEY[o.key]; icon = m and m.icon end
         r.icon:SetTexture(TCF.Icon(icon or "INV_Misc_QuestionMark"))
-        -- (1.8.0) delivered so far plus what you have now; part of an order can be handed in
+        -- (1.7.4) delivered so far plus what you have now; part of an order can be handed in
         local got = o.got or 0
         local have = TCF:OrderHave(o)
         local reach = got + min(have, o.n - got)

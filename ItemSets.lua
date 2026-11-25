@@ -175,7 +175,7 @@ end
 -- One row per set: its name and level, how many pieces your cats have (any cat's bag or
 -- worn) out of the set's total. Hover for the members and bonuses. Compendium.lua shows this
 -- view for its "Item Sets" category and passes its paging helpers in ctx.
-local SROWS, SCOLS, SROW_H = 15, 2, 24   -- (1.8.0) 15 rows: the set's pieces show below the list
+local SROWS, SCOLS, SROW_H = 15, 2, 24   -- (1.7.4) 15 rows: the set's pieces show below the list
 
 local function ownedGear()
   local set = {}
@@ -202,7 +202,7 @@ local function setFits(set, classKey)
   return classKey == "ANY"
 end
 
--- (1.8.0) where a set's pieces come from: Adventure zones and bosses (the raid chests too), or
+-- (1.7.4) where a set's pieces come from: Adventure zones and bosses (the raid chests too), or
 -- world drops. Returns tooltip lines and a short tag for the list (the zones' names).
 -- short names for the list's source column (the tooltip has the full names)
 TCF.TIER_SHORT = { rfc = "RFC", wc = "WC", dm = "VC", sfk = "SFK", bfd = "BFD", stocks = "Stocks", gnomer = "Gnomer",
@@ -320,7 +320,7 @@ function TCF:SetTooltip(tt, set, got)
   tt:AddLine("Shift-click: try the whole set on your cat.", 0, 1, 0, true)
 end
 
--- (1.8.0) shift-click a set in the Compendium: every piece on the cat (again: off)
+-- (1.7.4) shift-click a set in the Compendium: every piece on the cat (again: off)
 function TCF:CompendiumPreviewSet(set)
   if not set or not TCF.UI.TogglePreview then return end
   if not self.window or not self.window:IsShown() then self:ToggleWindow() end
@@ -355,7 +355,7 @@ function TCF:RefreshCompendiumSets(f, ctx)
       r.bg = r:CreateTexture(nil, "BACKGROUND"); r.bg:SetAllPoints(); r.bg:SetColorTexture(1, 1, 1, 0.05)
       r:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
       r.name = UI.Text(r, "GameFontHighlight", nil, "LEFT"); r.name:SetPoint("LEFT", 6, 0); r.name:SetWidth(colW - 170)
-      -- (1.8.0) where it comes from, short (the tooltip has the full names)
+      -- (1.7.4) where it comes from, short (the tooltip has the full names)
       r.tag = UI.Text(r, "GameFontDisableSmall", nil, "RIGHT"); r.tag:SetPoint("RIGHT", -64, 0); r.tag:SetWidth(90)
       if r.tag.SetWordWrap then r.tag:SetWordWrap(false) end
       r.num = UI.Text(r, "GameFontHighlight", nil, "RIGHT"); r.num:SetPoint("RIGHT", -6, 0); r.num:SetWidth(70)
@@ -383,7 +383,7 @@ function TCF:RefreshCompendiumSets(f, ctx)
       r:Hide()
       view.rows[i] = r
     end
-    -- (1.8.0) the chosen set's pieces: hover, shift-click to try one on, Try on all, ctrl-click (test mode) to get one
+    -- (1.7.4) the chosen set's pieces: hover, shift-click to try one on, Try on all, ctrl-click (test mode) to get one
     local det = UI.Panel(view, ctx.width - 4, 66, 0.9)
     det:SetPoint("TOPLEFT", 0, -SROWS * SROW_H - 6)
     det.title = UI.Text(det, "GameFontNormal", nil, "LEFT"); det.title:SetPoint("TOPLEFT", 10, -8); det.title:SetWidth(ctx.width - 140)
