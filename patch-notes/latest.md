@@ -1,16 +1,17 @@
-# TapCatForever 1.7.1
+# TapCatForever 1.7.2
 
-**Work orders fix**
-- A work order can no longer ask for more of a material than your bag can hold. Orders now ask for at most three quarters of your bag's stack size (no limit with the Bottomless Bag).
-- Orders already on your board that were too big now ask for what fits, with the same reward.
-- You can deliver part of an order: hand in what you have now and bring the rest later. The reward comes when the whole order is in.
+**Gathering spots make sense now**
+- Spots open one after another. Own at least one of a spot to open the next one; a spot you own always stays open. The later spots still need their Renown, skill or Trade Gold too.
+- Your spot (the newest one you own) has a gold frame and a "Your spot" tag. The next one to buy says so.
+- The spot list turns in whole pages (spots 1 to 6, then 7 to 9), so no spot shows up on two pages.
+- Glints and stashes only come up on the page you're looking at. One on a page you leave ends quietly.
 
-**Rare drops list**
-- Each profession's Help guide now lists its rare drops, where they come from and how often:
-  - **Mining, Skinning and Cloth Scavenging:** the rare finds and the spots that give them.
-  - **Herbalism:** the rare herbs and the seeds they come with.
-  - **Fishing:** Mr. Pinchy and treasure chests.
-- On the Guild page, hover the rare finds line for the same list.
+**Guild work orders**
+- When you have the materials, a Craft button beside the order makes the gear it wants (or today's daily material) right there. A Masterwork counts for the order too.
 
-**Taps**
-- The auto-clicker guard is now a short pause. A key or mouse button pressed at a machine-steady rhythm stops counting for 10 seconds, then counts again. Before, it could stay paused until the rhythm changed or you reloaded.
+**Recipe search**
+- The recipe list has a search box: type part of an item's or set's name.
+
+**Item Sets in the Compendium**
+- Every set says where it comes from: the Adventure zones and bosses (MC, BWL, ZG, Strat...), the raid chests, or world drops. The list has a short tag, the tooltip the full list.
+- Click a set to see its pieces below the list. Click a piece to try it on, or Try on all for the whole set. Shift-click a set in the list does the same.

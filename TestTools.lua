@@ -118,8 +118,6 @@ TCF.TEST_SETTERS = {
   { "bagdown",    "Smaller bag" },
   { "advall",     "Adventure: all" },
   { "advreset",   "Adventure: reset" },
-  { "compall",    "All companions" },
-  { "compnone",   "No companions" },
   { "coins1m",    "+1M TapCoins" },
   { "coins0",     "TapCoins to 0" },
 }

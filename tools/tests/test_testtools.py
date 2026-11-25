@@ -61,10 +61,8 @@ def check(seed, load_addon):
       local rp0 = T:DepthState().rp or 0
       ck(T:TestSet("rp") and T:DepthState().rp == rp0 + 5, "+5 Renown points")
       ck(T:TestSet("bagup") and T:MatBagLevel() == 2 and T:TestSet("bagdown") and T:MatBagLevel() == 1, "bag up and down")
-      ck(T:TestSet("advall") and T:CD().adv.best >= T.AdvStageCode(#T.TIERS, 1) and T:CompanionOwned("bigglesworth"), "Adventure all open (and its companions)")
+      ck(T:TestSet("advall") and T:CD().adv.best >= T.AdvStageCode(#T.TIERS, 1), "Adventure all open")
       ck(T:TestSet("advreset") and T:CD().adv.best == 0, "Adventure from the start")
-      ck(T:TestSet("compall") and T:CompanionOwned("spectral") and T:CompanionWalkOwned(), "all companions")
-      ck(T:TestSet("compnone") and not T:CompanionOwned("spectral") and not T:CompanionWalkOwned() and T:Companion() == nil, "no companions")
       local c0 = db.coins
       ck(T:TestSet("coins1m") and db.coins == c0 + 1000000 and T:TestSet("coins0") and db.coins == 0, "TapCoins")
 

@@ -142,7 +142,7 @@ def check(seed, load_addon):
       ck(view and view:IsShown(), "sets view shown")
       local shown, valor = 0, nil
       for _, row in ipairs(view.rows) do if row:IsShown() then shown = shown + 1 end end
-      ck(shown == 36, "a full page of sets: " .. shown)
+      ck(shown == 30, "a full page of sets (15 rows a column, 1.7.2): " .. shown)
       local valorPage
       for pg = 1, 10 do
         comp.page = pg; comp:Refresh()
