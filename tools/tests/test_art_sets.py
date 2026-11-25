@@ -147,9 +147,16 @@ def check(seed, load_addon):
         local old = eq.SHOULDER
         eq.SHOULDER = sh.id
         cat:ApplyAppearance(T:GetAppearance())
-        ck(cat.vt.shoulder_f:IsShown() and cat.vt.shoulder_f.tex and cat.vt.shoulder_f.tex:find(T.VEC[sh.icon:lower()][1], 1, true),
-          "the cat wears the icon's own pauldrons: " .. tostring(cat.vt.shoulder_f.tex))
-        ck(not cat.vt.shoulder_a:IsShown(), "no tinted fallback under the drawing")
+        -- (1.7.4) armour is drawn as one dyed outfit: the pauldrons of its armour type, in its quality's colours
+        ck(cat.vt.shoulder_a:IsShown() and cat.vt.shoulder_a.tex and cat.vt.shoulder_a.tex:find("shoulder_", 1, true),
+          "the cat wears the outfit's pauldrons: " .. tostring(cat.vt.shoulder_a.tex))
+        local lk = T:GetAppearance().shoulder
+        local want = T.GearOutfitColour(lk.art, sh, 0)
+        ck(want and lk.c1 == want, "the pauldrons wear the outfit colour")
+        -- an icon drawing still exists for every shoulder item (Compendium, tooltips), the switch shows it
+        T.GearIconArmour = true; cat:ApplyAppearance(T:GetAppearance())
+        ck(cat.vt.shoulder_f:IsShown() and cat.vt.shoulder_f.tex:find(T.VEC[sh.icon:lower()][1], 1, true), "the icon's own pauldrons behind the switch")
+        T.GearIconArmour = nil
         -- the Gear page's cat (the paperdoll) shows them, also as a hover preview
         eq.SHOULDER = old
         if not T.window then T:ToggleWindow() end

@@ -1100,9 +1100,52 @@ local ART_FOR = {
 }
 local CLASS_HEAD_CLOTH = { PRIEST = "head_hood", WARLOCK = "head_hood", MAGE = "head_wizard" }
 
+-- (1.7.4) armour is dressed as one outfit, not one random colour per piece: the metal or leather
+-- shows by armour type, cloth, tabards and capes take the quality's dye (Epic purple, Rare blue), and
+-- trim is brass, silver or gold by quality (a fire, frost, shadow... item's trim takes that colour).
+local METAL = { { 0.55, 0.55, 0.58 }, { 0.64, 0.65, 0.68 }, { 0.74, 0.77, 0.84 }, { 0.80, 0.80, 0.88 }, { 0.95, 0.80, 0.45 } }
+local MAIL = { { 0.48, 0.48, 0.50 }, { 0.56, 0.58, 0.60 }, { 0.60, 0.65, 0.74 }, { 0.62, 0.60, 0.72 }, { 0.85, 0.68, 0.38 } }
+local LEATHER = { { 0.55, 0.40, 0.27 }, { 0.52, 0.37, 0.24 }, { 0.42, 0.30, 0.22 }, { 0.34, 0.23, 0.28 }, { 0.45, 0.26, 0.14 } }
+local DYE = { { 0.68, 0.62, 0.52 }, { 0.36, 0.56, 0.32 }, { 0.24, 0.42, 0.80 }, { 0.46, 0.22, 0.70 }, { 0.95, 0.50, 0.12 } }
+local TRIM = { { 0.50, 0.40, 0.30 }, { 0.72, 0.62, 0.42 }, { 0.86, 0.88, 0.94 }, { 1.00, 0.80, 0.32 }, { 1.00, 0.88, 0.45 } }
+local BONE = { 0.93, 0.88, 0.76 }
+-- what colour A (the body) and B (the trim, pauldrons or horns) of each drawing are made of
+local OUTFIT = {
+  head_greathelm = { "metal", "trim" }, head_hornhelm = { "metal", "bone" }, head_hood = { "dye", "trim" },
+  head_wizard = { "dye", "trim" }, head_circlet = { "trim", "trim" },
+  chest_plate = { "dye", "metal" }, chest_mail = { "mail", "dye" }, chest_leather = { "leather", "trim" },
+  chest_robe = { "dye", "trim" },
+  shoulder_plate = { "metal", "trim" }, shoulder_mail = { "mail", "dye" }, shoulder_leather = { "leather", "dye" },
+  shoulder_cloth = { "dye", "trim" },
+  back_cape = { "dye", "lining" }, acc_bell = { "trim", "trim" },
+}
+local function keywordOf(it)
+  local b = it.base and TCF.GEAR[it.base]
+  local lname = ((b or it).name or ""):lower()
+  for _, kw in ipairs(KEYWORD_TINT) do
+    if lname:find(kw[1], 1, true) then return kw[2] end
+  end
+end
+local function outfitColour(role, it)
+  local q = max(1, min(5, it.q or 2))
+  if role == "metal" then return METAL[q] end
+  if role == "mail" then return MAIL[q] end
+  if role == "leather" then return LEATHER[q] end
+  if role == "trim" then return keywordOf(it) or TRIM[q] end
+  if role == "bone" then return BONE end
+  local d = DYE[q]
+  if role == "lining" then return { d[1] * 0.55, d[2] * 0.55, d[3] * 0.55 } end
+  return d
+end
+TCF.GearOutfitColour = function(art, it, n)
+  local roles = OUTFIT[art]
+  return roles and outfitColour(roles[(n or 0) + 1], it)
+end
+
 local function look(art, it, slot)
-  local c1 = tintFor(it, 0)
-  local c2 = tintFor(it, 1)
+  local roles = OUTFIT[art]
+  local c1 = roles and outfitColour(roles[1], it) or tintFor(it, 0)
+  local c2 = roles and outfitColour(roles[2], it) or tintFor(it, 1)
   return { id = "gear:" .. it.id, art = art, c1 = c1, c2 = c2, rarity = it.q, slot = slot, name = it.name, icon = it.icon, gear = true }
 end
 

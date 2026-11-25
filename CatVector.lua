@@ -177,11 +177,15 @@ end
 local SLOT_KIND = { head = { head = true }, chest = { chest = true }, back = { back = true }, main = { weapon = true },
   off = { shield = true, held = true, weapon = true }, offw = { weapon = true }, shoulder = { shoulder = true }, race = { acc = true } }
 
+local OUTFIT_SLOT = { head = true, chest = true, back = true, shoulder = true }
+
 -- the drawing keys for a look item: gear -> its icon drawing when it has one that fits the slot,
 -- otherwise (most bows, guns and capes) the cosmetic version tinted with the gear's colours
 local function artOf(it, slot)
   if not it then return nil end
-  if it.gear then
+  -- (1.7.4) armour is drawn as one dyed outfit (Gear.lua), not from each item's own icon: icon drawings
+  -- side by side clashed. Weapons, shields and held items keep their icon drawings.
+  if it.gear and not (OUTFIT_SLOT[slot] and not TCF.GearIconArmour) then
     local k = iconOf(it)
     local e, ok = k and TCF.VEC[k], SLOT_KIND[slot]
     if e and (not ok or ok[e[8]]) then return k, nil end
