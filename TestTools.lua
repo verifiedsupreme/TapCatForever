@@ -283,3 +283,34 @@ function TCF:ToggleTestTools()
   if f:IsShown() then f:Hide() else f:Show() end
   return true
 end
+
+---------------------------------------------------------------- give yourself anything (1.8.0)
+-- Ctrl-click in the Compendium (test mode): a cosmetic or skin is yours, a gear piece goes in the bag,
+-- a set gives every piece. Quietly, without salvage or achievements.
+function TCF:TestGive(it)
+  if not self:TestModeOn() or type(it) ~= "table" then return false end
+  if TCF.GEAR and TCF.GEAR[it.id] == it then
+    local bag = self:Bag()
+    bag[it.id] = (bag[it.id] or 0) + 1
+    self:Print("Test: " .. (TCF.GearLink and TCF.GearLink(it) or it.name) .. " is in your bag.", true)
+  elseif TCF.ITEMS and TCF.ITEMS[it.id] then
+    if not self.db.owned[it.id] then self.db.owned[it.id] = 1 end
+    if self.NoteItemSource then self:NoteItemSource(it.id, "Test mode") end
+    self:Print("Test: " .. TCF.ItemLink(it) .. " is yours.", true)
+  else
+    return false
+  end
+  self:MarkDirty(); self:RefreshAll()
+  return true
+end
+
+function TCF:TestGiveSet(set)
+  if not self:TestModeOn() or type(set) ~= "table" then return false end
+  local bag, n = self:Bag(), 0
+  for _, id in ipairs(set.items or {}) do
+    if TCF.GEAR[id] and (bag[id] or 0) == 0 then bag[id] = 1; n = n + 1 end
+  end
+  self:Print(string.format("Test: %s (%d pieces) is in your bag.", set.name or "the set", n), true)
+  self:MarkDirty(); self:RefreshAll()
+  return true
+end

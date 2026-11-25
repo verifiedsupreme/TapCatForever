@@ -219,6 +219,10 @@ TCF.UI.Builders.professions = function(page, win)
     r.count = Text(r.cover, "NumberFontNormal", nil, "RIGHT"); r.count:SetPoint("BOTTOMRIGHT", -4, 4)
     r.sel = r.cover:CreateTexture(nil, "OVERLAY"); r.sel:SetPoint("TOPLEFT", -4, 4); r.sel:SetPoint("BOTTOMRIGHT", 4, -4)
     r.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); r.sel:SetBlendMode("ADD"); r.sel:Hide()
+    -- (1.8.0) your top spot: a tag over its picture (and a gold border on the row)
+    r.hereBg = r.cover:CreateTexture(nil, "ARTWORK"); r.hereBg:SetPoint("TOPLEFT", 2, -2); r.hereBg:SetPoint("TOPRIGHT", -2, -2); r.hereBg:SetHeight(13)
+    r.hereBg:SetColorTexture(0.35, 0.25, 0.02, 0.85); r.hereBg:Hide()
+    r.here = Text(r.cover, "GameFontNormalSmall", "Your spot", "CENTER"); r.here:SetPoint("TOP", 0, -2); r.here:Hide()
     Tip(r.box, function(tt)
       local f = FT()
       local i = r.spot
@@ -396,11 +400,15 @@ TCF.UI.Builders.professions = function(page, win)
   local function spotTotal() return TCF:SpotCount() end
   local function placeRows(fam, force)
     local f = TCF.FAMILIES[fam]
-    local off = min(max(0, win.spotScroll or 0), max(0, spotTotal() - SPOT_ROWS))
+    -- (1.8.0) whole pages (1-6, then 7-9), never overlapping; rows past the last spot are hidden
+    local lastPage = floor((max(1, spotTotal()) - 1) / SPOT_ROWS) * SPOT_ROWS
+    local off = min(max(0, floor((win.spotScroll or 0) / SPOT_ROWS + 0.5) * SPOT_ROWS), lastPage)
     win.spotScroll = off
     for k, r in ipairs(rows) do
       local i = off + k
-      if force or r.spot ~= i or r.spotFam ~= fam then
+      if i > spotTotal() then r.spot = nil; vis(r, false)
+      elseif force or r.spot ~= i or r.spotFam ~= fam then
+        vis(r, true)
         r.spot, r.spotFam = i, fam
         setSpotPicture(r, f.ops[i]); r.pick.tex:SetTexture(TCF.Icon(toolIcon(fam)))
         r.popT = nil; r.pop:Hide()
@@ -408,8 +416,8 @@ TCF.UI.Builders.professions = function(page, win)
     end
   end
   local spotPage = Text(spotView, "GameFontHighlightSmall", nil, "CENTER")
-  local spotUp = Button(spotView, "<", 26, 22, function() win.spotScroll = (win.spotScroll or 0) - 3; TCF:PlaySound("click"); win:Refresh() end)
-  local spotDown = Button(spotView, ">", 26, 22, function() win.spotScroll = (win.spotScroll or 0) + 3; TCF:PlaySound("click"); win:Refresh() end)
+  local spotUp = Button(spotView, "<", 26, 22, function() win.spotScroll = (win.spotScroll or 0) - SPOT_ROWS; TCF:PlaySound("click"); win:Refresh() end)
+  local spotDown = Button(spotView, ">", 26, 22, function() win.spotScroll = (win.spotScroll or 0) + SPOT_ROWS; TCF:PlaySound("click"); win:Refresh() end)
   spotDown:SetPoint("TOPRIGHT", spotView, "TOPRIGHT", -14, -6 * 61 - 2)
   spotPage:SetPoint("RIGHT", spotDown, "LEFT", -4, 0); spotPage:SetWidth(64)
   spotUp:SetPoint("RIGHT", spotPage, "LEFT", -4, 0)
@@ -420,14 +428,14 @@ TCF.UI.Builders.professions = function(page, win)
     end)
   end
   spotView:EnableMouseWheel(true)
-  spotView:SetScript("OnMouseWheel", function(_, d) win.spotScroll = (win.spotScroll or 0) - d; win:Refresh() end)
+  spotView:SetScript("OnMouseWheel", function(_, d) win.spotScroll = (win.spotScroll or 0) - d * SPOT_ROWS; win:Refresh() end)
   local function enterSpots(fam)
     local f = TCF.FAMILIES[fam]
     -- open on the newest spot this cat owns
     local s, top = TCF:ProfState(), 1
     for i = 1, spotTotal() do if s.ops[fam][i] and s.ops[fam][i].n > 0 then top = i end end
     if top < spotTotal() and TCF:SpotUnlocked(fam, top + 1) then top = top + 1 end
-    win.spotScroll = max(0, top - SPOT_ROWS)
+    win.spotScroll = floor((top - 1) / SPOT_ROWS) * SPOT_ROWS   -- the page with your newest spot
     placeRows(fam, true)
     spotView.clickHint = f.clickHint or ""
   end
@@ -456,12 +464,13 @@ TCF.UI.Builders.professions = function(page, win)
     placeRows(fam)
     local total = spotTotal()
     vis(spotPage, total > SPOT_ROWS); vis(spotUp, total > SPOT_ROWS); vis(spotDown, total > SPOT_ROWS)
-    spotPage:SetText(string.format("%d-%d of %d", win.spotScroll + 1, win.spotScroll + SPOT_ROWS, total))
-    spotUp:SetEnabled(win.spotScroll > 0); spotDown:SetEnabled(win.spotScroll < total - SPOT_ROWS)
+    spotPage:SetText(string.format("%d-%d of %d", win.spotScroll + 1, min(total, win.spotScroll + SPOT_ROWS), total))
+    spotUp:SetEnabled(win.spotScroll > 0); spotDown:SetEnabled(win.spotScroll + SPOT_ROWS < total)
     local glitch = TCF:Glitch()
     -- (1.7.0) glints and spot events while the page is open (Workshop.lua)
     local shown = {}
-    for _, r in ipairs(rows) do shown[#shown + 1] = r.spot end
+    local live = {}
+    for _, r in ipairs(rows) do if r.spot then shown[#shown + 1] = r.spot; live[#live + 1] = r end end
     if TCF.WorkshopTick then TCF:WorkshopTick(shown) end
     local gl = TCF.WorkshopGlint and TCF:WorkshopGlint()
     local ev = TCF.WorkshopEvent and TCF:WorkshopEvent()
@@ -474,7 +483,7 @@ TCF.UI.Builders.professions = function(page, win)
       spotHint:SetText(string.format("|cffffd100Glint combo %d|r: rare finds are %d%% likelier. Click the next sparkling %s by hand in time to keep it going.",
         combo, floor(min(3, 1 + 0.25 * combo) * 100 - 100 + 0.5), f.toolNoun:lower()))
     end
-    for _, r in ipairs(rows) do
+    for _, r in ipairs(live) do
       local i = r.spot
       local glinting = gl and gl.fam == fam and gl.i == i and GetTime() < gl.ends
       if glinting then
@@ -487,7 +496,16 @@ TCF.UI.Builders.professions = function(page, win)
         r.pickLabel:SetText("By hand")
       end
       local o, st = f.ops[i], s.ops[fam][i]
-      local open, why = TCF:SpotUnlocked(fam, i)
+      local open, why, whyKind = TCF:SpotUnlocked(fam, i)
+      -- (1.8.0) where you are: the highest spot you own, and the next one to buy
+      local top = 0
+      for k = 1, #s.ops[fam] do if (s.ops[fam][k].n or 0) > 0 then top = k end end
+      if top == 0 then top = 1 end   -- nothing bought yet: you work the first spot by hand
+      local isHere = i == top
+      vis(r.here, isHere); vis(r.hereBg, isHere)
+      if r.SetBackdropBorderColor then
+        if isHere then r:SetBackdropBorderColor(1, 0.82, 0.2, 1) else r:SetBackdropBorderColor(0.45, 0.40, 0.55, 1) end
+      end
       local glitched = glitch and glitch.fam == fam and glitch.i == i
       if r.icon:IsShown() then r.icon:SetDesaturated(st.n == 0) end
       if r.model:IsShown() and r.model.SetAlpha then r.model:SetAlpha(st.n == 0 and 0.5 or 1) end
@@ -507,7 +525,7 @@ TCF.UI.Builders.professions = function(page, win)
         r.bar.text:SetText(string.format("|cffcc66ffWork it by hand: %ds|r", TCF:GlitchLeft()))
       elseif not open then
         r.bar:SetValue(0)
-        r.bar.text:SetText("|cff999999Opens later (hover for how)|r")
+        r.bar.text:SetText(whyKind == "ladder" and ("|cff999999" .. why .. "|r") or "|cff999999Opens later (hover for how)|r")
       elseif st.n > 0 then
         r.bar:SetValue(st.mgr and (ct < 0.3 and 1 or st.p) or (st.run and st.p or 0))
         idle = not st.mgr and not st.run
@@ -520,7 +538,8 @@ TCF.UI.Builders.professions = function(page, win)
         end
       else
         r.bar:SetValue(0)
-        r.bar.text:SetText(i == 1 and string.format("|cffffd100%s by hand with your %s ->|r", f.verb, f.toolNoun:lower()) or "|cff888888Buy one to start|r")
+        r.bar.text:SetText(i == 1 and string.format("|cffffd100%s by hand with your %s ->|r", f.verb, f.toolNoun:lower())
+          or i == top + 1 and "|cffffd100Next: buy one to start|r" or "|cff888888Buy one to start|r")
       end
       vis(r.sel, idle)
       local nextMs
@@ -1366,6 +1385,24 @@ TCF.UI.Builders.professions = function(page, win)
   craftUp:SetPoint("RIGHT", craftPage, "LEFT", -10, 0)
   local craftDown = Button(craftView, ">", 28, 20, function() win.craftScroll = (win.craftScroll or 0) + CROWS; win:Refresh() end)
   craftDown:SetPoint("LEFT", craftPage, "RIGHT", 10, 0)
+  -- (1.8.0) search the recipes by name
+  local search = CreateFrame("EditBox", nil, craftView, "InputBoxTemplate")
+  search:SetSize(150, 20); search:SetPoint("TOPLEFT", 22, -22 - CROWS * 50 - 6)
+  if search.SetAutoFocus then search:SetAutoFocus(false) end
+  if search.SetMaxLetters then search:SetMaxLetters(40) end
+  local searchHint = Text(search, "GameFontDisableSmall", "Search recipes", "LEFT"); searchHint:SetPoint("LEFT", 2, 0)
+  local searchClear = Button(craftView, "x", 20, 20, function() search:SetText(""); if search.ClearFocus then search:ClearFocus() end end)
+  searchClear:SetPoint("LEFT", search, "RIGHT", 2, 0)
+  search:SetScript("OnTextChanged", function(self)
+    local t = self:GetText() or ""
+    searchHint:SetShown(t == "")
+    searchClear:SetShown(t ~= "")
+    if t ~= (win.craftSearch or "") then win.craftSearch = t; win.craftScroll = 0; win:Refresh() end
+  end)
+  search:SetScript("OnEscapePressed", function(self) if self.ClearFocus then self:ClearFocus() end end)
+  search:SetScript("OnEnterPressed", function(self) if self.ClearFocus then self:ClearFocus() end end)
+  searchClear:Hide()
+  win.craftSearchBox = search
   craftView:EnableMouseWheel(true)
   craftView:SetScript("OnMouseWheel", function(_, d) win.craftScroll = max(0, (win.craftScroll or 0) - d * 2); win:Refresh() end)
 
@@ -1378,7 +1415,8 @@ TCF.UI.Builders.professions = function(page, win)
   local lastCraftSig
   local function buildCraftList(key)
     -- the page refreshes several times a second: only rebuild when the craft, skill or recipes change
-    local sig = key .. ":" .. TCF:ProfSkill(key) .. ":" .. #(TCF.RECIPES[key] or {})
+    local q = (win.craftSearch or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    local sig = key .. ":" .. TCF:ProfSkill(key) .. ":" .. #(TCF.RECIPES[key] or {}) .. ":" .. q
     if sig == lastCraftSig and #craftList > 0 then
       local open = 0
       for _, e in ipairs(craftList) do if not e.locked then open = open + 1 end end
@@ -1387,7 +1425,14 @@ TCF.UI.Builders.professions = function(page, win)
     lastCraftSig = sig
     wipe(craftList)
     for idx, rec in ipairs(TCF.RECIPES[key] or {}) do
-      if TCF:RecipeItem(rec) then craftList[#craftList + 1] = { rec = rec, idx = idx, locked = recipeLocked(rec) } end
+      local it = TCF:RecipeItem(rec)
+      -- (1.8.0) the search box: the item's name, or its set's
+      local match = q == ""
+      if it and not match then
+        local def = rec.set and TCF.COSMETIC_SET_BY_KEY and TCF.COSMETIC_SET_BY_KEY[rec.set]
+        match = (it.name or ""):lower():find(q, 1, true) or (def and def.name:lower():find(q, 1, true)) and true or false
+      end
+      if it and match then craftList[#craftList + 1] = { rec = rec, idx = idx, locked = recipeLocked(rec) } end
     end
     local first = starterFirst(key)
     table.sort(craftList, function(a, b)
@@ -1522,9 +1567,9 @@ TCF.UI.Builders.professions = function(page, win)
         r.all:SetEnabled(nAll > 1)
       end
     end
-    if #craftList == 0 then craftPage:SetText("|cff888888No recipes yet.|r")
+    if #craftList == 0 then craftPage:SetText((win.craftSearch or "") ~= "" and "|cff888888No recipe matches.|r" or "|cff888888No recipes yet.|r")
     else
-      craftPage:SetText(string.format("Recipes %d-%d of %d  (mouse wheel to scroll)", off + 1, min(#craftList, off + CROWS), #craftList))
+      craftPage:SetText(string.format("Recipes %d-%d of %d", off + 1, min(#craftList, off + CROWS), #craftList))
     end
     craftUp:SetEnabled(off > 0); craftDown:SetEnabled(off < maxScroll)
   end
@@ -1658,6 +1703,25 @@ TCF.UI.Builders.professions = function(page, win)
       win:Refresh()
     end)
     r.btn:SetPoint("RIGHT", -6, 0)
+    -- (1.8.0) make it here when you can: the order's gear, or today's daily material
+    r.craft = Button(r, "Craft", 60, 24, function()
+      if not r.order then return end
+      local ok, why = TCF:CraftForOrder(r.order.id)
+      if not ok and why then TCF:Print(why) end
+      win:Refresh()
+    end)
+    r.craft:SetPoint("RIGHT", r.btn, "LEFT", -4, 0)
+    Tip(r.craft, function(tt)
+      local o = r.order
+      if not o then return end
+      local rec = TCF:OrderRecipe(o)
+      tt:AddLine("Craft for this order", 1, 0.82, 0)
+      if rec == "daily" then tt:AddLine("Makes today's daily material.", 1, 1, 1, true)
+      elseif rec then
+        local it = TCF.GEAR and TCF.GEAR[rec.gear]
+        tt:AddLine("Makes one " .. (it and it.name or "piece") .. " from your materials. A Masterwork counts too.", 1, 1, 1, true)
+      end
+    end)
     orderRows[k] = r
   end
   local gRare = Text(guildView, "GameFontHighlightSmall", nil, "LEFT"); gRare:SetPoint("TOPLEFT", 14, -380); gRare:SetWidth(520)
@@ -1746,6 +1810,7 @@ TCF.UI.Builders.professions = function(page, win)
         r.reward:SetText(string.format("%s,  +%d reputation%s  |cff777777(leaves in %s)|r", TCF.GoldStr(o.gold, 10), o.rep,
           (o.coins or 0) > 0 and string.format(",  %d TapCoins", o.coins) or "", TCF.FormatDuration(max(0, o.expires - time()))))
         r.btn:SetEnabled(have > 0 and got < o.n)
+        vis(r.craft, TCF:OrderCanCraft(o))
         r.btn:SetText(reach >= o.n and "Deliver" or "Deliver part")
       end
     end

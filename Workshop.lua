@@ -138,6 +138,14 @@ function TCF:WorkshopTick(visible, t)
   if not live(self, f) then return end
   t = t or now()
   local ws = W(self)
+  -- (1.8.0) a glint or stash on a spot you can't see (you turned the page) ends quietly
+  local onScreen = {}
+  for _, i in ipairs(visible or {}) do onScreen[i] = true end
+  if glint and not onScreen[glint.i] then glint = nil end
+  if event and event.kind == "stash" and not onScreen[event.i] then
+    event = nil
+    nextEvent = t + TCF.EVENT_GAP[1] + random() * (TCF.EVENT_GAP[2] - TCF.EVENT_GAP[1])
+  end
   -- glints
   if glint and t >= glint.ends then
     if (ws.combo or 0) > 0 then self:Print(string.format("Your combo ended at %d.", ws.combo)) end
