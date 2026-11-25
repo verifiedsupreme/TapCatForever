@@ -366,6 +366,7 @@ local W, H = 800, 600
 local CATS = {
   { key = "skin", name = "Skins" }, { key = "cos", name = "Cosmetics" }, { key = "tap", name = "Tap Effects" },
   { key = "effect", name = "Effects" }, { key = "gear", name = "Gear" }, { key = "sets", name = "Item Sets" },
+  { key = "mats", name = "Materials" },   -- (1.7.3) MatLibrary.lua: every material and where it comes from
 }
 local COS_SLOTS = { "head", "shoulder", "chest", "back", "main", "off", "acc", "race", "pattern", "fur", "pet" }
 local FILTERS = { { "all", "All" }, { "owned", "Owned" }, { "missing", "Missing" } }
@@ -535,10 +536,10 @@ function TCF:CreateCompendium()
   -- categories
   local catBtns = {}
   for i, c in ipairs(CATS) do
-    local b = Button(f, c.name, 116, 24, function()
+    local b = Button(f, c.name, 104, 24, function()
       f.cat = c.key; f.page = 1; f:Refresh(); TCF:PlaySound("click")
     end)
-    b:SetPoint("TOPLEFT", 18 + (i - 1) * 120, -44)
+    b:SetPoint("TOPLEFT", 18 + (i - 1) * 108, -44)
     b.key = c.key
     catBtns[i] = b
   end
@@ -842,7 +843,7 @@ function TCF:CreateCompendium()
     local cat = self.cat
     for _, b in ipairs(catBtns) do if b.key == cat then b:LockHighlight() else b:UnlockHighlight() end end
     for _, b in ipairs(filterBtns) do if b.key == self.filter then b:LockHighlight() else b:UnlockHighlight() end end
-    local isCos, isGear, isSets = cat == "cos", cat == "gear", cat == "sets"
+    local isCos, isGear, isSets, isMats = cat == "cos", cat == "gear", cat == "sets", cat == "mats"
     for _, b in ipairs(slotBtns) do b:SetShown(isCos); b.sel:SetShown(b.key == self.slot) end
     slotName:SetShown(isCos); slotName:SetText(TCF.SLOT_BY_KEY[self.slot].name)
     local useClass = isCos or cat == "effect" or isSets
@@ -852,14 +853,21 @@ function TCF:CreateCompendium()
     hint:SetText(cat == "skin" and "Click a skin you own to wear it. Hover any skin to see how to get it."
       or cat == "tap" and "Click a tap effect you own to use it."
       or cat == "effect" and "Click an effect you own to wear it."
-      or isSets and "Real item sets. Hover a set for its pieces, bonuses and where to get it. Shift-click to try it on."
+      or isSets and "Cosmetic sets first, then real gear sets. Hover for where to get one, click for its pieces."
+      or isMats and "Every material and where it comes from. Hover for what it's used in."
       or "Pick a zone, then a boss. World drops are listed by level, crafted gear by profession.")
     -- overall progress on cosmetics and skins
     local n, total = TCF:CountOwned()  -- the same numbers as the main window
     overall:SetText(string.format("All cosmetics and skins: %s / %s", commas(n), commas(total)))
-    grid:SetShown(not isGear and not isSets); gearView:SetShown(isGear)
+    grid:SetShown(not isGear and not isSets and not isMats); gearView:SetShown(isGear)
     if self.setsView then self.setsView:SetShown(isSets) end
-    if isSets and TCF.RefreshCompendiumSets then
+    if self.matsView then self.matsView:SetShown(isMats) end
+    if isMats and TCF.RefreshCompendiumMats then
+      local n = TCF:RefreshCompendiumMats(self, { top = TOP, width = W - 36, passes = passes, collected = collectedText, setPages = setPages })
+      empty:SetText("|cff888888No material matches.|r")
+      empty:ClearAllPoints(); empty:SetPoint("CENTER", self.matsView, "CENTER")
+      empty:SetShown(n == 0)
+    elseif isSets and TCF.RefreshCompendiumSets then
       -- (ItemSets.lua draws the list; Owned = complete sets, Missing = sets still to finish)
       local n = TCF:RefreshCompendiumSets(self, { top = TOP, width = W - 36, classKey = CLASS_CHOICES[self.classIdx][1],
         passes = passes, collected = collectedText, setPages = setPages })

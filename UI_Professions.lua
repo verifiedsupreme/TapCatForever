@@ -62,11 +62,9 @@ local function toolIcon(fam) local f = TCF.FAMILIES[fam]; return (f and f.toolIc
 
 -- skill-up colour of a recipe, spot, seed or bandage, WoW style (TCF:ProfSkillUp's own bands)
 local function skillColor(cur, need) return (TCF.SkillUpColor(cur, need)) end
--- one tooltip line: "Still teaches you: often", in its colour
-local function addTeachLine(tt, cur, need)
-  local line, col = TCF.SkillUpLine(cur, need)
-  tt:AddLine(col .. line .. "|r")
-end
+-- (1.7.3) tooltips no longer say how likely a skill point is (the colours show it, and the skill bar
+-- shows it going up)
+local function addTeachLine(tt, cur, need) end
 TCF.UI.AddTeachLine = addTeachLine
 
 -- where the pole tip of the cartoon fishing pole sits on the cat's 512-unit canvas
@@ -219,10 +217,6 @@ TCF.UI.Builders.professions = function(page, win)
     r.count = Text(r.cover, "NumberFontNormal", nil, "RIGHT"); r.count:SetPoint("BOTTOMRIGHT", -4, 4)
     r.sel = r.cover:CreateTexture(nil, "OVERLAY"); r.sel:SetPoint("TOPLEFT", -4, 4); r.sel:SetPoint("BOTTOMRIGHT", 4, -4)
     r.sel:SetTexture("Interface\\Buttons\\CheckButtonHilight"); r.sel:SetBlendMode("ADD"); r.sel:Hide()
-    -- (1.8.0) your top spot: a tag over its picture (and a gold border on the row)
-    r.hereBg = r.cover:CreateTexture(nil, "ARTWORK"); r.hereBg:SetPoint("TOPLEFT", 2, -2); r.hereBg:SetPoint("TOPRIGHT", -2, -2); r.hereBg:SetHeight(13)
-    r.hereBg:SetColorTexture(0.35, 0.25, 0.02, 0.85); r.hereBg:Hide()
-    r.here = Text(r.cover, "GameFontNormalSmall", "Your spot", "CENTER"); r.here:SetPoint("TOP", 0, -2); r.here:Hide()
     Tip(r.box, function(tt)
       local f = FT()
       local i = r.spot
@@ -497,15 +491,10 @@ TCF.UI.Builders.professions = function(page, win)
       end
       local o, st = f.ops[i], s.ops[fam][i]
       local open, why, whyKind = TCF:SpotUnlocked(fam, i)
-      -- (1.8.0) where you are: the highest spot you own, and the next one to buy
+      -- the highest spot you own (the next one says "Next: buy one to start")
       local top = 0
       for k = 1, #s.ops[fam] do if (s.ops[fam][k].n or 0) > 0 then top = k end end
-      if top == 0 then top = 1 end   -- nothing bought yet: you work the first spot by hand
-      local isHere = i == top
-      vis(r.here, isHere); vis(r.hereBg, isHere)
-      if r.SetBackdropBorderColor then
-        if isHere then r:SetBackdropBorderColor(1, 0.82, 0.2, 1) else r:SetBackdropBorderColor(0.45, 0.40, 0.55, 1) end
-      end
+      if top == 0 then top = 1 end
       local glitched = glitch and glitch.fam == fam and glitch.i == i
       if r.icon:IsShown() then r.icon:SetDesaturated(st.n == 0) end
       if r.model:IsShown() and r.model.SetAlpha then r.model:SetAlpha(st.n == 0 and 0.5 or 1) end
@@ -1294,6 +1283,9 @@ TCF.UI.Builders.professions = function(page, win)
       local have = s.mats[mk] or 0
       GameTooltip:AddDoubleLine((m and m.name) or mk, TCF.FormatBig(have) .. " / " .. TCF.FormatBig(need),
         1, 1, 1, have >= need and 0.2 or 1, have >= need and 1 or 0.3, have >= need and 0.2 or 0.3)
+      -- (1.7.3) short on it: where it comes from
+      local src = have < need and TCF.MatSource and TCF:MatSource(mk)
+      if src then GameTooltip:AddLine("   " .. src, 0.6, 0.8, 1, true) end
     end
     if rec.gear then GameTooltip:AddLine("Crafted gear goes straight into your bag.", 0.7, 0.7, 0.7, true) end
     if rec.potion then GameTooltip:AddLine("Brewing raises your Herbalism skill.", 0.7, 0.7, 0.7, true)
@@ -1403,6 +1395,16 @@ TCF.UI.Builders.professions = function(page, win)
   search:SetScript("OnEnterPressed", function(self) if self.ClearFocus then self:ClearFocus() end end)
   searchClear:Hide()
   win.craftSearchBox = search
+  -- (1.7.3) only the set recipes (the long-chase legendary sets live at the end of the list)
+  -- (kept on win, not a local: this builder is at Lua's limit of 200 locals)
+  win.craftSetsButton = Button(craftView, "Sets", 54, 20, function()
+    win.craftSetsOnly = not win.craftSetsOnly; win.craftScroll = 0; TCF:PlaySound("click"); win:Refresh()
+  end)
+  win.craftSetsButton:SetPoint("LEFT", search, "RIGHT", 26, 0)
+  Tip(win.craftSetsButton, function(tt)
+    tt:AddLine("Set recipes", 1, 0.82, 0)
+    tt:AddLine("Show only the pieces of cosmetic sets, including the legendary sets. Click again for every recipe.", 1, 1, 1, true)
+  end)
   craftView:EnableMouseWheel(true)
   craftView:SetScript("OnMouseWheel", function(_, d) win.craftScroll = max(0, (win.craftScroll or 0) - d * 2); win:Refresh() end)
 
@@ -1416,7 +1418,8 @@ TCF.UI.Builders.professions = function(page, win)
   local function buildCraftList(key)
     -- the page refreshes several times a second: only rebuild when the craft, skill or recipes change
     local q = (win.craftSearch or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-    local sig = key .. ":" .. TCF:ProfSkill(key) .. ":" .. #(TCF.RECIPES[key] or {}) .. ":" .. q
+    local setsOnly = win.craftSetsOnly and true or false
+    local sig = key .. ":" .. TCF:ProfSkill(key) .. ":" .. #(TCF.RECIPES[key] or {}) .. ":" .. q .. ":" .. tostring(setsOnly)
     if sig == lastCraftSig and #craftList > 0 then
       local open = 0
       for _, e in ipairs(craftList) do if not e.locked then open = open + 1 end end
@@ -1432,6 +1435,8 @@ TCF.UI.Builders.professions = function(page, win)
         local def = rec.set and TCF.COSMETIC_SET_BY_KEY and TCF.COSMETIC_SET_BY_KEY[rec.set]
         match = (it.name or ""):lower():find(q, 1, true) or (def and def.name:lower():find(q, 1, true)) and true or false
       end
+      -- (1.7.3) the Sets button: only the recipes of sets (the legendary sets too)
+      if setsOnly and not rec.set then match = false end
       if it and match then craftList[#craftList + 1] = { rec = rec, idx = idx, locked = recipeLocked(rec) } end
     end
     local first = starterFirst(key)
@@ -1468,10 +1473,7 @@ TCF.UI.Builders.professions = function(page, win)
       else
         craftHead:SetText(string.format("%s |cffffffff%d / 300|r    |cffaaaaaa%s %d / 300|r", f.craftName, skill, f.skillName or f.tab, TCF:ProfSkill(fam)))
       end
-      local legend = "|cffff8040always|r  |cffffff00often|r  |cff40c040sometimes|r  |cff70a070rarely|r  |cff808080no longer|r"
-      craftLegend:SetText("Teaches: " .. legend)
-      local lw = textWidth(craftLegend)
-      if type(lw) == "number" and lw > 238 then craftLegend:SetText(legend) end
+      craftLegend:SetText("")
     else
       craftHead:SetText(string.format("%s crafting  |cffffffff(skill %d / 300)|r", p and p.name or key, skill))
       if key == "herbalism" then
@@ -1566,6 +1568,9 @@ TCF.UI.Builders.professions = function(page, win)
         r.all:SetText("x" .. nAll)
         r.all:SetEnabled(nAll > 1)
       end
+    end
+    if win.craftSetsButton then
+      if win.craftSetsOnly then win.craftSetsButton:LockHighlight() else win.craftSetsButton:UnlockHighlight() end
     end
     if #craftList == 0 then craftPage:SetText((win.craftSearch or "") ~= "" and "|cff888888No recipe matches.|r" or "|cff888888No recipes yet.|r")
     else
@@ -1940,6 +1945,8 @@ TCF.UI.Builders.professions = function(page, win)
       tt:AddLine(m and m.name or key, 1, 0.82, 0)
       local cap = TCF:MatCapFor(key)
       tt:AddLine(string.format("%s%s", TCF.Commas(n), cap == math.huge and "" or (" / " .. TCF.Commas(cap))), 1, 1, 1)
+      local src = TCF.MatSource and TCF:MatSource(key)
+      if src then tt:AddLine(src, 0.6, 0.8, 1, true) end
       local uses = TCF:MatUses(key)
       if #uses == 0 then tt:AddLine("Not used by anything yet: sell it if you like.", 0.7, 0.7, 0.7, true)
       else

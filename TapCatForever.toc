@@ -76,6 +76,7 @@ UI_Shop.lua
 TreasureBag.lua
 CarePackage.lua
 ItemSets.lua
+MatLibrary.lua
 ItemSources.lua
 LootToast.lua
 Party.lua
