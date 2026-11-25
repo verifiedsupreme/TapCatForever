@@ -321,3 +321,36 @@ function TCF:WorkshopSpeedMult(f, i)
   return 1
 end
 function TCF:WorkshopBuffLeft(f) return buffUntil[f] and max(0, buffUntil[f] - now()) or 0 end
+
+-- (1.7.1) where each profession's rare drops come from, for its Help guide and the guild view
+local function oneIn(p) return p > 0 and ("1 in " .. TCF.Commas(math.floor(1 / p + 0.5))) or "never" end
+function TCF:RareDropText(prof)
+  local lines = {}
+  local fam = TCF.FAMILIES and TCF.FAMILIES[prof]
+  if fam and TCF.RARE_FINDS[prof] then
+    lines[#lines + 1] = string.format("by hand only, %s clicks from the second spot on (glint combos up to 3 times that).", oneIn(TCF.RARE_FIND_CHANCE))
+    for _, r in ipairs(TCF.RARE_FINDS[prof]) do
+      local op = fam.ops[r.spot]
+      local share = r.w >= 50 and "common" or r.w >= 20 and "less common" or "very rare"
+      lines[#lines + 1] = string.format("|cffa335ee%s|r (%s): %s and later spots", r.name, share, op and op[1] or ("spot " .. r.spot))
+    end
+  elseif prof == "herbalism" and TCF.RARE_HERBS then
+    lines[#lines + 1] = "with some harvests (Moonwell doubles the chance)."
+    for _, r in ipairs(TCF.RARE_HERBS) do
+      local lo, hi
+      for _, sd in ipairs(TCF.SEEDS or {}) do
+        if sd.rare and sd.rare[1] == r.key then lo = math.min(lo or 1, sd.rare[2]); hi = math.max(hi or 0, sd.rare[2]) end
+      end
+      local odds = lo and (lo == hi and string.format("%g%%", lo * 100) or string.format("%g to %g%%", lo * 100, hi * 100)) or "?"
+      lines[#lines + 1] = string.format("|cffa335ee%s|r: %s (%s)", r.name, TCF.RareSources(r.key), odds)
+    end
+  elseif prof == "fishing" and TCF.FISH_ODDS then
+    local o = TCF.FISH_ODDS
+    lines[#lines + 1] = "any spot; better rods and lures help, and your buddy finds them too, more rarely."
+    lines[#lines + 1] = string.format("|cffa335eeMr. Pinchy|r: about %s casts (buddy %s)", oneIn(o.pinchy), oneIn(o.buddyPinchy))
+    lines[#lines + 1] = string.format("|cffa335eeTreasure chests|r: about %s casts (buddy %s)", oneIn(o.treasure), oneIn(o.buddyTreasure))
+  else
+    return nil
+  end
+  return table.concat(lines, "\n")
+end

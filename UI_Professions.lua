@@ -1661,6 +1661,14 @@ TCF.UI.Builders.professions = function(page, win)
     orderRows[k] = r
   end
   local gRare = Text(guildView, "GameFontHighlightSmall", nil, "LEFT"); gRare:SetPoint("TOPLEFT", 14, -380); gRare:SetWidth(520)
+  -- (1.7.1) hover: where each rare find comes from
+  local gRareHover = CreateFrame("Frame", nil, guildView)
+  gRareHover:SetPoint("TOPLEFT", gRare, "TOPLEFT", 0, 2); gRareHover:SetSize(520, 16)
+  gRareHover:EnableMouse(true)
+  Tip(gRareHover, function(tt)
+    tt:AddLine("Where rare finds come from", 1, 0.82, 0)
+    tt:AddLine(TCF:RareDropText(TCF:MainProf()) or "", 1, 1, 1, true)
+  end)
   local function refreshGuild()
     local craft = TCF:CraftProf()
     local fam = TCF:MainProf()
@@ -1785,10 +1793,17 @@ TCF.UI.Builders.professions = function(page, win)
   guide:EnableMouse(true)
   guide.title = Text(guide, "GameFontNormalLarge", nil, "LEFT"); guide.title:SetPoint("TOPLEFT", 22, -20)
   guide.body = Text(guide, "GameFontHighlight", nil, "LEFT"); guide.body:SetPoint("TOPLEFT", 22, -48); guide.body:SetWidth(490)
+  -- (1.7.1) rare drops: a smaller block under the text
+  guide.rare = Text(guide, "GameFontHighlightSmall", nil, "LEFT"); guide.rare:SetPoint("TOPLEFT", guide.body, "BOTTOMLEFT", 0, -10); guide.rare:SetWidth(490)
   if guide.body.SetSpacing then guide.body:SetSpacing(3) end
   if guide.body.SetJustifyV then guide.body:SetJustifyV("TOP") end
-  local gotIt = Button(guide, "Got it", 100, 24, function() guide:Hide() end); gotIt:SetPoint("BOTTOMRIGHT", -18, 16)
+  local gotIt = Button(guide, "Got it", 100, 24, function() guide:Hide() end); gotIt:SetPoint("TOPRIGHT", -18, -16)
   guide:Hide()
+  -- (1.7.1) where this profession's rare drops come from (Workshop.lua TCF:RareDropText)
+  local function rareSection(prof)
+    local t = TCF.RareDropText and TCF:RareDropText(prof)
+    return t and ("|cffffd100Rare drops|r: " .. t) or ""
+  end
   local function showGuide(prof)
     guide.prof = prof
     local fam = TCF.FAMILIES[prof]
@@ -1798,13 +1813,14 @@ TCF.UI.Builders.professions = function(page, win)
       guide.body:SetText(string.format(
         "|cffffd100Gather|r: buy %s, then hire %s so they keep working on their own, even while you're offline. Click a %s to %s by hand with your %s. Every cycle earns Trade Gold and %s.\n\n" ..
         "|cffffd100Craft|r: open %s to turn your %s into |cff20ff20real gear with stats|r for this class (it goes to your Gear tab) or |cffcc88ffcosmetics|r that only change your cat's look (marked Cosmetic only; they go to Appearance). Crafting raises your skill and unlocks new recipes up to 300. Locked recipes show the skill they need.\n\n" ..
-        "|cffffd100Grow|r: spend Trade Gold on Upgrades. As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking. When your business is big, sell it for Renown: each point adds 2%% Trade Gold and goods, so they come faster. Selling starts a new run: the professions close until this run's Trade Gold reaches them again, which goes faster with each sale's Renown.\n\n" ..
-        "|cff999999Each class has its own Trade Gold and professions.|r",
+        "|cffffd100Grow|r: spend Trade Gold on Upgrades. As this cat earns Trade Gold it unlocks Herbalism, First Aid, Fishing and Cooking. When your business is big, sell it for Renown: each point adds 2%% Trade Gold and goods, so they come faster. Selling starts a new run: the professions close until this run's Trade Gold reaches them again, which goes faster with each sale's Renown.",
         fam.spotNounPlural, fam.hirePlural:lower(), fam.spotNoun, fam.verb:lower(), fam.toolNoun:lower(), fam.matNoun,
         fam.craftName, fam.matNoun))
+      guide.rare:SetText(rareSection(prof))
     else
       guide.title:SetText("How " .. (p and p.name or "this profession") .. " works")
       guide.body:SetText((GUIDE_OTHER[prof] or "") .. "\n\n|cff999999Each class has its own Trade Gold and professions.|r")
+      guide.rare:SetText(rareSection(prof))
     end
     guide:Show()
   end

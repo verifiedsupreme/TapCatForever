@@ -708,6 +708,7 @@ end
 -- until the rhythm breaks: a pause, a different key, or one uneven gap. Fast human mashing is never
 -- that even for that long, so it never trips this. The cat still taps along; nothing else is taken.
 TCF.AUTOCLICK_RUN, TCF.AUTOCLICK_SPREAD = 150, 0.03
+TCF.AUTOCLICK_PAUSE = 10   -- (1.7.1) seconds a caught run stops counting; then everything counts again
 local ac = { src = nil, last = 0, n = 0, lo = nil, hi = nil, blocked = false, told = 0 }
 local function autoclicked(self, now, src)
   if not src then return false end
@@ -717,6 +718,11 @@ local function autoclicked(self, now, src)
     ac.src, ac.n, ac.lo, ac.hi, ac.blocked = src, 0, nil, nil, false
     return false
   end
+  -- (1.7.1) a pause, not a lock: after AUTOCLICK_PAUSE seconds it starts over, whatever the rhythm
+  if ac.blocked and now - (ac.blockedAt or now) >= TCF.AUTOCLICK_PAUSE then
+    ac.n, ac.lo, ac.hi, ac.blocked = 0, nil, nil, false
+    return false
+  end
   local lo, hi = min(ac.lo or dt, dt), max(ac.hi or dt, dt)
   if hi - lo > TCF.AUTOCLICK_SPREAD then
     ac.n, ac.lo, ac.hi, ac.blocked = 1, dt, dt, false   -- an uneven gap: a person after all
@@ -724,10 +730,10 @@ local function autoclicked(self, now, src)
   end
   ac.n, ac.lo, ac.hi = ac.n + 1, lo, hi
   if not ac.blocked and ac.n >= TCF.AUTOCLICK_RUN then
-    ac.blocked = true
+    ac.blocked, ac.blockedAt = true, now
     if now - ac.told > 300 then
       ac.told = now
-      self:Print("That key is being pressed at a perfectly steady rhythm, like an auto-clicker, so it stopped counting for now. It counts again as soon as the rhythm changes.", true)
+      self:Print(string.format("That key is being pressed at a perfectly steady rhythm, like an auto-clicker, so it stops counting for %d seconds.", TCF.AUTOCLICK_PAUSE), true)
     end
   end
   return ac.blocked
