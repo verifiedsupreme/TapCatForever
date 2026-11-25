@@ -281,9 +281,55 @@ function TCF:OrderText(o)
   local m = TCF.MAT_BY_KEY[o.key]
   return string.format("%s wants %d %s", o.who:gsub("^%l", string.upper), o.n, m and m.name or o.key)
 end
+-- (1.8.0) a Masterwork copy counts for a gear order too (the plain ones are handed in first)
+local function mwId(key)
+  local mw = TCF.MasterworkGear and TCF.MASTERWORK_SUFFIX and (TCF.SUFFIX_ID_BASE + key * 100 + TCF.MASTERWORK_SUFFIX)
+  return mw and TCF.GEAR and TCF.GEAR[mw] and mw or nil
+end
 function TCF:OrderHave(o)
-  if o.kind == "gear" then return self.GearSpare and self:GearSpare(o.key) or 0 end
+  if o.kind == "gear" then
+    if not self.GearSpare then return 0 end
+    local mw = mwId(o.key)
+    return self:GearSpare(o.key) + (mw and self:GearSpare(mw) or 0)
+  end
   return S(self).mats[o.key] or 0
+end
+
+-- (1.8.0) make what an order wants right from the order: its gear recipe, or today's daily material
+function TCF:OrderRecipe(o, craft)
+  craft = craft or craftOf(self)
+  if o.kind == "gear" then
+    for _, r in ipairs(TCF.RECIPES[craft] or {}) do if r.gear == o.key then return r end end
+  elseif o.kind == "mat" then
+    local sp = self:Spec(craft)
+    if sp and sp.daily == o.key then return "daily" end
+  end
+  return nil
+end
+function TCF:OrderCanCraft(o, craft)
+  craft = craft or craftOf(self)
+  if (o.got or 0) + self:OrderHave(o) >= o.n then return false end
+  local r = self:OrderRecipe(o, craft)
+  if r == "daily" then
+    if self:DailyReadyIn(craft) > 0 then return false end
+    local dm = TCF.DAILY_MATS[o.key]
+    local s = S(self)
+    for m, n in pairs(dm and dm.mats or {}) do if (s.mats[m] or 0) < n then return false end end
+    return dm ~= nil
+  end
+  return r ~= nil and self:CanCraft(r)
+end
+function TCF:CraftForOrder(id, craft)
+  craft = craft or craftOf(self)
+  for _, o in ipairs(self:WorkOrders(craft)) do
+    if o.id == id then
+      if not self:OrderCanCraft(o, craft) then return false, "You can't make it right now." end
+      local r = self:OrderRecipe(o, craft)
+      if r == "daily" then return self:DailyCraft(craft) end
+      return self:Craft(r)
+    end
+  end
+  return false
 end
 
 function TCF:FillOrder(id, craft)
@@ -297,8 +343,11 @@ function TCF:FillOrder(id, craft)
       if give <= 0 then return false, "You don't have any to deliver yet." end
       if o.kind == "gear" then
         local bag = self:Bag()
-        bag[o.key] = bag[o.key] - give
-        if bag[o.key] <= 0 then bag[o.key] = nil end
+        local plain = min(give, self:GearSpare(o.key))
+        local rest = give - plain
+        if plain > 0 then bag[o.key] = bag[o.key] - plain; if bag[o.key] <= 0 then bag[o.key] = nil end end
+        local mw = rest > 0 and mwId(o.key)
+        if mw then bag[mw] = bag[mw] - rest; if bag[mw] <= 0 then bag[mw] = nil end end
       else
         local s = S(self)
         s.mats[o.key] = s.mats[o.key] - give

@@ -722,11 +722,22 @@ function TCF:SpotUnlocked(prof, i)
   -- (1.8.0) test tools: every spot open, or only the first
   local forced = self.TestForced and self:TestForced("spots")
   if forced == true then return true elseif forced == false then return i == 1, i > 1 and "Closed by the test tools." or nil end
+  local s = S(self)
+  local fam = famOf(self, prof)
+  -- (1.8.0) a ladder: a spot opens once you own one of the spot before it (a spot you own stays open)
+  if i > 1 then
+    local ops = s.ops and s.ops[fam]
+    local mine = ops and ops[i] and (ops[i].n or 0) > 0
+    local prev = ops and ops[i - 1] and (ops[i - 1].n or 0) > 0
+    if not mine and not prev then
+      local f = TCF.FAMILIES[fam]
+      local name = f and f.ops[i - 1] and (f.ops[i - 1][1]:gsub(" %b()", "")) or "the spot before it"
+      return false, string.format("Own %s %s first.", name:find("^[AEIOUaeiou]") and "an" or "a", name), "ladder"
+    end
+  end
   local u = TCF.SPOT_UNLOCKS[i]
   if not u then return true end
-  local s = S(self)
   if type(s.spotsOpen) == "table" and s.spotsOpen[i] then return true end
-  local fam = famOf(self, prof)
   local need = {}
   if u.renown and (s.renownEver or 0) < u.renown then need[#need + 1] = string.format("Renown %d (highest so far %d)", u.renown, s.renownEver or 0) end
   if u.lifetime and (s.lifetime or 0) < u.lifetime then need[#need + 1] = string.format("%s Trade Gold earned (so far %s)", TCF.FormatBig(u.lifetime), TCF.FormatBig(s.lifetime or 0)) end

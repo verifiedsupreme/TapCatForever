@@ -596,6 +596,8 @@ function TCF:CreateCompendium()
     c:SetPoint("TOPLEFT", ((i - 1) % COLS) * (CELL + GAP), -floor((i - 1) / COLS) * (CELL + GAP))
     c:SetScript("OnClick", function(s)
       local it = s.item
+      -- (1.8.0) test mode: ctrl-click gives it to you
+      if it and IsControlKeyDown and IsControlKeyDown() and TCF.TestGive and TCF:TestGive(it) then f:Refresh(); return end
       -- (1.6.3) shift-click: try it on the cat in the main window (opened if it isn't)
       if it and IsShiftKeyDown and IsShiftKeyDown() then
         TCF:CompendiumPreview(it)
@@ -680,6 +682,7 @@ function TCF:CreateCompendium()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     b:SetScript("OnClick", function(s)
+      if s.item and IsControlKeyDown and IsControlKeyDown() and TCF.TestGive and TCF:TestGive(s.item) then f:Refresh(); return end
       if s.item and IsShiftKeyDown and IsShiftKeyDown() then
         TCF:CompendiumPreview(s.item)
         s:GetScript("OnEnter")(s)
@@ -849,7 +852,7 @@ function TCF:CreateCompendium()
     hint:SetText(cat == "skin" and "Click a skin you own to wear it. Hover any skin to see how to get it."
       or cat == "tap" and "Click a tap effect you own to use it."
       or cat == "effect" and "Click an effect you own to wear it."
-      or isSets and "Real item sets. Hover a set for its pieces and bonuses."
+      or isSets and "Real item sets. Hover a set for its pieces, bonuses and where to get it. Shift-click to try it on."
       or "Pick a zone, then a boss. World drops are listed by level, crafted gear by profession.")
     -- overall progress on cosmetics and skins
     local n, total = TCF:CountOwned()  -- the same numbers as the main window
