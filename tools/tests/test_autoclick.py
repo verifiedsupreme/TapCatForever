@@ -1,5 +1,5 @@
 # 1.7.0 auto-clicker guard: one key pressed at a machine-steady rhythm for 150 presses in a row stops
-# counting until the rhythm breaks; fast human mashing (uneven gaps, several keys) is never touched.
+# counting for 10 seconds (1.7.1: a pause, never until a reload); fast human mashing (uneven gaps, several keys) is never touched.
 def check(seed, load_addon):
     lua = load_addon()
     lua.execute("math.randomseed(%d)" % seed)
@@ -10,9 +10,13 @@ def check(seed, load_addon):
       T.AutoclickTest.reset()
       -- a bot: the same key every 0.100 s (with the client's frame rounding of up to 16 ms)
       local t0 = T.db.taps
-      for i = 1, 400 do _clock = _clock + 0.1 + (i % 2) * 0.0167 - 0.008; T:OnKey("F") end
+      for i = 1, 240 do _clock = _clock + 0.1 + (i % 2) * 0.0167 - 0.008; T:OnKey("F") end
       local botTaps = T.db.taps - t0
       ck(botTaps <= 160, "a steady auto-clicker stops counting after about 150 presses: " .. botTaps)
+      -- (1.7.1) only a pause: 10 seconds later the same steady key counts again (never stuck until a reload)
+      local tp = T.db.taps
+      for i = 1, 60 do _clock = _clock + 0.1 + (i % 2) * 0.0167 - 0.008; T:OnKey("F") end
+      ck(T.db.taps - tp >= 40, "after the 10 second pause it counts again: " .. (T.db.taps - tp))
       -- the rhythm breaks: counting again
       _clock = _clock + 2
       local t1 = T.db.taps
