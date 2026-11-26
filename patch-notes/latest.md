@@ -32,3 +32,14 @@ Companion cats: 56 real WoW cats to collect, buy or earn in dungeons, one per ca
 - What a cat can really win doesn't change:
   - gear near its level
   - a real Legendary only at level 60, about 1 in 500
+
+**Better looking gear**
+- Gear on your cat now looks like one outfit instead of a pile of mismatched colours.
+- Plate and mail show as steel, leather as leather, and cloth, tabards and capes take the colour of their quality: purple for Epic, blue for Rare, green for Uncommon. Trim is brass, silver or gold.
+- A full set of Epic gear is now purple, silver and gold. Fire, frost and shadow items show it in their trim.
+- Weapons, shields and off-hand items keep their own drawings.
+
+**No more Fur slot**
+- Furs and skins were the same thing, so every fur colour is a skin now. You'll find them with the skins in the Appearance tab and the Compendium.
+- Your cats keep the look they had. A cat that wore a fur colour without a skin now wears that colour as its skin.
+<!-- image: media/1.7.4_gear.png -->
