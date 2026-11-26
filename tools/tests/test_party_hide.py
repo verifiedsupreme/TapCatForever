@@ -32,7 +32,9 @@ def check(seed, load_addon):
       T.db.ui.testMode = true
       T:TestCheat("taps")
       ck(T.db.taps == t0 + 1000, "test mode: +1,000 taps")
-      ck(T:SharedTaps() == t0 and T:LeaderboardOwnEntry().t == t0, "test taps stay yours: other players (leaderboard, party) don't get them")
+      -- (1.7.4) the given taps count for the leaderboard and party too
+      ck(T:SharedTaps() == t0 + 1000 and T:LeaderboardOwnEntry().t == t0 + 1000, "test taps count on the leaderboard and in the party message")
+      ck(T:PartyPayload():find(";" .. (t0 + 1000) .. ";", 1, true) or T:PartyPayload():find(tostring(t0 + 1000), 1, true), "the party message carries them: " .. T:PartyPayload())
       T.db.ui.testMode = false
       T:TestCheat("taps")
       ck(T.db.taps == t0 + 1000, "only in test mode")

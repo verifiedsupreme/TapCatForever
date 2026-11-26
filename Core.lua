@@ -701,11 +701,12 @@ TCF.TapFaceTest = { reset = function() face.level, face.stepAt, face.heat, face.
 TCF.TAP_FACE_NAMES = { "Keen", "Perky", "Focused", "Determined", "Excited", "Sweating", "Intense", "Starstruck", "On fire", "Legendary" }
 TCF.PET_FACE_NAMES = { "Curious", "Pleased", "Shy", "Cosy", "Purring", "Smitten", "Melty", "Lovestruck", "Blissful", "Pure love" }
 
--- the taps other players see (leaderboard, party): the lifetime taps without test-mode ones
+-- the taps other players see (leaderboard, party): the lifetime taps. (1.7.4) Test-mode taps count too
+-- (1.6.7 to 1.7.3 left them out); only the developer's own character has test mode.
 function TCF:SharedTaps()
   local db = self.db
   if not db then return 0 end
-  return max(0, (tonumber(db.taps) or 0) - (tonumber(db.testTaps) or 0))
+  return max(0, tonumber(db.taps) or 0)
 end
 
 -- (1.7.0) Auto-clicker guard, for the obvious cases only: the same key or button pressed again and
@@ -2042,10 +2043,9 @@ function TCF:TestCheat(kind)
   if not self:TestModeOn() then return end
   if kind == "coins" then self:AddCoins(5000)
   elseif kind == "taps" then
-    -- (1.6.7) lifetime taps for testing: counted here (achievements, the tap total), but never sent
-    -- to other players (leaderboard, party): TCF:SharedTaps leaves them out
+    -- lifetime taps for testing: counted everywhere, the leaderboard and party too (1.7.4)
     db.taps = (db.taps or 0) + 1000
-    db.testTaps = (db.testTaps or 0) + 1000
+    db.testTaps = nil
   elseif kind == "gold" then local s = self:ProfState(); s.gold = s.gold + 1e7; s.lifetime = s.lifetime + 1e7
   elseif kind == "renown" then
     -- professions unlock with the Trade Gold a cat has earned in total
