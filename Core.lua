@@ -45,6 +45,8 @@ end
 local iconCache = {}
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 function TCF.Icon(path, fallback)
+  -- (1.7.7) a texture of the addon's own (the made-up Legendaries' icons) is used as it is
+  if type(path) == "string" and path:find("^Interface\\AddOns\\") then return path end
   local full = TCF.ICON .. path
   local cached = iconCache[full]
   if cached then return cached end

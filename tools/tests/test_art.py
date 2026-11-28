@@ -193,7 +193,9 @@ def check(seed, load_addon):
       local n = 0
       for id in pairs(T.ITEM_ANIM) do
         n = n + 1
-        ck(T.ITEMS[id], "effect for a real item: " .. id)
+        -- (an item, or one of the made-up Legendaries: "gear:<id>", CustomGear.lua)
+        local gid = tonumber(tostring(id):match("^gear:(%d+)$"))
+        ck(T.ITEMS[id] or (gid and T.GEAR[gid] and T.GEAR[gid].custom), "effect for a real item: " .. id)
       end
       ck(n >= 35, "effects on the expensive skins and cosmetics: " .. n)
       for _, it in ipairs(T.ITEM_LIST) do

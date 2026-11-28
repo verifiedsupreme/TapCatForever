@@ -423,9 +423,13 @@ function TCF:GearTooltip(tt, it, class)
     local t = TCF.TIERS[it.tier]
     local src = it.boss > 0 and t.bosses[it.boss][1] or "enemies"
     tt:AddLine(string.format("Adventure: drops from %s (%s)%s", src, t.name, it.dc > 0 and string.format(" - %.1f%%", it.dc / 10) or ""), 0.6, 0.8, 1, true)
+  elseif it.q == 5 then
+    -- (1.7.7) Legendaries come only from the Heroic Cache and Raider's Hoard at level 60 (not a world drop)
+    tt:AddLine("Legendary: only in a Heroic Cache or Raider's Hoard opened at level 60", 0.6, 0.8, 1, true)
   else
     tt:AddLine("World drop", 0.6, 0.8, 1)
   end
+  if it.flavor then tt:AddLine("\"" .. it.flavor .. "\"", 1, 0.82, 0, true) end
   if not self:GearUsable(it, class) then tt:AddLine("Your " .. TCF.CLASS_BY_KEY[class].name .. " can't use this.", 1, 0.2, 0.2)
   elseif not self:GearSuits(it, class) then tt:AddLine("Not ideal for a " .. TCF.CLASS_BY_KEY[class].name .. " (wrong stats or weapon type).", 1, 0.6, 0.2, true) end
   local have = TCF:Bag()[it.id]
@@ -1789,7 +1793,10 @@ function TCF:CreateLootReveal()
     elseif d and d < 0 then status = status .. "  |cffff4040" .. d .. " Power if worn|r"
     elseif d then status = status .. "  |cffaaaaaaSame Power as what you wear|r" end
     if not TCF:GearUsable(it, TCF.db.class) then status = status .. "\n|cffff8040Your current class can't use it.|r" end
-    if it.q >= 5 then status = "|cffff8000A real Legendary. Very few cats ever find one.|r\n" .. status end
+    if it.q >= 5 then
+      status = (it.friend and string.format("|cffff8000A one of a kind Legendary, named for %s. Very few cats ever find one.|r\n", it.friend)
+        or "|cffff8000A real Legendary. Very few cats ever find one.|r\n") .. status
+    end
     self.status:SetText(status)
     local canEquip = TCF:CanEquipGear(it, TCF.db.class)
     self.equip:SetShown(canEquip and true or false)

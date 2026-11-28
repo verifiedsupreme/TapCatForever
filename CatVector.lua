@@ -169,6 +169,8 @@ function Cat:VecTint(r, g, b, a)
 end
 
 local function iconOf(it)
+  -- (1.7.7) a made-up item has its own drawing (CustomGear.lua)
+  if it and it.vec then return it.vec end
   return it and it.icon and string.lower(it.icon)
 end
 
@@ -185,7 +187,7 @@ local function artOf(it, slot)
   if not it then return nil end
   -- (1.7.4) armour is drawn as one dyed outfit (Gear.lua), not from each item's own icon: icon drawings
   -- side by side clashed. Weapons, shields and held items keep their icon drawings.
-  if it.gear and not (OUTFIT_SLOT[slot] and not TCF.GearIconArmour) then
+  if it.gear and (it.vec or not (OUTFIT_SLOT[slot] and not TCF.GearIconArmour)) then
     local k = iconOf(it)
     local e, ok = k and TCF.VEC[k], SLOT_KIND[slot]
     if e and (not ok or ok[e[8]]) then return k, nil end

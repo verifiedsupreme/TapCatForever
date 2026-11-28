@@ -242,7 +242,7 @@ local function gearLines(it, add)
         parts[#parts + 1] = string.format("about 1 in %d %s", floor(1 / ch.legendary + 0.5), ch.plural or (ch.name .. "s"))
       end
     end
-    add("A real Legendary, never a world drop. Only " .. (#parts > 0 and table.concat(parts, " and ") or "special chests") .. " hold one")
+    add((it.friend and ("A one of a kind Legendary, named for " .. it.friend .. ", never a world drop.") or "A real Legendary, never a world drop.") .. " Only " .. (#parts > 0 and table.concat(parts, " and ") or "special chests") .. " hold one")
     add("The chest picks a Legendary your cat's class can use, preferring one made for that class")
     add("Raider's Hoards come from raids: raid bosses and first clears in Adventure, real raids and raid expeditions")
     return

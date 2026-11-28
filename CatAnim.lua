@@ -26,7 +26,9 @@ local SMALL = 90                     -- cats smaller than this get no particles 
 local MASK_WRAP = "CLAMPTOBLACKADDITIVE"
 
 local function animOf(it)
-  if not it or it.gear then return nil end
+  if not it then return nil end
+  -- (1.7.7) gear has no effects, except the made-up Legendaries (CustomGear.lua)
+  if it.gear then return it.custom and TCF.ITEM_ANIM[it.id] or nil end
   return TCF.ITEM_ANIM[it.id] or (it.art and TCF.VEC_ANIM[it.art])
 end
 TCF.AnimOf = animOf
@@ -365,8 +367,8 @@ function Cat:AnimApply(look)
     if layers then
       local drawSlot = (slot == "off" and offIsWeapon) and "offw" or slot
       local side = TCF.VEC_FOLLOW[drawSlot .. "_x"]
-      local base = it.art and ("cos:" .. it.art .. ":f")
-      if base and not TCF.VEC[base] then base = "cos:" .. it.art .. ":a" end
+      local base = it.vec or (it.art and ("cos:" .. it.art .. ":f"))
+      if base and not it.vec and not TCF.VEC[base] then base = "cos:" .. it.art .. ":a" end
       addLayers(self, layers, { order = PIECE_ORDER[drawSlot], side = side, flip = drawSlot == "offw", mask = base, look = look })
     end
   end

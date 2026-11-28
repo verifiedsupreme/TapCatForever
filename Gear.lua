@@ -42,9 +42,13 @@ local NOT_CLASSIC = {
   { 23587, 23587 },   -- Mirren's Drinking Hat
   { 23700, 23999 },   -- engineering goggles and gadgets, Nolkai's Lantern, Robes of Silvermoon, Azure Watch Robes
 }
+-- (1.7.7) made-up items (CustomGear.lua) have ids from here up: never a real WoW item id (those are
+-- under 100000), below the random-suffix ids
+TCF.CUSTOM_ID_BASE = 9000000
 -- Is this a Classic item? (id: a gear id, random-suffix ids count as their base; ilvl: its item level)
 function TCF.IsClassicItem(id, ilvl)
   if not id then return false end
+  if id >= TCF.CUSTOM_ID_BASE and id < TCF.SUFFIX_ID_BASE then return (ilvl or 0) <= TCF.CLASSIC_MAX_ILVL end
   if id >= TCF.SUFFIX_ID_BASE then id = floor((id - TCF.SUFFIX_ID_BASE) / 100) end
   if id >= TCF.CLASSIC_MAX_ID or (ilvl or 0) > TCF.CLASSIC_MAX_ILVL then return false end
   for _, r in ipairs(NOT_CLASSIC) do
@@ -1146,7 +1150,8 @@ local function look(art, it, slot)
   local roles = OUTFIT[art]
   local c1 = roles and outfitColour(roles[1], it) or tintFor(it, 0)
   local c2 = roles and outfitColour(roles[2], it) or tintFor(it, 1)
-  return { id = "gear:" .. it.id, art = art, c1 = c1, c2 = c2, rarity = it.q, slot = slot, name = it.name, icon = it.icon, gear = true }
+  return { id = "gear:" .. it.id, art = art, c1 = c1, c2 = c2, rarity = it.q, slot = slot, name = it.name, icon = it.icon, gear = true,
+    vec = it.vec, custom = it.custom }
 end
 
 -- Visible look items for a class from its equipped gear: head, chest, back, main, off
@@ -1172,6 +1177,9 @@ function TCF:GearAppearance(class, override)
   if b then out.back = look("back_cape", b, "back") end
   local m = get("MAINHAND")
   if class == "HUNTER" and get("RANGED") then m = get("RANGED") end
+  -- (1.7.7) a made-up Legendary wand is shown in the paw all the time, not only in fights
+  local rw = get("RANGED")
+  if rw and rw.custom and rw.sub == "wand" then m = rw end
   if m then
     local art = ART_FOR.WEAPON[m.sub] or "wpn_sword"
     if m.slot == "2H" and m.sub == "sword" then art = "wpn_greatsword" end

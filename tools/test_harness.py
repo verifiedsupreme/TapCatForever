@@ -656,7 +656,8 @@ TEST = r'''
     TapCatForeverDB.chars["Oldwar-Forever"] = { class = "WARRIOR", trade = { gold = 1, ops = { mining = { { n = 5, p = 0, run = false, mgr = false } } },
       mats = { copper = 9 }, pickLvl = 4, skill = { mining = 30 }, last = time() } }
     login("Oldwar"); s = TCF:ProfState()
-    check(s.ops.mining[1].n == 5 and s.mats.copper == 9 and TCF:ToolLevel("mining") == 4 and TCF:ProfSkill("mining") == 30, "an old Warrior keeps Mining")
+    check(s.ops.mining[1].n == 5 and s.mats.copper == 9 and TCF:ToolLevel("mining") == 4 and TCF:ProfSkill("mining") == 30, "an old Warrior keeps Mining: " ..
+      tostring(s.ops.mining[1].n) .. " " .. tostring(s.mats.copper) .. " " .. tostring(TCF:ToolLevel("mining")) .. " " .. tostring(TCF:ProfSkill("mining")))
     TapCatForeverDB.chars["Oldrogue-Forever"] = { class = "ROGUE", trade = { gold = 1 } }
     login("Oldrogue"); s = TCF:ProfState()
     check(s.ops.skinning[6] and TCF:ToolLevel() == 0 and s.mats and s.upgrades, "a sparse old save is repaired")
@@ -1717,10 +1718,31 @@ TEST = r'''
         "Andonisus and the Ashbringer placeholder never drop")
       for _, it in ipairs(legs) do check(it.id ~= 22736 and it.ilvl <= 92, "a Classic legendary: " .. it.name) end
       for _, list in pairs(TCF.WORLD_POOL) do for _, it in ipairs(list) do check(it.id ~= 22736, "Andonisus is not world loot") end end
-      for _, it in ipairs(TCF:LegendariesFor("MAGE")) do check(it.name:find("^Atiesh"), "a Mage's legendaries are Atiesh: " .. it.name) end
+      -- (1.7.7) a Mage's legendaries: Atiesh, or Ziggu's wand (CustomGear.lua, any wand user)
+      local function mageLeg(it) return it and (it.name:find("^Atiesh") or it.id == TCF.CUSTOM_ID_BASE + 5) end
+      for _, it in ipairs(TCF:LegendariesFor("MAGE")) do check(mageLeg(it), "a Mage's legendaries are Atiesh or Ziggu's wand: " .. it.name) end
+      local sawWand = false
       for k = 1, 60 do
         local it = TCF:RollLegendary("MAGE")
-        check(it and it.name:find("^Atiesh"), "a Mage's Legendary roll gives Atiesh: " .. tostring(it and it.name))
+        check(mageLeg(it), "a Mage's Legendary roll gives Atiesh or Ziggu's wand: " .. tostring(it and it.name))
+        if it and it.custom then sawWand = true end
+      end
+      check(sawWand, "Ziggu's wand can come from a Mage's Legendary roll")
+      -- (1.7.7) the made-up Legendaries: all level 60, in the Legendary pool, each the one its class prefers
+      check(#TCF.CUSTOM_LEGENDARIES == 5, "five made-up Legendaries")
+      for _, it in ipairs(TCF.CUSTOM_LEGENDARIES) do
+        check(it.q == 5 and it.req == 60 and not it.retired and it.custom and TCF.VEC[it.vec] and it.icon:find("ic_tcf_", 1, true),
+          "a made-up Legendary, level 60, with its own drawing and icon: " .. it.name)
+        check(not it.name:find("[!(]"), "plain name: " .. it.name)
+        local inPool = false
+        for _, l in ipairs(TCF:Legendaries()) do if l == it then inPool = true end end
+        check(inPool, "in the Legendary pool: " .. it.name)
+        check(TCF.ITEM_ANIM["gear:" .. it.id], "its own effects: " .. it.name)
+      end
+      for cls, k in pairs({ DRUID = 1, HUNTER = 2, PALADIN = 3, PRIEST = 4 }) do
+        local found = false
+        for _, it in ipairs(TCF:LegendariesFor(cls)) do if it.id == TCF.CUSTOM_ID_BASE + k then found = true end end
+        check(found, "the " .. cls .. "'s made-up Legendary is one it can roll")
       end
       -- the Heroic Cache's skin odds only show while there is a shop skin left to find
       do
@@ -2146,7 +2168,7 @@ TEST = r'''
           check(inPool[it], "suffix item drops: " .. it.name)
           perBase[it.base] = (perBase[it.base] or 0) + 1
         else
-          check(it.id < 100000 or it.masterwork, "a real item id: " .. it.id)
+          check(it.id < 100000 or it.masterwork or it.custom, "a real item id: " .. it.id)
         end
         if it.retired then nRetired = nRetired + 1; check(not inPool[it], "a random-suffix base no longer drops: " .. it.name) end
       end
