@@ -5,7 +5,7 @@
 -- back and forth beside your cat on screen, on the other side from the party cats, and can be turned off.
 local ADDON, TCF = ...
 
-TCF.COMPANION_WALK_PRICE = 500000   -- (1.7.5) half a million (1,000,000 in 1.7.4)
+TCF.COMPANION_WALK_PRICE = 250000   -- (1.7.8) a quarter million (500,000 in 1.7.5, 1,000,000 in 1.7.4)
 
 -- key, name, display id (CreatureDisplayInfo), price (0: earned only), rarity (1-5), tier key whose clear
 -- in Adventure earns it, a short line about it.

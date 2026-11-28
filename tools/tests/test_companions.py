@@ -1,6 +1,6 @@
 # 1.7.4 companion cats (Companions.lua, UI_Companions.lua): real WoW cat models bought with TapCoins or
 # earned by clearing dungeons, owned by the account, chosen per class cat; the character panel slot; the
-# Companion Cats window; Companion Stroll (500,000 TapCoins since 1.7.5) walks the companion beside the cat on the
+# Companion Cats window; Companion Stroll (250,000 TapCoins since 1.7.8) walks the companion beside the cat on the
 # other side from the party cats, and can be turned off; models the game can't load are hidden.
 
 def check(seed, load_addon):
@@ -24,7 +24,7 @@ def check(seed, load_addon):
       ck(#T.COMPANIONS >= 40, "lots of companions: " .. #T.COMPANIONS)
       ck(cheapest == 50000 and dearest == 1000000, "50,000 to 1,000,000: " .. cheapest .. " " .. dearest)
       ck(nEarned >= 8, "some only from dungeons and raids: " .. nEarned)
-      ck(T.COMPANION_WALK_PRICE == 500000, "Companion Stroll: half a million (1.7.5)")
+      ck(T.COMPANION_WALK_PRICE == 250000, "Companion Stroll: 250,000 (1.7.8)")
 
       -- buying: not enough coins, then bought; it goes on the cat you're playing
       db.coins = 40000
@@ -75,9 +75,9 @@ def check(seed, load_addon):
       T:CompanionRefresh()
       local w = T.CompanionWalkerFrame()
       ck(not (w and w:IsShown()), "no walker without Companion Stroll")
-      db.coins = 499999
-      ck(not T:BuyCompanionWalk(), "500,000 needed")
-      db.coins = 550000
+      db.coins = 249999
+      ck(not T:BuyCompanionWalk(), "250,000 needed")
+      db.coins = 300000
       ck(T:BuyCompanionWalk() and db.coins == 50000 and T:CompanionWalkOn(), "Companion Stroll bought")
       w = T.CompanionWalkerFrame()
       ck(w and w:IsShown() and w.comp and w.comp.key == "orange", "the companion walks beside the cat")
