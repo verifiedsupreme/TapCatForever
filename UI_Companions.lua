@@ -12,23 +12,29 @@ local ANIM_STAND = 0
 -- WoW animation ids (AnimationData): a model without one plays its stand instead
 TCF.COMPANION_ANIM = { stand = 0, walk = 4, sit = 97, sleep = 100 }
 TCF.COMPANION_CURIOUS = 6        -- tapping face level (1-10) that makes it curious: a long fast streak, never a single tap
--- (1.7.5) the companion's size and room. VIS is how tall the cat looks (a little bigger than a party
--- cat). The model frame is ROOM times taller, with the camera ROOM times further back, so the cat looks
--- VIS tall with space all round: its tail, legs and side-on body aren't cut off by the frame's box. The
--- model frame is wide because a cat walking past is long. WoW frames a model by the frame's height.
-local VIS, ROOM = 52, 1.6
-local MODEL_H = floor(VIS * ROOM + 0.5)
-local MODEL_W = floor(VIS * 2.6 + 0.5)
+-- (1.7.6) the companion's size and place. It's drawn in a 3D scene like the Adventure enemies
+-- (UI_Adventure.lua's measured fit): the game measures the model, it's scaled to stand VIS tall, its feet
+-- go on the scene's middle row, and the scene is far bigger than any cat, so nothing is ever cut off by
+-- a box (1.7.5's PlayerModel frame was: WoW reset its camera when the model loaded, and big cats are
+-- about 2.7 times as long as they are tall). Without the 3D scene API it falls back to a PlayerModel.
+local VIS = 52                               -- how tall it stands: a little bigger than a party cat (40)
 local SPAN = 32                              -- how far it walks back and forth: never far from your cat
-local WALK_W, WALK_H = MODEL_W + SPAN, MODEL_H
 -- your cat's drawing stands FEET above the bottom of its frame and is INSET from each side (the
 -- 120-pixel cat); the companion's feet go level with your cat's, its nose GAP from your cat's side
 local FEET, INSET, GAP = 11, 18, 4
+local MINI_INSET = 6                         -- a party cat's drawing inside its 40-pixel frame
+local SCENE_W, SCENE_H = VIS * 9, VIS * 5    -- the scene, centred on the ground under the companion
+local MAX_LEN = VIS * 3.2                    -- a very long model is drawn smaller to stay this long at most
+local HALF_GUESS = VIS * 1.35                -- half its side-on length until the model is measured
+-- the PlayerModel fallback: ROOM times taller than the cat, the camera ROOM times further back (set
+-- again once the model has loaded), wide enough for a long cat side-on
+local ROOM = 1.6
+local MODEL_H = floor(VIS * ROOM + 0.5)
+local MODEL_W = floor(VIS * 3.4 + 0.5)
 local BASE_Y = FEET - (MODEL_H - VIS) / 2    -- the model frame's bottom: the cat in it stands at FEET
-local NEAR = GAP - INSET - floor((MODEL_W - VIS * 1.5) / 2)   -- the strip overlaps your cat's empty margin
 TCF.COMPANION_SPAN, TCF.COMPANION_VIS, TCF.COMPANION_ROOM = SPAN, VIS, ROOM
-TCF.COMPANION_GEOM = { modelW = MODEL_W, modelH = MODEL_H, baseY = BASE_Y, near = NEAR, feet = FEET, inset = INSET, gap = GAP }
-local MODEL = MODEL_W
+TCF.COMPANION_GEOM = { feet = FEET, inset = INSET, gap = GAP, miniInset = MINI_INSET, sceneW = SCENE_W, sceneH = SCENE_H,
+  maxLen = MAX_LEN, modelW = MODEL_W, modelH = MODEL_H, baseY = BASE_Y }
 local SPEED = 13                             -- pixels a second
 local CHECK_AFTER = 0.6                      -- seconds before asking whether the model loaded
 
@@ -47,6 +53,16 @@ local function setModel(m, c, facing, anim)
   pcall(m.SetFacing, m, facing or 0)
   pcall(m.SetAnimation, m, anim or ANIM_STAND)
   m.check, m.retried = CHECK_AFTER, nil
+  -- (1.7.6) the game resets the camera when the model finishes loading: set it again then
+  m.camFacing = facing or 0
+  if not m.camHooked and m.SetScript then
+    m.camHooked = true
+    pcall(m.SetScript, m, "OnModelLoaded", function(self)
+      pcall(self.SetPortraitZoom, self, 0)
+      pcall(self.SetCamDistanceScale, self, self.camScale or 1)
+      pcall(self.SetFacing, self, self.camFacing or 0)
+    end)
+  end
 end
 TCF.CompanionSetModel = setModel
 
@@ -62,6 +78,7 @@ local function checkModel(m, e)
     -- maybe still loading: set it again and look once more a little later
     m.retried = true
     pcall(m.SetDisplayInfo, m, m.comp.display)
+    pcall(m.SetCamDistanceScale, m, m.camScale or 1)
     m.check = 2
     return false
   end
@@ -76,13 +93,37 @@ TCF.CompanionCheckModel = checkModel
 
 ---------------------------------------------------------------- the walker
 local walker
+local MF = function() return TCF.UI and TCF.UI.ModelFit end
+local FIT_CHECK, FIT_SETTLE, FIT_GIVEUP = 0.6, 0.5, 6
+
+-- how far out the companion's middle is from the edge it walks beside: its nose GAP from that edge
+local function outward()
+  return walker.right and walker.x or (SPAN - walker.x)
+end
+local function centreOffset()
+  return GAP + (walker.halfLen or HALF_GUESS) + outward()
+end
+
+-- put the drawing where the companion is now (lift: a hop)
+local function placeBody(lift)
+  local d, y = centreOffset(), FEET + (lift or 0)
+  local corner = walker.right and "BOTTOMLEFT" or "BOTTOMRIGHT"
+  local dx = walker.right and d or -d
+  if walker.mode == "scene" then
+    walker.scene:ClearAllPoints()
+    walker.scene:SetPoint("CENTER", walker, corner, dx, y)
+  elseif walker.model then
+    walker.model:ClearAllPoints()
+    walker.model:SetPoint("BOTTOM", walker, corner, dx, BASE_Y + (lift or 0))
+  end
+end
 
 local function placeWalker()
   local cat = TCF.cat
   if not walker or not cat or not cat.frame then return end
   -- the opposite side from the party cats (Settings: Party cats side, right unless set to left; where
   -- the row really is when it's showing), unless that side is off the screen: then the other side
-  -- (beyond the row, if it's there)
+  -- (just past the party cats really shown, if they're there)
   local row = TCF.PartyRowFrame and TCF.PartyRowFrame()
   local rowShown = row and row:IsShown()
   local ui = TCF.db and TCF.db.ui
@@ -94,18 +135,18 @@ local function placeWalker()
   local sw = UIParent and UIParent.GetWidth and UIParent:GetWidth()
   local hs = hud and hud.GetEffectiveScale and hud:GetEffectiveScale()
   local us = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
-  -- on the party cats' side it walks just past the cats really shown (not the row's whole frame)
   local function beyondOn(sideRight)
     if rowShown and (row.left and true or false) == (not sideRight) then return row.usedW or row:GetWidth() or 0 end
     return 0
   end
-  -- the room a side needs: from your cat's edge out to the far end of the companion's body (the model
-  -- frame's empty outer margin may hang past the screen edge)
-  local margin = floor((MODEL_W - VIS * 1.5) / 2)
-  local function needOn(sideRight)
+  -- the edge it walks beside, out from your cat's frame: your cat's drawing, or the last party cat's
+  local function edgeOn(sideRight)
     local b = beyondOn(sideRight)
-    local near = b > 0 and (b + GAP - margin) or NEAR
-    return near + WALK_W - margin
+    return b > 0 and (b - MINI_INSET) or -INSET
+  end
+  -- the room a side needs, from your cat's frame out to the far end of the companion
+  local function needOn(sideRight)
+    return edgeOn(sideRight) + GAP + 2 * (walker.halfLen or HALF_GUESS) + SPAN
   end
   if type(l) == "number" and type(r) == "number" and type(sw) == "number" and type(hs) == "number" and type(us) == "number" and us > 0 then
     local k = hs / us
@@ -117,26 +158,34 @@ local function placeWalker()
   if walker.right == right and walker.beyond == beyond and walker.placed then return end
   walker.beyond = beyond
   walker.right, walker.placed = right, true
+  local edge = edgeOn(right)
+  walker.edge = edge
   walker:ClearAllPoints()
-  -- next to your cat; past the party cats it keeps its own small gap instead
-  local near = beyond > 0 and (beyond + GAP - floor((MODEL_W - VIS * 1.5) / 2)) or NEAR
-  walker.near = near
-  if right then walker:SetPoint("BOTTOMLEFT", cat.frame, "BOTTOMRIGHT", near, 0)
-  else walker:SetPoint("BOTTOMRIGHT", cat.frame, "BOTTOMLEFT", -near, 0) end
+  if right then walker:SetPoint("BOTTOMLEFT", cat.frame, "BOTTOMRIGHT", edge, 0)
+  else walker:SetPoint("BOTTOMRIGHT", cat.frame, "BOTTOMLEFT", -edge, 0) end
+  placeBody(walker.lift)
 end
 
 local function face(dir)
-  local m = walker.model
-  pcall(m.SetFacing, m, dir * TCF.COMPANION_FACE_RIGHT)
+  walker.faceDir = dir
+  if walker.mode == "scene" then
+    -- the scene's camera looks at the model's front; a quarter turn shows its side, toward screen-right
+    -- or screen-left (cal.side: which way screen-right is in the scene)
+    local side = walker.cal and walker.cal.side or -1
+    pcall(walker.actor.SetYaw, walker.actor, math.pi - dir * (math.pi / 2) * side)
+  elseif walker.model then
+    pcall(walker.model.SetFacing, walker.model, dir * TCF.COMPANION_FACE_RIGHT)
+  end
 end
 local function anim(id)
   if walker.anim == id then return end
   walker.anim = id
-  pcall(walker.model.SetAnimation, walker.model, id)
+  if walker.mode == "scene" then pcall(walker.actor.SetAnimation, walker.actor, id)
+  elseif walker.model then pcall(walker.model.SetAnimation, walker.model, id) end
 end
 
--- the end of the strip next to your cat, and which way your cat is from the companion
-local function catEnd() return walker.right and 0 or (WALK_W - MODEL) end
+-- the end of its walk next to your cat, and which way your cat is from the companion
+local function catEnd() return walker.right and 0 or SPAN end
 local function towardCat() return walker.right and -1 or 1 end
 
 -- resting: stand, sit or (now and then, for longer) lie down for a nap
@@ -154,10 +203,10 @@ local function startIdle()
 end
 
 local function startWalk(target)
-  local span = WALK_W - MODEL
+  local span = SPAN
   if not target then
     target = random() * span
-    if math.abs(target - walker.x) < 20 then target = (walker.x < span / 2) and span or 0 end
+    if math.abs(target - walker.x) < 10 then target = (walker.x < span / 2) and span or 0 end
   end
   walker.target = target
   walker.walking = true
@@ -194,15 +243,106 @@ local function goSitWatch(self, spot, sway, e)
   end
 end
 
+---------------------------------------------------------------- the 3D scene: load, measure, fit
+local function useClassic(why)
+  walker.mode, walker.classicWhy = "classic", why
+  if walker.scene then walker.scene:Hide() end
+  if not walker.model then
+    local m = CreateFrame("PlayerModel", nil, walker)
+    m:SetSize(MODEL_W, MODEL_H)
+    m.camScale = ROOM
+    walker.model = m
+  end
+  walker.halfLen = HALF_GUESS
+  if walker.comp then setModel(walker.model, walker.comp) end
+  walker.anim = nil
+  placeBody(walker.lift)
+end
+
+-- start showing companion c (the scene, or the fallback)
+local function loadComp(c)
+  walker.halfLen, walker.fit = nil, nil
+  if walker.mode == "classic" then
+    walker.halfLen = HALF_GUESS
+    setModel(walker.model, c); walker.anim = nil
+    return
+  end
+  local a, sc = walker.actor, walker.scene
+  local call = MF().call
+  call(a, "ClearModel")
+  -- hidden until it has been measured and placed; measured unturned at scale 1
+  call(a, "SetAlpha", 0); call(a, "SetScale", 1); call(a, "SetPosition", 0, 0, 0); call(a, "SetYaw", 0)
+  local ok, res = pcall(a.SetModelByCreatureDisplayID, a, c.display)
+  if not ok then useClassic("SetModelByCreatureDisplayID failed: " .. tostring(res)); return end
+  if res == false then TCF:CompanionModelMissing(c.key); walker:Hide(); return end
+  sc:Show()
+  walker.fit = { t = 0 }
+  walker.anim = nil
+end
+
+-- every frame while the model is loading: measure it, then scale it and aim the camera
+local function fitStep(e)
+  local st, a, sc = walker.fit, walker.actor, walker.scene
+  local M = MF()
+  local call = M.call
+  st.t = st.t + e
+  local okL, loaded = call(a, "IsLoaded")
+  if okL then loaded = loaded and true or false else loaded = nil end
+  if loaded == nil then
+    if st.t < FIT_CHECK then return end
+    if not st.checked then
+      st.checked = true
+      local okF, file = call(a, "GetModelFileID")
+      if okF and (not file or file == 0) then TCF:CompanionModelMissing(walker.comp.key); walker:Hide(); return end
+    end
+  elseif not loaded then
+    if st.t > FIT_GIVEUP then TCF:CompanionModelMissing(walker.comp.key); walker:Hide() end
+    return
+  end
+  st.lt = (st.lt or 0) + e
+  local mb = M.measuredBox(a)
+  if not mb and st.lt < FIT_SETTLE then return end
+  -- the scene may need a frame before it can project points: wait a moment for it
+  local cal = M.calibrate(sc, (st.ct or 0) >= 0.3)
+  if not cal then st.ct = (st.ct or 0) + e; return end
+  local box = M.chooseBox(walker.comp.display, mb)
+  local h = box.z2 - box.z1
+  if h <= 0 then h = 1 end
+  local s = VIS / (h * cal.k)
+  -- turned toward the camera, its near end is closer and looks a little bigger: never taller than VIS
+  local D = M.FIT.CAM_DIST
+  local depth = math.max(box.x2 - box.x1, box.y2 - box.y1) / 2 * s
+  s = s * math.max(0.5, (D - depth) / D)
+  -- side-on: its length across the screen, its near corners a little bigger (its width is the depth)
+  local L, Wd = math.max(box.x2 - box.x1, box.y2 - box.y1), math.min(box.x2 - box.x1, box.y2 - box.y1)
+  local function sideLen(sc_) return L * sc_ * cal.k * D / math.max(D * 0.5, D - Wd / 2 * sc_) end
+  local len = sideLen(s)
+  if len > MAX_LEN then s = s * MAX_LEN / len; len = sideLen(s) end
+  walker.cal, walker.fitScale = cal, s
+  walker.halfLen = len / 2
+  call(a, "SetScale", s); call(a, "SetPosition", 0, 0, 0)
+  -- camera level with the ground, its feet on the scene's middle row, its middle at the scene's centre
+  call(sc, "SetCameraPosition", -M.FIT.CAM_DIST, 0, box.z1 * s - (cal.H / 2 - cal.v0) / cal.k)
+  call(sc, "SetCameraOrientationByYawPitchRoll", 0, 0, 0)
+  sc.calArmed = nil
+  walker.fit = nil
+  walker.placed = false; placeWalker(); placeBody(walker.lift)
+  face(walker.faceDir or towardCat() * 0.35)
+  local id = walker.anim; walker.anim = nil; anim(id or TCF.COMPANION_ANIM.stand)
+  call(a, "SetAlpha", 1)
+end
+
 local function walkerUpdate(self, e)
-  if checkModel(self.model, e) then self:Hide(); return end
+  if self.mode == "scene" then
+    if self.fit then fitStep(e); if self.fit or not self:IsShown() then return end end
+  elseif self.model and checkModel(self.model, e) then self:Hide(); return end
   self.placeT = (self.placeT or 0) - e
   if self.placeT <= 0 then self.placeT = 1; placeWalker() end
   local m, level = mood()
   local was = self.mood
   self.mood = m
   local lift = 0
-  local span = WALK_W - MODEL
+  local span = SPAN
   if m == "pet" then
     goSitWatch(self, catEnd(), false, e)
     if level >= 10 and not self.walking then lift = hop(self, e, 6) end   -- a happy hop when your cat purrs
@@ -232,24 +372,29 @@ local function walkerUpdate(self, e)
     if self.wait <= 0 then startWalk() end
   end
   if lift == 0 then self.hopT = 0 end
-  self.model:ClearAllPoints()
-  self.model:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", self.x, BASE_Y + lift)
+  self.lift = lift
+  placeBody(lift)
 end
 
 local function createWalker()
   local hud = TCF.hud
   if not hud or not TCF.cat then return nil end
   local f = CreateFrame("Frame", "TapCatForeverCompanion", hud)
-  f:SetSize(WALK_W, WALK_H)
-  local m = CreateFrame("PlayerModel", nil, f)
-  m:SetSize(MODEL_W, MODEL_H)
-  m:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, BASE_Y)
-  m.camScale = ROOM
-  f.model = m
-  f.x = (WALK_W - MODEL) / 2
+  f:SetSize(SPAN + 2 * HALF_GUESS + GAP, VIS)
+  f.x = SPAN / 2
+  walker = f
+  local M = MF()
+  local sc, a, why
+  if M then sc, a, why = M.newScene(f) else why = "no 3D fit" end
+  if sc then
+    sc:SetSize(SCENE_W, SCENE_H)
+    f.scene, f.actor, f.mode = sc, a, "scene"
+  else
+    useClassic(why)
+  end
   f:SetScript("OnUpdate", walkerUpdate)
   -- set the model again whenever it comes back (a hidden model can come back empty)
-  f:SetScript("OnShow", function(self) if self.comp then setModel(self.model, self.comp); self.anim = nil; startIdle() end end)
+  f:SetScript("OnShow", function(self) if self.comp then loadComp(self.comp); startIdle() end end)
   f:Hide()
   return f
 end
@@ -262,19 +407,18 @@ function TCF:CompanionRefresh()
     if walker then walker.comp = nil; walker:Hide() end
     return
   end
-  if not walker then walker = createWalker(); if not walker then return end end
+  if not walker then if not createWalker() then return end end
   local changed = walker.comp ~= c
   walker.comp = c
   walker.placed = false
   placeWalker()
   if changed or not walker:IsShown() then
-    setModel(walker.model, c)
-    walker.anim = nil
-    walker.model:ClearAllPoints()
-    walker.model:SetPoint("BOTTOMLEFT", walker, "BOTTOMLEFT", walker.x, BASE_Y)
-    startIdle()
+    local wasShown = walker:IsShown()
+    walker:Show()
+    -- (a hidden walker loads its model in OnShow)
+    if wasShown then loadComp(c); startIdle() end
+    placeBody(walker.lift)
   end
-  walker:Show()
 end
 TCF.CompanionWalkerFrame = function() return walker end
 

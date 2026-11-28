@@ -8,6 +8,15 @@
 - The Ironclad Panther is now the Spotted War Saber, an armored saber with black spots. If you bought it, it's still yours.
 - The Flamecat is gone from the shop. The fire cat is the Molten Firecat, earned in Molten Core. If you bought the Flamecat, you got your 650,000 TapCoins back.
 
+**Companion Stroll, no more box**
+- Your companion is now drawn the same way as the Adventure enemies: the game measures each cat, sizes it to stand just taller than a party cat, and puts its feet level with your cat's.
+- It has plenty of room all round, so no box cuts it off, even with your cat at its biggest size.
+- Big cats like tigers and sabers stay close beside your cat too.
+
+**Heroic Cache prizes you can really win**
+- The Top prizes on the Shop banner are now the best gear the Heroic Cache can give your cat right now, best first.
+- The reel only shows prizes your cat can win too. Level 60 prizes no longer show up locked before your cat can get them.
+
 ## 1.7.5
 
 **Companion cats you can really see**

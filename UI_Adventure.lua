@@ -563,6 +563,12 @@ function TCF.UI.AdvLogFit(list, fs, h)
   return text
 end
 
+-- (1.7.6) the measured 3D fit, shared with the Companion Stroll (UI_Companions.lua)
+TCF.UI.ModelFit = {
+  FIT = FIT, call = call, newScene = newScene, calibrate = calibrate, measuredBox = measuredBox,
+  chooseBox = chooseBox, project = project,
+}
+
 -- for the tests: the fit's parts (tools/tests/test_adv_fit.py)
 TCF.UI.AdvFitLab = {
   FIT = FIT, PANEL_W = PANEL_W, PANEL_H = PANEL_H, SLOT_Y = SLOT_Y, slotGeometry = slotGeometry, animEnvelope = animEnvelope,

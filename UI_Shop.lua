@@ -194,11 +194,7 @@ TCF.UI.Builders.shop = function(page, win)
     b:SetScript("OnEnter", function(s)
       if not s.item then return end
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, s.item)
-      if s.need then
-        GameTooltip:AddLine(string.format("A Heroic Cache opened by a level-%d cat can hold this.", s.need), 1, 0.82, 0, true)
-      else
-        GameTooltip:AddLine("In this chest's prize pool.", 0.3, 1, 0.3, true)
-      end
+      GameTooltip:AddLine("One of the best prizes this chest can give your cat now.", 0.3, 1, 0.3, true)
       GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -219,40 +215,33 @@ TCF.UI.Builders.shop = function(page, win)
   Tip(ban, function(tt) if heroic then TCF:ChestOddsTooltip(tt, heroic, true) end end)
   Tip(banOpen, function(tt) if heroic then TCF:ChestOddsTooltip(tt, heroic, true) end end)
 
+  -- (1.7.6) the best gear this cat can really get from the Heroic Cache now (its own class and level,
+  -- raid boss Epics from 55, Legendaries at 60), best first. 1.7.4 showed level-60 prizes locked.
   local prizeKey
-  local function needFor(it, level, raid)
-    if it.q == 5 and level < 60 then return 60 end
-    if raid[it] and level < 55 then return 55 end
-  end
   local function refreshPrizes()
     local level = TCF:ChestLevel()
-    local key = tostring(db().class) .. ":" .. (level >= 60 and 2 or level >= 55 and 1 or 0)
+    local key = tostring(db().class) .. ":" .. level
     if key == prizeKey then return end
     prizeKey = key
-    local legends = {}
-    for _, it in ipairs(TCF.LegendariesFor and TCF:LegendariesFor() or {}) do legends[#legends + 1] = it end
-    local raidList, raid = {}, {}
-    for _, it in ipairs(TCF.RaidHoardPool and TCF:RaidHoardPool(nil, true) or {}) do
-      if not raid[it] then raid[it] = true; raidList[#raidList + 1] = it end
+    local list, seen = {}, {}
+    local function add(it) if it and not seen[it] then seen[it] = true; list[#list + 1] = it end end
+    if level >= 60 then for _, it in ipairs(TCF.LegendariesFor and TCF:LegendariesFor() or {}) do add(it) end end
+    if level >= 55 then for _, it in ipairs(TCF.RaidHoardPool and TCF:RaidHoardPool(nil, true) or {}) do add(it) end end
+    for _, q in ipairs({ 4, 3 }) do
+      for _, it in ipairs(TCF:ChestGearPool(db().class, level, q) or {}) do add(it) end
     end
-    local byIlvl = function(a, b)
+    table.sort(list, function(a, b)
+      if (a.q or 0) ~= (b.q or 0) then return (a.q or 0) > (b.q or 0) end
       if (a.ilvl or 0) ~= (b.ilvl or 0) then return (a.ilvl or 0) > (b.ilvl or 0) end
       return (a.id or 0) < (b.id or 0)
-    end
-    table.sort(legends, byIlvl); table.sort(raidList, byIlvl)
-    local list = {}
-    for i = 1, min(2, #legends) do list[#list + 1] = legends[i] end
-    for i = 1, #raidList do if #list >= 6 then break end; list[#list + 1] = raidList[i] end
-    table.sort(list, byIlvl)
+    end)
     for i, b in ipairs(prizeCells) do
       local it = list[i]
       if it then
         b:Show(); b:SetGear(it)
-        local need = needFor(it, level, raid)
-        b.need = need
-        b.lock:SetShown(need ~= nil)
-        b.lvl:SetText(need and tostring(need) or "")
-        b.icon:SetVertexColor(need and 0.75 or 1, need and 0.75 or 1, need and 0.75 or 1)
+        b.need = nil
+        b.lock:Hide(); b.lvl:SetText("")
+        b.icon:SetVertexColor(1, 1, 1)
       else
         b:Hide(); b.item = nil
       end

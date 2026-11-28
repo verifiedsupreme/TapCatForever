@@ -1,6 +1,6 @@
 # 1.7.4 Heroic Cache: price and odds, the opening reel's speed (full speed, then a brake onto the
 # prize) and what the Heroic Cache's reel shows (a set mix of what the chest can really hold for
-# the cat, plus a few locked big prizes, never the same item twice on screen). Real drops are
+# the cat, never the same item twice on screen; since 1.7.6 only what the cat can win now). Real drops are
 # unchanged: a young cat still can't win gear far above its level or a legendary.
 def check(seed, load_addon):
     lua = load_addon()
@@ -64,15 +64,14 @@ def check(seed, load_addon):
             ck(deck[j].it ~= d.it, tag .. ": " .. tostring(d.it.name) .. " twice on screen (" .. i .. ", " .. j .. ")")
           end
           if isHeroic and i ~= LAND then
-            if not d.locked and d.it.q then
+            -- (1.7.6) only what this cat can win now: nothing locked, no gear above its level, raid
+            -- boss Epics from 55, Legendaries at 60
+            ck(not d.locked, tag .. ": a locked card (" .. tostring(d.it.name) .. ")")
+            if d.it.q then
               ck((d.it.req or 0) <= level + 3 or (level >= 55 and d.it.q == 4),
-                tag .. ": unlocked gear the chest can't give: " .. d.it.name .. " req " .. tostring(d.it.req))
-              ck(d.it.q < 5 or level >= 60, tag .. ": an unlocked legendary below 60")
+                tag .. ": gear the chest can't give: " .. d.it.name .. " req " .. tostring(d.it.req))
+              ck(d.it.q < 5 or level >= 60, tag .. ": a legendary below 60")
             end
-            if d.it.q == 5 and level < 60 then ck(d.locked and d.need == 60, tag .. ": a legendary below 60 is locked at 60") end
-            if d.kind == "chase" and level < 55 then ck(d.locked, tag .. ": big prizes are locked below 55 (" .. d.it.name .. ")") end
-            if level >= 60 then ck(not d.locked, tag .. ": nothing is locked at 60 (" .. d.it.name .. ")") end
-            if d.locked then ck(i < LAND - 4 or i > LAND + 4, tag .. ": a locked card next to the prize (" .. i .. ")") end
             if d.kind == "chase" then ck(i < LAND - 4, tag .. ": a big prize among the last cards on screen (" .. i .. ")") end
             -- the card itself
             local c = T.reel.cards[i]
@@ -98,21 +97,19 @@ def check(seed, load_addon):
             local deck = spin(level, "heroic", prize, prize.q)
             local kinds = deckChecks(tag, deck, prize, level, true)
             for k, n in pairs(kinds) do if totals[k] then totals[k] = totals[k] + n end end
-            ck((kinds.chase or 0) == 4, tag .. ": 4 big prizes, got " .. tostring(kinds.chase))
+            ck((kinds.chase or 0) == (level >= 55 and 4 or 0), tag .. ": big prizes only from 55, got " .. tostring(kinds.chase))
             ck((kinds.skin or 0) == 2, tag .. ": 2 shop skins, got " .. tostring(kinds.skin))
-            -- two of the big prizes are legendaries the class can use, at every level
+            -- at 60, two of the big prizes are legendaries the class can use; none before
             local legs = 0
             for _, d in ipairs(deck) do if d.kind == "chase" and d.it.q == 5 then legs = legs + 1 end end
-            ck(legs == math.min(2, #T:LegendariesFor()), tag .. ": legendaries among the big prizes: " .. legs)
+            ck(legs == (level >= 60 and math.min(2, #T:LegendariesFor()) or 0), tag .. ": legendaries among the big prizes: " .. legs)
             local seen, dup = {}, false
             for _, d in ipairs(deck) do if seen[d.it] then dup = true end; seen[d.it] = true end
             if not dup then allDistinct = allDistinct + 1 end
-            -- the hint names the level, and the lock level when there are locked cards
+            -- the hint names the level, and never locked prizes
             local hint = T.reel.hint:GetText()
             ck(hint:find("level " .. level .. "%.") ~= nil, tag .. ": hint " .. hint)
-            local anyLocked = false
-            for _, d in ipairs(deck) do if d.locked then anyLocked = true end end
-            ck((hint:find("Locked prizes need level") ~= nil) == anyLocked, tag .. ": lock hint " .. hint)
+            ck(hint:find("Locked prizes") == nil, tag .. ": no lock hint " .. hint)
             ck(not hint:find("!") and not hint:find("\226\128\148"), tag .. ": hint wording")
           end
         end
@@ -205,4 +202,4 @@ def check(seed, load_addon):
     if problems:
         raise AssertionError("heroic cache:\n" + problems)
     print(mix)
-    print("heroic cache section (price 1,600, odds, reel speed, reel deck with locked big prizes, real drops unchanged): all checks passed")
+    print("heroic cache section (price 1,600, odds, reel speed, reel deck with only prizes the cat can win now, real drops unchanged): all checks passed")

@@ -86,18 +86,18 @@ def check(seed, load_addon):
       -- (1.7.5) close to your cat, level with it, a little bigger, with room so nothing is cut off
       ck(T.COMPANION_SPAN <= 40, "it never walks far from your cat: " .. T.COMPANION_SPAN)
       ck(T.COMPANION_VIS > 44, "a little bigger than before")
+      -- (without the 3D scene API, as in this mock) the PlayerModel fallback: room all round, the
+      -- camera set again once the model has loaded, its feet level with your cat's
       local G = T.COMPANION_GEOM
-      ck(G.modelH >= T.COMPANION_VIS * 1.5 and G.modelW >= T.COMPANION_VIS * 2.4 and w.model.camScale == T.COMPANION_ROOM,
+      ck(w.mode == "classic" and w.model, "this mock has no ModelScene: the PlayerModel fallback (" .. tostring(w.classicWhy) .. ")")
+      ck(G.modelH >= T.COMPANION_VIS * 1.5 and G.modelW >= T.COMPANION_VIS * 3.2 and w.model.camScale == T.COMPANION_ROOM,
          "the model frame has room all round, camera further back: " .. G.modelW .. "x" .. G.modelH)
       ck(math.abs(G.modelH / T.COMPANION_ROOM - T.COMPANION_VIS) < 1, "so the cat still looks its size")
-      -- the cat in the model frame is VIS tall in the middle: its feet stand level with your cat's
       local feet = G.baseY + (G.modelH - T.COMPANION_VIS) / 2
       ck(math.abs(feet - G.feet) < 1 and G.feet > 0, "its feet are level with your cat's: " .. feet)
-      ck(w.near == G.near and G.near < 0 and G.near > -60, "the strip starts inside your cat's empty margin: " .. tostring(w.near))
-      -- standing at the end by your cat, side on (about 1.5 VIS long), its nose is GAP from your cat
-      -- (the strip reaches -near into your cat's frame, the cat in the model frame starts its margin in)
-      local nose = G.inset + G.near + (G.modelW - T.COMPANION_VIS * 1.5) / 2
-      ck(math.abs(nose - G.gap) <= 1, "close beside your cat: " .. nose)
+      ck(w.model.scripts and w.model.scripts.OnModelLoaded, "the camera is set again when the model loads")
+      -- it walks beside your cat's drawing: the anchor is INSET into your cat's frame
+      ck(w.edge == -G.inset, "beside your cat's drawing: " .. tostring(w.edge))
       -- (1.7.5) Settings: which side the party cats stand on; the companion takes the other
       local ui = db.ui
       ck(ui.partySide == "right", "party cats on the right by default")
@@ -130,10 +130,9 @@ def check(seed, load_addon):
         T.db.ui.testMode = true; T:PartyTestInject(1); T.db.ui.testMode = false
         T.PartyRefresh(); T:CompanionRefresh()
         local G = T.COMPANION_GEOM
-        local margin = math.floor((G.modelW - T.COMPANION_VIS * 1.5) / 2)
         ck(row.left == false and w.right == true, "no room on the left: the companion goes right, with the party cat")
         ck(w.beyond == row.usedW and row.usedW <= 50, "past the one party cat really shown: " .. tostring(w.beyond) .. " " .. tostring(row.usedW))
-        ck(w.near == row.usedW + G.gap - margin, "its nose just past that cat: " .. tostring(w.near))
+        ck(w.edge == row.usedW - G.miniInset, "it walks beside that cat's drawing: " .. tostring(w.edge))
         -- no room on either side: it stays opposite the party cats
         hud.GetRight = function() return 1195 end
         w.placed = false; T:CompanionRefresh()
@@ -159,7 +158,6 @@ def check(seed, load_addon):
         ck(w.mood == "calm" and not w.running, "a few taps: calm")
         T.PurrFaceLevel = function() return 4 end
         for _ = 1, 400 do fn(w, 0.05) end
-        local catEnd = w.right and 0 or (w:GetWidth() > 0 and nil)
         ck(w.mood == "pet" and not w.walking and w.anim == T.COMPANION_ANIM.sit, "being petted: it sits by your cat")
         ck(math.abs(w.x - (w.right and 0 or T.COMPANION_SPAN)) < 1, "right next to your cat: " .. w.x)
         T.PurrFaceLevel = function() return 0 end
@@ -227,6 +225,116 @@ def check(seed, load_addon):
       return table.concat(fails, "; ")
     ''')
     assert r == "", "companions: " + r
+
+    # (1.7.6) the 3D scene fit (in the game: a ModelScene like the Adventure enemies). A mock ModelScene
+    # with a level perspective camera (tools/tests/test_adv_fit.py's) and an actor whose measured box is
+    # the companion's size data: every companion, at several cat sizes, is drawn VIS tall with its feet
+    # level with your cat's, its whole body (any turn) well inside the scene, and its nose GAP from your
+    # cat's drawing at the near end of its walk
+    S = load_addon()
+    r = S.execute(r'''
+      local T = TapCatForever
+      local fails = {}
+      local function ck(c, m) if not c and #fails < 12 then fails[#fails + 1] = m end end
+      local FIT = T.UI.ModelFit.FIT
+      local G = T.COMPANION_GEOM
+      local function noop() end
+      local function obj(t) return setmetatable(t, { __index = function(_, k) if type(k) == "string" and k:match("^%u") then return noop end end }) end
+      local es = 1
+      local scenes = {}
+      local realCreate = CreateFrame
+      CreateFrame = function(kind, name, parent, ...)
+        if kind ~= "ModelScene" then return realCreate(kind, name, parent, ...) end
+        local sc = realCreate("Frame", name, parent)
+        sc.W, sc.H, sc.cam = 0, 0, { -FIT.CAM_DIST, 0, 0 }
+        function sc:GetWidth() return self.W end
+        function sc:GetHeight() return self.H end
+        function sc:SetSize(w, h) self.W, self.H = w, h end
+        function sc:GetEffectiveScale() return es end
+        function sc:SetCameraPosition(x, y, z) self.cam = { x, y, z } end
+        function sc:SetCameraOrientationByYawPitchRoll() end
+        function sc:Project3DPointTo2D(x, y, z)
+          local d = x - self.cam[1]
+          if d <= 0 then return nil end
+          local f = (self.H / 2) / math.tan(FIT.FOV / 2)
+          return (self.W / 2 - (y - self.cam[2]) * f / d) * es, (self.H / 2 + (z - self.cam[3]) * f / d) * es, d
+        end
+        function sc:CreateActor()
+          local a = obj({ s = 1, yaw = 0 })
+          function a:SetModelByCreatureDisplayID(id) self.id = id; return true end
+          function a:SetScale(v) self.s = v end
+          function a:GetScale() return self.s end
+          function a:SetYaw(y) self.yaw = y end
+          function a:IsLoaded() return true end
+          function a:GetActiveBoundingBox()
+            local d = T.MODEL_BOUNDS[self.id]
+            return -d[2] / 2, -d[3] / 2, d[4], d[2] / 2, d[3] / 2, d[4] + d[1]
+          end
+          sc.actor = a
+          return a
+        end
+        scenes[#scenes + 1] = sc
+        return sc
+      end
+      -- the drawn box of the actor in its scene (UI units from the scene's bottom-left), turned by yaw
+      local function drawn(sc, a, yaw)
+        local d = T.MODEL_BOUNDS[a.id]
+        local c, s_ = math.cos(yaw), math.sin(yaw)
+        local u1, u2, v1, v2 = math.huge, -math.huge, math.huge, -math.huge
+        for _, x in ipairs({ -d[2] / 2, d[2] / 2 }) do
+          for _, y in ipairs({ -d[3] / 2, d[3] / 2 }) do
+            for _, z in ipairs({ d[4], d[4] + d[1] }) do
+              local rx, ry = x * c - y * s_, x * s_ + y * c
+              local u, v = sc:Project3DPointTo2D(rx * a.s, ry * a.s, z * a.s)
+              u, v = u / es, v / es
+              u1, u2, v1, v2 = math.min(u1, u), math.max(u2, u), math.min(v1, v), math.max(v2, v)
+            end
+          end
+        end
+        return u1, u2, v1, v2
+      end
+      local db = T.db
+      db.coins = 1e9
+      T:BuyCompanionWalk()
+      local n, worst = 0, 0
+      for _, scale in ipairs({ 0.5, 1, 2, 3 }) do
+        es = scale
+        for _, c in ipairs(T.COMPANIONS) do
+          T:CompanionState().owned[c.key] = 1
+          T:SetCompanion(c.key)
+          local w = T.CompanionWalkerFrame()
+          ck(w and w.mode == "scene", "the 3D scene is used: " .. tostring(w and w.classicWhy))
+          for _ = 1, 30 do if w.fit then w.scripts.OnUpdate(w, 0.05) end end
+          ck(not w.fit and w:IsShown(), c.key .. ": fitted")
+          local sc, a = w.scene, w.actor
+          if not w.fit and a and a.id == c.display then
+            n = n + 1
+            local W, H = sc.W, sc.H
+            -- side-on (walking) and the turns it rests in
+            for _, yaw in ipairs({ math.pi, math.pi / 2, -math.pi / 2, math.pi * 0.8 }) do
+              local u1, u2, v1, v2 = drawn(sc, a, yaw)
+              local tall = v2 - v1
+              -- feet on the middle row, as tall as VIS (a very long cat a little smaller)
+              ck(math.abs(v1 - H / 2) < 1, string.format("%s x%.1f: feet on the ground line (%.1f, %.1f)", c.key, scale, v1, H / 2))
+              ck(tall <= T.COMPANION_VIS + 1 and tall >= T.COMPANION_VIS * 0.55, string.format("%s x%.1f: %.0f px tall", c.key, scale, tall))
+              -- the whole body (and room for a hop and a stretch) well inside the scene
+              local room = math.min(u1, W - u2, H - v2)
+              worst = math.max(worst, 1 - room / (W / 2))
+              ck(room >= T.COMPANION_VIS * 0.8, string.format("%s x%.1f: room to the scene's edge %.0f", c.key, scale, room))
+              ck(u2 - u1 <= G.maxLen + 2 or yaw ~= math.pi / 2, string.format("%s: %.0f px long side-on", c.key, u2 - u1))
+            end
+            -- at the near end of its walk, side-on, its nose is GAP from your cat's drawing: the scene's
+            -- centre is GAP + halfLen + 0 out from the edge, and half its side-on length is halfLen
+            local u1, u2 = drawn(sc, a, math.pi / 2)
+            ck(math.abs((u2 - u1) / 2 - w.halfLen) < 2, string.format("%s: half its length %.1f vs %.1f", c.key, (u2 - u1) / 2, w.halfLen))
+          end
+        end
+      end
+      _out = string.format("%d fits", n)
+      return table.concat(fails, "; ")
+    ''')
+    assert r == "", "companions (3D fit): " + r
+    fits = S.eval("_out")
 
     # (1.7.5) every companion is a cat in WoW: Forever's own game data, no two the same look
     import os
@@ -306,4 +414,4 @@ def check(seed, load_addon):
       return table.concat(fails, "; ")
     ''')
     assert r == "", "companions (1.7.5 save): " + r
-    print("companion cats section (%s): all checks passed" % "50,000 to 1,000,000 TapCoins, earned by clearing dungeons, per-class choice, Companion Stroll walker on the far side from the party cats, missing models, the window and the panel slot")
+    print("companion cats section (%s; 3D fit: %s): all checks passed" % ("50,000 to 1,000,000 TapCoins, earned by clearing dungeons, per-class choice, Companion Stroll walker on the far side from the party cats, missing models, the window and the panel slot", fits))

@@ -124,7 +124,8 @@ local function lockLevel(it, level, raid)
 end
 
 -- The Heroic Cache's strip (ch.reel): a mix chosen to show what the chest can really hold
--- for this cat, plus a few big prizes it can't win yet (locked, with the level they need).
+-- for this cat. (1.7.6) Only what it can win now: Legendaries at 60, raid boss Epics from 55, and
+-- no gear above its level (1.7.4 showed bigger prizes locked, with the level they need).
 -- Returns COUNT entries { it, rarity, locked, kind } with the prize at LAND.
 local function buildDeck(ch, prize, prizeRarity, level)
   local class = TCF.db.class
@@ -151,10 +152,8 @@ local function buildDeck(ch, prize, prizeRarity, level)
   -- the big prizes: two legendaries, then raid boss Epics (the best ones while the cat is
   -- young). Cards are drawn from the end of a pool, so the legendaries go last.
   local nChase = mix.chase or 0
-  local bigLegends = bestOf(legends, 8, min(2, nChase))
-  local wantRaid = nChase - #bigLegends
-  if level >= 55 then pools.chase = shuffle(copy(raidAll))
-  else pools.chase = bestOf(raidAll, 8, wantRaid) end
+  local bigLegends = level >= 60 and bestOf(legends, 8, min(2, nChase)) or {}
+  pools.chase = level >= 55 and shuffle(copy(raidAll)) or {}
   copy(bigLegends, pools.chase)
   -- where a card goes when its own pool has run dry ("cosmetic4": an Epic or better cosmetic,
   -- so a cat too young for Epic gear still sees Epics it can really win)
@@ -209,7 +208,7 @@ local function buildDeck(ch, prize, prizeRarity, level)
       for pass = 1, 2 do
         for k = #pool, 1, -1 do
           local it = pool[k]
-          if seen[it] then table.remove(pool, k)
+          if seen[it] or lockLevel(it, level, raid) then table.remove(pool, k)   -- (1.7.6) nothing it can't win yet
           elseif rarityOf(it) >= minRarity and (pass == 2 or not near[it.icon or "?"]) then
             table.remove(pool, k); seen[it] = true
             return it, from == "cosmetic4" and "cosmetic" or from

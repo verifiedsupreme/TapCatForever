@@ -111,22 +111,29 @@ def check(seed, load_addon):
       end
       ck(S.banner.name:GetText() == "Heroic Cache", "the banner's name")
 
-      -- Featured at level 34: the odds chips, the locked top prizes and the offers
+      -- Featured at level 34: the odds chips, the top prizes (1.7.6: only gear this cat can win now,
+      -- best first, nothing locked) and the offers
       T:CD().level = 34
       win:Refresh()
       local chips = {}
       for _, c in ipairs(S.banner.chips) do chips[#chips + 1] = c:GetText() or "" end
       local all = table.concat(chips, " | ")
       ck(all:find("Rare gear", 1, true) and all:find("Legendary: level 60", 1, true) and all:find("Cat skin", 1, true), "chips at 34: " .. all)
-      local locked, shown = 0, 0
+      local shown, lastQ, lastI = 0, 9, 9999
+      local lv = T:ChestLevel()
+      local pool = {}
+      for _, q in ipairs({ 3, 4 }) do for _, it in ipairs(T:ChestGearPool(T.db.class, lv, q)) do pool[it] = true end end
       for _, b in ipairs(S.banner.prizes) do
         if b:IsShown() then
           shown = shown + 1
-          if b.lock:IsShown() then locked = locked + 1; ck(b.lvl:GetText() == tostring(b.need) and (b.need == 55 or b.need == 60), "a lock shows its level") end
-          if b.item.q == 5 then ck(b.need == 60, "a legendary needs 60") end
+          ck(not b.lock:IsShown() and (b.lvl:GetText() or "") == "", "level 34: no lock on " .. b.item.name)
+          ck(pool[b.item], "level 34: a prize this cat can win now: " .. b.item.name)
+          ck(b.item.q < 5 and (b.item.req or 0) <= lv + 3, "level 34: nothing above its level: " .. b.item.name)
+          ck(b.item.q < lastQ or (b.item.q == lastQ and (b.item.ilvl or 0) <= lastI), "best first")
+          lastQ, lastI = b.item.q, b.item.ilvl or 0
         end
       end
-      ck(shown >= 4 and locked == shown, "level 34: every top prize is locked: " .. locked .. "/" .. shown)
+      ck(shown >= 4, "level 34: top prizes shown: " .. shown)
       T:CD().level = 60
       win:Refresh()
       chips = {}
