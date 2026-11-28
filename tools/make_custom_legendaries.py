@@ -169,6 +169,30 @@ def robe_shua():
     s += P("M 100 120 L 128 146 L 156 120 L 146 116 L 128 134 L 110 116 Z", gold, 3)
     return GLOW(P(BODY_OUT, "#000"), "#fff6b0") + s
 
+# ------------------------------------------------------------------ Iverson's Headband (1.7.9): a pink mullet under a sweatband
+def headband_iverson():
+    from vector_items import HEAD_TF
+    pink, light_, deep, band, red, blue = "#ff6fb5", "#ffb8dc", "#d8478f", "#fbfbf6", "#e0283c", "#2f6ff0"
+    s = ""
+    # the mullet: long pink locks spilling down both sides, past the cheeks onto the shoulders
+    lock = "M 50 84 Q 24 112 30 150 Q 34 176 22 204 Q 40 200 46 186 Q 50 206 40 226 Q 62 214 64 190 Q 70 160 62 120 Z"
+    s += P(lock, pink, 5) + mirror(P(lock, pink, 5), 128)
+    for d in ("M 40 120 Q 36 160 30 196", "M 52 130 Q 50 170 48 210"):
+        s += LN(d, deep, 3) + mirror(LN(d, deep, 3), 128)
+    s += LN("M 46 104 Q 40 140 38 170", light_, 3) + mirror(LN("M 46 104 Q 40 140 38 170", light_, 3), 128)
+    # big fluffy hair on top, a fringe of points over the band
+    top = ("M 42 96 Q 30 40 76 22 Q 100 6 128 12 Q 160 4 186 24 Q 226 42 214 96 "
+           "L 200 104 L 190 92 L 176 104 L 164 92 L 150 104 L 138 92 L 128 104 L 118 92 L 106 104 L 94 92 L 80 104 L 68 92 L 56 104 Z")
+    s += P(top, pink, 5)
+    for d in ("M 70 40 Q 84 30 98 32", "M 120 24 Q 136 18 150 24", "M 168 36 Q 182 42 190 56"):
+        s += LN(d, light_, 4)
+    s += LN("M 96 60 Q 128 46 160 60", deep, 3)
+    # the sweatband: white, with a red and a blue stripe, a little logo in the middle
+    s += P("M 40 78 Q 128 58 216 78 L 216 98 Q 128 78 40 98 Z", band, 4.5)
+    s += LN("M 42 84 Q 128 64 214 84", red, 3) + LN("M 42 92 Q 128 72 214 92", blue, 3)
+    s += RC(118, 68, 20, 14, band, 3, 3) + LN("M 122 75 L 134 75", red, 3)
+    return "<g %s>%s</g>" % (HEAD_TF, s)
+
 # ------------------------------------------------------------------ their own effect sprites (new, used by nothing else)
 # White shapes are tinted by the effect's colour; the coffee bean keeps its own colours.
 W = "#ffffff"
@@ -200,6 +224,11 @@ SPRITES = {
     # a tiny cat head (Ziggu)
     "a_tcf_cat": _sv('<path d="M 12 30 L 10 6 L 26 18 Q 32 16 38 18 L 54 6 L 52 30 Q 56 54 32 58 Q 8 54 12 30 Z" fill="%s"/>'
                      '<circle cx="24" cy="34" r="4" fill="#cccccc"/><circle cx="40" cy="34" r="4" fill="#cccccc"/>' % W),
+    # a heart (Iverson)
+    "a_tcf_heart": _sv('<path d="M 32 56 Q 6 38 8 22 Q 10 8 22 8 Q 30 8 32 18 Q 34 8 42 8 Q 54 8 56 22 Q 58 38 32 56 Z" fill="%s"/>' % W),
+    # a little basketball, in its own colours
+    "a_tcf_ball": _sv('<circle cx="32" cy="32" r="24" fill="#f08a2c" stroke="#3b2620" stroke-width="3.5"/>'
+                      '<path d="M 8 32 L 56 32 M 32 8 L 32 56 M 15 15 Q 26 32 15 49 M 49 15 Q 38 32 49 49" fill="none" stroke="#3b2620" stroke-width="2.5"/>'),
     # a four-point tap star
     "a_tcf_star": _sv('<path d="M 32 2 Q 36 28 62 32 Q 36 36 32 62 Q 28 36 2 32 Q 28 28 32 2 Z" fill="%s"/>' % W),
 }
@@ -220,6 +249,7 @@ ITEMS = [  # key, drawing, kind (the VEC kind), icon framing (zoom into the draw
     ("bd_hammer", hammer_justice, "weapon"),
     ("shua_robe", robe_shua, "chest"),
     ("ziggu_wand", wand_ziggu, "weapon"),
+    ("iverson_band", headband_iverson, "head"),
 ]
 
 def pow2(n):

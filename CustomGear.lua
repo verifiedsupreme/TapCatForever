@@ -23,6 +23,10 @@ local LEGENDS = {
   { 5, "ziggu_wand", "Ziggu's Wand of Endless Taps", "RANGED", "wand",
     "min=120,max=223,spd=1.6,dps=107.19,sta=12,int=16,sp=36,critr=14", nil, "Ziggu",
     "Tap. Tap. Tap. It never gets tired, and neither does Ziggu." },
+  -- (1.7.9) a head piece any class can wear
+  { 6, "iverson_band", "Iverson's Headband", "HEAD", "cloth",
+    "arm=95,str=14,agi=14,sta=26,int=14,spi=10,crit=1,hit=1", nil, "Iverson",
+    "Business in the front. Party in the back." },
 }
 
 TCF.CUSTOM_LEGENDARIES = {}
@@ -80,3 +84,9 @@ A["gear:" .. (B + 4)] = { shine({ 1, 0.95, 0.75 }), glow("a_tcf_halo", 6, 100, 5
 A["gear:" .. (B + 5)] = { shine({ 1, 0.8, 1 }), glow("a_glow", 240, 50, 272, 260, { 1, 0.45, 0.95 }, 0.55, 1, 3),
   float("a_tcf_cat", { 260, 80, 512, 270 }, { 1, 0.55, 1 }, { 0.7, 0.6, 1 }, 10, { 32, 46 }, { -50, -24 }, { -1, 1 }),
   twinkle("a_tcf_star", { { 270, 80, 510, 270 } }, { 1, 0.95, 0.7 }, 7, { 42, 62 }) }
+-- Iverson's Headband: pink hearts floating off the mullet, little basketballs bouncing up both sides, a pink glow
+A["gear:" .. (B + 6)] = { shine({ 1, 0.8, 0.9 }), glow("a_glow", 20, -20, 472, 330, { 1, 0.45, 0.75 }, 0.5, 0.95, 2),
+  float("a_tcf_heart", { 30, -10, 482, 120 }, { 1, 0.45, 0.75 }, { 1, 0.75, 0.9 }, 9, { 28, 40 }, { -50, -25 }, { -0.8, 0.8 }),
+  float("a_tcf_ball", { 10, 120, 90, 330 }, { 1, 1, 1 }, nil, 2, { 26, 34 }, { -60, -35 }, { -3, 3 }, "BLEND"),
+  float("a_tcf_ball", { 422, 120, 502, 330 }, { 1, 1, 1 }, nil, 2, { 26, 34 }, { -60, -35 }, { -3, 3 }, "BLEND"),
+  twinkle("a_tcf_star", { { 90, 20, 420, 110 } }, { 1, 0.85, 0.95 }, 4, { 34, 50 }) }
