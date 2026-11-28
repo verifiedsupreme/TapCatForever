@@ -12,6 +12,7 @@
 - Your companion is now drawn the same way as the Adventure enemies: the game measures each cat, sizes it to stand just taller than a party cat, and puts its feet level with your cat's.
 - It has plenty of room all round, so no box cuts it off, even with your cat at its biggest size.
 - Big cats like tigers and sabers stay close beside your cat too.
+- In the Companion Cats window and the companion slot on the character panel, every cat now fits inside its box and stays turned toward you, with a gentle sway. Before, some hung out of the box or turned away.
 
 **Heroic Cache prizes you can really win**
 - The Top prizes on the Shop banner are now the best gear from the Heroic Cache that your cat can wear right now, best first. Below level 10 that's Uncommon gear.

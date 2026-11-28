@@ -91,6 +91,137 @@ local function checkModel(m, e)
 end
 TCF.CompanionCheckModel = checkModel
 
+---------------------------------------------------------------- previews (window cells, panel slot)
+-- (1.7.6) A companion shown in a box: measured by the game and scaled so its whole body fits inside the
+-- box whatever way it turns, centred, turned three-quarters toward you with a gentle sway (1.7.4's
+-- PlayerModel framing let big cats hang out of the box and swung them round to look away). Without the
+-- 3D scene API it falls back to a PlayerModel with a small sway.
+local PREVIEW_TURN, PREVIEW_SWAY = 0.55, 0.22
+TCF.COMPANION_PREVIEW = { turn = 0.55, sway = 0.22 }   -- the three-quarter turn and the sway, in radians
+local PREVIEW_FILL_H, PREVIEW_FILL_W = 0.82, 0.92
+
+local function previewFit(p, e)
+  local st, a, sc = p.fit, p.actor, p.scene
+  local M = TCF.UI and TCF.UI.ModelFit
+  local call = M.call
+  e = min(e, 0.1)
+  st.t = st.t + e
+  local okL, loaded = call(a, "IsLoaded")
+  if okL then loaded = loaded and true or false else loaded = nil end
+  if loaded == nil then
+    if st.t < 0.6 then return end
+    if not st.checked then
+      st.checked = true
+      local okF, file = call(a, "GetModelFileID")
+      if okF and (not file or file == 0) then p.fit = nil; return "missing" end
+    end
+  elseif not loaded then
+    if st.t > 6 then
+      local okF, file = call(a, "GetModelFileID")
+      if okF and (not file or file == 0) then p.fit = nil; return "missing" end
+      st.t = 0
+    end
+    return
+  end
+  st.lt = (st.lt or 0) + e
+  local mb = M.measuredBox(a)
+  if not mb and st.lt < 0.5 then return end
+  local cal = M.calibrate(sc, (st.ct or 0) >= 0.3)
+  if not cal then st.ct = (st.ct or 0) + e; return end
+  local box = M.chooseBox(p.comp.display, mb)
+  local h = max(0.05, box.z2 - box.z1)
+  -- across the screen over the turns it makes (three-quarters, plus or minus the sway): the camera looks
+  -- along +X with Z up, so a corner (x, y) turned by yaw lands at x sin(yaw) + y cos(yaw) across the screen
+  local side = cal.side or -1
+  local lo, hi, deep = math.huge, -math.huge, 0
+  for k = 0, 4 do
+    local yaw = math.pi - (PREVIEW_TURN - PREVIEW_SWAY + PREVIEW_SWAY * k / 2) * side
+    local sn, cs = math.sin(yaw), math.cos(yaw)
+    for _, x in ipairs({ box.x1, box.x2 }) do
+      for _, y in ipairs({ box.y1, box.y2 }) do
+        local across = x * sn + y * cs
+        lo, hi = min(lo, across), max(hi, across)
+        deep = max(deep, math.abs(x * cs - y * sn))
+      end
+    end
+  end
+  local wide = max(0.05, hi - lo)
+  local D = M.FIT.CAM_DIST
+  local s = min(cal.H * PREVIEW_FILL_H / (h * cal.k), cal.W * PREVIEW_FILL_W / (wide * cal.k))
+  -- its nearest point is a little closer to the camera and looks a little bigger
+  s = s * max(0.5, (D - deep * s) / D)
+  call(a, "SetScale", s); call(a, "SetPosition", 0, 0, 0)
+  -- the camera level with its middle and centred on the span it sways over (screen-right is side * Y)
+  local midAcross = (lo + hi) / 2 * s
+  call(sc, "SetCameraPosition", -D, midAcross, (box.z1 + box.z2) / 2 * s - (cal.H / 2 - cal.v0) / cal.k)
+  call(sc, "SetCameraOrientationByYawPitchRoll", 0, 0, 0)
+  sc.calArmed = nil
+  p.cal, p.fit = cal, nil
+  call(a, "SetAnimation", ANIM_STAND)
+  call(a, "SetAlpha", 1)
+end
+
+-- a preview box (w x h) on parent: p:SetComp(c) shows companion c (nil: none); onMissing(c) is told
+-- when the game has no model for it
+function TCF.CompanionPreview(parent, w, h, onMissing)
+  local p = CreateFrame("Frame", nil, parent)
+  p:SetSize(w, h)
+  p.spin = random() * 6
+  local M = TCF.UI and TCF.UI.ModelFit
+  local sc, a = nil, nil
+  if M then sc, a = M.newScene(p) end
+  if sc then
+    sc:SetSize(w, h); sc:SetAllPoints(p)
+    M.call(sc, "SetIgnoreParentAlpha", false); sc.ownAlpha = nil
+    p.scene, p.actor, p.mode = sc, a, "scene"
+  else
+    p.mode = "classic"
+    p.model = CreateFrame("PlayerModel", nil, p)
+    p.model:SetAllPoints(p)
+  end
+  local function missing()
+    local c = p.comp
+    if c and onMissing then onMissing(c) end
+  end
+  function p:SetComp(c)
+    if c == self.comp and self.loadedComp == c then return end
+    self.comp, self.loadedComp = c, c
+    if not c then
+      if self.mode == "scene" then M.call(self.actor, "ClearModel"); self.fit = nil
+      else self.model.comp = nil; pcall(self.model.ClearModel, self.model) end
+      return
+    end
+    if self.mode == "classic" then setModel(self.model, c, PREVIEW_TURN); return end
+    local call = M.call
+    call(a, "ClearModel")
+    call(a, "SetAlpha", 0); call(a, "SetScale", 1); call(a, "SetPosition", 0, 0, 0); call(a, "SetYaw", 0)
+    local ok, res = pcall(a.SetModelByCreatureDisplayID, a, c.display)
+    if not ok or res == false then missing(); return end
+    call(a, "SetAlpha", 0); call(a, "SetAnimation", ANIM_STAND); call(a, "SetYaw", 0)
+    self.fit = { t = 0 }
+  end
+  -- shown again: a hidden model can come back empty, so set it again
+  p:SetScript("OnShow", function(self) local c = self.comp; self.loadedComp = nil; self.comp = nil; if c then self:SetComp(c) end end)
+  p:SetScript("OnUpdate", function(self, e)
+    if not self.comp then return end
+    self.spin = self.spin + e * 0.6
+    local sway = math.sin(self.spin) * PREVIEW_SWAY
+    if self.mode == "scene" then
+      if self.fit then
+        if previewFit(self, e) == "missing" then missing() end
+        return
+      end
+      local side = self.cal and self.cal.side or -1
+      M.call(self.actor, "SetYaw", math.pi - (PREVIEW_TURN + sway) * side)
+    else
+      if checkModel(self.model, e) then missing(); return end
+      self.model.camFacing = PREVIEW_TURN + sway
+      pcall(self.model.SetFacing, self.model, self.model.camFacing)
+    end
+  end)
+  return p
+end
+
 ---------------------------------------------------------------- the walker
 local walker
 local MF = function() return TCF.UI and TCF.UI.ModelFit end
@@ -464,8 +595,8 @@ function TCF:CreateCompanionWindow()
     local col, row = (i - 1) % COLS, floor((i - 1) / COLS)
     local cell = Panel(f, CELL_W, CELL_H, 0.9)
     cell:SetPoint("TOPLEFT", 20 + col * (CELL_W + 8), -78 - row * (CELL_H + 8))
-    cell.model = CreateFrame("PlayerModel", nil, cell)
-    cell.model:SetPoint("TOPLEFT", 4, -4); cell.model:SetPoint("TOPRIGHT", -4, -4); cell.model:SetHeight(88)
+    cell.model = TCF.CompanionPreview(cell, CELL_W - 8, 88, function(c) TCF:CompanionModelMissing(c.key); f:Refresh() end)
+    cell.model:SetPoint("TOP", 0, -4)
     cell.name = Text(cell, "GameFontNormalSmall", nil, "CENTER"); cell.name:SetPoint("TOP", cell.model, "BOTTOM", 0, -2)
     cell.name:SetWidth(CELL_W - 8)
     if cell.name.SetWordWrap then cell.name:SetWordWrap(false) end
@@ -520,16 +651,7 @@ function TCF:CreateCompanionWindow()
   stroll.buy:SetPoint("RIGHT", -12, 0)
   f.stroll = stroll
 
-  f.spin = 0
-  f:SetScript("OnUpdate", function(self, e)
-    self.spin = self.spin + e * 0.5
-    for _, cell in ipairs(self.cells) do
-      if cell.comp and cell.model:IsShown() then
-        if checkModel(cell.model, e) then self:Refresh()
-        else pcall(cell.model.SetFacing, cell.model, 0.5 + math.sin(self.spin) * 0.6) end
-      end
-    end
-  end)
+  -- (each cell's preview turns, fits and checks its own model: TCF.CompanionPreview)
   f:SetScript("OnShow", function(self)
     for _, cell in ipairs(self.cells) do cell.comp = nil end   -- a hidden model can come back empty: set them all again
     self:Refresh()
@@ -553,7 +675,7 @@ function TCF:CreateCompanionWindow()
       local c = list[(self.page - 1) * PER_PAGE + i]
       if c then
         cell:Show()
-        if cell.comp ~= c then setModel(cell.model, c, 0.5) end
+        if cell.comp ~= c then cell.model:Show(); cell.model:SetComp(c) end
         cell.comp = c
         local col = TCF.RARITY and TCF.RARITY[c.rarity] and TCF.RARITY[c.rarity].color or { 1, 1, 1 }
         cell.name:SetText(c.name); cell.name:SetTextColor(col[1], col[2], col[3])

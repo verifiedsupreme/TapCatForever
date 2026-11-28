@@ -336,7 +336,46 @@ def check(seed, load_addon):
           end
         end
       end
-      _out = string.format("%d fits", n)
+      -- (1.7.6) the previews: every companion in a Companion Cats window cell and in the panel slot,
+      -- its whole body inside its box at every point of its sway, never turned away
+      es = 1
+      T:ToggleCompanions()
+      local f = T.companionWin
+      local P = T.COMPANION_PREVIEW
+      local np = 0
+      local function checkPreview(pv, tag)
+        for _ = 1, 30 do if pv.fit or not pv.cal then pv.scripts.OnUpdate(pv, 0.05) end end
+        ck(pv.mode == "scene" and not pv.fit and pv.cal, tag .. ": fitted in its box")
+        if pv.fit or not pv.cal then return end
+        local sc, a = pv.scene, pv.actor
+        local side = pv.cal.side
+        for _, sw in ipairs({ -P.sway, 0, P.sway }) do
+          local yaw = math.pi - (P.turn + sw) * side
+          local u1, u2, v1, v2 = drawn(sc, a, yaw)
+          ck(u1 >= 0 and u2 <= sc.W and v1 >= 0 and v2 <= sc.H, string.format("%s: inside its %dx%d box (%.0f..%.0f x %.0f..%.0f)",
+            tag, sc.W, sc.H, u1, u2, v1, v2))
+          -- big enough to see: in the middle of its sway it fills most of the box one way or the other
+          if sw == 0 then ck((u2 - u1) >= sc.W * 0.6 or (v2 - v1) >= sc.H * 0.6, tag .. ": fills its box") end
+          -- three-quarters toward you: never turned more than a quarter turn from the front
+          ck(math.abs(P.turn + sw) < math.pi / 2 - 0.3, tag .. ": faces you")
+        end
+        np = np + 1
+      end
+      for page = 1, math.ceil(#T.COMPANIONS / 8) do
+        f.page = page; f:Refresh()
+        for _, cell in ipairs(f.cells) do
+          if cell:IsShown() and cell.comp then checkPreview(cell.model, "window " .. cell.comp.key) end
+        end
+      end
+      T:ToggleCompanions()
+      T:ToggleWindow()
+      local win = T.window
+      for _, c in ipairs(T.COMPANIONS) do
+        T:SetCompanion(c.key); win:Refresh()
+        local pv = win.companionModel
+        if pv:IsShown() then checkPreview(pv, "panel " .. c.key) else ck(false, "panel " .. c.key .. " shown") end
+      end
+      _out = string.format("%d fits, %d previews", n, np)
       return table.concat(fails, "; ")
     ''')
     assert r == "", "companions (3D fit): " + r

@@ -779,13 +779,15 @@ function TCF:CreateWindow()
   end)
   compSlot:SetScript("OnLeave", function() GameTooltip:Hide() end)
   win.companionButton = compSlot
-  local compModel = CreateFrame("PlayerModel", nil, stage)
+  -- (1.7.6) the companion fitted in its box like the Companion Cats window (TCF.CompanionPreview)
+  local compModel = TCF.CompanionPreview(stage, 78, 78, function(c)
+    TCF:CompanionModelMissing(c.key); if win.RefreshCompanion then win:RefreshCompanion() end
+  end)
   -- above the Clear preview row, in front of the cat picture, below the Clear preview button
-  compModel:SetSize(78, 78); compModel:SetPoint("BOTTOMLEFT", stage, "BOTTOMLEFT", 4, 30)
+  compModel:SetPoint("BOTTOMLEFT", stage, "BOTTOMLEFT", 4, 30)
   if compModel.SetFrameLevel and stage.GetFrameLevel then compModel:SetFrameLevel((stage:GetFrameLevel() or 1) + 8) end
   compModel:Hide()
   win.companionModel = compModel
-  compModel:SetScript("OnUpdate", function(self, e) if TCF.CompanionCheckModel and TCF.CompanionCheckModel(self, e) then self:Hide() end end)
   function win:RefreshCompanion()
     local c = TCF.Companion and TCF:Companion()
     compSlot.icon:SetTexture(TCF.Icon(c and "Ability_Hunter_Pet_Cat" or "Ability_Hunter_BeastCall"))
@@ -796,12 +798,11 @@ function TCF:CreateWindow()
       if col then compSlot:SetBackdropBorderColor(col[1], col[2], col[3], 1) else compSlot:SetBackdropBorderColor(0.35, 0.32, 0.42, 1) end
     end
     if c and not TCF:CompanionMissing(c.key) then
-      if compModel.comp ~= c or not compModel:IsShown() then TCF.CompanionSetModel(compModel, c, 0.6) end
+      if compModel.comp ~= c or not compModel:IsShown() then compModel:Show(); compModel:SetComp(c) end
     else
-      compModel.comp = nil; compModel:Hide()
+      compModel:SetComp(nil); compModel:Hide()
     end
   end
-  compModel:SetScript("OnShow", function(self) if self.comp then TCF.CompanionSetModel(self, self.comp, 0.6) end end)
 
   local className = Text(left, "GameFontNormal"); className:SetPoint("TOP", stage, "BOTTOM", 0, -46)
   -- (1.6.6) Happy Purrs (Purr.lua): a small heart by the class name, grey until the cat purrs

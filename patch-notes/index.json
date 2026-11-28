@@ -1,8 +1,15 @@
 {
-  "latest": "1.7.5",
+  "latest": "1.7.6",
   "message_break": "<!-- message break -->",
   "image_line": "<!-- image: <file> -->",
   "versions": [
+    {
+      "version": "1.7.6",
+      "file": "1.7.6.md",
+      "headline": null,
+      "messages": 1,
+      "images": []
+    },
     {
       "version": "1.7.5",
       "file": "1.7.5.md",

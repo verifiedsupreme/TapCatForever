@@ -489,6 +489,9 @@ TEST = r'''
     assert(TCF.db.coins == coinsBefore, "TapCoins are shared: " .. tostring(coinsBefore) .. " -> " .. tostring(TCF.db.coins) .. " " .. tostring(_chat[#_chat]))
     assert(TCF:CD("WARRIOR").level == mainLevel, "the alt plays the account's cats")
     assert(TCF.db.class == "MAGE" and not TCF:Owned("MAGE").race_tauren, "a new character starts on its own class's cat")
+    -- (the main bought its Orc piece for whichever cat it was playing then, sometimes the Mage: a cat
+    -- already wearing a racial piece keeps it, so start the Mage without one)
+    TCF:GetLoadout("MAGE").race = nil
     TCF:AddCoins(1000); assert(TCF:BuyRaceAccessory())
     assert(TCF:GetLoadout("MAGE").race == "race_tauren" and TCF:GetLoadout("WARRIOR").race ~= "race_tauren", "racial piece worn by the Mage cat that bought it " .. tostring(TCF:GetLoadout("MAGE").race) .. " " .. tostring(TCF:GetLoadout("WARRIOR").race) .. " " .. tostring(TCF.db.class) .. " " .. tostring(select(1, TCF:RaceItemForPlayer()) and select(1, TCF:RaceItemForPlayer()).slot))
     -- only the selected class's cat adventures: others stay paused
