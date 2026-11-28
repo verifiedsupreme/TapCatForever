@@ -1,8 +1,21 @@
 {
-  "latest": "1.7.8",
+  "latest": "1.7.9",
   "message_break": "<!-- message break -->",
   "image_line": "<!-- image: <file> -->",
   "versions": [
+    {
+      "version": "1.7.9",
+      "file": "1.7.9.md",
+      "headline": "A sixth one of a kind Legendary: Iverson's Legendary Mullet, a big pink mullet for cloth wearers, with hearts and party confetti.",
+      "messages": 1,
+      "images": [
+        {
+          "file": "media/1.7.9_mullet.png",
+          "caption": "Iverson's Legendary Mullet",
+          "message": 1
+        }
+      ]
+    },
     {
       "version": "1.7.8",
       "file": "1.7.8.md",
