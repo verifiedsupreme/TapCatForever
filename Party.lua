@@ -541,19 +541,23 @@ local function createRow()
   return f
 end
 
--- beside the cat on the right, or on the left when the right side would leave the screen
+-- beside the cat on the side chosen in Settings (right unless set to left, 1.7.5), or on the other side
+-- when the chosen one would leave the screen and the other has room
 local function placeRow()
   local cat = TCF.cat
   if not row or not cat then return end
-  local left = false
+  local ui = TCF.db and TCF.db.ui
+  local left = ui and ui.partySide == "left" or false
   local hud = TCF.hud
-  local right = hud and hud.GetRight and hud:GetRight()
+  local l, r = hud and hud.GetLeft and hud:GetLeft(), hud and hud.GetRight and hud:GetRight()
   local sw = UIParent and UIParent.GetWidth and UIParent:GetWidth()
   local hs = hud and hud.GetEffectiveScale and hud:GetEffectiveScale()
   local us = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
-  if type(right) == "number" and type(sw) == "number" and type(hs) == "number" and type(us) == "number" and us > 0 then
+  if type(l) == "number" and type(r) == "number" and type(sw) == "number" and type(hs) == "number" and type(us) == "number" and us > 0 then
     local need = (#row.shownCells * (MINI + MINI_GAP) + (row.more:IsShown() and 26 or 0)) * hs / us
-    left = right * hs / us + need > sw
+    local roomL, roomR = l * hs / us, sw - r * hs / us
+    if left and roomL < need and roomR >= need then left = false
+    elseif not left and roomR < need and roomL >= need then left = true end
   end
   if row.left == left and row.placed then return end
   row.left, row.placed = left, true

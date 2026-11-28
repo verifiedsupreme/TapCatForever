@@ -431,8 +431,9 @@ function TCF:AdvPackCleared()
   local code = stageCode(adv.tier, adv.stage)
   if code > adv.best then
     adv.best = code; adv.newStages = (adv.newStages or 0) + 1
-    if self.CheckCompanionUnlocks then self:CheckCompanionUnlocks() end   -- (1.7.4) Companions.lua
   end
+  -- (1.7.5) the dungeon's last stage cleared (first time, again, or farming): its companion cat joins you
+  if adv.stage >= self:AdvStages(adv.tier) and self.CompanionEarnFromClear then self:CompanionEarnFromClear(adv.tier) end
   if self.advRun then self.advRun.losses = 0 end
   run.catHP = min(run.catMax, run.catHP + run.catMax * 0.35)
   run.shield = 0

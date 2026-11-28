@@ -158,7 +158,8 @@ function TCF:TestSet(kind)
   elseif kind == "advall" and TCF.AdvStageCode then
     local n = #TCF.TIERS
     cd.adv.best = TCF.AdvStageCode(n, self:AdvStages(n))
-    if self.CheckCompanionUnlocks then self:CheckCompanionUnlocks() end
+    -- every dungeon and raid counts as cleared just now: their companion cats join (Companions.lua)
+    if self.CompanionEarnFromClear then for i = 1, n do self:CompanionEarnFromClear(i) end end
   elseif kind == "advreset" then
     cd.adv.best = 0; cd.adv.tier, cd.adv.stage = 1, 1
   elseif kind == "compall" then

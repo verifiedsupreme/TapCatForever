@@ -103,6 +103,7 @@ local DEFAULTS = {
     showLevel = true, showXP = true, showTaps = true, showCoins = true, catOnly = false,
     mouse = true, popups = true, sound = false, chat = false, racial = true, cartoon = true, chestAnim = true, textAbove = true, cat3d = true, show3dWeapons = true,
     partyCats = true,   -- (1.6.7) the row of party members' cats beside yours (Party.lua)
+    partySide = "right", -- (1.7.5) which side of your cat the party cats stand on; the companion takes the other
     tapFaces = true,    -- (1.6.8) the cat's face changes as you tap faster
     minimap = { angle = 215, hide = false },
   },
@@ -1986,7 +1987,6 @@ ev:SetScript("OnEvent", function(_, event, a1)
     TCF:EnsureQuests()
     TCF:ProfessionsTick(true)
     TCF:BuildShop()
-    if TCF.CheckCompanionUnlocks then TCF:CheckCompanionUnlocks() end
     TCF:RefreshAll()
     TCF:MarkDirty()
     if not TCF.db.welcomed and TCF.ShowWelcome then TCF:ShowWelcome() end

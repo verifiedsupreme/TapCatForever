@@ -1391,10 +1391,18 @@ function TCF:CreateWindow()
     -- the test mode buttons in place of both while test mode is on
     local INFO_Y, INFO_BOTTOM = 363, 431
     -- (1.6.7) the party cats beside yours can be hidden (only the picture: the bonus stays)
-    local partyCB = Check("Show party cats", "partyCats", 16, INFO_Y, 240,
+    local partyCB = Check("Show party cats", "partyCats", 16, INFO_Y, 126,
       "Show the cats of party members who have TapCatForever in a little row beside yours. Turning it off only hides the row: your taps still count more with friends, and death roll, rock paper scissors and party expeditions still work.",
       function() if TCF.PartyRefresh then TCF.PartyRefresh() end end)
     win.partyCatsCheck = partyCB
+    -- (1.7.5) which side the party cats stand on; your companion walks on the other side
+    win.partySideButton = PageButton("On the right", 158, INFO_Y, 104, function()
+      ui.partySide = (ui.partySide == "left") and "right" or "left"
+      if TCF.PartyRefresh then TCF.PartyRefresh() end
+      if TCF.CompanionRefresh then TCF:CompanionRefresh() end
+      win:Refresh()
+      TCF:PlaySound("click")
+    end, "Party cats side", "Which side of your cat the party cats stand on. Your companion cat walks on the other side. If there's no room on that side of the screen, they swap.")
     -- (1.6.8) the faces that change as you tap faster
     local faceCB = Check("Tapping and petting faces", "tapFaces", 272, INFO_Y, 260,
       "Your cat's face changes the longer and faster you tap, in ten steps from Keen to Legendary (that one takes a long run of fast tapping). While you pet it, it goes from Curious to Pure love as you get closer to Happy Purrs. Turn it off to keep its calm face.")
@@ -1451,6 +1459,8 @@ function TCF:CreateWindow()
       partyNote:SetText(note)
       partyNote:SetShown(not testOn)
       partyCB:SetShown(not testOn)
+      win.partySideButton:SetShown(not testOn)
+      win.partySideButton:SetText(ui.partySide == "left" and "On the left" or "On the right")
       faceCB:SetShown(not testOn)
       help:SetShown(not testOn)
       mmB:SetText(ui.minimap.hide and "Show minimap icon" or "Hide minimap icon")

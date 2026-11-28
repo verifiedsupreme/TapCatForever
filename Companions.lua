@@ -5,72 +5,93 @@
 -- back and forth beside your cat on screen, on the other side from the party cats, and can be turned off.
 local ADDON, TCF = ...
 
-TCF.COMPANION_WALK_PRICE = 1000000
+TCF.COMPANION_WALK_PRICE = 500000   -- (1.7.5) half a million (1,000,000 in 1.7.4)
 
--- key, name, display id (CreatureDisplayInfo), price (0: earned only), rarity (1-5), tier key that
--- unlocks it when cleared (Adventure), a short line about it
+-- key, name, display id (CreatureDisplayInfo), price (0: earned only), rarity (1-5), tier key whose clear
+-- in Adventure earns it, a short line about it.
+-- (1.7.5) Every display id here is in WoW: Forever's own game data (build 1.60.1, CreatureDisplayInfo):
+-- 1.7.4's list took 37 from the current retail game, which the Forever client doesn't have (they showed
+-- an empty box). tools/tests/test_companions.py checks the ids against tools/forever_cat_displays.txt.
+-- (1.7.5) No companion comes free: it's bought, or (the dungeon ones) earned by clearing that dungeon or
+-- raid in Adventure, on the clear itself. Progress made before doesn't hand them out.
 local C = {
   -- house cats
-  { "orange",      "Orange Tabby",            5554,   50000, 1, nil, "A classic Elwynn house cat." },
-  { "silver",      "Silver Tabby",            5555,   50000, 1, nil, "Grey stripes and a judging look." },
-  { "blacktabby",  "Black Tabby",             5448,   50000, 1, nil, "Dark stripes, warm heart." },
-  { "bombay",      "Bombay",                  5556,   60000, 1, nil, "Sleek, black and very smug." },
-  { "siamese",     "Siamese",                 5585,   60000, 1, nil, "Loud opinions about everything." },
-  { "cornishrex",  "Cornish Rex",             5586,   60000, 1, nil, "Curly coat, curious nose." },
-  { "whitekitten", "White Kitten",            9990,   70000, 1, nil, "Small, white and always underfoot." },
-  { "calico",      "Calico",                  11709,  75000, 1, nil, "Three colours of trouble." },
-  { "pudge",       "Pudge",                   74797,  80000, 2, nil, "Has never missed a meal." },
-  { "shaggy",      "Shaggy Tom",              74798,  80000, 2, nil, "A long coat and a longer nap." },
-  -- kittens and cubs
-  { "lynxkit",     "Lynx Kitten",             116278, 100000, 2, nil, "Big ears, bigger pounce." },
-  { "snowlynxkit", "Snowy Lynx Kitten",       116279, 100000, 2, nil, "Soft as fresh snow." },
-  { "sandcub",     "Sand Cub",                31121,  100000, 2, nil, "Found napping in Tanaris." },
+  { "orange",      "Orange Tabby",            5554,    50000, 1, nil, "A classic Elwynn house cat." },
+  { "silver",      "Silver Tabby",            5555,    50000, 1, nil, "Grey stripes and a judging look." },
+  { "blacktabby",  "Maine Coon",              5448,    50000, 1, nil, "Big, fluffy and very gentle." },
+  { "bombay",      "Bombay",                  5556,    60000, 1, nil, "Sleek, black and very smug." },
+  { "siamese",     "Siamese",                 5585,    60000, 1, nil, "Loud opinions about everything." },
+  { "cornishrex",  "Cornish Rex",             5586,    60000, 1, nil, "Curly coat, curious nose." },
+  { "calico",      "Calico",                  11709,   75000, 1, nil, "Three colours of trouble." },
   { "snowcub",     "Snow Cub",                16942,  125000, 2, nil, "A Winterspring cub with icy whiskers." },
-  { "sunkit",      "Sunfire Kitten",          138230, 125000, 2, nil, "An Eversong lynx kitten, warm as a hearth." },
-  { "pinkcub",     "Bubblegum Cub",           64588,  150000, 3, nil, "Unbearably pink." },
-  { "clockcub",    "Clockwork Cub",           46947,  150000, 3, nil, "Wind it up and let it roam." },
-  -- big cats
+  -- tigers and lions
   { "stvtiger",    "Stranglethorn Tiger",     320,    150000, 2, nil, "Straight out of the jungle." },
-  { "leopard",     "Jungle Leopard",          917,    150000, 2, nil, "Spots for days." },
-  { "bengal",      "Bengal Tiger",            39577,  175000, 2, nil, "Orange, black and proud." },
+  { "leopard",     "Jungle Leopard",          917,    150000, 2, nil, "Golden coat, quiet paws." },
+  { "shadowstripe","Shadow-Striped Tiger",    321,    160000, 2, nil, "Black stripes on a dark coat." },
+  { "savannah",    "Savannah Tiger",          1056,   160000, 2, nil, "Dusty brown, built for the plains." },
   { "lion",        "Pride Lion",              1973,   175000, 2, nil, "King of the Barrens." },
+  { "dusktiger",   "Dusk Tiger",              3029,   180000, 2, nil, "The colour of the sky after sunset." },
+  { "snowtiger",   "Snow Tiger",              748,    200000, 2, nil, "Pale stripes for the deep snow." },
+  { "midnight",    "Midnight Tiger",          599,    200000, 2, nil, "Black as a moonless night." },
+  -- sabers and big cats
   { "frostsaber",  "Striped Frostsaber",      6080,   200000, 3, nil, "A Night Elf classic." },
   { "nightsaber",  "Striped Nightsaber",      6448,   200000, 3, nil, "Born under Darnassus moons." },
+  { "whitetiger",  "White Tiger",             616,    225000, 3, nil, "Rare, proud and hard to miss." },
   { "spotsaber",   "Spotted Frostsaber",      6444,   225000, 3, nil, "Every spot counted." },
   { "blacksaber",  "Black Nightsaber",        9991,   225000, 3, nil, "Shadow with teeth." },
+  { "snowleopard", "Snow Leopard",            11448,  225000, 3, nil, "Black spots on a snowy coat." },
   { "shadowmane",  "Shadowmane Lion",         4424,   250000, 3, nil, "A lion with a dark mane." },
-  { "panther",     "Shadow Panther",          19607,  250000, 3, nil, "Red eyes in the dark." },
-  { "emberlynx",   "Ember Lynx",              117860, 250000, 3, nil, "A red Arathi lynx." },
-  { "amanilynx",   "Amani Lynx",              124943, 300000, 3, nil, "From the Zul'Aman war bands." },
+  { "tawnysaber",  "Tawny Saber",             6442,   250000, 3, nil, "Warm brown and always alert." },
+  { "dawnsaber",   "Striped Dawnsaber",       4805,   250000, 3, nil, "Golden stripes at first light." },
+  { "flaxensaber", "Flaxen Saber",            144509, 275000, 3, nil, "A coat the colour of summer wheat." },
+  { "puresaber",   "Pure White Saber",        6079,   275000, 3, nil, "Not a single stripe." },
+  { "wildfrost",   "Wild Frostsaber",         9956,   275000, 3, nil, "Never wore a saddle, never will." },
+  { "wildnight",   "Wild Nightsaber",         139029, 275000, 3, nil, "Runs free in the night." },
   { "whitelion",   "White Lion",              10114,  300000, 3, nil, "Rare as a Barrens rain." },
-  { "jadepanther", "Jade Panther",            39179,  350000, 4, nil, "Green as a carved jade idol." },
-  { "primal",      "Primal Sabertooth",       105442, 350000, 4, nil, "Old as the ice." },
-  { "mechtiger",   "Mechanical Tiger",        74804,  400000, 4, nil, "Gnomish engineering, mostly safe." },
+  { "midprowler",  "Midnight Prowler",        140639, 300000, 3, nil, "A druid's dark blue cat form." },
+  { "snowprowler", "Snow Prowler",            140640, 300000, 3, nil, "A druid's white cat form." },
+  { "vioprowler",  "Violet Prowler",          140641, 325000, 4, nil, "A druid's violet cat form." },
+  { "twiprowler",  "Twilight Prowler",        140642, 325000, 4, nil, "A druid's purple cat form." },
+  { "icetiger",    "Ice Tiger",               9949,   350000, 4, nil, "Frost in its fur and its stare." },
+  { "goldsaber",   "Golden Sabercat",         9714,   350000, 4, nil, "Shines like a pile of gold." },
   { "winterspring","Winterspring Frostsaber", 10426,  400000, 4, nil, "The pride of Winterspring." },
-  { "shadowstalk", "Shadowstalker Panther",   76587,  450000, 4, nil, "Crystals grow along its back." },
-  { "automaton",   "Golden Automaton",        92661,  500000, 4, nil, "A gilded lion of gears." },
-  -- glowing, fel and spectral cats
-  { "felkitten",   "Fel Kitten",              73353,  500000, 5, nil, "Green fire and a tiny attitude." },
-  { "flamecat",    "Flamecat",                38150,  650000, 5, nil, "A cat made of living flame." },
-  { "felsaber",    "Felsaber",                67575,  750000, 5, nil, "Fel-touched and unstoppable." },
-  { "manasaber",   "Arcanist's Manasaber",    81468,  750000, 5, nil, "Glowing with arcane power." },
-  { "spiritcat",   "Spirit Cat",              74794,  800000, 5, nil, "A cat of pure starlight." },
-  { "dreamsaber",  "Dreamsaber",              112561, 850000, 5, nil, "Walks out of the Emerald Dream." },
-  { "flamesaber",  "Primal Flamesaber",       74298,  900000, 5, nil, "Its fur is fire." },
-  { "spectral",    "Spectral Tiger",          21973, 1000000, 5, nil, "The legend everyone wants." },
-  { "celestial",   "Celestial Cat",           120475, 1000000, 5, nil, "Stars in its eyes, and its fur." },
-  -- earned in Adventure: clear the dungeon or raid
-  { "alleycat",    "Alley Cat",               51414,  0, 2, "dm",     "Snuck out of the Deadmines." },
-  { "hallowcat",   "Shadowfang Black Cat",    64794,  0, 3, "sfk",    "Prowls the halls of Shadowfang Keep." },
-  { "crusaderlion","Lion of Lordaeron",       37168,  0, 3, "sm",     "A proud lion of the Scarlet Crusade." },
-  { "atalai",      "Atal'ai Panther",         39441,  0, 4, "st",     "From the Sunken Temple's shadows." },
-  { "embercat",    "Ember Cat",               38417,  0, 4, "brd",    "Born in the forges of Blackrock Depths." },
-  { "ghostkit",    "Ghostly Kitten",          59330,  0, 4, "scholo", "Haunts Scholomance's library." },
-  { "zulpanther",  "Swift Zulian Panther",    37799,  0, 5, "zg",     "Hakkar's own hunting cat." },
-  { "firecat",     "Molten Firecat",          38208,  0, 5, "mc",     "Forged in Molten Core." },
-  { "onyx",        "Jeweled Onyx Panther",    42185,  0, 5, "ony",    "Onyx and jewels from Onyxia's hoard." },
-  { "chromatic",   "Chromatic Saber",         61926,  0, 5, "bwl",    "Shimmers like a chromatic scale." },
-  { "bigglesworth","Mr. Bigglesworth",        46897,  0, 5, "naxx",   "Kel'Thuzad's beloved cat." },
+  { "aquasaber",   "Aqua Frostsaber",         10054,  400000, 4, nil, "Blue as a mountain lake." },
+  { "lavsaber",    "Wild Lavender Saber",     9954,   400000, 4, nil, "Soft purple, sharp claws." },
+  { "diamondtiger","Diamond Tiger",           146848, 450000, 4, nil, "Glitters with every step." },
+  { "ironpanther", "Ironclad Panther",        137311, 450000, 4, nil, "A panther in heavy iron armor." },
+  { "goldwar",     "Golden War Saber",        14329,  500000, 4, nil, "Armored for battle, eyes like embers." },
+  { "whitewar",    "White War Saber",         14331,  500000, 4, nil, "Armored for battle, eyes glowing green." },
+  -- Skyborne cats, from WoW: Forever's own Skyborne
+  { "skygrey",     "Skyborne Grey Cat",       143623, 450000, 4, nil, "A cat of the Skyborne, grey as storm clouds." },
+  { "skyblue",     "Skyborne Blue Cat",       143624, 450000, 4, nil, "A cat of the Skyborne, blue as the open sky." },
+  { "skygreen",    "Skyborne Green Cat",      143625, 450000, 4, nil, "A cat of the Skyborne, green as spring leaves." },
+  { "skywhite",    "Skyborne White Cat",      143626, 500000, 4, nil, "A cat of the Skyborne, white as high clouds." },
+  { "skyrider",    "Skyborne Riding Cat",     146769, 600000, 5, nil, "Saddled and ready to fly the Skyborne way." },
+  -- the rarest
+  { "flamecat",    "Flamecat",                121996, 650000, 5, nil, "A cat made of living flame." },
+  { "spectralcat", "Spectral Cat",            138740, 800000, 5, nil, "A ghostly cat that shimmers in and out." },
+  { "spectral",    "Armored Spectral Tiger",  124765, 1000000, 5, nil, "The legend everyone wants." },
+  -- earned by clearing the dungeon or raid in Adventure
+  { "alleycat",    "Alley Cat",               9209,        0, 2, "dm",     "Snuck out of the Deadmines." },
+  { "hallowcat",   "Shadowfang Prowler",      892,         0, 3, "sfk",    "Eyes glowing in Shadowfang Keep's halls." },
+  { "crusaderlion","Lioness of Lordaeron",    1933,        0, 3, "sm",     "A proud lioness of the Scarlet Crusade." },
+  { "atalai",      "Atal'ai Tiger",           9230,        0, 4, "st",     "Green as the Sunken Temple's swamp." },
+  { "embercat",    "Ember Saber",             6443,        0, 4, "brd",    "Born in the forges of Blackrock Depths." },
+  { "ghostkit",    "Ghostly Tiger",           9958,        0, 4, "scholo", "Haunts Scholomance's halls." },
+  { "zulpanther",  "Swift Zulian Panther",    137225,      0, 5, "zg",     "Hakkar's own hunting cat." },
+  { "firecat",     "Molten Firecat",          122028,      0, 5, "mc",     "Armored and burning, forged in Molten Core." },
+  { "onyx",        "Onyx War Saber",          14330,       0, 5, "ony",    "Black armor and violet eyes, from Onyxia's lair." },
+  { "chromatic",   "Chromatic War Saber",     14333,       0, 5, "bwl",    "Purple armor from Blackwing Lair." },
+  { "bigglesworth","Mr. Bigglesworth",        9989,        0, 5, "naxx",   "Kel'Thuzad's beloved cat." },
+}
+-- (1.7.5) companions 1.7.4 had that WoW: Forever can't show (or, the White Kitten, that look the same
+-- as another one): taken away, and what was paid comes back
+TCF.COMPANION_REFUNDS = {
+  pudge = 80000, shaggy = 80000, lynxkit = 100000, snowlynxkit = 100000, sandcub = 100000, sunkit = 125000,
+  pinkcub = 150000, clockcub = 150000, bengal = 175000, panther = 250000, emberlynx = 250000, amanilynx = 300000,
+  jadepanther = 350000, primal = 350000, mechtiger = 400000, shadowstalk = 450000, automaton = 500000,
+  felkitten = 500000, felsaber = 750000, manasaber = 750000, spiritcat = 800000, dreamsaber = 850000,
+  flamesaber = 900000, celestial = 1000000, whitekitten = 70000,
 }
 
 TCF.COMPANIONS, TCF.COMPANION_BY_KEY = {}, {}
@@ -94,6 +115,30 @@ function TCF:CompanionState()
   local s = db.companions
   if type(s) ~= "table" then s = {}; db.companions = s end
   s.owned = type(s.owned) == "table" and s.owned or {}
+  -- (1.7.5) no companion without buying or really earning it. 1.7.4 handed the dungeon ones out for
+  -- progress made before (at login), so those go back: clearing the dungeon again earns them. Ones
+  -- this game can't show are taken away and refunded.
+  if not s.v175 then
+    s.v175 = true
+    local refund, took = 0, 0
+    for key in pairs(s.owned) do
+      local c = TCF.COMPANION_BY_KEY[key]
+      if not c then
+        refund = refund + (TCF.COMPANION_REFUNDS[key] or 0)
+        s.owned[key] = nil
+      elseif c.tier then
+        s.owned[key] = nil; took = took + 1
+      end
+    end
+    if refund > 0 then db.coins = (db.coins or 0) + refund end
+    if refund > 0 or took > 0 then
+      local msg = {}
+      if took > 0 then msg[#msg + 1] = "dungeon companions now join you only when you clear their dungeon in Adventure, so clear it again to get yours back" end
+      if refund > 0 then msg[#msg + 1] = string.format("companions this game can't show were removed and you got your %s TapCoins back", TCF.Commas(refund)) end
+      local text = "Companion cats: " .. table.concat(msg, "; ") .. "."
+      if C_Timer and C_Timer.After then C_Timer.After(6, function() TCF:Print(text, true) end) else TCF:Print(text, true) end
+    end
+  end
   -- models this game couldn't load: for this session only (never saved, so a slow load can't hide a cat for good)
   s.missing = nil
   TCF.companionMissing = TCF.companionMissing or {}
@@ -181,33 +226,24 @@ function TCF:SetCompanionWalkShown(on)
   return true
 end
 
--- Adventure clears unlock the earned companions (any class's best clear counts)
-function TCF:CheckCompanionUnlocks(quiet)
-  if not self.db or not self.db.classData then return end
+-- (1.7.5) a clear in Adventure (the last stage of a dungeon or raid, a first clear, a re-clear or a farm
+-- run): the companion of that dungeon joins you. This is the only way they're given (AdvPackCleared).
+function TCF:CompanionEarnFromClear(tierIdx)
+  local t = TCF.TIERS and TCF.TIERS[tierIdx]
+  if not (self.db and t) then return end
   local s = self:CompanionState()
-  local code = TCF.AdvStageCode
-  if not code or not self.AdvStages then return end
   for _, c in ipairs(TCF.COMPANIONS) do
-    if c.tier and not s.owned[c.key] then
-      local ti, t = tierIndex(c.tier)
-      if ti then
-        local need = code(ti, self:AdvStages(ti))
-        for _, cd in pairs(self.db.classData) do
-          if type(cd) == "table" and type(cd.adv) == "table" and (cd.adv.best or 0) >= need then
-            s.owned[c.key] = time and time() or true
-            self.companionsChanged = true
-            if not quiet then
-              self:Print(string.format("You cleared %s: |cffffd100%s|r joins you as a companion. Choose it on the character panel.", t.name, c.name), true)
-              if self.PlaySound then self:PlaySound("ach") end
-            end
-            break
-          end
-        end
-      end
+    if c.tier == t.key and not s.owned[c.key] then
+      s.owned[c.key] = time and time() or true
+      self:Print(string.format("You cleared %s: |cffffd100%s|r joins you as a companion. Choose it on the character panel.", t.name, c.name), true)
+      if self.PlaySound then self:PlaySound("ach") end
+      self:CompanionNotify()
     end
   end
-  if self.companionsChanged then self.companionsChanged = nil; self:CompanionNotify() end
 end
+
+-- (1.7.4 gave dungeon companions for past progress here; 1.7.5 gives them only on a clear, above)
+function TCF:CheckCompanionUnlocks() end
 
 -- a model the game couldn't load (the walker and the window check 0.6 s after showing it)
 function TCF:CompanionModelMissing(key)
