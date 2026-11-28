@@ -84,8 +84,8 @@ local C = {
   { "chromatic",   "Chromatic War Saber",     14333,       0, 5, "bwl",    "Purple armor from Blackwing Lair." },
   { "bigglesworth","Mr. Bigglesworth",        9989,        0, 5, "naxx",   "Kel'Thuzad's beloved cat." },
 }
--- (1.7.5) companions 1.7.4 had that WoW: Forever can't show (or, the White Kitten, that look the same
--- as another one): taken away, and what was paid comes back
+-- (1.7.5) companions 1.7.4 had that WoW: Forever can't show (and the White Kitten, which looks the same
+-- as Mr. Bigglesworth): taken away, and what was paid comes back
 TCF.COMPANION_REFUNDS = {
   pudge = 80000, shaggy = 80000, lynxkit = 100000, snowlynxkit = 100000, sandcub = 100000, sunkit = 125000,
   pinkcub = 150000, clockcub = 150000, bengal = 175000, panther = 250000, emberlynx = 250000, amanilynx = 300000,
@@ -131,10 +131,14 @@ function TCF:CompanionState()
       end
     end
     if refund > 0 then db.coins = (db.coins or 0) + refund end
+    -- a cat that had chosen one of those goes without until it chooses again
+    for _, cd in pairs(db.classData or {}) do
+      if type(cd) == "table" and cd.companion and not s.owned[cd.companion] then cd.companion = nil end
+    end
     if refund > 0 or took > 0 then
       local msg = {}
       if took > 0 then msg[#msg + 1] = "dungeon companions now join you only when you clear their dungeon in Adventure, so clear it again to get yours back" end
-      if refund > 0 then msg[#msg + 1] = string.format("companions this game can't show were removed and you got your %s TapCoins back", TCF.Commas(refund)) end
+      if refund > 0 then msg[#msg + 1] = string.format("some companions were replaced with cats your game can show, and you got your %s TapCoins back", TCF.Commas(refund)) end
       local text = "Companion cats: " .. table.concat(msg, "; ") .. "."
       if C_Timer and C_Timer.After then C_Timer.After(6, function() TCF:Print(text, true) end) else TCF:Print(text, true) end
     end
@@ -235,7 +239,10 @@ function TCF:CompanionEarnFromClear(tierIdx)
   for _, c in ipairs(TCF.COMPANIONS) do
     if c.tier == t.key and not s.owned[c.key] then
       s.owned[c.key] = time and time() or true
-      self:Print(string.format("You cleared %s: |cffffd100%s|r joins you as a companion. Choose it on the character panel.", t.name, c.name), true)
+      -- like buying one: the cat you're playing takes it when it has none
+      local cd = self:CD()
+      if cd and not (cd.companion and s.owned[cd.companion]) then cd.companion = c.key end
+      self:Print(string.format("You cleared %s: |cffffd100%s|r joins you as a companion. Every one of your cats can choose it.", t.name, c.name), true)
       if self.PlaySound then self:PlaySound("ach") end
       self:CompanionNotify()
     end

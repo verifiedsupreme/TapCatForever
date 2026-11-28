@@ -1402,7 +1402,7 @@ function TCF:CreateWindow()
       if TCF.CompanionRefresh then TCF:CompanionRefresh() end
       win:Refresh()
       TCF:PlaySound("click")
-    end, "Party cats side", "Which side of your cat the party cats stand on. Your companion cat walks on the other side. If there's no room on that side of the screen, they swap.")
+    end, "Party cats side", "Which side of your cat the party cats stand on. Your companion cat walks on the other side. Near the edge of the screen, whichever doesn't fit moves to the side that has room.")
     -- (1.6.8) the faces that change as you tap faster
     local faceCB = Check("Tapping and petting faces", "tapFaces", 272, INFO_Y, 260,
       "Your cat's face changes the longer and faster you tap, in ten steps from Keen to Legendary (that one takes a long run of fast tapping). While you pet it, it goes from Curious to Pure love as you get closer to Happy Purrs. Turn it off to keep its calm face.")

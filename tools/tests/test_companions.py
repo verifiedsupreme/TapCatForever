@@ -119,6 +119,27 @@ def check(seed, load_addon):
       sb.scripts.OnClick(sb)
       ck(ui.partySide == "right" and row.left == false and w.right == false, "clicked again: back to the right")
       T.window:Hide()
+      -- (1.7.5) near the left screen edge with one party cat on the right: the companion moves to the
+      -- right and walks just past that one cat (not past the row's whole four-cat frame)
+      do
+        local hud = T.hud
+        local gl, gr, uw, ue, he = hud.GetLeft, hud.GetRight, UIParent.GetWidth, UIParent.GetEffectiveScale, hud.GetEffectiveScale
+        hud.GetLeft = function() return 5 end; hud.GetRight = function() return 125 end
+        hud.GetEffectiveScale = function() return 1 end
+        UIParent.GetWidth = function() return 1200 end; UIParent.GetEffectiveScale = function() return 1 end
+        T.db.ui.testMode = true; T:PartyTestInject(1); T.db.ui.testMode = false
+        T.PartyRefresh(); T:CompanionRefresh()
+        local G = T.COMPANION_GEOM
+        local margin = math.floor((G.modelW - T.COMPANION_VIS * 1.5) / 2)
+        ck(row.left == false and w.right == true, "no room on the left: the companion goes right, with the party cat")
+        ck(w.beyond == row.usedW and row.usedW <= 50, "past the one party cat really shown: " .. tostring(w.beyond) .. " " .. tostring(row.usedW))
+        ck(w.near == row.usedW + G.gap - margin, "its nose just past that cat: " .. tostring(w.near))
+        -- no room on either side: it stays opposite the party cats
+        hud.GetRight = function() return 1195 end
+        w.placed = false; T:CompanionRefresh()
+        ck(w.right == false, "no room anywhere: back opposite the party cats")
+        hud.GetLeft, hud.GetRight, UIParent.GetWidth, UIParent.GetEffectiveScale, hud.GetEffectiveScale = gl, gr, uw, ue, he
+      end
       T.db.ui.testMode = true; T:PartyTestInject(0); T.db.ui.testMode = false; T.PartyRefresh(); T:CompanionRefresh()
       -- the game loads the model (the mock's GetModelFileID would say it didn't)
       w.model.GetModelFileID = function() return 123456 end
@@ -233,7 +254,8 @@ def check(seed, load_addon):
     L = load_addon(login=False)
     L.execute(TD.CLIENT)
     L.execute('_charName = "Compcat"')
-    L.execute('TapCatForeverDB = { companions = { owned = { orange = 1, alleycat = 1, felsaber = 1, pudge = 1 }, walk = true } }')
+    L.execute('TapCatForeverDB = { companions = { owned = { orange = 1, alleycat = 1, felsaber = 1, pudge = 1 }, walk = true }, '
+              'cats = { classData = { WARRIOR = { companion = "alleycat" }, MAGE = { companion = "felsaber" }, ROGUE = { companion = "orange" } } } }')
     L.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
     r = L.execute(r'''
       local T = TapCatForever
@@ -244,6 +266,15 @@ def check(seed, load_addon):
       ck(not T:CompanionOwned("alleycat"), "the Alley Cat from past progress goes back")
       ck(not T:CompanionOwned("felsaber") and not T:CompanionOwned("pudge"), "ones this game can't show are gone")
       ck(T:CompanionState().v175, "done once")
+      local cdata = T.db.classData
+      ck(cdata.WARRIOR.companion == nil and cdata.MAGE.companion == nil, "choices of cats that went away are cleared: "
+        .. tostring(cdata.WARRIOR.companion) .. " " .. tostring(cdata.MAGE.companion))
+      ck(cdata.ROGUE.companion == "orange", "a bought one stays chosen")
+      -- a cat that had chosen a cat that went away: none chosen (choosing one still works)
+      local cd = T:CD()
+      cd.companion = "alleycat"
+      ck(T:Companion() == nil, "a removed choice shows nothing")
+      ck(T:SetCompanion("orange") and T:Companion().key == "orange", "and it can choose again")
       return table.concat(fails, "; ")
     ''')
     assert r == "", "companions (old save): " + r

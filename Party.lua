@@ -559,6 +559,9 @@ local function placeRow()
     if left and roomL < need and roomR >= need then left = false
     elseif not left and roomR < need and roomL >= need then left = true end
   end
+  -- (1.7.5) how much of the row the cats really fill (the frame is always four cats wide): the companion
+  -- walks just past them when it has to share this side
+  row.usedW = #row.shownCells * (MINI + MINI_GAP) + (row.more:IsShown() and 26 or 0)
   if row.left == left and row.placed then return end
   row.left, row.placed = left, true
   row:ClearAllPoints()

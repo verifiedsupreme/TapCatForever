@@ -94,15 +94,26 @@ local function placeWalker()
   local sw = UIParent and UIParent.GetWidth and UIParent:GetWidth()
   local hs = hud and hud.GetEffectiveScale and hud:GetEffectiveScale()
   local us = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
-  local beyond = 0
-  if type(l) == "number" and type(r) == "number" and type(sw) == "number" and type(hs) == "number" and type(us) == "number" and us > 0 then
-    local need = (WALK_W + NEAR) * hs / us
-    local roomL, roomR = l * hs / us, sw - r * hs / us
-    if right and roomR < need and roomL >= need then right = false
-    elseif not right and roomL < need and roomR >= need then right = true end
-    -- on the same side as the party cats: past them
-    if rowShown and (row.left and true or false) == (not right) then beyond = row:GetWidth() or 0 end
+  -- on the party cats' side it walks just past the cats really shown (not the row's whole frame)
+  local function beyondOn(sideRight)
+    if rowShown and (row.left and true or false) == (not sideRight) then return row.usedW or row:GetWidth() or 0 end
+    return 0
   end
+  -- the room a side needs: from your cat's edge out to the far end of the companion's body (the model
+  -- frame's empty outer margin may hang past the screen edge)
+  local margin = floor((MODEL_W - VIS * 1.5) / 2)
+  local function needOn(sideRight)
+    local b = beyondOn(sideRight)
+    local near = b > 0 and (b + GAP - margin) or NEAR
+    return near + WALK_W - margin
+  end
+  if type(l) == "number" and type(r) == "number" and type(sw) == "number" and type(hs) == "number" and type(us) == "number" and us > 0 then
+    local k = hs / us
+    local roomL, roomR = l * k, sw - r * k
+    local function fits(sideRight) return (sideRight and roomR or roomL) >= needOn(sideRight) * k end
+    if not fits(right) and fits(not right) then right = not right end
+  end
+  local beyond = beyondOn(right)
   if walker.right == right and walker.beyond == beyond and walker.placed then return end
   walker.beyond = beyond
   walker.right, walker.placed = right, true
