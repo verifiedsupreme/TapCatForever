@@ -1,5 +1,7 @@
 # Cat displays in WoW: Forever's own game data (wago.tools, build 1.60.1.71139, CreatureDisplayInfo +
-# CreatureModelData): display id, model file, textures. Every companion (Companions.lua) must use one,
+# CreatureModelData): display id, model file, textures. Only displays whose model, textures and the
+# skin and texture files inside the model all download from the game's files are listed (1.7.5: two
+# panther mounts are in the data without their model). Every companion (Companions.lua) must use one,
 # and no two the same look. Regenerate when WoW: Forever adds cats.
 320	tiger.m2	tigerskinred.blp
 321	tiger.m2	tigerskinblackstriped.blp
@@ -137,8 +139,6 @@
 124765	spectraltigerepic.m2	spectralridingtigerarmored.blp
 125139	pvpridingfrostsabre.m2	pvpridingtigerskinyellow.blp,pvpridingtigereyegloworange.blp
 128660	cat.m2	birman.blp
-137225	pantheramount.m2	
-137311	pantheramountironhorde.m2	
 138617	tiger.m2	tigerskinred.blp
 138643	tiger.m2	tigerskinred.blp
 138740	spectralcat2large.m2	

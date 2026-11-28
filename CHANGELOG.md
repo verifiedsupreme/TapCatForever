@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.6
+
+**Companion cats**
+- The Swift Zulian Panther and the Ironclad Panther showed an empty box: WoW: Forever lists their models but doesn't have them. Every other companion was checked and is really in your game.
+- The Swift Zulian Panther, still earned in Zul'Gurub, is now a sleek black cat.
+- The Ironclad Panther is now the Spotted War Saber, an armored saber with black spots. If you bought it, it's still yours.
+- The Flamecat is gone from the shop. The fire cat is the Molten Firecat, earned in Molten Core. If you bought the Flamecat, you got your 650,000 TapCoins back.
+
 ## 1.7.5
 
 **Companion cats you can really see**

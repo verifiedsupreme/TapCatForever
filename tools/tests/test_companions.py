@@ -37,10 +37,10 @@ def check(seed, load_addon):
       ck(not T:BuyCompanion("orange"), "can't buy it twice")
       ck(not T:BuyCompanion("bigglesworth"), "an earned companion can't be bought")
       -- every class can choose any owned companion, its own one
-      ck(T:BuyCompanion("flamecat") and db.coins == 1300000, "Flamecat 650,000")
+      ck(T:BuyCompanion("skyrider") and db.coins == 1350000, "Skyborne Riding Cat 600,000")
       local other = (me == "MAGE") and "WARRIOR" or "MAGE"
       ck(T:CD(other).companion == nil, "another cat has none until it chooses")
-      ck(T:SetCompanion("flamecat", other) and T:Companion(other).key == "flamecat" and T:Companion().key == "orange", "each cat its own companion")
+      ck(T:SetCompanion("skyrider", other) and T:Companion(other).key == "skyrider" and T:Companion().key == "orange", "each cat its own companion")
       ck(not T:SetCompanion("spectral", other), "only owned companions can be chosen")
       ck(T:SetCompanion(nil) and T:Companion() == nil, "a cat can go without")
       T:SetCompanion("orange")
@@ -280,4 +280,30 @@ def check(seed, load_addon):
     assert r == "", "companions (old save): " + r
     coins = L.eval("TapCatForever.db.coins")
     assert coins >= 750000 + 80000, "companions (old save): refunded %s" % coins
+
+    # (1.7.6) a 1.7.5 save (its migration already done) that bought the Flamecat: refunded once, the
+    # Molten Firecat (earned) stays, and the Flamecat isn't sold any more
+    L = load_addon(login=False)
+    L.execute(TD.CLIENT)
+    L.execute('_charName = "Flamecat"')
+    L.execute('TapCatForeverDB = { coins = 100, companions = { v175 = true, owned = { flamecat = 1, firecat = 1, orange = 1 } }, '
+              'cats = { classData = { WARRIOR = { companion = "flamecat" } } } }')
+    L.execute('_fire("ADDON_LOADED", "TapCatForever"); _fire("PLAYER_LOGIN")')
+    r = L.execute(r'''
+      local T = TapCatForever
+      local fails = {}
+      local function ck(c, m) if not c then fails[#fails + 1] = m end end
+      ck(T.COMPANION_BY_KEY.flamecat == nil, "the Flamecat isn't in the list")
+      ck(not T:CompanionOwned("flamecat") and T:CompanionOwned("firecat") and T:CompanionOwned("orange"), "Flamecat gone, the Molten Firecat and the rest stay")
+      local c1 = T.db.coins
+      ck(c1 >= 650100 and c1 < 651100, "650,000 back: " .. tostring(c1))
+      ck(T.db.classData.WARRIOR.companion == nil, "a cat that had chosen it goes without")
+      T:CompanionState(); T:CompanionState()
+      ck(T.db.coins == c1, "refunded only once: " .. tostring(T.db.coins))
+      local fire = 0
+      for _, c in ipairs(T.COMPANIONS) do if c.name:lower():find("fire", 1, true) or c.name:lower():find("flame", 1, true) then fire = fire + 1 end end
+      ck(fire == 1, "one fire cat, from Molten Core: " .. fire)
+      return table.concat(fails, "; ")
+    ''')
+    assert r == "", "companions (1.7.5 save): " + r
     print("companion cats section (%s): all checks passed" % "50,000 to 1,000,000 TapCoins, earned by clearing dungeons, per-class choice, Companion Stroll walker on the far side from the party cats, missing models, the window and the panel slot")

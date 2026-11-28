@@ -58,7 +58,7 @@ local C = {
   { "aquasaber",   "Aqua Frostsaber",         10054,  400000, 4, nil, "Blue as a mountain lake." },
   { "lavsaber",    "Wild Lavender Saber",     9954,   400000, 4, nil, "Soft purple, sharp claws." },
   { "diamondtiger","Diamond Tiger",           146848, 450000, 4, nil, "Glitters with every step." },
-  { "ironpanther", "Ironclad Panther",        137311, 450000, 4, nil, "A panther in heavy iron armor." },
+  { "ironpanther", "Spotted War Saber",       14632,  450000, 4, nil, "Armored for battle, black spots and a fierce glare." },
   { "goldwar",     "Golden War Saber",        14329,  500000, 4, nil, "Armored for battle, eyes like embers." },
   { "whitewar",    "White War Saber",         14331,  500000, 4, nil, "Armored for battle, eyes glowing green." },
   -- Skyborne cats, from WoW: Forever's own Skyborne
@@ -68,7 +68,6 @@ local C = {
   { "skywhite",    "Skyborne White Cat",      143626, 500000, 4, nil, "A cat of the Skyborne, white as high clouds." },
   { "skyrider",    "Skyborne Riding Cat",     146769, 600000, 5, nil, "Saddled and ready to fly the Skyborne way." },
   -- the rarest
-  { "flamecat",    "Flamecat",                121996, 650000, 5, nil, "A cat made of living flame." },
   { "spectralcat", "Spectral Cat",            138740, 800000, 5, nil, "A ghostly cat that shimmers in and out." },
   { "spectral",    "Armored Spectral Tiger",  124765, 1000000, 5, nil, "The legend everyone wants." },
   -- earned by clearing the dungeon or raid in Adventure
@@ -78,20 +77,23 @@ local C = {
   { "atalai",      "Atal'ai Tiger",           9230,        0, 4, "st",     "Green as the Sunken Temple's swamp." },
   { "embercat",    "Ember Saber",             6443,        0, 4, "brd",    "Born in the forges of Blackrock Depths." },
   { "ghostkit",    "Ghostly Tiger",           9958,        0, 4, "scholo", "Haunts Scholomance's halls." },
-  { "zulpanther",  "Swift Zulian Panther",    137225,      0, 5, "zg",     "Hakkar's own hunting cat." },
+  { "zulpanther",  "Swift Zulian Panther",    115603,      0, 5, "zg",     "Hakkar's own hunting cat." },
   { "firecat",     "Molten Firecat",          122028,      0, 5, "mc",     "Armored and burning, forged in Molten Core." },
   { "onyx",        "Onyx War Saber",          14330,       0, 5, "ony",    "Black armor and violet eyes, from Onyxia's lair." },
   { "chromatic",   "Chromatic War Saber",     14333,       0, 5, "bwl",    "Purple armor from Blackwing Lair." },
   { "bigglesworth","Mr. Bigglesworth",        9989,        0, 5, "naxx",   "Kel'Thuzad's beloved cat." },
 }
--- (1.7.5) companions 1.7.4 had that WoW: Forever can't show (and the White Kitten, which looks the same
--- as Mr. Bigglesworth): taken away, and what was paid comes back
+-- companions that are gone, and what they cost: 1.7.4's that WoW: Forever can't show and the White Kitten
+-- (it looks like Mr. Bigglesworth), gone in 1.7.5; the Flamecat, gone in 1.7.6. An owned one is taken
+-- away at login and what was paid comes back (TCF:CompanionState)
 TCF.COMPANION_REFUNDS = {
   pudge = 80000, shaggy = 80000, lynxkit = 100000, snowlynxkit = 100000, sandcub = 100000, sunkit = 125000,
   pinkcub = 150000, clockcub = 150000, bengal = 175000, panther = 250000, emberlynx = 250000, amanilynx = 300000,
   jadepanther = 350000, primal = 350000, mechtiger = 400000, shadowstalk = 450000, automaton = 500000,
   felkitten = 500000, felsaber = 750000, manasaber = 750000, spiritcat = 800000, dreamsaber = 850000,
   flamesaber = 900000, celestial = 1000000, whitekitten = 70000,
+  -- (1.7.6) the Flamecat: the fire cat is the Molten Firecat, earned in Molten Core
+  flamecat = 650000,
 }
 
 TCF.COMPANIONS, TCF.COMPANION_BY_KEY = {}, {}
@@ -115,33 +117,36 @@ function TCF:CompanionState()
   local s = db.companions
   if type(s) ~= "table" then s = {}; db.companions = s end
   s.owned = type(s.owned) == "table" and s.owned or {}
+  local refund, took = 0, 0
   -- (1.7.5) no companion without buying or really earning it. 1.7.4 handed the dungeon ones out for
   -- progress made before (at login), so those go back: clearing the dungeon again earns them. Ones
   -- this game can't show are taken away and refunded.
   if not s.v175 then
     s.v175 = true
-    local refund, took = 0, 0
     for key in pairs(s.owned) do
       local c = TCF.COMPANION_BY_KEY[key]
-      if not c then
-        refund = refund + (TCF.COMPANION_REFUNDS[key] or 0)
-        s.owned[key] = nil
-      elseif c.tier then
-        s.owned[key] = nil; took = took + 1
-      end
+      if c and c.tier then s.owned[key] = nil; took = took + 1 end
     end
-    if refund > 0 then db.coins = (db.coins or 0) + refund end
+  end
+  -- (1.7.6) at every login: a companion that's gone from the list is taken away and refunded (taking it
+  -- away is what keeps it from being refunded twice)
+  for key in pairs(s.owned) do
+    if not TCF.COMPANION_BY_KEY[key] then
+      refund = refund + (TCF.COMPANION_REFUNDS[key] or 0)
+      s.owned[key] = nil
+    end
+  end
+  if refund > 0 then db.coins = (db.coins or 0) + refund end
+  if refund > 0 or took > 0 then
     -- a cat that had chosen one of those goes without until it chooses again
     for _, cd in pairs(db.classData or {}) do
       if type(cd) == "table" and cd.companion and not s.owned[cd.companion] then cd.companion = nil end
     end
-    if refund > 0 or took > 0 then
-      local msg = {}
-      if took > 0 then msg[#msg + 1] = "dungeon companions now join you only when you clear their dungeon in Adventure, so clear it again to get yours back" end
-      if refund > 0 then msg[#msg + 1] = string.format("some companions were replaced with cats your game can show, and you got your %s TapCoins back", TCF.Commas(refund)) end
-      local text = "Companion cats: " .. table.concat(msg, "; ") .. "."
-      if C_Timer and C_Timer.After then C_Timer.After(6, function() TCF:Print(text, true) end) else TCF:Print(text, true) end
-    end
+    local msg = {}
+    if took > 0 then msg[#msg + 1] = "dungeon companions now join you only when you clear their dungeon in Adventure, so clear it again to get yours back" end
+    if refund > 0 then msg[#msg + 1] = string.format("some companions were replaced or removed, and you got your %s TapCoins back", TCF.Commas(refund)) end
+    local text = "Companion cats: " .. table.concat(msg, "; ") .. "."
+    if C_Timer and C_Timer.After then C_Timer.After(6, function() TCF:Print(text, true) end) else TCF:Print(text, true) end
   end
   -- models this game couldn't load: for this session only (never saved, so a slow load can't hide a cat for good)
   s.missing = nil
