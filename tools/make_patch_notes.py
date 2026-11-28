@@ -25,6 +25,9 @@ IMAGES = {
         ("media/1.7.0_sets_smithing_leather.png", "Blacksmithing and Leatherworking sets", "Legendary profession sets"),
         ("media/1.7.0_sets_gathering.png", "Herbalism, Fishing, Cooking and First Aid sets", "Legendary profession sets"),
     ],
+    "1.7.9": [
+        ("media/1.7.9_mullet.png", "Iverson's Legendary Mullet", None),
+    ],
     "1.7.7": [
         ("media/1.7.7_legendaries.png", "5 new Legendaries", None),
     ],

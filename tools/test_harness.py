@@ -1719,17 +1719,17 @@ TEST = r'''
       for _, it in ipairs(legs) do check(it.id ~= 22736 and it.ilvl <= 92, "a Classic legendary: " .. it.name) end
       for _, list in pairs(TCF.WORLD_POOL) do for _, it in ipairs(list) do check(it.id ~= 22736, "Andonisus is not world loot") end end
       -- (1.7.7) a Mage's legendaries: Atiesh, or Ziggu's wand (CustomGear.lua, any wand user)
-      local function mageLeg(it) return it and (it.name:find("^Atiesh") or it.id == TCF.CUSTOM_ID_BASE + 5) end
-      for _, it in ipairs(TCF:LegendariesFor("MAGE")) do check(mageLeg(it), "a Mage's legendaries are Atiesh or Ziggu's wand: " .. it.name) end
+      local function mageLeg(it) return it and (it.name:find("^Atiesh") or it.custom) end
+      for _, it in ipairs(TCF:LegendariesFor("MAGE")) do check(mageLeg(it), "a Mage's legendaries are Atiesh or made-up ones: " .. it.name) end
       local sawWand = false
       for k = 1, 60 do
         local it = TCF:RollLegendary("MAGE")
-        check(mageLeg(it), "a Mage's Legendary roll gives Atiesh or Ziggu's wand: " .. tostring(it and it.name))
+        check(mageLeg(it), "a Mage's Legendary roll gives Atiesh or a made-up one: " .. tostring(it and it.name))
         if it and it.custom then sawWand = true end
       end
       check(sawWand, "Ziggu's wand can come from a Mage's Legendary roll")
       -- (1.7.7) the made-up Legendaries: all level 60, in the Legendary pool, each the one its class prefers
-      check(#TCF.CUSTOM_LEGENDARIES == 5, "five made-up Legendaries")
+      check(#TCF.CUSTOM_LEGENDARIES == 6, "six made-up Legendaries")
       for _, it in ipairs(TCF.CUSTOM_LEGENDARIES) do
         check(it.q == 5 and it.req == 60 and not it.retired and it.custom and TCF.VEC[it.vec] and it.icon:find("ic_tcf_", 1, true),
           "a made-up Legendary, level 60, with its own drawing and icon: " .. it.name)
@@ -1739,7 +1739,7 @@ TEST = r'''
         check(inPool, "in the Legendary pool: " .. it.name)
         check(TCF.ITEM_ANIM["gear:" .. it.id], "its own effects: " .. it.name)
       end
-      for cls, k in pairs({ DRUID = 1, HUNTER = 2, PALADIN = 3, PRIEST = 4 }) do
+      for cls, k in pairs({ DRUID = 1, HUNTER = 2, PALADIN = 3, PRIEST = 4, MAGE = 6, WARLOCK = 6 }) do
         local found = false
         for _, it in ipairs(TCF:LegendariesFor(cls)) do if it.id == TCF.CUSTOM_ID_BASE + k then found = true end end
         check(found, "the " .. cls .. "'s made-up Legendary is one it can roll")

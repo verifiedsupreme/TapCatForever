@@ -7,4 +7,4 @@ V["tcf:caff_bow"]={"i_tcf_caff_bow",320,104,166,370,0.6484,0.7227,"weapon"}
 V["tcf:bd_hammer"]={"i_tcf_bd_hammer",208,48,270,456,0.5273,0.8906,"weapon"}
 V["tcf:shua_robe"]={"i_tcf_shua_robe",92,242,328,242,0.6406,0.9453,"chest"}
 V["tcf:ziggu_wand"]={"i_tcf_ziggu_wand",288,120,202,374,0.7891,0.7305,"weapon"}
-V["tcf:iverson_band"]={"i_tcf_iverson_band",82,30,350,356,0.6836,0.6953,"head"}
+V["tcf:iverson_mullet"]={"i_tcf_iverson_mullet",82,12,350,374,0.6836,0.7305,"head"}
