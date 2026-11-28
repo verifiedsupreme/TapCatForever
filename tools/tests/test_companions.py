@@ -266,7 +266,10 @@ def check(seed, load_addon):
           function a:GetScale() return self.s end
           function a:SetYaw(y) self.yaw = y end
           function a:IsLoaded() return true end
+          function a:SetAnimation(id) self.animNow = id end
           function a:GetActiveBoundingBox()
+            -- what it's measured in: standing and unturned
+            self.measuredAnim, self.measuredYaw = self.animNow, self.yaw
             local d = T.MODEL_BOUNDS[self.id]
             return -d[2] / 2, -d[3] / 2, d[4], d[2] / 2, d[3] / 2, d[4] + d[1]
           end
@@ -306,6 +309,9 @@ def check(seed, load_addon):
           ck(w and w.mode == "scene", "the 3D scene is used: " .. tostring(w and w.classicWhy))
           for _ = 1, 30 do if w.fit then w.scripts.OnUpdate(w, 0.05) end end
           ck(not w.fit and w:IsShown(), c.key .. ": fitted")
+          ck(w.actor.measuredAnim == 0 and w.actor.measuredYaw == 0, c.key .. ": measured standing and unturned: "
+            .. tostring(w.actor.measuredAnim) .. " " .. tostring(w.actor.measuredYaw))
+          ck(w.scene.ownAlpha == nil, "it follows your cat's transparency")
           local sc, a = w.scene, w.actor
           if not w.fit and a and a.id == c.display then
             n = n + 1

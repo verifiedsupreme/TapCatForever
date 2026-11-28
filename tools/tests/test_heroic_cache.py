@@ -68,8 +68,7 @@ def check(seed, load_addon):
             -- boss Epics from 55, Legendaries at 60
             ck(not d.locked, tag .. ": a locked card (" .. tostring(d.it.name) .. ")")
             if d.it.q then
-              ck((d.it.req or 0) <= level + 3 or (level >= 55 and d.it.q == 4),
-                tag .. ": gear the chest can't give: " .. d.it.name .. " req " .. tostring(d.it.req))
+              ck((d.it.req or 0) <= level, tag .. ": gear it can't wear yet: " .. d.it.name .. " req " .. tostring(d.it.req))
               ck(d.it.q < 5 or level >= 60, tag .. ": a legendary below 60")
             end
             if d.kind == "chase" then ck(i < LAND - 4, tag .. ": a big prize among the last cards on screen (" .. i .. ")") end
@@ -97,7 +96,16 @@ def check(seed, load_addon):
             local deck = spin(level, "heroic", prize, prize.q)
             local kinds = deckChecks(tag, deck, prize, level, true)
             for k, n in pairs(kinds) do if totals[k] then totals[k] = totals[k] + n end end
-            ck((kinds.chase or 0) == (level >= 55 and 4 or 0), tag .. ": big prizes only from 55, got " .. tostring(kinds.chase))
+            ck((kinds.chase or 0) <= 4 and (level >= 55 or (kinds.chase or 0) == 0), tag .. ": big prizes only from 55, got " .. tostring(kinds.chase))
+            if level >= 60 then ck((kinds.chase or 0) == 4, tag .. ": 4 big prizes at 60, got " .. tostring(kinds.chase)) end
+            -- gear on the strip at every level (Uncommon below 10)
+            local gear = 0
+            for i, d in ipairs(deck) do if i ~= LAND and d.it.q then gear = gear + 1 end end
+            local avail = 0
+            for _, q in ipairs({ 2, 3, 4 }) do
+              for _, it in ipairs(T:ChestGearPool(class, level, q)) do if (it.req or 0) <= level and it ~= prize then avail = avail + 1 end end
+            end
+            ck(gear >= math.min(8, avail), tag .. ": gear on the strip: " .. gear .. " of " .. avail .. " it can wear")
             ck((kinds.skin or 0) == 2, tag .. ": 2 shop skins, got " .. tostring(kinds.skin))
             -- at 60, two of the big prizes are legendaries the class can use; none before
             local legs = 0

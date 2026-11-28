@@ -194,7 +194,7 @@ TCF.UI.Builders.shop = function(page, win)
     b:SetScript("OnEnter", function(s)
       if not s.item then return end
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT"); TCF:GearTooltip(GameTooltip, s.item)
-      GameTooltip:AddLine("One of the best prizes this chest can give your cat now.", 0.3, 1, 0.3, true)
+      GameTooltip:AddLine("One of the best prizes this chest can give your cat now, and it can wear it.", 0.3, 1, 0.3, true)
       GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -215,7 +215,7 @@ TCF.UI.Builders.shop = function(page, win)
   Tip(ban, function(tt) if heroic then TCF:ChestOddsTooltip(tt, heroic, true) end end)
   Tip(banOpen, function(tt) if heroic then TCF:ChestOddsTooltip(tt, heroic, true) end end)
 
-  -- (1.7.6) the best gear this cat can really get from the Heroic Cache now (its own class and level,
+  -- (1.7.6) the best gear this cat can get from the Heroic Cache and wear now (its own class and level,
   -- raid boss Epics from 55, Legendaries at 60), best first. 1.7.4 showed level-60 prizes locked.
   local prizeKey
   local function refreshPrizes()
@@ -225,10 +225,15 @@ TCF.UI.Builders.shop = function(page, win)
     prizeKey = key
     local list, seen = {}, {}
     local function add(it) if it and not seen[it] then seen[it] = true; list[#list + 1] = it end end
-    if level >= 60 then for _, it in ipairs(TCF.LegendariesFor and TCF:LegendariesFor() or {}) do add(it) end end
-    if level >= 55 then for _, it in ipairs(TCF.RaidHoardPool and TCF:RaidHoardPool(nil, true) or {}) do add(it) end end
-    for _, q in ipairs({ 4, 3 }) do
-      for _, it in ipairs(TCF:ChestGearPool(db().class, level, q) or {}) do add(it) end
+    -- (it can win gear a few levels up; only gear it can wear now is shown)
+    local function addWearable(it) if it and (it.req or 0) <= level then add(it) end end
+    if level >= 60 then for _, it in ipairs(TCF.LegendariesFor and TCF:LegendariesFor() or {}) do addWearable(it) end end
+    if level >= 55 then for _, it in ipairs(TCF.RaidHoardPool and TCF:RaidHoardPool(nil, true) or {}) do addWearable(it) end end
+    for _, q in ipairs({ 4, 3, 2 }) do
+      -- Uncommon only when there isn't enough Rare and Epic (below level 10 that's all the chest has)
+      if q > 2 or #list < #prizeCells then
+        for _, it in ipairs(TCF:ChestGearPool(db().class, level, q) or {}) do addWearable(it) end
+      end
     end
     table.sort(list, function(a, b)
       if (a.q or 0) ~= (b.q or 0) then return (a.q or 0) > (b.q or 0) end

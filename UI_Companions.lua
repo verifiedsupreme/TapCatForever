@@ -168,18 +168,21 @@ end
 
 local function face(dir)
   walker.faceDir = dir
+  if walker.mode == "scene" and walker.fit then return end   -- measured unturned: turned once it's placed
   if walker.mode == "scene" then
     -- the scene's camera looks at the model's front; a quarter turn shows its side, toward screen-right
     -- or screen-left (cal.side: which way screen-right is in the scene)
     local side = walker.cal and walker.cal.side or -1
     pcall(walker.actor.SetYaw, walker.actor, math.pi - dir * (math.pi / 2) * side)
   elseif walker.model then
-    pcall(walker.model.SetFacing, walker.model, dir * TCF.COMPANION_FACE_RIGHT)
+    walker.model.camFacing = dir * TCF.COMPANION_FACE_RIGHT   -- kept when the model reloads
+    pcall(walker.model.SetFacing, walker.model, walker.model.camFacing)
   end
 end
 local function anim(id)
   if walker.anim == id then return end
   walker.anim = id
+  if walker.mode == "scene" and walker.fit then return end   -- measured standing: its pose once it's placed
   if walker.mode == "scene" then pcall(walker.actor.SetAnimation, walker.actor, id)
   elseif walker.model then pcall(walker.model.SetAnimation, walker.model, id) end
 end
@@ -275,6 +278,8 @@ local function loadComp(c)
   local ok, res = pcall(a.SetModelByCreatureDisplayID, a, c.display)
   if not ok then useClassic("SetModelByCreatureDisplayID failed: " .. tostring(res)); return end
   if res == false then TCF:CompanionModelMissing(c.key); walker:Hide(); return end
+  -- measured standing and unturned (its idle pose and turn wait until it's placed), hidden till then
+  call(a, "SetAlpha", 0); call(a, "SetAnimation", ANIM_STAND); call(a, "SetYaw", 0)
   sc:Show()
   walker.fit = { t = 0 }
   walker.anim = nil
@@ -285,6 +290,7 @@ local function fitStep(e)
   local st, a, sc = walker.fit, walker.actor, walker.scene
   local M = MF()
   local call = M.call
+  e = min(e, 0.1)              -- a long frame (loading screen) doesn't count as waiting
   st.t = st.t + e
   local okL, loaded = call(a, "IsLoaded")
   if okL then loaded = loaded and true or false else loaded = nil end
@@ -296,7 +302,12 @@ local function fitStep(e)
       if okF and (not file or file == 0) then TCF:CompanionModelMissing(walker.comp.key); walker:Hide(); return end
     end
   elseif not loaded then
-    if st.t > FIT_GIVEUP then TCF:CompanionModelMissing(walker.comp.key); walker:Hide() end
+    if st.t > FIT_GIVEUP then
+      -- still loading after a while: missing only if the game has no model file for it, else keep waiting
+      local okF, file = call(a, "GetModelFileID")
+      if okF and (not file or file == 0) then TCF:CompanionModelMissing(walker.comp.key); walker:Hide()
+      else st.t = 0 end
+    end
     return
   end
   st.lt = (st.lt or 0) + e
@@ -311,10 +322,13 @@ local function fitStep(e)
   local s = VIS / (h * cal.k)
   -- turned toward the camera, its near end is closer and looks a little bigger: never taller than VIS
   local D = M.FIT.CAM_DIST
-  local depth = math.max(box.x2 - box.x1, box.y2 - box.y1) / 2 * s
+  local depth = math.max(math.abs(box.x1), math.abs(box.x2), math.abs(box.y1), math.abs(box.y2)) * s
   s = s * math.max(0.5, (D - depth) / D)
-  -- side-on: its length across the screen, its near corners a little bigger (its width is the depth)
-  local L, Wd = math.max(box.x2 - box.x1, box.y2 - box.y1), math.min(box.x2 - box.x1, box.y2 - box.y1)
+  -- side-on: its length across the screen, its near corners a little bigger (its width is the depth).
+  -- The camera aims at the model's origin, and a box isn't always centred on it (a long tail): the
+  -- length counts its farthest end from the origin on both sides, so its nose never comes closer
+  local L = 2 * math.max(math.abs(box.x1), math.abs(box.x2), math.abs(box.y1), math.abs(box.y2))
+  local Wd = math.min(box.x2 - box.x1, box.y2 - box.y1)
   local function sideLen(sc_) return L * sc_ * cal.k * D / math.max(D * 0.5, D - Wd / 2 * sc_) end
   local len = sideLen(s)
   if len > MAX_LEN then s = s * MAX_LEN / len; len = sideLen(s) end
@@ -388,6 +402,8 @@ local function createWalker()
   if M then sc, a, why = M.newScene(f) else why = "no 3D fit" end
   if sc then
     sc:SetSize(SCENE_W, SCENE_H)
+    -- it follows your cat's transparency (Settings), like the PlayerModel did
+    M.call(sc, "SetIgnoreParentAlpha", false); sc.ownAlpha = nil
     f.scene, f.actor, f.mode = sc, a, "scene"
   else
     useClassic(why)

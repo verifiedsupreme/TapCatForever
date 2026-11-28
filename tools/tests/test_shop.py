@@ -122,18 +122,26 @@ def check(seed, load_addon):
       local shown, lastQ, lastI = 0, 9, 9999
       local lv = T:ChestLevel()
       local pool = {}
-      for _, q in ipairs({ 3, 4 }) do for _, it in ipairs(T:ChestGearPool(T.db.class, lv, q)) do pool[it] = true end end
+      for _, q in ipairs({ 2, 3, 4 }) do for _, it in ipairs(T:ChestGearPool(T.db.class, lv, q)) do pool[it] = true end end
       for _, b in ipairs(S.banner.prizes) do
         if b:IsShown() then
           shown = shown + 1
           ck(not b.lock:IsShown() and (b.lvl:GetText() or "") == "", "level 34: no lock on " .. b.item.name)
           ck(pool[b.item], "level 34: a prize this cat can win now: " .. b.item.name)
-          ck(b.item.q < 5 and (b.item.req or 0) <= lv + 3, "level 34: nothing above its level: " .. b.item.name)
+          ck(b.item.q < 5 and (b.item.req or 0) <= lv, "level 34: only gear it can wear now: " .. b.item.name .. " req " .. tostring(b.item.req))
           ck(b.item.q < lastQ or (b.item.q == lastQ and (b.item.ilvl or 0) <= lastI), "best first")
           lastQ, lastI = b.item.q, b.item.ilvl or 0
         end
       end
       ck(shown >= 4, "level 34: top prizes shown: " .. shown)
+      -- a young cat (the chest's gear is Uncommon below 10) still sees its best prizes
+      T:CD().level = 5
+      win:Refresh()
+      local young = 0
+      for _, b in ipairs(S.banner.prizes) do
+        if b:IsShown() then young = young + 1; ck((b.item.req or 0) <= T:ChestLevel(), "level 5: wearable: " .. b.item.name) end
+      end
+      ck(young >= 4, "level 5: top prizes shown: " .. young)
       T:CD().level = 60
       win:Refresh()
       chips = {}

@@ -138,6 +138,8 @@ local function buildDeck(ch, prize, prizeRarity, level)
   -- (the real roll uses the same), and copied since it is a shared cache
   local pools = {}
   pools.rare = shuffle(copy(TCF:ChestGearPool(class, level, 3)))
+  -- (1.7.6) below level 10 the chest's gear is Uncommon: shown when there's no Rare or Epic to show
+  pools.green = shuffle(copy(TCF:ChestGearPool(class, level, 2)))
   pools.epic = copy(TCF:ChestGearPool(class, level, 4))
   if level >= 55 then copy(raidAll, pools.epic) end
   shuffle(pools.epic)
@@ -158,11 +160,11 @@ local function buildDeck(ch, prize, prizeRarity, level)
   -- where a card goes when its own pool has run dry ("cosmetic4": an Epic or better cosmetic,
   -- so a cat too young for Epic gear still sees Epics it can really win)
   local fallback = {
-    chase = { "chase", "epic", "cosmetic4", "rare", "cosmetic" },
-    epic = { "epic", "cosmetic4", "rare", "cosmetic" },
-    rare = { "rare", "epic", "cosmetic" },
-    skin = { "skin", "cosmetic", "epic", "rare" },
-    cosmetic = { "cosmetic", "epic", "rare" },
+    chase = { "chase", "epic", "cosmetic4", "rare", "green", "cosmetic" },
+    epic = { "epic", "cosmetic4", "rare", "green", "cosmetic" },
+    rare = { "rare", "epic", "green", "cosmetic" },
+    skin = { "skin", "cosmetic", "epic", "rare", "green" },
+    cosmetic = { "cosmetic", "epic", "rare", "green" },
   }
   -- where each kind goes: big prizes where the reel is braking (6 and 11 before the prize) and
   -- early on, never among the cards still on screen when it stops (no fake near miss); shop
@@ -208,7 +210,9 @@ local function buildDeck(ch, prize, prizeRarity, level)
       for pass = 1, 2 do
         for k = #pool, 1, -1 do
           local it = pool[k]
-          if seen[it] or lockLevel(it, level, raid) then table.remove(pool, k)   -- (1.7.6) nothing it can't win yet
+          -- (1.7.6) only what it can win now, and gear it can wear now (the chest can give gear a few
+          -- levels up; the reel shows what it can put on today)
+          if seen[it] or lockLevel(it, level, raid) or (it.q and (it.req or 0) > level) then table.remove(pool, k)
           elseif rarityOf(it) >= minRarity and (pass == 2 or not near[it.icon or "?"]) then
             table.remove(pool, k); seen[it] = true
             return it, from == "cosmetic4" and "cosmetic" or from

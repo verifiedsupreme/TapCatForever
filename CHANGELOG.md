@@ -14,8 +14,8 @@
 - Big cats like tigers and sabers stay close beside your cat too.
 
 **Heroic Cache prizes you can really win**
-- The Top prizes on the Shop banner are now the best gear the Heroic Cache can give your cat right now, best first.
-- The reel only shows prizes your cat can win too. Level 60 prizes no longer show up locked before your cat can get them.
+- The Top prizes on the Shop banner are now the best gear from the Heroic Cache that your cat can wear right now, best first. Below level 10 that's Uncommon gear.
+- The reel shows only gear your cat can wear right now too. Level 60 prizes no longer show up locked before your cat can get them.
 
 ## 1.7.5
 
